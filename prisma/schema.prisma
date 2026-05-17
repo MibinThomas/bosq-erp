@@ -1,0 +1,196 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(SALES_EXECUTIVE)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  quotations    Quotation[]
+  activities    ActivityLog[]
+}
+
+enum Role {
+  ADMIN
+  SALES_MANAGER
+  SALES_EXECUTIVE
+  ACCOUNTS
+  PRODUCTION
+}
+
+model Client {
+  id              String      @id @default(cuid())
+  clientId        String      @unique // E.g., C-1001
+  companyName     String
+  contactPerson   String?
+  phone           String?
+  email           String?
+  address         String?
+  trn             String?
+  clientType      String?     @default("Corporate")
+  salespersonId   String?
+  sharepointFolder String?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  quotations      Quotation[]
+}
+
+model ProductCategory {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Product {
+  id              String    @id @default(cuid())
+  productCode     String    @unique
+  productName     String
+  categoryId      String
+  category        ProductCategory @relation(fields: [categoryId], references: [id])
+  description     String?
+  specifications  String?
+  imageUrl        String?
+  unitPrice       Float     @default(0.0)
+  costPrice       Float     @default(0.0)
+  warranty        String?
+  availableColors String?
+  dimensions      String?
+  status          String    @default("ACTIVE") // ACTIVE, DISCONTINUED
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  quotationItems  QuotationItem[]
+}
+
+model Quotation {
+  id              String    @id @default(cuid())
+  quotationNumber String    @unique // E.g., I1951
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  projectId       String?
+  projectName     String?
+  date            DateTime  @default(now())
+  validityDate    DateTime
+  preparedById    String
+  preparedBy      User      @relation(fields: [preparedById], references: [id])
+  deliveryDate    DateTime?
+  paymentTerms    String?
+  status          QuoteStatus @default(DRAFT)
+  revisionNumber  Int       @default(0) // 0 means original, 1 means I1951-1
+  poStatus        String?   @default("PENDING") // PENDING, RECEIVED
+  paymentStatus   String?   @default("UNPAID") // UNPAID, PARTIAL, PAID
+  followUpDate    DateTime?
+  subtotal        Float     @default(0.0)
+  discount        Float     @default(0.0)
+  deliveryCharge  Float     @default(0.0)
+  vatAmount       Float     @default(0.0)
+  grandTotal      Float     @default(0.0)
+  termsConditions String?
+  notes           String?
+  sharepointUrl   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  items           QuotationItem[]
+  revisions       QuotationRevision[]
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  FOLLOW_UP
+  APPROVED
+  REJECTED
+  REVISED
+  PO_RECEIVED
+  CANCELLED
+}
+
+model QuotationItem {
+  id              String    @id @default(cuid())
+  quotationId     String
+  quotation       Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  productId       String?
+  product         Product?  @relation(fields: [productId], references: [id])
+  itemNo          Int
+  description     String
+  specifications  String?
+  customImageUrl  String?
+  quantity        Int       @default(1)
+  unitPrice       Float     @default(0.0)
+  discount        Float     @default(0.0)
+  amount          Float     @default(0.0) // (unitPrice - discount) * quantity
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model QuotationRevision {
+  id              String    @id @default(cuid())
+  quotationId     String
+  quotation       Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  revisionNumber  Int
+  revisionDate    DateTime  @default(now())
+  previousTotal   Float
+  newTotal        Float
+  notes           String?
+  createdAt       DateTime  @default(now())
+}
+
+model PaymentTerm {
+  id          String    @id @default(cuid())
+  name        String    @unique // E.g., "50% Advance, 50% on Delivery"
+  description String?
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model TermsCondition {
+  id          String    @id @default(cuid())
+  title       String    @unique
+  content     String
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model SharePointFile {
+  id              String    @id @default(cuid())
+  entityType      String    // "QUOTATION", "CLIENT"
+  entityId        String
+  fileName        String
+  fileUrl         String
+  sharepointId    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model ActivityLog {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  action      String    // E.g., "CREATED_QUOTATION", "UPDATED_CLIENT"
+  entityType  String
+  entityId    String
+  details     String?
+  createdAt   DateTime  @default(now())
+}
