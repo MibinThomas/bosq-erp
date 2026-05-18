@@ -2,10 +2,23 @@ import { Client } from "@microsoft/microsoft-graph-client"
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials"
 import { ClientSecretCredential } from "@azure/identity"
 
-// This is a placeholder service for SharePoint integration.
+// This is a service for SharePoint integration.
 // In a real application, these environment variables would be securely configured.
+// When variables are missing, it falls back to mock storage for local testing.
+
+const hasCredentials = !!(
+  process.env.AZURE_TENANT_ID &&
+  process.env.AZURE_CLIENT_ID &&
+  process.env.AZURE_CLIENT_SECRET &&
+  process.env.SHAREPOINT_SITE_ID &&
+  process.env.SHAREPOINT_DRIVE_ID
+)
 
 export async function getGraphClient() {
+  if (!hasCredentials) {
+    return null
+  }
+
   const credential = new ClientSecretCredential(
     process.env.AZURE_TENANT_ID || "",
     process.env.AZURE_CLIENT_ID || "",
@@ -23,7 +36,15 @@ export async function getGraphClient() {
 }
 
 export async function createClientFolder(companyName: string) {
+  if (!hasCredentials) {
+    console.warn("SharePoint credentials are not configured. Falling back to mock folder creation.")
+    // Simulated SharePoint folder ID
+    return `mock-folder-id-${Buffer.from(companyName).toString("hex").substring(0, 8)}`
+  }
+
   const client = await getGraphClient()
+  if (!client) throw new Error("Could not initialize Graph client")
+  
   const siteId = process.env.SHAREPOINT_SITE_ID
   const driveId = process.env.SHAREPOINT_DRIVE_ID // The Documents library
   
@@ -48,7 +69,15 @@ export async function createClientFolder(companyName: string) {
 }
 
 export async function uploadQuotationPdf(companyName: string, quotationNumber: string, pdfBuffer: Buffer) {
+  if (!hasCredentials) {
+    console.warn("SharePoint credentials are not configured. Falling back to mock PDF upload.")
+    // Simulated SharePoint URL
+    return `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(companyName)}/Quotations/${quotationNumber}.pdf`
+  }
+
   const client = await getGraphClient()
+  if (!client) throw new Error("Could not initialize Graph client")
+  
   const siteId = process.env.SHAREPOINT_SITE_ID
   const driveId = process.env.SHAREPOINT_DRIVE_ID
   
@@ -68,3 +97,4 @@ export async function uploadQuotationPdf(companyName: string, quotationNumber: s
     throw error
   }
 }
+

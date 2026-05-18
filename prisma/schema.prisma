@@ -6,8 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
 }
 
 model User {
@@ -16,20 +15,12 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
-  role          Role      @default(SALES_EXECUTIVE)
+  role          String    @default("SALES_EXECUTIVE") // Roles: ADMIN, SALES_MANAGER, SALES_EXECUTIVE, ACCOUNTS, PRODUCTION
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
   quotations    Quotation[]
   activities    ActivityLog[]
-}
-
-enum Role {
-  ADMIN
-  SALES_MANAGER
-  SALES_EXECUTIVE
-  ACCOUNTS
-  PRODUCTION
 }
 
 model Client {
@@ -94,7 +85,7 @@ model Quotation {
   preparedBy      User      @relation(fields: [preparedById], references: [id])
   deliveryDate    DateTime?
   paymentTerms    String?
-  status          QuoteStatus @default(DRAFT)
+  status          String    @default("DRAFT") // QuoteStatus: DRAFT, SENT, FOLLOW_UP, APPROVED, REJECTED, REVISED, PO_RECEIVED, CANCELLED
   revisionNumber  Int       @default(0) // 0 means original, 1 means I1951-1
   poStatus        String?   @default("PENDING") // PENDING, RECEIVED
   paymentStatus   String?   @default("UNPAID") // UNPAID, PARTIAL, PAID
@@ -112,17 +103,6 @@ model Quotation {
 
   items           QuotationItem[]
   revisions       QuotationRevision[]
-}
-
-enum QuoteStatus {
-  DRAFT
-  SENT
-  FOLLOW_UP
-  APPROVED
-  REJECTED
-  REVISED
-  PO_RECEIVED
-  CANCELLED
 }
 
 model QuotationItem {

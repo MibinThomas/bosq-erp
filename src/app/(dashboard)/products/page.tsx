@@ -1,5 +1,8 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, MoreHorizontal } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Loader2, Package } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,35 +23,55 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { toast } from "sonner"
 
-const products = [
-  {
-    id: "P-1001",
-    code: "WS-01",
-    name: "Linear Workstation for 4",
-    category: "Workstations",
-    unitPrice: 2450.00,
-    stockStatus: "In Stock",
-  },
-  {
-    id: "P-1002",
-    code: "ED-05",
-    name: "Executive Desk L-Shape",
-    category: "Executive desks",
-    unitPrice: 4200.00,
-    stockStatus: "Low Stock",
-  },
-  {
-    id: "P-1003",
-    code: "EC-12",
-    name: "Ergonomic Mesh Chair",
-    category: "Ergonomic chairs",
-    unitPrice: 850.00,
-    stockStatus: "Out of Stock",
-  },
-]
+interface Product {
+  id: string
+  productCode: string
+  productName: string
+  unitPrice: number
+  costPrice: number
+  warranty: string | null
+  availableColors: string | null
+  dimensions: string | null
+  status: string
+  category: {
+    name: string
+  }
+}
 
 export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+
+  useEffect(() => {
+    async function fetchProducts() {
+      try {
+        const res = await fetch("/api/products")
+        if (!res.ok) throw new Error("Failed to fetch products")
+        const data = await res.json()
+        setProducts(data)
+      } catch (error) {
+        console.error("Error fetching products:", error)
+        toast.error("Failed to load products. Please try again.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProducts()
+  }, [])
+
+  // Filter products dynamically
+  const filteredProducts = products.filter((product) => {
+    const term = searchTerm.toLowerCase()
+    return (
+      product.productName.toLowerCase().includes(term) ||
+      product.productCode.toLowerCase().includes(term) ||
+      product.category.name.toLowerCase().includes(term)
+    )
+  })
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -59,7 +82,7 @@ export default function ProductsPage() {
           </p>
         </div>
         <Link href="/products/new">
-          <Button>
+          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
             <Plus className="mr-2 h-4 w-4" />
             Add Product
           </Button>
@@ -67,67 +90,85 @@ export default function ProductsPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2 w-full max-w-sm">
-          <Search className="h-4 w-4 text-muted-foreground absolute ml-3" />
-          <Input placeholder="Search products..." className="pl-9" />
+        <div className="relative flex items-center w-full max-w-sm">
+          <Search className="h-4 w-4 text-muted-foreground absolute left-3" />
+          <Input
+            placeholder="Search products by code, name, or category..."
+            className="pl-9"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
 
-      <div className="border rounded-md">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Code</TableHead>
-              <TableHead>Product Name</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="text-right">Unit Price (AED)</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {products.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell className="font-medium">{product.code}</TableCell>
-                <TableCell>{product.name}</TableCell>
-                <TableCell>{product.category}</TableCell>
-                <TableCell className="text-right font-medium">
-                  {product.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </TableCell>
-                <TableCell>
-                  <Badge 
-                    variant={
-                      product.stockStatus === 'In Stock' 
-                        ? 'default' 
-                        : product.stockStatus === 'Low Stock' 
-                          ? 'secondary' 
-                          : 'destructive'
-                    }
-                  >
-                    {product.stockStatus}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
+      <div className="border rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading catalog...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-2">
+            <p className="text-lg font-medium">No products found</p>
+            <p className="text-sm text-muted-foreground">
+              {searchTerm ? "Try searching with a different term" : "Click 'Add Product' to create your first item"}
+            </p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead>Code</TableHead>
+                <TableHead>Product Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Dimensions</TableHead>
+                <TableHead>Warranty</TableHead>
+                <TableHead className="text-right">Unit Price (AED)</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredProducts.map((product) => (
+                <TableRow key={product.id} className="hover:bg-muted/30 transition-colors">
+                  <TableCell className="font-mono font-medium text-primary">{product.productCode}</TableCell>
+                  <TableCell className="font-semibold">{product.productName}</TableCell>
+                  <TableCell>{product.category.name}</TableCell>
+                  <TableCell>{product.dimensions || "-"}</TableCell>
+                  <TableCell>{product.warranty || "-"}</TableCell>
+                  <TableCell className="text-right font-mono font-medium">
+                    {product.unitPrice.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={product.status === "ACTIVE" ? "default" : "destructive"}>
+                      {product.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
                         <span className="sr-only">Open menu</span>
                         <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>View details</DropdownMenuItem>
-                      <DropdownMenuItem>Edit product</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => toast.info("Details page coming soon")}>
+                          View details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => toast.info("Editing products coming soon")}>
+                          Edit product
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </div>
   )
