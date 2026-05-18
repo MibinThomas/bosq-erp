@@ -46,6 +46,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isBulkOpen, setIsBulkOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [deleting, setDeleting] = useState(false)
 
   async function fetchProducts() {
     try {
@@ -54,11 +56,35 @@ export default function ProductsPage() {
       if (!res.ok) throw new Error("Failed to fetch products")
       const data = await res.json()
       setProducts(data)
+      setSelectedIds([]) // Reset selection on fresh fetch
     } catch (error) {
       console.error("Error fetching products:", error)
       toast.error("Failed to load products. Please try again.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Are you sure you want to delete the ${selectedIds.length} selected product(s)?`)) return
+    
+    try {
+      setDeleting(true)
+      const res = await fetch("/api/products/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds })
+      })
+      if (!res.ok) throw new Error("Bulk delete failed")
+      const data = await res.json()
+      toast.success(`Successfully deleted ${data.count} product(s)!`)
+      fetchProducts()
+    } catch (error) {
+      console.error("Error bulk deleting products:", error)
+      toast.error("Failed to delete products. Please try again.")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -132,6 +158,20 @@ export default function ProductsPage() {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
+                <TableHead className="w-12">
+                  <input 
+                    type="checkbox"
+                    className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                    checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds(filteredProducts.map(p => p.id))
+                      } else {
+                        setSelectedIds([])
+                      }
+                    }}
+                  />
+                </TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Product Name</TableHead>
                 <TableHead>Category</TableHead>
@@ -145,6 +185,20 @@ export default function ProductsPage() {
             <TableBody>
               {filteredProducts.map((product) => (
                 <TableRow key={product.id} className="hover:bg-muted/30 transition-colors">
+                  <TableCell className="w-12">
+                    <input 
+                      type="checkbox"
+                      className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                      checked={selectedIds.includes(product.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds([...selectedIds, product.id])
+                        } else {
+                          setSelectedIds(selectedIds.filter(id => id !== product.id))
+                        }
+                      }}
+                    />
+                  </TableCell>
                   <TableCell className="font-mono font-medium text-primary">{product.productCode}</TableCell>
                   <TableCell className="font-semibold">{product.productName}</TableCell>
                   <TableCell>{product.category.name}</TableCell>
@@ -190,6 +244,45 @@ export default function ProductsPage() {
         onClose={() => setIsBulkOpen(false)}
         onSuccess={fetchProducts}
       />
+
+      {/* Floating Bulk Action Bar */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-card text-card-foreground border shadow-2xl rounded-full px-6 py-3 flex items-center gap-6 animate-in slide-in-from-bottom duration-300">
+          <span className="text-sm font-semibold text-primary">
+            {selectedIds.length} {selectedIds.length === 1 ? "product" : "products"} selected
+          </span>
+          <div className="h-4 w-px bg-border" />
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-xs hover:bg-secondary rounded-full h-8 cursor-pointer"
+              onClick={() => setSelectedIds([])}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              className="text-xs bg-red-600 hover:bg-red-700 text-white rounded-full h-8 flex items-center gap-1.5 cursor-pointer shadow-sm"
+              onClick={handleBulkDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  Delete Selected
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -77,6 +77,32 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     }).filter(row => row.length > 0 && row.some(cell => cell !== ""))
   }
 
+  // Generate and download a clean CSV import template
+  const downloadSampleCSV = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const headers = ["Product Code", "Product Name", "CategoryName", "Unit Price (AED)", "Dimensions", "Warranty", "Description", "Image Filename"]
+    const rows = [
+      ["CH-1001", "Aero Ergonomic Mesh Task Chair", "Chairs", "850.00", "650W x 600D x 1150H", "5 Years", "High-performance ergonomic mesh chair with adaptive lumbar support", "aero_mesh_chair.jpg"],
+      ["CH-1002", "Ergo Pro Leather Executive Chair", "Chairs", "1250.00", "700W x 650D x 1200H", "5 Years", "Luxury bonded leather manager chair with pneumatic height tilt adjust", "ergo_leather_chair.jpg"],
+      ["DK-2001", "Linear Triple Bench Workstation", "Desks", "2450.00", "2100W x 700D x 755H", "3 Years", "Premium steel frame corporate collaborative workspace table", "bench_workstation.jpg"]
+    ]
+    
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.map(cell => `"${cell.replace(/"/g, '""')}"`).join(","))
+    ].join("\n")
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", "bosq_product_import_template.csv")
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success("Import template downloaded!")
+  }
+
   const handleCsvFile = (file: File) => {
     if (!file.name.endsWith(".csv")) {
       toast.error("Please upload a valid CSV file.")
@@ -348,6 +374,22 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                 </p>
                 <Button className="mt-4 bg-primary hover:bg-primary/90">
                   Select CSV File
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-2xl border">
+                <div>
+                  <h4 className="font-semibold text-sm">Need an import template?</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">Download a sample CSV file pre-configured with the ideal headers and sample products.</p>
+                </div>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={downloadSampleCSV}
+                  className="border-primary/20 hover:bg-primary/5 hover:border-primary/45 text-primary text-xs shrink-0 cursor-pointer"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Download Sample CSV
                 </Button>
               </div>
 
