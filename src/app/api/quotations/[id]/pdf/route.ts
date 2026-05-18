@@ -3,6 +3,8 @@ import React from "react"
 import { renderToBuffer } from "@react-pdf/renderer"
 import prisma from "@/lib/prisma"
 import { QuotationDocument } from "@/lib/pdf/QuotationDocument"
+import fs from "fs"
+import path from "path"
 
 export async function GET(
   request: Request,
@@ -10,6 +12,18 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+
+    // Read brand logo to base64
+    let logoBase64 = ""
+    try {
+      const logoPath = path.join(process.cwd(), "public", "assets", "logo", "logo.png")
+      if (fs.existsSync(logoPath)) {
+        const fileBuffer = fs.readFileSync(logoPath)
+        logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
+      }
+    } catch (logoErr) {
+      console.error("Failed to read logo buffer:", logoErr)
+    }
 
     // Fetch the quotation with all relations
     const quotation = await prisma.quotation.findFirst({
@@ -24,7 +38,11 @@ export async function GET(
         items: {
           orderBy: { itemNo: "asc" },
           include: {
-            product: true
+            product: {
+              include: {
+                category: true
+              }
+            }
           }
         },
         preparedBy: true,
@@ -58,6 +76,7 @@ export async function GET(
       discount: item.discount,
       amount: item.amount,
       imageUrl: item.customImageUrl || item.product?.imageUrl || null,
+      categoryName: item.product?.category?.name || "OFFICE FURNITURE",
     }))
 
     // Construct PDF props
@@ -83,6 +102,7 @@ export async function GET(
       grandTotal: quotation.grandTotal,
       preparedBy: quotation.preparedBy.name || "Sales Executive",
       termsConditions: termsArray,
+      companyLogoUrl: logoBase64 || null,
       items: docItems,
     }
 

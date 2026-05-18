@@ -4,6 +4,8 @@ import { renderToBuffer } from "@react-pdf/renderer"
 import prisma from "@/lib/prisma"
 import { uploadQuotationPdf } from "@/lib/sharepoint"
 import { QuotationDocument } from "@/lib/pdf/QuotationDocument"
+import fs from "fs"
+import path from "path"
 
 export async function GET() {
   try {
@@ -80,6 +82,25 @@ export async function POST(request: Request) {
       }
     }
 
+    // Read brand logo to base64
+    let logoBase64 = ""
+    try {
+      const logoPath = path.join(process.cwd(), "public", "assets", "logo", "logo.png")
+      if (fs.existsSync(logoPath)) {
+        const fileBuffer = fs.readFileSync(logoPath)
+        logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
+      }
+    } catch (logoErr) {
+      console.error("Failed to read logo buffer in create endpoint:", logoErr)
+    }
+
+    // Prefetch products catalog details to render image & category inside the PDF
+    const productIds = items.map((i: any) => i.productId).filter(Boolean)
+    const dbProducts = await prisma.product.findMany({
+      where: { id: { in: productIds } },
+      include: { category: true }
+    })
+
     // 3. Calculate financial totals
     let calculatedSubtotal = 0
     const quotationItemsToCreate = items.map((item: any, idx: number) => {
@@ -88,6 +109,8 @@ export async function POST(request: Request) {
       const disc = parseFloat(item.discount) || 0
       const amt = (price - disc) * qty
       calculatedSubtotal += amt
+
+      const matchedProd = dbProducts.find((p) => p.id === item.productId)
 
       return {
         itemNo: idx + 1,
@@ -98,6 +121,8 @@ export async function POST(request: Request) {
         unitPrice: price,
         discount: disc,
         amount: amt,
+        imageUrl: matchedProd?.imageUrl || null,
+        categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
       }
     })
 
@@ -141,6 +166,7 @@ export async function POST(request: Request) {
       grandTotal: calculatedGrandTotal,
       preparedBy: defaultUser.name || "Sales Manager",
       termsConditions: termsArray,
+      companyLogoUrl: logoBase64 || null,
       items: quotationItemsToCreate,
     }
 
