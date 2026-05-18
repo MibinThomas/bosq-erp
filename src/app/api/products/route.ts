@@ -33,6 +33,7 @@ export async function POST(request: Request) {
       warranty,
       availableColors,
       dimensions,
+      imageUrl,
     } = body
 
     if (!productName || !categoryName) {
@@ -88,6 +89,7 @@ export async function POST(request: Request) {
         warranty: warranty || "5 Years",
         availableColors: availableColors || "Standard",
         dimensions: dimensions || "Standard",
+        imageUrl: imageUrl || null,
         status: "ACTIVE",
       },
       include: {

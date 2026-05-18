@@ -22,7 +22,10 @@ export async function GET(
       include: {
         client: true,
         items: {
-          orderBy: { itemNo: "asc" }
+          orderBy: { itemNo: "asc" },
+          include: {
+            product: true
+          }
         },
         preparedBy: true,
       },
@@ -54,6 +57,7 @@ export async function GET(
       unitPrice: item.unitPrice,
       discount: item.discount,
       amount: item.amount,
+      imageUrl: item.customImageUrl || item.product?.imageUrl || null,
     }))
 
     // Construct PDF props

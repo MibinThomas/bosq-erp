@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
+import { QuickAddProductModal } from "@/components/products/quick-add-product-modal"
 
 const quotationSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
@@ -65,6 +66,7 @@ interface Product {
   productName: string
   unitPrice: number
   specifications: string | null
+  imageUrl: string | null
 }
 
 function NewQuotationForm() {
@@ -76,6 +78,8 @@ function NewQuotationForm() {
   const [products, setProducts] = useState<Product[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
+  const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
 
   // Fetch clients and products catalog
   useEffect(() => {
@@ -354,63 +358,89 @@ function NewQuotationForm() {
                 {fields.map((field, index) => (
                   <div key={field.id} className="relative p-5 border rounded-xl bg-muted/20 space-y-4 transition-all">
                     {/* Catalog Autopopulate Select Row */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center border-b pb-4">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-primary">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-primary shrink-0">
                         <Sparkles className="h-3.5 w-3.5" />
                         Select from Product Catalog:
                       </div>
-                      <div className="md:col-span-2">
-                        <Select
-                          onValueChange={(val) => handleProductSelect(index, val)}
-                          value={watchItems[index]?.productId || ""}
+                      <div className="flex flex-1 items-center gap-2 max-w-lg w-full">
+                        <div className="flex-1">
+                          <Select
+                            onValueChange={(val) => handleProductSelect(index, val)}
+                            value={watchItems[index]?.productId || ""}
+                          >
+                            <SelectTrigger className="bg-card w-full">
+                              <SelectValue placeholder="Search or select catalog product..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {products.map((product) => (
+                                <SelectItem key={product.id} value={product.id}>
+                                  {product.productCode} - {product.productName} (AED {product.unitPrice})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setActiveLineIndex(index)
+                            setIsQuickAddOpen(true)
+                          }}
+                          className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-9 px-3 rounded-md flex items-center gap-1"
                         >
-                          <SelectTrigger className="bg-card">
-                            <SelectValue placeholder="Search or select catalog product..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((product) => (
-                              <SelectItem key={product.id} value={product.id}>
-                                {product.productCode} - {product.productName} (AED {product.unitPrice})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          <Plus className="h-3.5 w-3.5" />
+                          + New
+                        </Button>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                       {/* Description & Technical Specifications */}
-                      <div className="md:col-span-6 space-y-3">
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.description`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Product Name / Title</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Item description" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                      <div className="md:col-span-6 flex flex-col sm:flex-row gap-4">
+                        {(() => {
+                          const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
+                          if (!selectedProd?.imageUrl) return null
+                          return (
+                            <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-inner self-start mt-6 hidden sm:flex">
+                              <img src={selectedProd.imageUrl} alt="Preview" className="object-contain h-full w-full" />
+                            </div>
+                          )
+                        })()}
+                        <div className="flex-1 space-y-3">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.description`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Product Name / Title</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Item description" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.specifications`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Technical Specifications</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  placeholder="Spec details (e.g. Dimensions, colors, soft-close drawers...)"
-                                  rows={2}
-                                  {...field}
-                                />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.specifications`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Technical Specifications</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    placeholder="Spec details (e.g. Dimensions, colors, soft-close drawers...)"
+                                    rows={2}
+                                    {...field}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                       </div>
 
                       {/* Quantity, Unit Price and Discount */}
@@ -561,6 +591,26 @@ function NewQuotationForm() {
           </form>
         </Form>
       )}
+
+      <QuickAddProductModal
+        isOpen={isQuickAddOpen}
+        onClose={() => {
+          setIsQuickAddOpen(false)
+          setActiveLineIndex(null)
+        }}
+        onSuccess={(newProduct) => {
+          // Append to local catalog state
+          setProducts(prev => [...prev, newProduct])
+          
+          // Auto-select in current line item
+          if (activeLineIndex !== null) {
+            form.setValue(`items.${activeLineIndex}.productId`, newProduct.id)
+            form.setValue(`items.${activeLineIndex}.description`, newProduct.productName)
+            form.setValue(`items.${activeLineIndex}.specifications`, newProduct.specifications || "")
+            form.setValue(`items.${activeLineIndex}.unitPrice`, newProduct.unitPrice)
+          }
+        }}
+      />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image as PdfImage,
 } from "@react-pdf/renderer"
 
 // Premium color palette
@@ -264,6 +265,7 @@ export interface QuotationPdfItem {
   unitPrice: number
   discount: number
   amount: number
+  imageUrl?: string | null
 }
 
 export interface QuotationPdfProps {
@@ -413,10 +415,20 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             >
               <Text style={styles.colNo}>{item.itemNo}</Text>
               <View style={styles.colDesc}>
-                <Text style={styles.colTextBold}>{item.description}</Text>
-                {item.specifications && (
-                  <Text style={styles.colTextLight}>{item.specifications}</Text>
-                )}
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  {item.imageUrl && (
+                    <PdfImage 
+                      src={item.imageUrl} 
+                      style={{ width: 32, height: 32, borderRadius: 3, borderWidth: 0.5, borderColor: colors.border, objectFit: "contain", backgroundColor: colors.bgLight, marginRight: 6 }} 
+                    />
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.colTextBold}>{item.description}</Text>
+                    {item.specifications && (
+                      <Text style={styles.colTextLight}>{item.specifications}</Text>
+                    )}
+                  </View>
+                </View>
               </View>
               <Text style={styles.colQty}>{item.quantity}</Text>
               <Text style={styles.colPrice}>{formatCurrency(item.unitPrice)}</Text>
