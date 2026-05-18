@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
+import { read, utils } from "xlsx"
 
 interface BulkUploadModalProps {
   isOpen: boolean
@@ -103,23 +104,35 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     toast.success("Import template downloaded!")
   }
 
-  const handleCsvFile = (file: File) => {
-    if (!file.name.endsWith(".csv")) {
-      toast.error("Please upload a valid CSV file.")
+  const handleSpreadsheetFile = (file: File) => {
+    const isExcel = file.name.endsWith(".xlsx") || file.name.endsWith(".xls")
+    const isCsv = file.name.endsWith(".csv")
+
+    if (!isExcel && !isCsv) {
+      toast.error("Please upload a valid CSV or Excel (.xlsx) file.")
       return
     }
 
     const reader = new FileReader()
-    reader.onload = (e) => {
-      const text = e.target?.result as string
-      const parsed = parseCSV(text)
+
+    const processParsedData = (parsed: any[][]) => {
       if (parsed.length < 2) {
         toast.error("The spreadsheet is empty or has no data rows.")
         return
       }
 
-      const fileHeaders = parsed[0]
-      const fileRows = parsed.slice(1)
+      // Clean rows and format cell values
+      const cleanParsed = parsed.map(row => 
+        row.map(cell => (cell !== null && cell !== undefined) ? String(cell).trim() : "")
+      ).filter(row => row.length > 0 && row.some(cell => cell !== ""))
+
+      if (cleanParsed.length < 2) {
+        toast.error("No valid data rows found in spreadsheet.")
+        return
+      }
+
+      const fileHeaders = cleanParsed[0]
+      const fileRows = cleanParsed.slice(1)
 
       setHeaders(fileHeaders)
       setCsvRows(fileRows)
@@ -152,7 +165,28 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       setStep(2)
       toast.success("Spreadsheet parsed successfully!")
     }
-    reader.readAsText(file)
+
+    if (isExcel) {
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer)
+        const workbook = read(data, { type: "array" })
+        const firstSheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[firstSheetName]
+        const parsed: any[][] = utils.sheet_to_json(worksheet, { header: 1 })
+        processParsedData(parsed)
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      reader.onload = (e) => {
+        const text = e.target?.result as string
+        const workbook = read(text, { type: "string" })
+        const firstSheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[firstSheetName]
+        const parsed: any[][] = utils.sheet_to_json(worksheet, { header: 1 })
+        processParsedData(parsed)
+      }
+      reader.readAsText(file)
+    }
   }
 
   const handleColumnMapping = () => {
@@ -303,7 +337,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     e.stopPropagation()
     setDragActive(false)
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleCsvFile(e.dataTransfer.files[0])
+      handleSpreadsheetFile(e.dataTransfer.files[0])
     }
   }
 
@@ -362,18 +396,18 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                   type="file" 
                   ref={fileInputRef} 
                   className="hidden" 
-                  accept=".csv"
-                  onChange={(e) => e.target.files?.[0] && handleCsvFile(e.target.files[0])}
+                  accept=".csv, .xlsx, .xls"
+                  onChange={(e) => e.target.files?.[0] && handleSpreadsheetFile(e.target.files[0])}
                 />
                 <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center text-primary mb-4 shadow-inner">
                   <FileSpreadsheet className="h-8 w-8" />
                 </div>
                 <h3 className="text-lg font-semibold mb-1">Drag & Drop Product List</h3>
                 <p className="text-sm text-muted-foreground text-center max-w-sm">
-                  Support standard CSV product catalog listings saved from Microsoft Excel or SharePoint.
+                  Support standard CSV or Excel (.xlsx) product catalog listings from SharePoint.
                 </p>
                 <Button className="mt-4 bg-primary hover:bg-primary/90">
-                  Select CSV File
+                  Select Spreadsheet File
                 </Button>
               </div>
 
@@ -397,7 +431,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <div>
                   <p className="font-semibold mb-1">Pro-Tip for SharePoint Chair Lists:</p>
-                  Save your SharePoint spreadsheet (e.g. from the URL provided) locally as a **CSV (Comma Delimited)** file first. This importer dynamically maps all your custom headers so you don't need to rename your columns!
+                  You can upload your downloaded Excel spreadsheet (**xlsx**) directly without saving as CSV! Our dynamic mapper will automatically read your columns and map them perfectly.
                 </div>
               </div>
             </div>
