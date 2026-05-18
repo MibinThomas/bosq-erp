@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, FileDown, Eye, Loader2, FolderOpen } from "lucide-react"
+import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +25,22 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { MoreHorizontal } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+
+interface QuotationRevision {
+  id: string
+  revisionNumber: number
+  revisionDate: string
+  previousTotal: number
+  newTotal: number
+  notes: string | null
+}
 
 interface Quotation {
   id: string
@@ -45,12 +61,16 @@ interface Quotation {
   preparedBy: {
     name: string | null
   }
+  revisions: QuotationRevision[]
 }
 
 export default function QuotationsPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  
+  const [historyQuote, setHistoryQuote] = useState<Quotation | null>(null)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
 
   useEffect(() => {
     async function fetchQuotations() {
@@ -234,25 +254,47 @@ export default function QuotationsPage() {
                         <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
                           <MoreHorizontal className="h-4 w-4" />
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuLabel>View Options</DropdownMenuLabel>
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setHistoryQuote(quote)
+                              setIsHistoryOpen(true)
+                            }}
+                            className="flex items-center cursor-pointer"
+                          >
+                            <History className="mr-2 h-4 w-4 text-purple-600" />
+                            Revision History
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuSeparator />
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "APPROVED", "status")}>
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "APPROVED", "status")} className="cursor-pointer">
                             Mark Approved
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "SENT", "status")}>
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "SENT", "status")} className="cursor-pointer">
                             Mark Sent
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "FOLLOW_UP", "status")}>
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "FOLLOW_UP", "status")} className="cursor-pointer">
                             Mark Follow-up
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>PO Tracking</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "RECEIVED", "poStatus")}>
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "RECEIVED", "poStatus")} className="cursor-pointer">
                             PO Received
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "PENDING", "poStatus")}>
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "PENDING", "poStatus")} className="cursor-pointer">
                             PO Pending
                           </DropdownMenuItem>
+                          
+                          <DropdownMenuSeparator />
+                          <DropdownMenuLabel>Revision Action</DropdownMenuLabel>
+                          <Link href={`/quotations/new?reviseId=${quote.id}`}>
+                            <DropdownMenuItem className="flex items-center text-purple-600 focus:text-purple-600 focus:bg-purple-50 cursor-pointer">
+                              <RefreshCw className="mr-2 h-4 w-4 text-purple-600" />
+                              Revise Quotation
+                            </DropdownMenuItem>
+                          </Link>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -263,6 +305,85 @@ export default function QuotationsPage() {
           </Table>
         )}
       </div>
+
+      {/* Revision History Modal */}
+      <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+        <DialogContent className="max-w-md rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <History className="h-5 w-5 text-purple-600" />
+              Quotation Revision History
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              Full audit log and revision timeline for **{historyQuote?.quotationNumber}**
+            </DialogDescription>
+          </DialogHeader>
+
+          {historyQuote && (
+            <div className="space-y-4 py-2">
+              <div className="bg-muted/30 border rounded-lg p-3 text-xs space-y-1">
+                <div className="flex justify-between font-medium">
+                  <span className="text-muted-foreground">Client:</span>
+                  <span>{historyQuote.client.companyName}</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                  <span className="text-muted-foreground">Active Version:</span>
+                  <span>Revision #{historyQuote.revisionNumber}</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                  <span className="text-muted-foreground">Current Total:</span>
+                  <span className="font-mono">AED {historyQuote.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+
+              {!historyQuote.revisions || historyQuote.revisions.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground text-sm space-y-1">
+                  <p className="font-semibold">No revisions yet</p>
+                  <p className="text-xs">This is the original quotation version (Revision #0).</p>
+                </div>
+              ) : (
+                <div className="relative border-l pl-4 ml-2 space-y-5">
+                  {/* Current Active Version Indicator */}
+                  <div className="relative">
+                    <div className="absolute -left-[21px] mt-1 h-3 w-3 rounded-full bg-green-500 ring-4 ring-background" />
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-green-600">Active (Revision #{historyQuote.revisionNumber})</span>
+                        <span className="text-muted-foreground">Current</span>
+                      </div>
+                      <p className="text-sm font-semibold">Active Finalized Quotation</p>
+                    </div>
+                  </div>
+
+                  {/* Map revisions */}
+                  {historyQuote.revisions.map((rev) => (
+                    <div key={rev.id} className="relative">
+                      <div className="absolute -left-[21px] mt-1 h-3 w-3 rounded-full bg-purple-600 ring-4 ring-background" />
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-purple-700">Revision #{rev.revisionNumber}</span>
+                          <span className="text-muted-foreground font-mono">
+                            {new Date(rev.revisionDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </span>
+                        </div>
+                        <div className="text-xs font-medium text-muted-foreground bg-purple-50 dark:bg-purple-950/20 p-2.5 rounded border border-purple-100 dark:border-purple-900/50 mt-1 italic">
+                          &ldquo;{rev.notes || "Revised quotation details"}&rdquo;
+                        </div>
+                        <div className="flex justify-between text-xs pt-1 font-mono">
+                          <span className="text-muted-foreground">Amount Shifted:</span>
+                          <span>
+                            AED {rev.previousTotal.toLocaleString()} &rarr; AED {rev.newTotal.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -13,6 +13,9 @@ export async function GET() {
       include: {
         client: true,
         preparedBy: true,
+        revisions: {
+          orderBy: { revisionNumber: "desc" }
+        }
       },
       orderBy: { quotationNumber: "desc" },
     })

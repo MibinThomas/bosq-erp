@@ -81,6 +81,10 @@ function NewQuotationForm() {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
 
+  const [isRevision, setIsRevision] = useState(false)
+  const [existingQuote, setExistingQuote] = useState<any>(null)
+  const [revisionNotes, setRevisionNotes] = useState("")
+
   // Fetch clients and products catalog
   useEffect(() => {
     async function loadData() {
@@ -95,6 +99,37 @@ function NewQuotationForm() {
 
         setClients(clientsData)
         setProducts(productsData)
+
+        // Load details for revision if reviseId parameter is provided
+        const reviseId = searchParams.get("reviseId")
+        if (reviseId) {
+          const reviseRes = await fetch(`/api/quotations/${reviseId}`)
+          if (reviseRes.ok) {
+            const reviseData = await reviseRes.json()
+            setExistingQuote(reviseData)
+            setIsRevision(true)
+
+            // Populate form values
+            form.reset({
+              clientId: reviseData.clientId,
+              projectName: reviseData.projectName || "",
+              date: new Date().toISOString().split("T")[0],
+              validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              deliveryDate: reviseData.deliveryDate ? new Date(reviseData.deliveryDate).toISOString().split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              paymentTerms: reviseData.paymentTerms || "50% Advance, 50% on Delivery",
+              items: reviseData.items.map((item: any) => ({
+                productId: item.productId || "",
+                description: item.description,
+                specifications: item.specifications || "",
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                discount: item.discount || 0,
+              })),
+              deliveryCharge: reviseData.deliveryCharge || 0,
+              notes: reviseData.notes || "",
+            })
+          }
+        }
       } catch (error) {
         console.error("Error loading form options:", error)
         toast.error("Failed to load clients or products catalog.")
@@ -163,28 +198,42 @@ function NewQuotationForm() {
   }
 
   async function onSubmit(data: QuotationFormValues) {
+    if (isRevision && !revisionNotes.trim()) {
+      toast.error("Revision notes are required to revise this quotation!")
+      return
+    }
+
     setSubmitting(true)
     try {
-      const res = await fetch("/api/quotations", {
-        method: "POST",
+      const url = isRevision ? `/api/quotations/${existingQuote.id}` : "/api/quotations"
+      const method = isRevision ? "PUT" : "POST"
+
+      const res = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
+          isRevision: isRevision,
+          revisionNotes: revisionNotes,
           status: "APPROVED", // Auto-approved and finalized on submit
         }),
       })
 
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || "Failed to create quotation")
+        throw new Error(err.error || "Failed to submit quotation")
       }
 
-      const created = await res.json()
-      toast.success(`Quotation ${created.quotationNumber} compiled & uploaded to SharePoint!`)
+      const result = await res.json()
+      toast.success(
+        isRevision
+          ? `Quotation revised successfully to Revision #${result.revisionNumber}! PDF updated on SharePoint.`
+          : `Quotation ${result.quotationNumber} compiled & uploaded to SharePoint!`
+      )
       router.push("/quotations")
     } catch (error: any) {
       console.error("Error submitting quotation:", error)
-      toast.error(error.message || "Failed to compile quotation. Please try again.")
+      toast.error(error.message || "Failed to submit quotation. Please try again.")
     } finally {
       setSubmitting(false)
     }
@@ -199,12 +248,28 @@ function NewQuotationForm() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Create Quotation</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {isRevision ? "Revise Quotation" : "Create Quotation"}
+          </h1>
           <p className="text-muted-foreground">
-            Select a client, add catalog products, and compile a PDF immediately.
+            {isRevision
+              ? `Create a new revised version of Quotation ${existingQuote?.quotationNumber}`
+              : "Select a client, add catalog products, and compile a PDF immediately."}
           </p>
         </div>
       </div>
+
+      {isRevision && existingQuote && (
+        <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 rounded-xl p-4 flex items-start gap-3 text-purple-950 dark:text-purple-300">
+          <Info className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5" />
+          <div>
+            <h3 className="font-semibold">Revising Quotation {existingQuote.quotationNumber}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              You are creating **Revision #{existingQuote.revisionNumber + 1}** for this quotation. A new PDF will be compiled and uploaded as the active revision on SharePoint, and the revision history will be logged.
+            </p>
+          </div>
+        </div>
+      )}
 
       {loadingOptions ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -214,6 +279,25 @@ function NewQuotationForm() {
       ) : (
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            {isRevision && (
+              <Card className="rounded-xl border border-purple-200 dark:border-purple-900/30 bg-purple-50/10">
+                <CardHeader>
+                  <CardTitle className="text-base text-purple-700 dark:text-purple-400">
+                    Revision Notes <span className="text-destructive">*</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    placeholder="Describe the updates in this revision (e.g., 'Reduced price on workstation clusters by 10% per sales manager instructions')."
+                    value={revisionNotes}
+                    onChange={(e) => setRevisionNotes(e.target.value)}
+                    className="min-h-[80px]"
+                    required
+                  />
+                </CardContent>
+              </Card>
+            )}
+
             <div className="grid gap-6 md:grid-cols-2">
               {/* Client Selection Card */}
               <Card className="rounded-xl shadow-sm border bg-card">
