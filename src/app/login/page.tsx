@@ -33,15 +33,14 @@ export default function LoginPage() {
 
       if (res?.error) {
         toast.error(res.error || "Invalid corporate credentials")
+        setLoading(false)
       } else {
         toast.success("Successfully authenticated!")
-        router.push("/dashboard")
-        router.refresh()
+        window.location.href = "/dashboard"
       }
     } catch (err) {
       console.error(err)
       toast.error("Outlook connection failed. Try again.")
-    } finally {
       setLoading(false)
     }
   }
