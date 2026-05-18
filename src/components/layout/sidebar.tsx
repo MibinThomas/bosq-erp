@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { 
   LayoutDashboard, 
@@ -30,12 +31,17 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex w-64 flex-col border-r bg-background">
       <div className="p-6">
-        <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-          <div className="h-8 w-8 rounded-md bg-primary text-primary-foreground flex items-center justify-center">
-            BQ
+        <Link href="/dashboard" className="flex items-center gap-3">
+          <div className="relative h-10 w-44">
+            <Image
+              src="/assets/logo/logo.png"
+              alt="BOSQ Logo"
+              fill
+              className="object-contain object-left"
+              priority
+            />
           </div>
-          BOSQ ERP
-        </div>
+        </Link>
       </div>
       <div className="flex-1 px-4 py-2 space-y-1">
         {navItems.map((item) => {
