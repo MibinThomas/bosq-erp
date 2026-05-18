@@ -30,9 +30,9 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r bg-background">
-      <div className="p-6">
-        <Link href="/dashboard" className="flex items-center gap-3">
-          <div className="relative h-10 w-44">
+      <div className="px-6 py-5">
+        <Link href="/dashboard" className="flex items-center">
+          <div className="relative h-16 w-full">
             <Image
               src="/assets/logo/logo.png"
               alt="BOSQ Logo"
