@@ -6,10 +6,20 @@ import { uploadQuotationPdf } from "@/lib/sharepoint"
 import { QuotationDocument } from "@/lib/pdf/QuotationDocument"
 import fs from "fs"
 import path from "path"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions)
+    
+    let whereClause = {}
+    if (session?.user && (session.user as any).role === "SALES_EXECUTIVE") {
+      whereClause = { preparedById: (session.user as any).id }
+    }
+
     const quotations = await prisma.quotation.findMany({
+      where: whereClause,
       include: {
         client: true,
         preparedBy: true,
@@ -52,7 +62,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // 1. Fetch Client and default salesperson
+    // 1. Fetch Client and check access session
     const clientObj = await prisma.client.findUnique({
       where: { id: clientId },
     })
@@ -61,15 +71,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 })
     }
 
-    const defaultUser = await prisma.user.findFirst({
-      where: { role: "SALES_EXECUTIVE" },
-    })
+    const session = await getServerSession(authOptions)
+    let creatorUser = { id: "", name: "Sales Rep" }
 
-    if (!defaultUser) {
-      return NextResponse.json(
-        { error: "No system user found. Please seed the database first." },
-        { status: 500 }
-      )
+    if (session?.user) {
+      creatorUser = {
+        id: (session.user as any).id,
+        name: session.user.name || "Sales Rep"
+      }
+    } else {
+      const defaultUser = await prisma.user.findFirst({
+        where: { role: "SALES_EXECUTIVE" },
+      })
+      if (!defaultUser) {
+        return NextResponse.json(
+          { error: "No system user found. Please seed the database first." },
+          { status: 500 }
+        )
+      }
+      creatorUser = {
+        id: defaultUser.id,
+        name: defaultUser.name || "Sales Manager"
+      }
     }
 
     // 2. Generate quotation number (e.g. I1952)
@@ -167,7 +190,7 @@ export async function POST(request: Request) {
       vatAmount: calculatedVat,
       deliveryCharge: charge,
       grandTotal: calculatedGrandTotal,
-      preparedBy: defaultUser.name || "Sales Manager",
+      preparedBy: creatorUser.name,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       items: quotationItemsToCreate,
@@ -210,7 +233,7 @@ export async function POST(request: Request) {
         projectName: projectName || null,
         date: date ? new Date(date) : new Date(),
         validityDate: validityDate ? new Date(validityDate) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        preparedById: defaultUser.id,
+        preparedById: creatorUser.id,
         deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
         paymentTerms,
         status: status || "SENT",
@@ -243,7 +266,7 @@ export async function POST(request: Request) {
     // Log Activity
     await prisma.activityLog.create({
       data: {
-        userId: defaultUser.id,
+        userId: creatorUser.id,
         action: "CREATED_QUOTATION",
         entityType: "QUOTATION",
         entityId: newQuotation.id,

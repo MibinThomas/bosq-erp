@@ -2,6 +2,7 @@ import "dotenv/config"
 import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import pg from "pg"
+import { hashPassword } from "../src/lib/auth"
 
 const connectionString = process.env.DATABASE_URL
 const pool = new pg.Pool({ connectionString })
@@ -14,20 +15,26 @@ async function main() {
   // 1. Create Default Users
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@bosq.ae" },
-    update: {},
+    update: {
+      password: hashPassword("AdminPassword123"),
+    },
     create: {
       name: "Admin User",
       email: "admin@bosq.ae",
+      password: hashPassword("AdminPassword123"),
       role: "ADMIN",
     },
   })
 
   const salesUser = await prisma.user.upsert({
     where: { email: "sales@bosq.ae" },
-    update: {},
+    update: {
+      password: hashPassword("SalesPassword123"),
+    },
     create: {
       name: "John Doe",
       email: "sales@bosq.ae",
+      password: hashPassword("SalesPassword123"),
       role: "SALES_EXECUTIVE",
     },
   })

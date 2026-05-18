@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { createClientFolder } from "@/lib/sharepoint"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions)
+    
+    let whereClause = {}
+    if (session?.user && (session.user as any).role === "SALES_EXECUTIVE") {
+      whereClause = { salespersonId: (session.user as any).id }
+    }
+
     const clients = await prisma.client.findMany({
+      where: whereClause,
       orderBy: { clientId: "asc" },
     })
     return NextResponse.json(clients)
@@ -62,10 +72,17 @@ export async function POST(request: Request) {
     }
 
     // 3. Save to database
-    // Default to the first User (or we can lookup salesUser)
-    const defaultUser = await prisma.user.findFirst({
-      where: { role: "SALES_EXECUTIVE" },
-    })
+    const session = await getServerSession(authOptions)
+    let creatorUserId: string | null = null
+    
+    if (session?.user) {
+      creatorUserId = (session.user as any).id
+    } else {
+      const defaultUser = await prisma.user.findFirst({
+        where: { role: "SALES_EXECUTIVE" },
+      })
+      creatorUserId = defaultUser?.id || null
+    }
 
     const newClient = await prisma.client.create({
       data: {
@@ -79,15 +96,15 @@ export async function POST(request: Request) {
         clientType: clientType || "Corporate",
         notes,
         sharepointFolder: sharepointFolderId,
-        salespersonId: defaultUser?.id || null,
+        salespersonId: creatorUserId,
       },
     })
 
     // Log Activity
-    if (defaultUser) {
+    if (creatorUserId) {
       await prisma.activityLog.create({
         data: {
-          userId: defaultUser.id,
+          userId: creatorUserId,
           action: "CREATED_CLIENT",
           entityType: "CLIENT",
           entityId: newClient.id,

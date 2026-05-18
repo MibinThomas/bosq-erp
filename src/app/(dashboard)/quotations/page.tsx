@@ -187,7 +187,7 @@ export default function QuotationsPage() {
                 <TableHead>Quote No.</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Client & Project</TableHead>
-                <TableHead>Salesperson</TableHead>
+                <TableHead>Interior Design Consultant (IDC)</TableHead>
                 <TableHead className="text-right">Total Amount (AED)</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>PO Status</TableHead>
