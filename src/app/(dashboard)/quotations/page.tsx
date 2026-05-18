@@ -249,6 +249,18 @@ export default function QuotationsPage() {
                         </Button>
                       )}
 
+                      {/* Revise Quotation directly */}
+                      <Link href={`/quotations/new?reviseId=${quote.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-muted text-purple-600 hover:text-purple-700"
+                          title="Revise Quotation"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </Link>
+
                       {/* Options Dropdown */}
                       <DropdownMenu>
                         <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
