@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, MoreHorizontal, Loader2, Package } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Loader2, Package, Sparkles } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { BulkUploadModal } from "@/components/products/bulk-upload-modal"
 import {
   Table,
   TableBody,
@@ -44,21 +45,24 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [isBulkOpen, setIsBulkOpen] = useState(false)
+
+  async function fetchProducts() {
+    try {
+      setLoading(true)
+      const res = await fetch("/api/products")
+      if (!res.ok) throw new Error("Failed to fetch products")
+      const data = await res.json()
+      setProducts(data)
+    } catch (error) {
+      console.error("Error fetching products:", error)
+      toast.error("Failed to load products. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const res = await fetch("/api/products")
-        if (!res.ok) throw new Error("Failed to fetch products")
-        const data = await res.json()
-        setProducts(data)
-      } catch (error) {
-        console.error("Error fetching products:", error)
-        toast.error("Failed to load products. Please try again.")
-      } finally {
-        setLoading(false)
-      }
-    }
     fetchProducts()
   }, [])
 
@@ -81,12 +85,22 @@ export default function ProductsPage() {
             Manage your office furniture catalog.
           </p>
         </div>
-        <Link href="/products/new">
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Product
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            onClick={() => setIsBulkOpen(true)}
+            className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+          >
+            <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+            Bulk Upload
           </Button>
-        </Link>
+          <Link href="/products/new">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Product
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="flex items-center justify-between">
@@ -170,6 +184,12 @@ export default function ProductsPage() {
           </Table>
         )}
       </div>
+
+      <BulkUploadModal 
+        isOpen={isBulkOpen}
+        onClose={() => setIsBulkOpen(false)}
+        onSuccess={fetchProducts}
+      />
     </div>
   )
 }
