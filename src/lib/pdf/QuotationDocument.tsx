@@ -131,8 +131,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "flex-start",
   },
-  colDesc: { width: "50%", paddingRight: 15 },
-  colImage: { width: "22%", alignItems: "center", justifyContent: "center", paddingRight: 10 },
+  colDesc: { width: "46%", paddingRight: 15 },
+  colImage: { width: "26%", alignItems: "center", justifyContent: "center", paddingRight: 10 },
   colQty: { width: "8%", textAlign: "center" },
   colPrice: { width: "10%", textAlign: "right" },
   colAmount: { width: "10%", textAlign: "right" },
@@ -173,13 +173,13 @@ const styles = StyleSheet.create({
   },
 
   productImage: {
-    width: 95,
-    height: 95,
+    width: 110,
+    height: 110,
     borderRadius: 4,
     borderWidth: 0.5,
     borderColor: "#cbd5e1",
     objectFit: "contain",
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ffffff",
   },
 
   // Totals layout
