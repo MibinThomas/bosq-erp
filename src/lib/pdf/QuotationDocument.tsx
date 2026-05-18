@@ -44,8 +44,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logoImage: {
-    width: 140,
-    height: 35,
+    width: 175,
+    height: 44,
     objectFit: "contain",
   },
   logoTextFallback: {
@@ -406,7 +406,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         
         {/* Corporate Header */}
         <View style={styles.header}>
-          <View>
+          <View style={{ marginLeft: -12 }}>
             <View style={styles.logoContainer}>
               {companyLogoUrl ? (
                 <PdfImage src={companyLogoUrl} style={styles.logoImage} />
