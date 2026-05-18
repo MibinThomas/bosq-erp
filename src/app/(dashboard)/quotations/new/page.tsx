@@ -313,7 +313,7 @@ function NewQuotationForm() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client Company</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isRevision}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select an active client" />
@@ -352,7 +352,7 @@ function NewQuotationForm() {
                       <FormItem>
                         <FormLabel>Project Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. Corporate HQ Fitout" {...field} />
+                          <Input placeholder="e.g. Corporate HQ Fitout" {...field} disabled={isRevision} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
