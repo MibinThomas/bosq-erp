@@ -46,7 +46,7 @@ const quotationSchema = z.object({
       description: z.string().min(1, "Description is required"),
       specifications: z.string(),
       quantity: z.number().min(1, "Quantity must be at least 1"),
-      basePrice: z.number().min(0).default(0),
+      basePrice: z.number().min(0),
       unitPrice: z.number().min(0, "Price must be at least 0"),
       discount: z.number().min(0),
       margin: z.number().min(-100),
@@ -505,7 +505,7 @@ function NewQuotationForm() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ productId: "", description: "", specifications: "", quantity: 1, unitPrice: 0, discount: 0, margin: 0 })}
+                  onClick={() => append({ productId: "", description: "", specifications: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0 })}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Custom Item
