@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Plus, Search, MoreHorizontal, Loader2, Folder } from "lucide-react"
 
@@ -37,6 +38,7 @@ interface Client {
 }
 
 export default function ClientsPage() {
+  const router = useRouter()
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -129,7 +131,11 @@ export default function ClientsPage() {
               {filteredClients.map((client) => (
                 <TableRow key={client.id} className="hover:bg-muted/30 transition-colors">
                   <TableCell className="font-mono font-medium">{client.clientId}</TableCell>
-                  <TableCell className="font-semibold">{client.companyName}</TableCell>
+                  <TableCell className="font-semibold">
+                    <Link href={`/clients/${client.id}`} className="hover:underline text-primary">
+                      {client.companyName}
+                    </Link>
+                  </TableCell>
                   <TableCell>{client.contactPerson || "-"}</TableCell>
                   <TableCell>{client.email || "-"}</TableCell>
                   <TableCell>{client.phone || "-"}</TableCell>
@@ -164,7 +170,7 @@ export default function ClientsPage() {
                           Create Quotation
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => toast.info("Details page coming soon")}>
+                        <DropdownMenuItem onClick={() => router.push(`/clients/${client.id}`)} className="cursor-pointer">
                           View details
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => toast.info("Editing clients coming soon")}>

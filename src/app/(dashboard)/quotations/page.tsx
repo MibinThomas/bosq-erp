@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw } from "lucide-react"
+import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -65,6 +66,10 @@ interface Quotation {
 }
 
 export default function QuotationsPage() {
+  const { data: session } = useSession()
+  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -103,6 +108,12 @@ export default function QuotationsPage() {
     switch (status) {
       case "APPROVED":
         return <Badge className="bg-green-600 hover:bg-green-700 text-white font-medium">Approved</Badge>
+      case "PENDING_APPROVAL":
+        return (
+          <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium flex items-center gap-1 w-fit">
+            <Lock className="h-3 w-3" /> Pending Approval
+          </Badge>
+        )
       case "SENT":
         return <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-medium">Sent</Badge>
       case "DRAFT":
@@ -224,15 +235,47 @@ export default function QuotationsPage() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1.5">
+                      {/* Approve button for managers if pending approval */}
+                      {quote.status === "PENDING_APPROVAL" && isManagerOrAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:bg-green-50 text-green-600 hover:text-green-700"
+                          title="Approve Quotation"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch(`/api/quotations/${quote.id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ action: "APPROVE" }),
+                              })
+                              if (!res.ok) throw new Error("Failed to approve")
+                              const updated = await res.json()
+                              setQuotations(prev => prev.map(q => q.id === quote.id ? { ...q, ...updated } : q))
+                              toast.success("Quotation approved successfully!")
+                            } catch (e) {
+                              toast.error("Failed to approve quotation.")
+                            }
+                          }}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                      )}
+
                       {/* Download PDF directly */}
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 hover:bg-muted"
-                        title="Download PDF"
+                        title={quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE" ? "Pending Approval (Locked)" : "Download PDF"}
+                        disabled={quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE"}
                         onClick={() => window.open(`/api/quotations/${quote.id}/pdf`, "_blank")}
                       >
-                        <FileDown className="h-4 w-4 text-muted-foreground" />
+                        {quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE" ? (
+                          <Lock className="h-4 w-4 text-muted-foreground/60" />
+                        ) : (
+                          <FileDown className="h-4 w-4 text-muted-foreground" />
+                        )}
                       </Button>
 
                       {/* SharePoint folder link */}
@@ -241,10 +284,11 @@ export default function QuotationsPage() {
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 hover:bg-muted"
-                          title="Open SharePoint Folder"
+                          title={quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE" ? "Pending Approval (Locked)" : "Open SharePoint Folder"}
+                          disabled={quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE"}
                           onClick={() => window.open(quote.sharepointUrl || "", "_blank")}
                         >
-                          <FolderOpen className="h-4 w-4 text-yellow-600" />
+                          <FolderOpen className={`h-4 w-4 ${quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE" ? "text-muted-foreground/60" : "text-yellow-600"}`} />
                         </Button>
                       )}
 

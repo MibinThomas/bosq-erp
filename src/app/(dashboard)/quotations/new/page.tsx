@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock } from "lucide-react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -80,6 +81,9 @@ function NewQuotationForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialClientId = searchParams.get("clientId") || ""
+  const { data: session } = useSession()
+  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
 
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -580,7 +584,7 @@ function NewQuotationForm() {
 
                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                       {/* Description & Technical Specifications */}
-                      <div className="md:col-span-6 flex flex-col sm:flex-row gap-4">
+                      <div className="md:col-span-5 flex flex-col sm:flex-row gap-4">
                         {(() => {
                           const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
                           if (!selectedProd?.imageUrl) return null
@@ -625,7 +629,37 @@ function NewQuotationForm() {
                       </div>
 
                       {/* Quantity, Unit Price and Discount */}
-                      <div className="md:col-span-5 grid grid-cols-4 gap-2 pt-6 md:pt-0">
+                      <div className="md:col-span-6 grid grid-cols-5 gap-2 pt-6 md:pt-0">
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.basePrice`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center gap-1">
+                                Base Price
+                                {!isManagerOrAdmin && <Lock className="h-3 w-3 text-muted-foreground" />}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  disabled={!isManagerOrAdmin}
+                                  {...field}
+                                  onChange={(e) => {
+                                    const newBase = parseFloat(e.target.value) || 0
+                                    field.onChange(newBase)
+                                    const currentMargin = watchItems[index]?.margin || 0
+                                    const newPrice = newBase * (1 + currentMargin / 100)
+                                    form.setValue(`items.${index}.unitPrice`, Number(newPrice.toFixed(2)))
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
                         <FormField
                           control={form.control}
                           name={`items.${index}.quantity`}

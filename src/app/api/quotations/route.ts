@@ -112,9 +112,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // IDCs (SALES_EXECUTIVE) must go through approval before PDF is downloadable
+    // IDCs (SALES_EXECUTIVE) must go through approval for custom items before PDF is downloadable
     const isIDC = creatorUser.role === "SALES_EXECUTIVE"
-    const resolvedStatus = isIDC ? "PENDING_APPROVAL" : (status || "SENT")
+    const hasCustomItems = items.some((item: any) => !item.productId)
+    const resolvedStatus = (isIDC && hasCustomItems) ? "PENDING_APPROVAL" : "APPROVED"
 
     // 2. Generate quotation number (e.g. I2223-1)
     const segment = body.customerSegment || "Direct"

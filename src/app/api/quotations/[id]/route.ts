@@ -307,6 +307,10 @@ export async function PUT(
         )}/Quotations/${filenameBase}.pdf`
       }
 
+      const isIDC = logUserRole === "SALES_EXECUTIVE"
+      const hasCustomItems = items.some((item: any) => !item.productId)
+      const resolvedStatus = (isIDC && hasCustomItems) ? "PENDING_APPROVAL" : "APPROVED"
+
       // Execute atomic transaction for revision (create a new quotation record, keep the old one)
       const updatedQuotation = await prisma.$transaction(async (tx) => {
         // 1. Create Revision log history linked to parent root
@@ -339,7 +343,7 @@ export async function PUT(
             preparedById: existingQuotation.preparedById,
             deliveryDate: deliveryDate ? new Date(deliveryDate) : existingQuotation.deliveryDate,
             paymentTerms: paymentTerms || existingQuotation.paymentTerms,
-            status: "APPROVED",
+            status: resolvedStatus,
             revisionNumber: nextRevNo,
             poStatus: "PENDING",
             paymentStatus: "UNPAID",
@@ -358,6 +362,7 @@ export async function PUT(
                 description: item.description,
                 specifications: item.specifications,
                 quantity: item.quantity,
+                basePrice: item.basePrice,
                 unitPrice: item.unitPrice,
                 discount: item.discount,
                 margin: item.margin,
