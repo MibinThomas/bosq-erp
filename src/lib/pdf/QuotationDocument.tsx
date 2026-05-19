@@ -30,86 +30,116 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 1.4,
   },
-  header: {
+  headerContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    borderBottomWidth: 1.5,
-    borderBottomColor: colors.primary,
+    marginBottom: 22,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lineColor,
     paddingBottom: 15,
-    marginBottom: 20,
   },
-  logoContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+  leftColumn: {
+    width: "53%",
   },
-  logoImage: {
-    width: 175,
-    height: 44,
+  rightColumn: {
+    width: "44%",
+    alignItems: "flex-end",
+  },
+  logoWrapperLeft: {
+    alignItems: "flex-start",
+    marginBottom: 8,
+  },
+  logoImageLeft: {
+    width: 130,
+    height: 33,
     objectFit: "contain",
   },
   logoTextFallback: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: colors.primary,
-    letterSpacing: 2,
-  },
-  companyDetails: {
-    color: colors.lightText,
-    fontSize: 8,
-    marginTop: 2,
-  },
-  titleContainer: {
-    alignItems: "flex-end",
-  },
-  docTitle: {
-    fontSize: 26,
+    fontSize: 14,
     fontWeight: "bold",
     color: colors.primary,
     letterSpacing: 1,
-    marginBottom: 5,
   },
-  
-  // Client & Metadata Spacing
-  metaContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 25,
-    gap: 20,
+  logoWrapperRight: {
+    alignItems: "flex-end",
+    marginBottom: 8,
   },
-  clientBox: {
-    flex: 1.3,
+  logoImageRight: {
+    width: 130,
+    height: 33,
+    objectFit: "contain",
   },
-  clientTitle: {
-    fontSize: 13,
+  companyNameText: {
+    fontSize: 9,
     fontWeight: "bold",
     color: colors.primary,
     marginBottom: 5,
   },
-  clientDetailText: {
-    fontSize: 8.5,
-    color: colors.secondary,
-    marginBottom: 2,
+  companyInfoBlock: {
+    gap: 2,
   },
-  
-  metaBox: {
-    flex: 0.7,
+  clientInfoBlock: {
+    gap: 2,
+  },
+  infoRowInline: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    fontSize: 7.5,
+    lineHeight: 1.25,
+  },
+  infoKeyInline: {
+    fontWeight: "bold",
+    color: colors.primary,
+    width: 75,
+  },
+  infoValueInline: {
+    color: colors.secondary,
+    flex: 1,
+  },
+  quotationDetailsBlock: {
+    alignItems: "flex-end",
+    gap: 2,
+    width: "100%",
+  },
+  quotationHeading: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: colors.primary,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  metaRowRight: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    gap: 35,
+    fontSize: 7.5,
+    lineHeight: 1.25,
+    width: "100%",
   },
-  metaColumn: {
-    alignItems: "flex-start",
-  },
-  metaLabel: {
-    fontSize: 9,
+  metaKeyRight: {
     fontWeight: "bold",
     color: colors.primary,
-    marginBottom: 3,
+    textAlign: "right",
   },
-  metaVal: {
-    fontSize: 9,
+  metaValueRight: {
     color: colors.secondary,
+    textAlign: "right",
+    marginLeft: 3,
+  },
+  barcodeWrapper: {
+    marginTop: 10,
+    alignItems: "center",
+  },
+  barcodeImage: {
+    width: 140,
+    height: 25,
+    objectFit: "contain",
+  },
+  barcodeText: {
+    fontSize: 7,
+    color: colors.secondary,
+    marginTop: 2,
+    letterSpacing: 0.5,
   },
 
   // Table Styling
@@ -338,6 +368,9 @@ export interface QuotationPdfProps {
   preparedBy: string
   termsConditions: string[]
   companyLogoUrl?: string | null // Base64 logo png
+  aynMuskLogoUrl?: string | null
+  barcodeBase64?: string | null
+  clientId?: string | null
 }
 
 export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationPdfItem[] }> = ({
@@ -363,6 +396,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   preparedBy,
   termsConditions,
   companyLogoUrl,
+  aynMuskLogoUrl,
+  barcodeBase64,
+  clientId,
   items,
 }) => {
   const formatCurrency = (val: number) => {
@@ -404,45 +440,156 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     <Document>
       <Page size="A4" style={styles.page}>
         
-        {/* Corporate Header */}
-        <View style={styles.header}>
-          <View style={{ marginLeft: -12 }}>
-            <View style={styles.logoContainer}>
+        {/* Unified Two-Column Header */}
+        <View style={styles.headerContainer}>
+          
+          {/* Left Column: BOSQ Logo, Company Info & Client Info */}
+          <View style={styles.leftColumn}>
+            
+            {/* Left Logo (BOSQ Logo) */}
+            <View style={styles.logoWrapperLeft}>
               {companyLogoUrl ? (
-                <PdfImage src={companyLogoUrl} style={styles.logoImage} />
+                <PdfImage src={companyLogoUrl} style={styles.logoImageLeft} />
               ) : (
                 <Text style={styles.logoTextFallback}>BOSQ</Text>
               )}
             </View>
-            <Text style={styles.companyDetails}>{companyAddress}</Text>
-            <Text style={styles.companyDetails}>TRN: {companyTrn}</Text>
-          </View>
-          <View style={styles.titleContainer}>
-            <Text style={styles.docTitle}>Quotation</Text>
-          </View>
-        </View>
 
-        {/* Client & Reference Metadata */}
-        <View style={styles.metaContainer}>
-          <View style={styles.clientBox}>
-            <Text style={styles.clientTitle}>{clientName}</Text>
-            <Text style={styles.clientDetailText}>{clientContact}</Text>
-            <Text style={styles.clientDetailText}>{clientEmail} | {clientPhone}</Text>
-            <Text style={styles.clientDetailText}>{clientAddress}</Text>
-            {clientTrn && (
-              <Text style={styles.clientDetailText}>TRN: {clientTrn}</Text>
+            {/* Company Info */}
+            <View style={styles.companyInfoBlock}>
+              <Text style={styles.companyNameText}>AYN MUSK FOR FURNITURE CO. L.L.C.</Text>
+              
+              <View style={styles.infoRowInline}>
+                <Text style={styles.infoKeyInline}>Address:</Text>
+                <Text style={styles.infoValueInline}>Office No 133, KML Business Center, Al Quoz 1, Meydan Road, Dubai</Text>
+              </View>
+              
+              <View style={styles.infoRowInline}>
+                <Text style={styles.infoKeyInline}>Emirate:</Text>
+                <Text style={styles.infoValueInline}>Dubai</Text>
+              </View>
+
+              <View style={styles.infoRowInline}>
+                <Text style={styles.infoKeyInline}>Email:</Text>
+                <Text style={styles.infoValueInline}>accounts@bosq.ae</Text>
+              </View>
+
+              <View style={styles.infoRowInline}>
+                <Text style={styles.infoKeyInline}>Contact:</Text>
+                <Text style={styles.infoValueInline}>+9714 529 9697</Text>
+              </View>
+
+              <View style={styles.infoRowInline}>
+                <Text style={styles.infoKeyInline}>TRNID:</Text>
+                <Text style={styles.infoValueInline}>{companyTrn || "-"}</Text>
+              </View>
+            </View>
+
+            {/* Spacer */}
+            <View style={{ height: 12 }} />
+
+            {/* Client Info (Quotation For) */}
+            <View style={styles.clientInfoBlock}>
+              <View style={styles.infoRowInline}>
+                <Text style={styles.infoKeyInline}>Quotation for:</Text>
+                <Text style={styles.infoValueInline}>{clientContact}</Text>
+              </View>
+
+              <View style={styles.infoRowInline}>
+                <Text style={styles.infoKeyInline}>Company Name:</Text>
+                <Text style={styles.infoValueInline}>{clientName}</Text>
+              </View>
+
+              <View style={styles.infoRowInline}>
+                <Text style={styles.infoKeyInline}>Address:</Text>
+                <Text style={styles.infoValueInline}>{clientAddress || "-"}</Text>
+              </View>
+
+              <View style={styles.infoRowInline}>
+                <Text style={styles.infoKeyInline}>PO BOX:</Text>
+                <Text style={styles.infoValueInline}>-</Text>
+              </View>
+
+              <View style={styles.infoRowInline}>
+                <Text style={styles.infoKeyInline}>Phone:</Text>
+                <Text style={styles.infoValueInline}>{clientPhone || "-"}</Text>
+              </View>
+            </View>
+
+          </View>
+
+          {/* Right Column: AYN MUSK Logo & Quotation Meta details */}
+          <View style={styles.rightColumn}>
+            
+            {/* Right Logo (AYN MUSK Logo) */}
+            <View style={styles.logoWrapperRight}>
+              {aynMuskLogoUrl ? (
+                <PdfImage src={aynMuskLogoUrl} style={styles.logoImageRight} />
+              ) : (
+                <Text style={styles.logoTextFallback}>AYN MUSK</Text>
+              )}
+            </View>
+
+            {/* Spacer */}
+            <View style={{ height: 6 }} />
+
+            {/* Quotation Details */}
+            <View style={styles.quotationDetailsBlock}>
+              
+              <Text style={styles.quotationHeading}>Quotation</Text>
+              
+              <View style={styles.metaRowRight}>
+                <Text style={styles.metaKeyRight}>Date:</Text>
+                <Text style={styles.metaValueRight}>{date}</Text>
+              </View>
+
+              <View style={styles.metaRowRight}>
+                <Text style={styles.metaKeyRight}>Quotation #:</Text>
+                <Text style={styles.metaValueRight}>{quotationNumber}</Text>
+              </View>
+
+              <View style={styles.metaRowRight}>
+                <Text style={styles.metaKeyRight}>TRNID:</Text>
+                <Text style={styles.metaValueRight}>{clientTrn || "-"}</Text>
+              </View>
+
+              <View style={styles.metaRowRight}>
+                <Text style={styles.metaKeyRight}>Customer ID:</Text>
+                <Text style={styles.metaValueRight}>{clientId || "-"}</Text>
+              </View>
+
+              <View style={styles.metaRowRight}>
+                <Text style={styles.metaKeyRight}>Quotation Valid Until:</Text>
+                <Text style={styles.metaValueRight}>{validityDate}</Text>
+              </View>
+
+              <View style={styles.metaRowRight}>
+                <Text style={styles.metaKeyRight}>Purchase Order:</Text>
+                <Text style={styles.metaValueRight}>-</Text>
+              </View>
+
+              <View style={styles.metaRowRight}>
+                <Text style={styles.metaKeyRight}>Sales Executive:</Text>
+                <Text style={styles.metaValueRight}>{preparedBy}</Text>
+              </View>
+
+              <View style={styles.metaRowRight}>
+                <Text style={styles.metaKeyRight}>Contact Number:</Text>
+                <Text style={styles.metaValueRight}>+971 50 360 9762</Text>
+              </View>
+
+            </View>
+
+            {/* Barcode & Barcode Text underneath */}
+            {barcodeBase64 && (
+              <View style={styles.barcodeWrapper}>
+                <PdfImage src={barcodeBase64} style={styles.barcodeImage} />
+                <Text style={styles.barcodeText}>{quotationNumber}</Text>
+              </View>
             )}
+
           </View>
-          <View style={styles.metaBox}>
-            <View style={styles.metaColumn}>
-              <Text style={styles.metaLabel}>Date</Text>
-              <Text style={styles.metaVal}>{date}</Text>
-            </View>
-            <View style={styles.metaColumn}>
-              <Text style={styles.metaLabel}>Reference</Text>
-              <Text style={styles.metaVal}>{quotationNumber}</Text>
-            </View>
-          </View>
+
         </View>
 
         {/* Table Headers */}

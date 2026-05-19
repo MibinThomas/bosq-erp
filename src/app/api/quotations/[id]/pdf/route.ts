@@ -14,7 +14,7 @@ export async function GET(
   try {
     const { id } = await params
 
-    // Read brand logo to base64
+    // Read both brand logos to base64
     let logoBase64 = ""
     try {
       const logoPath = path.join(process.cwd(), "public", "assets", "logo", "logo.png")
@@ -24,6 +24,17 @@ export async function GET(
       }
     } catch (logoErr) {
       console.error("Failed to read logo buffer:", logoErr)
+    }
+
+    let aynMuskLogoBase64 = ""
+    try {
+      const aynMuskLogoPath = path.join(process.cwd(), "public", "assets", "logo", "AYN Musk_PNG.png")
+      if (fs.existsSync(aynMuskLogoPath)) {
+        const fileBuffer = fs.readFileSync(aynMuskLogoPath)
+        aynMuskLogoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
+      }
+    } catch (aynMuskErr) {
+      console.error("Failed to read AYN Musk logo buffer:", aynMuskErr)
     }
 
     // Fetch the quotation with all relations
@@ -52,6 +63,19 @@ export async function GET(
 
     if (!quotation) {
       return new Response("Quotation not found", { status: 404 })
+    }
+
+    // Generate barcode image dynamically
+    let barcodeBase64 = ""
+    try {
+      const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(quotation.quotationNumber)}&scale=2&rotate=N&includetext=false`
+      const res = await fetch(barcodeUrl)
+      if (res.ok) {
+        const arrayBuffer = await res.arrayBuffer()
+        barcodeBase64 = `data:image/png;base64,${Buffer.from(arrayBuffer).toString("base64")}`
+      }
+    } catch (barcodeErr) {
+      console.error("Failed to generate barcode:", barcodeErr)
     }
 
     // Get Terms & Conditions
@@ -110,6 +134,9 @@ export async function GET(
       preparedBy: quotation.preparedBy.name || "Sales Executive",
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
+      aynMuskLogoUrl: aynMuskLogoBase64 || null,
+      barcodeBase64: barcodeBase64 || null,
+      clientId: quotation.client.clientId || null,
       items: docItems,
     }
 
