@@ -14,9 +14,11 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     
-    let whereClause = {}
+    let whereClause: any = {
+      status: { not: "REVISED" }
+    }
     if (session?.user && (session.user as any).role === "SALES_EXECUTIVE") {
-      whereClause = { preparedById: (session.user as any).id }
+      whereClause.preparedById = (session.user as any).id
     }
 
     const quotations = await prisma.quotation.findMany({
@@ -24,13 +26,25 @@ export async function GET() {
       include: {
         client: true,
         preparedBy: true,
-        revisions: {
-          orderBy: { revisionNumber: "desc" }
-        }
       },
       orderBy: { quotationNumber: "desc" },
     })
-    return NextResponse.json(quotations)
+
+    const quotationsWithRevisions = await Promise.all(
+      quotations.map(async (quote) => {
+        const rootId = quote.parentId || quote.id
+        const revisions = await prisma.quotationRevision.findMany({
+          where: { quotationId: rootId },
+          orderBy: { revisionNumber: "desc" }
+        })
+        return {
+          ...quote,
+          revisions
+        }
+      })
+    )
+
+    return NextResponse.json(quotationsWithRevisions)
   } catch (error) {
     console.error("Failed to fetch quotations:", error)
     return NextResponse.json(
@@ -96,18 +110,30 @@ export async function POST(request: Request) {
       }
     }
 
-    // 2. Generate quotation number (e.g. I1952)
-    const lastQuote = await prisma.quotation.findFirst({
-      orderBy: { quotationNumber: "desc" },
+    // 2. Generate quotation number (e.g. I2223-1)
+    const segment = body.customerSegment || "Direct"
+    let prefix = "P"
+    if (segment === "Interior") prefix = "I"
+    else if (segment === "Dealer") prefix = "D"
+    else if (segment === "Direct" || segment === "Online") prefix = "P"
+
+    const allQuotes = await prisma.quotation.findMany({
+      select: { quotationNumber: true }
     })
 
-    let nextQuoteNo = "I1951"
-    if (lastQuote && lastQuote.quotationNumber.startsWith("I")) {
-      const lastNum = parseInt(lastQuote.quotationNumber.replace("I", ""), 10)
-      if (!isNaN(lastNum)) {
-        nextQuoteNo = `I${lastNum + 1}`
+    let maxNumber = 2222
+    for (const q of allQuotes) {
+      const match = q.quotationNumber.match(/^[IDP](\d+)/)
+      if (match) {
+        const num = parseInt(match[1], 10)
+        if (num > maxNumber) {
+          maxNumber = num
+        }
       }
     }
+
+    const nextBaseNumber = maxNumber + 1
+    const nextQuoteNo = `${prefix}${nextBaseNumber}-1`
 
     // Read both brand logos to base64
     let logoBase64 = ""
@@ -158,6 +184,7 @@ export async function POST(request: Request) {
       const qty = parseInt(item.quantity) || 1
       const price = parseFloat(item.unitPrice) || 0
       const disc = parseFloat(item.discount) || 0
+      const marginVal = parseFloat(item.margin) || 0.0
       const amt = (price - disc) * qty
       calculatedSubtotal += amt
 
@@ -171,6 +198,7 @@ export async function POST(request: Request) {
         quantity: qty,
         unitPrice: price,
         discount: disc,
+        margin: marginVal,
         amount: amt,
         imageUrl: matchedProd?.imageUrl || null,
         categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
@@ -244,11 +272,13 @@ export async function POST(request: Request) {
     }
 
     // 6. Upload PDF to SharePoint folder
+    const sanitizedClientNameForFile = clientObj.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+    const filenameBase = `${nextQuoteNo}_${sanitizedClientNameForFile}`
     let sharepointUrl = ""
     try {
       sharepointUrl = await uploadQuotationPdf(
         clientObj.companyName,
-        nextQuoteNo,
+        filenameBase,
         pdfBuffer
       )
     } catch (spError) {
@@ -256,13 +286,14 @@ export async function POST(request: Request) {
       // Fallback url
       sharepointUrl = `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(
         clientObj.companyName
-      )}/Quotations/${nextQuoteNo}.pdf`
+      )}/Quotations/${filenameBase}.pdf`
     }
 
     // 7. Save Quotation and Items in Database
     const newQuotation = await prisma.quotation.create({
       data: {
         quotationNumber: nextQuoteNo,
+        customerSegment: segment,
         clientId: clientObj.id,
         projectName: projectName || null,
         date: date ? new Date(date) : new Date(),
@@ -271,6 +302,7 @@ export async function POST(request: Request) {
         deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
         paymentTerms,
         status: status || "SENT",
+        revisionNumber: 1,
         subtotal: calculatedSubtotal,
         discount: 0.0,
         deliveryCharge: charge,
@@ -287,6 +319,7 @@ export async function POST(request: Request) {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             discount: item.discount,
+            margin: item.margin,
             amount: item.amount,
           })),
         },

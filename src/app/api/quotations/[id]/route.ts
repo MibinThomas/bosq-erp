@@ -28,9 +28,6 @@ export async function GET(
         items: {
           orderBy: { itemNo: "asc" }
         },
-        revisions: {
-          orderBy: { revisionNumber: "desc" }
-        },
         preparedBy: true,
       },
     })
@@ -42,7 +39,16 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(quotation)
+    const rootId = quotation.parentId || quotation.id
+    const revisions = await prisma.quotationRevision.findMany({
+      where: { quotationId: rootId },
+      orderBy: { revisionNumber: "desc" }
+    })
+
+    return NextResponse.json({
+      ...quotation,
+      revisions
+    })
   } catch (error) {
     console.error("Failed to fetch quotation:", error)
     return NextResponse.json(
@@ -119,6 +125,7 @@ export async function PUT(
         const qty = parseInt(item.quantity) || 1
         const price = parseFloat(item.unitPrice) || 0
         const disc = parseFloat(item.discount) || 0
+        const marginVal = parseFloat(item.margin) || 0.0
         const amt = (price - disc) * qty
         calculatedSubtotal += amt
 
@@ -132,6 +139,7 @@ export async function PUT(
           quantity: qty,
           unitPrice: price,
           discount: disc,
+          margin: marginVal,
           amount: amt,
           imageUrl: matchedProd?.imageUrl || null,
           categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
@@ -178,11 +186,21 @@ export async function PUT(
         console.error("Failed to read AYN Musk logo buffer in revision:", aynMuskErr)
       }
 
-      const nextRevNo = existingQuotation.revisionNumber + 1
+      const rootId = existingQuotation.parentId || existingQuotation.id
+      const rootQuotation = await prisma.quotation.findUnique({
+        where: { id: rootId },
+        include: { revisions: true }
+      })
 
-      // Generate barcode image dynamically
+      const maxRev = rootQuotation 
+        ? Math.max(1, ...rootQuotation.revisions.map(r => r.revisionNumber), existingQuotation.revisionNumber)
+        : existingQuotation.revisionNumber
+      const nextRevNo = maxRev + 1
+
+      const rootNumMatch = existingQuotation.quotationNumber.match(/^([IDP]\d+)/)
+      const baseQuoteNo = rootNumMatch ? rootNumMatch[1] : existingQuotation.quotationNumber.split("-")[0]
+      const revQuoteNum = `${baseQuoteNo}-${nextRevNo}`
       let barcodeBase64 = ""
-      const revQuoteNum = `${existingQuotation.quotationNumber}-R${nextRevNo}`
       try {
         const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(revQuoteNum)}&scale=2&rotate=N&includetext=false`
         const res = await fetch(barcodeUrl)
@@ -244,23 +262,28 @@ export async function PUT(
       }
 
       // Upload revised PDF to SharePoint
-      let sharepointUrl = existingQuotation.sharepointUrl || ""
+      const sanitizedClientNameForFile = existingQuotation.client.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+      const filenameBase = `${revQuoteNum}_${sanitizedClientNameForFile}`
+      let sharepointUrl = ""
       try {
         sharepointUrl = await uploadQuotationPdf(
           existingQuotation.client.companyName,
-          `${existingQuotation.quotationNumber}-R${nextRevNo}`,
+          filenameBase,
           pdfBuffer
         )
       } catch (spError) {
         console.error("Failed to upload revised PDF to SharePoint:", spError)
+        sharepointUrl = `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(
+          existingQuotation.client.companyName
+        )}/Quotations/${filenameBase}.pdf`
       }
 
-      // Execute atomic transaction for revision
+      // Execute atomic transaction for revision (create a new quotation record, keep the old one)
       const updatedQuotation = await prisma.$transaction(async (tx) => {
-        // 1. Create Revision log history
+        // 1. Create Revision log history linked to parent root
         await tx.quotationRevision.create({
           data: {
-            quotationId: existingQuotation.id,
+            quotationId: rootId,
             revisionNumber: nextRevNo,
             previousTotal: existingQuotation.grandTotal,
             newTotal: calculatedGrandTotal,
@@ -268,41 +291,50 @@ export async function PUT(
           }
         })
 
-        // 2. Delete old items
-        await tx.quotationItem.deleteMany({
-          where: { quotationId: existingQuotation.id }
-        })
-
-        // 3. Insert new items
-        await tx.quotationItem.createMany({
-          data: quotationItemsToCreate.map((item: any) => ({
-            quotationId: existingQuotation.id,
-            productId: item.productId,
-            itemNo: item.itemNo,
-            description: item.description,
-            specifications: item.specifications,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            discount: item.discount,
-            amount: item.amount,
-          }))
-        })
-
-        // 4. Update core Quotation fields
-        return await tx.quotation.update({
+        // 2. Update previous copy status to "REVISED"
+        await tx.quotation.update({
           where: { id: existingQuotation.id },
+          data: { status: "REVISED" }
+        })
+
+        // 3. Create brand new quotation revision record
+        return await tx.quotation.create({
           data: {
+            quotationNumber: revQuoteNum,
+            customerSegment: existingQuotation.customerSegment,
+            clientId: existingQuotation.clientId,
+            projectId: existingQuotation.projectId,
+            projectName: projectName || existingQuotation.projectName || null,
+            date: new Date(),
+            validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            preparedById: existingQuotation.preparedById,
+            deliveryDate: deliveryDate ? new Date(deliveryDate) : existingQuotation.deliveryDate,
+            paymentTerms: paymentTerms || existingQuotation.paymentTerms,
+            status: "APPROVED",
             revisionNumber: nextRevNo,
-            projectName: projectName || null,
-            deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
-            paymentTerms,
-            notes: notes || null,
+            poStatus: "PENDING",
+            paymentStatus: "UNPAID",
             subtotal: calculatedSubtotal,
-            vatAmount: calculatedVat,
+            discount: 0.0,
             deliveryCharge: charge,
+            vatAmount: calculatedVat,
             grandTotal: calculatedGrandTotal,
             sharepointUrl,
-            status: "REVISED",
+            notes: notes || existingQuotation.notes || null,
+            parentId: rootId,
+            items: {
+              create: quotationItemsToCreate.map((item: any) => ({
+                itemNo: item.itemNo,
+                productId: item.productId,
+                description: item.description,
+                specifications: item.specifications,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                discount: item.discount,
+                margin: item.margin,
+                amount: item.amount,
+              })),
+            },
           },
           include: {
             client: true,
@@ -320,7 +352,7 @@ export async function PUT(
             action: "REVISED_QUOTATION",
             entityType: "QUOTATION",
             entityId: updatedQuotation.id,
-            details: `Revised quotation ${existingQuotation.quotationNumber} to Rev ${nextRevNo}. Notes: ${revisionNotes}`,
+            details: `Revised quotation ${existingQuotation.quotationNumber} to ${revQuoteNum}. Notes: ${revisionNotes}`,
           },
         })
       }

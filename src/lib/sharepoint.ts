@@ -74,12 +74,53 @@ export async function createClientFolder(companyName: string) {
   }
 }
 
-export async function uploadQuotationPdf(companyName: string, quotationNumber: string, pdfBuffer: Buffer) {
+export function sanitizeClientName(name: string): string {
+  return name.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+}
+
+async function ensureFolderStructure(client: any, siteId: string, driveId: string, companyName: string) {
+  const sanitizedCompany = sanitizeClientName(companyName)
+  const folders = ["Clients", `Clients/${sanitizedCompany}`, `Clients/${sanitizedCompany}/Quotations`]
+  
+  for (const folderPath of folders) {
+    try {
+      await client
+        .api(`/sites/${siteId}/drives/${driveId}/root:/${folderPath}`)
+        .get()
+    } catch (err: any) {
+      if (err.statusCode === 404) {
+        const pathParts = folderPath.split("/")
+        const folderName = pathParts.pop()
+        const parentPath = pathParts.join("/")
+        
+        const folderPayload = {
+          name: folderName,
+          folder: {},
+          "@microsoft.graph.conflictBehavior": "fail"
+        }
+        
+        const endpoint = parentPath 
+          ? `/sites/${siteId}/drives/${driveId}/root:/${parentPath}:/children`
+          : `/sites/${siteId}/drives/${driveId}/root/children`
+          
+        await client
+          .api(endpoint)
+          .post(folderPayload)
+      } else {
+        throw err
+      }
+    }
+  }
+}
+
+export async function uploadQuotationPdf(companyName: string, filenameBase: string, pdfBuffer: Buffer) {
   const { config, hasCreds } = await getSharePointConfig()
+  const sanitizedCompany = sanitizeClientName(companyName)
+  const sanitizedFilename = filenameBase.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
   
   if (!hasCreds) {
     console.warn("SharePoint credentials are not configured. Falling back to mock PDF upload.")
-    return `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(companyName)}/Quotations/${quotationNumber}.pdf`
+    return `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Quotations/${sanitizedFilename}.pdf`
   }
 
   try {
@@ -89,8 +130,11 @@ export async function uploadQuotationPdf(companyName: string, quotationNumber: s
       config.sharepoint_client_secret
     )
     
-    const fileName = `${quotationNumber}.pdf`
-    const path = `/Clients/${companyName}/Quotations/${fileName}`
+    // Ensure all directories are created
+    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName)
+    
+    const fileName = `${sanitizedFilename}.pdf`
+    const path = `/Clients/${sanitizedCompany}/Quotations/${fileName}`
     
     const result = await client
       .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:${path}:/content`)

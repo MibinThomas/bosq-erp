@@ -33,6 +33,7 @@ import { QuickAddProductModal } from "@/components/products/quick-add-product-mo
 const quotationSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
   projectName: z.string().min(1, "Project name is required"),
+  customerSegment: z.enum(["Interior", "Dealer", "Direct", "Online"]),
   date: z.string(),
   validityDate: z.string(),
   deliveryDate: z.string().optional(),
@@ -47,6 +48,7 @@ const quotationSchema = z.object({
       quantity: z.number().min(1, "Quantity must be at least 1"),
       unitPrice: z.number().min(0, "Price must be at least 0"),
       discount: z.number().min(0),
+      margin: z.number().min(-100),
     })
   ).min(1, "At least one item is required"),
 })
@@ -65,6 +67,10 @@ interface Product {
   productCode: string
   productName: string
   unitPrice: number
+  interiorPrice?: number
+  dealerPrice?: number
+  directPrice?: number
+  onlinePrice?: number
   specifications: string | null
   imageUrl: string | null
 }
@@ -113,6 +119,7 @@ function NewQuotationForm() {
             form.reset({
               clientId: reviseData.clientId,
               projectName: reviseData.projectName || "",
+              customerSegment: reviseData.customerSegment || "Direct",
               date: new Date().toISOString().split("T")[0],
               validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
               deliveryDate: reviseData.deliveryDate ? new Date(reviseData.deliveryDate).toISOString().split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -124,6 +131,7 @@ function NewQuotationForm() {
                 quantity: item.quantity,
                 unitPrice: item.unitPrice,
                 discount: item.discount || 0,
+                margin: item.margin || 0,
               })),
               deliveryCharge: reviseData.deliveryCharge || 0,
               notes: reviseData.notes || "",
@@ -145,11 +153,12 @@ function NewQuotationForm() {
     defaultValues: {
       clientId: initialClientId,
       projectName: "",
+      customerSegment: "Direct",
       date: new Date().toISOString().split("T")[0],
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", description: "", specifications: "", quantity: 1, unitPrice: 0, discount: 0 }],
+      items: [{ productId: "", description: "", specifications: "", quantity: 1, unitPrice: 0, discount: 0, margin: 0 }],
       deliveryCharge: 0,
       notes: "",
     },
@@ -173,6 +182,8 @@ function NewQuotationForm() {
 
   const selectedClientObj = clients.find((c) => c.id === watchClientId)
 
+  const watchSegment = form.watch("customerSegment") || "Direct"
+
   // Subtotal, VAT and Grand Total Calculations
   const subtotal = watchItems.reduce((acc, item) => {
     const qty = item.quantity || 0
@@ -184,16 +195,44 @@ function NewQuotationForm() {
   const vatAmount = subtotal * 0.05
   const grandTotal = subtotal + vatAmount + (watchDeliveryCharge || 0)
 
+  // Watch for segment changes and update line item unit prices
+  useEffect(() => {
+    const currentItems = form.getValues("items") || []
+    currentItems.forEach((item, index) => {
+      if (item.productId) {
+        const matchedProduct = products.find((p) => p.id === item.productId)
+        if (matchedProduct) {
+          let basePrice = matchedProduct.unitPrice
+          if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
+          else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
+          else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
+          else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
+          
+          const margin = item.margin || 0
+          const calculatedPrice = basePrice * (1 + margin / 100)
+          form.setValue(`items.${index}.unitPrice`, Number(calculatedPrice.toFixed(2)))
+        }
+      }
+    })
+  }, [watchSegment, products])
+
   // Handle select catalog product auto-population
   const handleProductSelect = (index: number, productId: string | null) => {
     if (!productId) return
     const matchedProduct = products.find((p) => p.id === productId)
     if (matchedProduct) {
+      let basePrice = matchedProduct.unitPrice
+      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
+      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
+      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
+      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
+
       form.setValue(`items.${index}.productId`, matchedProduct.id)
       form.setValue(`items.${index}.description`, matchedProduct.productName)
       form.setValue(`items.${index}.specifications`, matchedProduct.specifications || "")
-      form.setValue(`items.${index}.unitPrice`, matchedProduct.unitPrice)
-      toast.info(`Populated item with ${matchedProduct.productName} catalog price!`)
+      form.setValue(`items.${index}.margin`, 0) // reset margin to 0
+      form.setValue(`items.${index}.unitPrice`, basePrice)
+      toast.info(`Populated ${matchedProduct.productName} for ${watchSegment} segment at base price AED ${basePrice}!`)
     }
   }
 
@@ -332,6 +371,30 @@ function NewQuotationForm() {
                     )}
                   />
 
+                  <FormField
+                    control={form.control}
+                    name="customerSegment"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Customer Segment <span className="text-red-500">*</span></FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={isRevision}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select customer segment" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Interior">Interior (Prefix: I)</SelectItem>
+                            <SelectItem value="Dealer">Dealer (Prefix: D)</SelectItem>
+                            <SelectItem value="Direct">Direct (Prefix: P)</SelectItem>
+                            <SelectItem value="Online">Online (Prefix: P)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   {selectedClientObj && (
                     <div className="p-3 border rounded-lg bg-muted/40 text-xs space-y-1">
                       <div className="flex justify-between">
@@ -432,7 +495,7 @@ function NewQuotationForm() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ productId: "", description: "", specifications: "", quantity: 1, unitPrice: 0, discount: 0 })}
+                  onClick={() => append({ productId: "", description: "", specifications: "", quantity: 1, unitPrice: 0, discount: 0, margin: 0 })}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Custom Item
@@ -457,11 +520,19 @@ function NewQuotationForm() {
                               <SelectValue placeholder="Search or select catalog product..." />
                             </SelectTrigger>
                             <SelectContent>
-                              {products.map((product) => (
-                                <SelectItem key={product.id} value={product.id}>
-                                  {product.productCode} - {product.productName} (AED {product.unitPrice})
-                                </SelectItem>
-                              ))}
+                              {products.map((product) => {
+                                let basePrice = product.unitPrice
+                                if (watchSegment === "Interior") basePrice = product.interiorPrice ?? product.unitPrice
+                                else if (watchSegment === "Dealer") basePrice = product.dealerPrice ?? product.unitPrice
+                                else if (watchSegment === "Direct") basePrice = product.directPrice ?? product.unitPrice
+                                else if (watchSegment === "Online") basePrice = product.onlinePrice ?? product.unitPrice
+
+                                return (
+                                  <SelectItem key={product.id} value={product.id}>
+                                    {product.productCode} - {product.productName} ({watchSegment} Price: AED {basePrice.toFixed(2)})
+                                  </SelectItem>
+                                )
+                              })}
                             </SelectContent>
                           </Select>
                         </div>
@@ -528,7 +599,7 @@ function NewQuotationForm() {
                       </div>
 
                       {/* Quantity, Unit Price and Discount */}
-                      <div className="md:col-span-5 grid grid-cols-3 gap-3 pt-6 md:pt-0">
+                      <div className="md:col-span-5 grid grid-cols-4 gap-2 pt-6 md:pt-0">
                         <FormField
                           control={form.control}
                           name={`items.${index}.quantity`}
@@ -550,6 +621,42 @@ function NewQuotationForm() {
 
                         <FormField
                           control={form.control}
+                          name={`items.${index}.margin`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Margin (%)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="-100"
+                                  step="0.1"
+                                  {...field}
+                                  onChange={(e) => {
+                                    const newMargin = parseFloat(e.target.value) || 0
+                                    field.onChange(newMargin)
+                                    
+                                    const itemId = watchItems[index]?.productId
+                                    const matchedProduct = products.find((p) => p.id === itemId)
+                                    if (matchedProduct) {
+                                      let basePrice = matchedProduct.unitPrice
+                                      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
+                                      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
+                                      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
+                                      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
+                                      
+                                      const newPrice = basePrice * (1 + newMargin / 100)
+                                      form.setValue(`items.${index}.unitPrice`, Number(newPrice.toFixed(2)))
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
                           name={`items.${index}.unitPrice`}
                           render={({ field }) => (
                             <FormItem>
@@ -560,7 +667,25 @@ function NewQuotationForm() {
                                   min="0"
                                   step="0.01"
                                   {...field}
-                                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                  onChange={(e) => {
+                                    const newPrice = parseFloat(e.target.value) || 0
+                                    field.onChange(newPrice)
+                                    
+                                    const itemId = watchItems[index]?.productId
+                                    const matchedProduct = products.find((p) => p.id === itemId)
+                                    if (matchedProduct) {
+                                      let basePrice = matchedProduct.unitPrice
+                                      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
+                                      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
+                                      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
+                                      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
+                                      
+                                      if (basePrice > 0) {
+                                        const calculatedMargin = ((newPrice / basePrice) - 1) * 100
+                                        form.setValue(`items.${index}.margin`, Number(calculatedMargin.toFixed(1)))
+                                      }
+                                    }
+                                  }}
                                 />
                               </FormControl>
                               <FormMessage />
@@ -688,10 +813,17 @@ function NewQuotationForm() {
           
           // Auto-select in current line item
           if (activeLineIndex !== null) {
+            let basePrice = newProduct.unitPrice
+            if (watchSegment === "Interior") basePrice = newProduct.interiorPrice ?? newProduct.unitPrice
+            else if (watchSegment === "Dealer") basePrice = newProduct.dealerPrice ?? newProduct.unitPrice
+            else if (watchSegment === "Direct") basePrice = newProduct.directPrice ?? newProduct.unitPrice
+            else if (watchSegment === "Online") basePrice = newProduct.onlinePrice ?? newProduct.unitPrice
+
             form.setValue(`items.${activeLineIndex}.productId`, newProduct.id)
             form.setValue(`items.${activeLineIndex}.description`, newProduct.productName)
             form.setValue(`items.${activeLineIndex}.specifications`, newProduct.specifications || "")
-            form.setValue(`items.${activeLineIndex}.unitPrice`, newProduct.unitPrice)
+            form.setValue(`items.${activeLineIndex}.margin`, 0)
+            form.setValue(`items.${activeLineIndex}.unitPrice`, basePrice)
           }
         }}
       />

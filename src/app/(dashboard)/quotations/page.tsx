@@ -199,7 +199,6 @@ export default function QuotationsPage() {
                 <TableRow key={quote.id} className="hover:bg-muted/30 transition-colors">
                   <TableCell className="font-mono font-medium text-primary">
                     {quote.quotationNumber}
-                    {quote.revisionNumber > 0 ? `-${quote.revisionNumber}` : ""}
                   </TableCell>
                   <TableCell>{new Date(quote.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</TableCell>
                   <TableCell>

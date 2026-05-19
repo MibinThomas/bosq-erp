@@ -11,6 +11,10 @@ interface Product {
   productCode: string
   productName: string
   unitPrice: number
+  interiorPrice?: number
+  dealerPrice?: number
+  directPrice?: number
+  onlinePrice?: number
   specifications: string | null
   imageUrl: string | null
 }
@@ -79,6 +83,10 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess }: QuickAddPro
         productCode: created.productCode,
         productName: created.productName,
         unitPrice: created.unitPrice,
+        interiorPrice: created.interiorPrice,
+        dealerPrice: created.dealerPrice,
+        directPrice: created.directPrice,
+        onlinePrice: created.onlinePrice,
         specifications: created.specifications || "",
         imageUrl: created.imageUrl || null
       })

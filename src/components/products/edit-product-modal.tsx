@@ -12,6 +12,10 @@ interface Product {
   productName: string
   unitPrice: number
   costPrice: number
+  interiorPrice?: number
+  dealerPrice?: number
+  directPrice?: number
+  onlinePrice?: number
   warranty: string | null
   availableColors: string | null
   dimensions: string | null
@@ -34,6 +38,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
   const [code, setCode] = useState("")
   const [categoryName, setCategoryName] = useState("")
   const [price, setPrice] = useState("")
+  const [costPrice, setCostPrice] = useState("")
+  const [interiorPrice, setInteriorPrice] = useState("")
+  const [dealerPrice, setDealerPrice] = useState("")
+  const [directPrice, setDirectPrice] = useState("")
+  const [onlinePrice, setOnlinePrice] = useState("")
   const [warranty, setWarranty] = useState("")
   const [dimensions, setDimensions] = useState("")
   const [status, setStatus] = useState("ACTIVE")
@@ -47,6 +56,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
       setCode(product.productCode)
       setCategoryName(product.category.name)
       setPrice(product.unitPrice.toString())
+      setCostPrice(product.costPrice?.toString() || "")
+      setInteriorPrice(product.interiorPrice?.toString() || "")
+      setDealerPrice(product.dealerPrice?.toString() || "")
+      setDirectPrice(product.directPrice?.toString() || "")
+      setOnlinePrice(product.onlinePrice?.toString() || "")
       setWarranty(product.warranty || "5 Years")
       setDimensions(product.dimensions || "Standard")
       setStatus(product.status)
@@ -84,6 +98,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
           productCode: code,
           categoryName,
           unitPrice: parseFloat(price) || 0.0,
+          costPrice: parseFloat(costPrice) || 0.0,
+          interiorPrice: interiorPrice !== "" ? parseFloat(interiorPrice) : parseFloat(price),
+          dealerPrice: dealerPrice !== "" ? parseFloat(dealerPrice) : parseFloat(price),
+          directPrice: directPrice !== "" ? parseFloat(directPrice) : parseFloat(price),
+          onlinePrice: onlinePrice !== "" ? parseFloat(onlinePrice) : parseFloat(price),
           warranty,
           dimensions,
           status,
@@ -156,13 +175,68 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold">Unit Price (AED)</label>
+              <label className="text-xs font-bold">Selling Price (AED)</label>
               <Input 
                 type="number"
                 step="0.01"
                 value={price} 
                 onChange={(e) => setPrice(e.target.value)} 
                 placeholder="E.g., 850.00" 
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold">Cost Price (AED)</label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={costPrice} 
+                onChange={(e) => setCostPrice(e.target.value)} 
+                placeholder="E.g., 500.00" 
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold">Interior Price (AED)</label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={interiorPrice} 
+                onChange={(e) => setInteriorPrice(e.target.value)} 
+                placeholder="Defaults to Selling Price" 
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold">Dealer Price (AED)</label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={dealerPrice} 
+                onChange={(e) => setDealerPrice(e.target.value)} 
+                placeholder="Defaults to Selling Price" 
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold">Direct Price (AED)</label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={directPrice} 
+                onChange={(e) => setDirectPrice(e.target.value)} 
+                placeholder="Defaults to Selling Price" 
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold">Online Price (AED)</label>
+              <Input 
+                type="number"
+                step="0.01"
+                value={onlinePrice} 
+                onChange={(e) => setOnlinePrice(e.target.value)} 
+                placeholder="Defaults to Selling Price" 
               />
             </div>
 

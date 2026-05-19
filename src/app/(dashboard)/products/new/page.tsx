@@ -26,6 +26,10 @@ export default function NewProductPage() {
     categoryName: "Workstations",
     unitPrice: "",
     costPrice: "",
+    interiorPrice: "",
+    dealerPrice: "",
+    directPrice: "",
+    onlinePrice: "",
     warranty: "5 Years",
     availableColors: "Standard",
     dimensions: "",
@@ -50,10 +54,18 @@ export default function NewProductPage() {
 
     setSaving(true)
     try {
+      const payload = {
+        ...formData,
+        interiorPrice: formData.interiorPrice.trim() || formData.unitPrice,
+        dealerPrice: formData.dealerPrice.trim() || formData.unitPrice,
+        directPrice: formData.directPrice.trim() || formData.unitPrice,
+        onlinePrice: formData.onlinePrice.trim() || formData.unitPrice,
+      }
+
       const res = await fetch("/api/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) {
@@ -160,6 +172,62 @@ export default function NewProductPage() {
                 placeholder="e.g. 500.00"
                 value={formData.costPrice}
                 onChange={(e) => setFormData(prev => ({ ...prev, costPrice: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <DollarSign className="h-3.5 w-3.5 text-primary" />
+                Interior Price (AED)
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Defaults to Selling Price"
+                value={formData.interiorPrice}
+                onChange={(e) => setFormData(prev => ({ ...prev, interiorPrice: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <DollarSign className="h-3.5 w-3.5 text-primary" />
+                Dealer Price (AED)
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Defaults to Selling Price"
+                value={formData.dealerPrice}
+                onChange={(e) => setFormData(prev => ({ ...prev, dealerPrice: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <DollarSign className="h-3.5 w-3.5 text-primary" />
+                Direct Price (AED)
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Defaults to Selling Price"
+                value={formData.directPrice}
+                onChange={(e) => setFormData(prev => ({ ...prev, directPrice: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <DollarSign className="h-3.5 w-3.5 text-primary" />
+                Online Price (AED)
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Defaults to Selling Price"
+                value={formData.onlinePrice}
+                onChange={(e) => setFormData(prev => ({ ...prev, onlinePrice: e.target.value }))}
               />
             </div>
 

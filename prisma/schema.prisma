@@ -63,6 +63,10 @@ model Product {
   imageUrl        String?
   unitPrice       Float     @default(0.0)
   costPrice       Float     @default(0.0)
+  interiorPrice   Float     @default(0.0)
+  dealerPrice     Float     @default(0.0)
+  directPrice     Float     @default(0.0)
+  onlinePrice     Float     @default(0.0)
   warranty        String?
   availableColors String?
   dimensions      String?
@@ -76,6 +80,7 @@ model Product {
 model Quotation {
   id              String    @id @default(cuid())
   quotationNumber String    @unique // E.g., I1951
+  customerSegment String    @default("Direct") // Interior, Dealer, Direct, Online
   clientId        String
   client          Client    @relation(fields: [clientId], references: [id])
   projectId       String?
@@ -102,6 +107,10 @@ model Quotation {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  parentId        String?
+  parent          Quotation?       @relation("QuotationRevisions", fields: [parentId], references: [id], onDelete: Cascade)
+  revisionsList   Quotation[]      @relation("QuotationRevisions")
+
   items           QuotationItem[]
   revisions       QuotationRevision[]
 }
@@ -119,6 +128,7 @@ model QuotationItem {
   quantity        Int       @default(1)
   unitPrice       Float     @default(0.0)
   discount        Float     @default(0.0)
+  margin          Float     @default(0.0)
   amount          Float     @default(0.0) // (unitPrice - discount) * quantity
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

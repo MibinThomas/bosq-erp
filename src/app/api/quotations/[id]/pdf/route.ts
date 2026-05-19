@@ -145,12 +145,15 @@ export async function GET(
       React.createElement(QuotationDocument, pdfProps) as any
     )
 
+    const sanitizedClientName = quotation.client.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+    const filename = `${quotation.quotationNumber}_${sanitizedClientName}.pdf`
+
     // Return PDF Stream
     return new Response(pdfBuffer as any, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${quotation.quotationNumber}.pdf"`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
         "Content-Length": pdfBuffer.length.toString(),
       },
     })

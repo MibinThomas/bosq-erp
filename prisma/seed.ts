@@ -147,6 +147,10 @@ async function main() {
           categoryId: category.id,
           unitPrice: 2450.00,
           costPrice: 1600.00,
+          interiorPrice: 2200.00,
+          dealerPrice: 2000.00,
+          directPrice: 2450.00,
+          onlinePrice: 2500.00,
           availableColors: "White, Walnut, Oak",
           dimensions: "2400x1200x750 mm",
           warranty: "5 Years",
@@ -164,6 +168,10 @@ async function main() {
           categoryId: category.id,
           unitPrice: 4200.00,
           costPrice: 2800.00,
+          interiorPrice: 3800.00,
+          dealerPrice: 3500.00,
+          directPrice: 4200.00,
+          onlinePrice: 4400.00,
           availableColors: "Mahogany, Charcoal, Walnut",
           dimensions: "2000x1600x750 mm",
           warranty: "5 Years",
@@ -181,6 +189,10 @@ async function main() {
           categoryId: category.id,
           unitPrice: 850.00,
           costPrice: 500.00,
+          interiorPrice: 750.00,
+          dealerPrice: 700.00,
+          directPrice: 850.00,
+          onlinePrice: 900.00,
           availableColors: "Black, Grey, Blue",
           dimensions: "650x650x1200 mm",
           warranty: "3 Years",
@@ -209,6 +221,7 @@ async function main() {
       await prisma.quotation.create({
         data: {
           quotationNumber: quoteNo,
+          customerSegment: "Interior",
           clientId: dbClient.id,
           projectName: "HQ Office Fitout",
           validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -216,10 +229,11 @@ async function main() {
           paymentTerms: "50% Advance, 50% on Delivery",
           status: "APPROVED",
           poStatus: "RECEIVED",
+          revisionNumber: 1,
           subtotal,
           vatAmount,
           grandTotal,
-          sharepointUrl: `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(dbClient.companyName)}/Quotations/${quoteNo}.pdf`,
+          sharepointUrl: `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(dbClient.companyName)}/Quotations/${quoteNo}-1_${encodeURIComponent(dbClient.companyName)}.pdf`,
           items: {
             create: {
               itemNo: 1,
@@ -228,6 +242,7 @@ async function main() {
               specifications: dbProduct.specifications,
               quantity: 2,
               unitPrice: dbProduct.unitPrice,
+              margin: 0.0,
               amount: subtotal,
             }
           }
