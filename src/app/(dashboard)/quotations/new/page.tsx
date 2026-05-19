@@ -614,7 +614,7 @@ function NewQuotationForm() {
                             name={`items.${index}.specifications`}
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Technical Specifications</FormLabel>
+                                <FormLabel>Quotation Specifications</FormLabel>
                                 <FormControl>
                                   <Textarea
                                     placeholder="Spec details (e.g. Dimensions, colors, soft-close drawers...)"

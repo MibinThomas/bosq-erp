@@ -607,9 +607,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             {/* Description */}
             <View style={styles.colDesc}>
               <Text style={styles.itemTitle}>{item.description}</Text>
-              {item.categoryName && (
-                <Text style={styles.itemCategory}>{item.categoryName}</Text>
-              )}
               {renderSpecifications(item.specifications)}
             </View>
 
