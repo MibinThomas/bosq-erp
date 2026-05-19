@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma"
 import { QuotationDocument } from "@/lib/pdf/QuotationDocument"
 import fs from "fs"
 import path from "path"
+import { getSettings } from "@/lib/settings"
 
 export async function GET(
   request: Request,
@@ -79,14 +80,20 @@ export async function GET(
       categoryName: item.product?.category?.name || "OFFICE FURNITURE",
     }))
 
+    const companySettings = await getSettings([
+      "company_name",
+      "company_address",
+      "company_trn"
+    ])
+
     // Construct PDF props
     const pdfProps = {
       quotationNumber: quotation.quotationNumber,
       date: quotation.date.toISOString().split("T")[0],
       validityDate: quotation.validityDate.toISOString().split("T")[0],
-      companyName: "BOSQ Office Furniture",
-      companyAddress: "Dubai Design District, Dubai, UAE",
-      companyTrn: "100012345678903",
+      companyName: companySettings.company_name,
+      companyAddress: companySettings.company_address,
+      companyTrn: companySettings.company_trn,
       clientName: quotation.client.companyName,
       clientContact: quotation.client.contactPerson || "Valued Customer",
       clientPhone: quotation.client.phone || "",

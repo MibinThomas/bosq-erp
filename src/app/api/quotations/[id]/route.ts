@@ -6,6 +6,7 @@ import { uploadQuotationPdf } from "@/lib/sharepoint"
 import { QuotationDocument } from "@/lib/pdf/QuotationDocument"
 import fs from "fs"
 import path from "path"
+import { getSettings } from "@/lib/settings"
 
 // Get single quotation with items and revisions history
 export async function GET(
@@ -168,14 +169,20 @@ export async function PUT(
 
       const nextRevNo = existingQuotation.revisionNumber + 1
 
+      const companySettings = await getSettings([
+        "company_name",
+        "company_address",
+        "company_trn"
+      ])
+
       // Construct Revised PDF props (e.g. quote number I1951-R1)
       const pdfProps = {
         quotationNumber: `${existingQuotation.quotationNumber}-R${nextRevNo}`,
         date: new Date().toISOString().split("T")[0],
         validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        companyName: "BOSQ Office Furniture",
-        companyAddress: "Dubai Design District, Dubai, UAE",
-        companyTrn: "100012345678903",
+        companyName: companySettings.company_name,
+        companyAddress: companySettings.company_address,
+        companyTrn: companySettings.company_trn,
         clientName: existingQuotation.client.companyName,
         clientContact: existingQuotation.client.contactPerson || "Valued Customer",
         clientPhone: existingQuotation.client.phone || "",

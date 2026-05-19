@@ -8,6 +8,7 @@ import fs from "fs"
 import path from "path"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { getSettings } from "@/lib/settings"
 
 export async function GET() {
   try {
@@ -169,14 +170,20 @@ export async function POST(request: Request) {
       )
     }
 
+    const companySettings = await getSettings([
+      "company_name",
+      "company_address",
+      "company_trn"
+    ])
+
     // 5. Generate PDF server-side using @react-pdf/renderer
     const pdfProps = {
       quotationNumber: nextQuoteNo,
       date: date || new Date().toISOString().split("T")[0],
       validityDate: validityDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      companyName: "BOSQ Office Furniture",
-      companyAddress: "Dubai Design District, Dubai, UAE",
-      companyTrn: "100012345678903",
+      companyName: companySettings.company_name,
+      companyAddress: companySettings.company_address,
+      companyTrn: companySettings.company_trn,
       clientName: clientObj.companyName,
       clientContact: clientObj.contactPerson || "Valued Customer",
       clientPhone: clientObj.phone || "",
