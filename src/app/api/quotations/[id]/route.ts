@@ -7,6 +7,8 @@ import { QuotationDocument } from "@/lib/pdf/QuotationDocument"
 import fs from "fs"
 import path from "path"
 import { getSettings } from "@/lib/settings"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 // Get single quotation with items and revisions history
 export async function GET(
@@ -87,11 +89,34 @@ export async function PUT(
       )
     }
 
-    // Default user for logs
-    const defaultUser = await prisma.user.findFirst({
-      where: { role: "SALES_EXECUTIVE" },
-    })
-    const logUserId = defaultUser?.id || ""
+    // Resolve log user from session (prefer actual session user, fallback to first exec)
+    const session = await getServerSession(authOptions)
+    let logUserId = (session?.user as any)?.id || ""
+    if (!logUserId) {
+      const defaultUser = await prisma.user.findFirst({ where: { role: "SALES_EXECUTIVE" } })
+      logUserId = defaultUser?.id || ""
+    }
+
+    // CASE 0: MANAGER APPROVES A PENDING_APPROVAL QUOTATION
+    if (body.action === "APPROVE") {
+      const approvedQuotation = await prisma.quotation.update({
+        where: { id: existingQuotation.id },
+        data: { status: "APPROVED" },
+        include: { client: true, items: true, revisions: true },
+      })
+      if (logUserId) {
+        await prisma.activityLog.create({
+          data: {
+            userId: logUserId,
+            action: "APPROVED_QUOTATION",
+            entityType: "QUOTATION",
+            entityId: approvedQuotation.id,
+            details: `Approved quotation ${existingQuotation.quotationNumber} by manager`,
+          },
+        })
+      }
+      return NextResponse.json(approvedQuotation)
+    }
 
     // CASE 1: FULL REVISION REQUEST
     if (body.isRevision === true) {
@@ -137,6 +162,7 @@ export async function PUT(
           description: item.description,
           specifications: item.specifications || "",
           quantity: qty,
+          basePrice: parseFloat(item.basePrice) || price,
           unitPrice: price,
           discount: disc,
           margin: marginVal,

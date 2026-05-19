@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       items,
       deliveryCharge,
       notes,
-      status, // DRAFT, SENT, etc.
+      status, // DRAFT, SENT, etc. — may be overridden below based on role
     } = body
 
     if (!clientId || !items || items.length === 0 || !paymentTerms) {
@@ -87,12 +87,13 @@ export async function POST(request: Request) {
     }
 
     const session = await getServerSession(authOptions)
-    let creatorUser = { id: "", name: "Sales Rep" }
+    let creatorUser = { id: "", name: "Sales Rep", role: "SALES_EXECUTIVE" }
 
     if (session?.user) {
       creatorUser = {
         id: (session.user as any).id,
-        name: session.user.name || "Sales Rep"
+        name: session.user.name || "Sales Rep",
+        role: (session.user as any).role || "SALES_EXECUTIVE",
       }
     } else {
       const defaultUser = await prisma.user.findFirst({
@@ -106,9 +107,14 @@ export async function POST(request: Request) {
       }
       creatorUser = {
         id: defaultUser.id,
-        name: defaultUser.name || "Sales Manager"
+        name: defaultUser.name || "Sales Manager",
+        role: defaultUser.role,
       }
     }
+
+    // IDCs (SALES_EXECUTIVE) must go through approval before PDF is downloadable
+    const isIDC = creatorUser.role === "SALES_EXECUTIVE"
+    const resolvedStatus = isIDC ? "PENDING_APPROVAL" : (status || "SENT")
 
     // 2. Generate quotation number (e.g. I2223-1)
     const segment = body.customerSegment || "Direct"
@@ -196,6 +202,7 @@ export async function POST(request: Request) {
         description: item.description,
         specifications: item.specifications || "",
         quantity: qty,
+        basePrice: parseFloat(item.basePrice) || price, // locked segment base price
         unitPrice: price,
         discount: disc,
         margin: marginVal,
@@ -301,7 +308,7 @@ export async function POST(request: Request) {
         preparedById: creatorUser.id,
         deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
         paymentTerms,
-        status: status || "SENT",
+        status: resolvedStatus,
         revisionNumber: 1,
         subtotal: calculatedSubtotal,
         discount: 0.0,
@@ -317,6 +324,7 @@ export async function POST(request: Request) {
             description: item.description,
             specifications: item.specifications,
             quantity: item.quantity,
+            basePrice: item.basePrice,
             unitPrice: item.unitPrice,
             discount: item.discount,
             margin: item.margin,

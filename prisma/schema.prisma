@@ -126,6 +126,7 @@ model QuotationItem {
   specifications  String?
   customImageUrl  String?
   quantity        Int       @default(1)
+  basePrice       Float     @default(0.0) // Locked segment price set by SALES_MANAGER/ADMIN
   unitPrice       Float     @default(0.0)
   discount        Float     @default(0.0)
   margin          Float     @default(0.0)
