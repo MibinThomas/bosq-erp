@@ -198,10 +198,10 @@ export async function PUT(
       // Read both brand logos to base64
       let logoBase64 = ""
       try {
-        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "logo.png")
+        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq logo.jpg")
         if (fs.existsSync(logoPath)) {
           const fileBuffer = fs.readFileSync(logoPath)
-          logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
+          logoBase64 = `data:image/jpeg;base64,${fileBuffer.toString("base64")}`
         }
       } catch (logoErr) {
         console.error("Failed to read logo buffer in revision:", logoErr)
