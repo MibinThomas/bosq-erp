@@ -92,9 +92,12 @@ export async function PUT(
     // Resolve log user from session (prefer actual session user, fallback to first exec)
     const session = await getServerSession(authOptions)
     let logUserId = (session?.user as any)?.id || ""
+    let defaultUser: any = null
     if (!logUserId) {
-      const defaultUser = await prisma.user.findFirst({ where: { role: "SALES_EXECUTIVE" } })
+      defaultUser = await prisma.user.findFirst({ where: { role: "SALES_EXECUTIVE" } })
       logUserId = defaultUser?.id || ""
+    } else {
+      defaultUser = await prisma.user.findUnique({ where: { id: logUserId } })
     }
 
     // CASE 0: MANAGER APPROVES A PENDING_APPROVAL QUOTATION
