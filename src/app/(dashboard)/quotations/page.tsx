@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { MoreHorizontal } from "lucide-react"
 import {
@@ -149,6 +150,57 @@ export default function QuotationsPage() {
     }
   }
 
+  // --- Bulk Delete Logic (Admin Only) ---
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(filteredQuotations.map(q => q.id))
+    } else {
+      setSelectedIds([])
+    }
+  }
+
+  const handleSelectOne = (checked: boolean, id: string) => {
+    if (checked) {
+      setSelectedIds(prev => [...prev, id])
+    } else {
+      setSelectedIds(prev => prev.filter(item => item !== id))
+    }
+  }
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Are you sure you want to delete ${selectedIds.length} selected quotation(s)? This cannot be undone.`)) return
+
+    setIsDeleting(true)
+    try {
+      const res = await fetch("/api/quotations/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || "Failed to delete quotations")
+      }
+
+      toast.success(`Successfully deleted ${selectedIds.length} quotation(s)`)
+      
+      // Update local state
+      setQuotations(prev => prev.filter(q => !selectedIds.includes(q.id)))
+      setSelectedIds([])
+    } catch (error: any) {
+      console.error("Error deleting quotations:", error)
+      toast.error(error.message || "Failed to delete quotations.")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -167,14 +219,29 @@ export default function QuotationsPage() {
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="relative flex items-center w-full max-w-sm">
-          <Search className="h-4 w-4 text-muted-foreground absolute left-3" />
-          <Input
-            placeholder="Search quotations, clients, projects..."
-            className="pl-9"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex items-center gap-3 w-full max-w-sm">
+          <div className="relative flex items-center w-full">
+            <Search className="h-4 w-4 text-muted-foreground absolute left-3" />
+            <Input
+              placeholder="Search quotations, clients, projects..."
+              className="pl-9"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          {userRole === "ADMIN" && selectedIds.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteSelected}
+              disabled={isDeleting}
+              className="shrink-0"
+            >
+              {isDeleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Delete Selected ({selectedIds.length})
+            </Button>
+          )}
         </div>
       </div>
 
@@ -195,6 +262,15 @@ export default function QuotationsPage() {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
+                {userRole === "ADMIN" && (
+                  <TableHead className="w-12">
+                    <Checkbox 
+                      checked={selectedIds.length > 0 && selectedIds.length === filteredQuotations.length}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
+                )}
                 <TableHead>Quote No.</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Client & Project</TableHead>
@@ -208,6 +284,15 @@ export default function QuotationsPage() {
             <TableBody>
               {filteredQuotations.map((quote) => (
                 <TableRow key={quote.id} className="hover:bg-muted/30 transition-colors">
+                  {userRole === "ADMIN" && (
+                    <TableCell>
+                      <Checkbox 
+                        checked={selectedIds.includes(quote.id)}
+                        onCheckedChange={(checked) => handleSelectOne(checked as boolean, quote.id)}
+                        aria-label={`Select ${quote.quotationNumber}`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-mono font-medium text-primary">
                     {quote.quotationNumber}
                   </TableCell>
