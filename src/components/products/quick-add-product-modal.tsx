@@ -23,18 +23,23 @@ interface QuickAddProductModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: (newProduct: Product) => void
+  userRole?: string
 }
 
-export function QuickAddProductModal({ isOpen, onClose, onSuccess }: QuickAddProductModalProps) {
+export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: QuickAddProductModalProps) {
   const [name, setName] = useState("")
   const [code, setCode] = useState("")
   const [categoryName, setCategoryName] = useState("Chairs")
   const [price, setPrice] = useState("")
   const [warranty, setWarranty] = useState("5 Years")
   const [dimensions, setDimensions] = useState("")
+  const [specifications, setSpecifications] = useState("")
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [base64Image, setBase64Image] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  // Sales Executives cannot write to the product catalog - they add directly to the quote line
+  const isSalesExec = userRole === "SALES_EXECUTIVE"
 
   if (!isOpen) return null
 
@@ -50,47 +55,68 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess }: QuickAddPro
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name || !categoryName) {
-      toast.error("Product name and category are required.")
+    if (!name) {
+      toast.error("Product name is required.")
       return
     }
 
     setLoading(true)
     try {
-      const res = await fetch("/api/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      if (isSalesExec) {
+        // Sales Executives: directly populate the quotation line without touching the product catalog
+        const unitPrice = parseFloat(price) || 0.0
+        const tempProduct: Product = {
+          id: `custom-${Date.now()}`,
+          productCode: code || "CUSTOM",
           productName: name,
-          productCode: code || undefined,
-          categoryName,
-          unitPrice: parseFloat(price) || 0.0,
-          warranty,
-          dimensions: dimensions || "Standard",
-          imageUrl: base64Image || undefined
+          unitPrice,
+          interiorPrice: unitPrice,
+          dealerPrice: unitPrice,
+          directPrice: unitPrice,
+          onlinePrice: unitPrice,
+          specifications: specifications || null,
+          imageUrl: base64Image || null,
+        }
+        toast.success("Custom item added to quotation!")
+        onSuccess(tempProduct)
+      } else {
+        // Managers/Admins: save to the product master catalog then populate the line
+        const res = await fetch("/api/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productName: name,
+            productCode: code || undefined,
+            categoryName: categoryName || "General",
+            unitPrice: parseFloat(price) || 0.0,
+            specifications: specifications || undefined,
+            warranty,
+            dimensions: dimensions || "Standard",
+            imageUrl: base64Image || undefined,
+          }),
         })
-      })
 
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || "Failed to create product")
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error || "Failed to create product")
+        }
+
+        const created = await res.json()
+        toast.success("New product saved to catalog!")
+        onSuccess({
+          id: created.id,
+          productCode: created.productCode,
+          productName: created.productName,
+          unitPrice: created.unitPrice,
+          interiorPrice: created.interiorPrice,
+          dealerPrice: created.dealerPrice,
+          directPrice: created.directPrice,
+          onlinePrice: created.onlinePrice,
+          specifications: created.specifications || "",
+          imageUrl: created.imageUrl || null,
+        })
       }
 
-      const created = await res.json()
-      toast.success("New product saved to catalog!")
-      onSuccess({
-        id: created.id,
-        productCode: created.productCode,
-        productName: created.productName,
-        unitPrice: created.unitPrice,
-        interiorPrice: created.interiorPrice,
-        dealerPrice: created.dealerPrice,
-        directPrice: created.directPrice,
-        onlinePrice: created.onlinePrice,
-        specifications: created.specifications || "",
-        imageUrl: created.imageUrl || null
-      })
-      
       // Reset form
       setName("")
       setCode("")
@@ -98,6 +124,7 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess }: QuickAddPro
       setPrice("")
       setWarranty("5 Years")
       setDimensions("")
+      setSpecifications("")
       setImagePreview(null)
       setBase64Image(null)
       onClose()
@@ -118,10 +145,12 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess }: QuickAddPro
           <div>
             <h2 className="text-lg font-bold flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Add Custom Product to Catalog
+              Add Custom Product
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Add a brand new item to the master catalog and use it in this quotation instantly.
+              {isSalesExec
+                ? "Add a custom line item directly to this quotation."
+                : "Add a brand new item to the master catalog and use it in this quotation instantly."}
             </p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-8 w-8">
@@ -133,7 +162,7 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess }: QuickAddPro
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold">Product Name / Title</label>
+              <label className="text-xs font-bold">Product Name / Title <span className="text-destructive">*</span></label>
               <Input 
                 value={name} 
                 onChange={(e) => setName(e.target.value)} 
@@ -142,28 +171,31 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess }: QuickAddPro
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold">Product Code / SKU</label>
-                <Input 
-                  value={code} 
-                  onChange={(e) => setCode(e.target.value)} 
-                  placeholder="Auto-generated if blank" 
-                />
-              </div>
+            {/* Category & SKU — only relevant for catalog saves (managers/admins) */}
+            {!isSalesExec && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold">Product Code / SKU</label>
+                  <Input 
+                    value={code} 
+                    onChange={(e) => setCode(e.target.value)} 
+                    placeholder="Auto-generated if blank" 
+                  />
+                </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold">Category</label>
-                <Input 
-                  value={categoryName} 
-                  onChange={(e) => setCategoryName(e.target.value)} 
-                  placeholder="E.g., Chairs, Desks"
-                  required 
-                />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold">Category <span className="text-destructive">*</span></label>
+                  <Input 
+                    value={categoryName} 
+                    onChange={(e) => setCategoryName(e.target.value)} 
+                    placeholder="E.g., Chairs, Desks"
+                    required 
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className={`grid gap-4 ${isSalesExec ? "grid-cols-1" : "grid-cols-2"}`}>
               <div className="space-y-1.5">
                 <label className="text-xs font-bold">Unit Price (AED)</label>
                 <Input 
@@ -175,24 +207,39 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess }: QuickAddPro
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold">Warranty Period</label>
-                <Input 
-                  value={warranty} 
-                  onChange={(e) => setWarranty(e.target.value)} 
-                  placeholder="E.g., 5 Years" 
-                />
-              </div>
+              {!isSalesExec && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold">Warranty Period</label>
+                  <Input 
+                    value={warranty} 
+                    onChange={(e) => setWarranty(e.target.value)} 
+                    placeholder="E.g., 5 Years" 
+                  />
+                </div>
+              )}
             </div>
 
+            {/* Specifications field for all users */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold">Dimensions</label>
-              <Input 
-                value={dimensions} 
-                onChange={(e) => setDimensions(e.target.value)} 
-                placeholder="E.g., 680W x 620D x 1200H" 
+              <label className="text-xs font-bold">Specifications</label>
+              <textarea
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+                value={specifications}
+                onChange={(e) => setSpecifications(e.target.value)}
+                placeholder={"Material: Leather\nColor: Black\nDimensions: 680W x 620D x 1200H"}
               />
             </div>
+
+            {!isSalesExec && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold">Dimensions</label>
+                <Input 
+                  value={dimensions} 
+                  onChange={(e) => setDimensions(e.target.value)} 
+                  placeholder="E.g., 680W x 620D x 1200H" 
+                />
+              </div>
+            )}
 
             {/* Image Selector */}
             <div className="space-y-2">
@@ -207,7 +254,7 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess }: QuickAddPro
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-medium text-muted-foreground block">
-                    Upload PNG or JPG image for this chair.
+                    Upload PNG or JPG image for this item.
                   </span>
                   <input 
                     type="file" 
@@ -229,7 +276,7 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess }: QuickAddPro
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Item...
+                  Adding...
                 </>
               ) : (
                 <>

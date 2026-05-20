@@ -902,15 +902,19 @@ function NewQuotationForm() {
 
       <QuickAddProductModal
         isOpen={isQuickAddOpen}
+        userRole={userRole}
         onClose={() => {
           setIsQuickAddOpen(false)
           setActiveLineIndex(null)
         }}
         onSuccess={(newProduct) => {
-          // Append to local catalog state
-          setProducts(prev => [...prev, newProduct])
+          // Only append to local catalog if it's a real saved product (managers/admins)
+          const isTemp = newProduct.id.startsWith("custom-")
+          if (!isTemp) {
+            setProducts(prev => [...prev, newProduct])
+          }
           
-          // Auto-select in current line item
+          // Auto-populate the active line item
           if (activeLineIndex !== null) {
             let basePrice = newProduct.unitPrice
             if (watchSegment === "Interior") basePrice = newProduct.interiorPrice ?? newProduct.unitPrice
@@ -918,7 +922,8 @@ function NewQuotationForm() {
             else if (watchSegment === "Direct") basePrice = newProduct.directPrice ?? newProduct.unitPrice
             else if (watchSegment === "Online") basePrice = newProduct.onlinePrice ?? newProduct.unitPrice
 
-            form.setValue(`items.${activeLineIndex}.productId`, newProduct.id)
+            // For temp custom items, clear productId so they submit as free-text lines
+            form.setValue(`items.${activeLineIndex}.productId`, isTemp ? "" : newProduct.id)
             form.setValue(`items.${activeLineIndex}.description`, newProduct.productName)
             form.setValue(`items.${activeLineIndex}.specifications`, newProduct.specifications || "")
             form.setValue(`items.${activeLineIndex}.margin`, 0)
