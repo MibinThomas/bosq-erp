@@ -383,7 +383,7 @@ export default function QuotationHtmlPreviewPage({
                     <img
                       src={item.product.imageUrl}
                       alt={item.description}
-                      className="w-16 h-12 object-contain mx-auto border border-slate-100 rounded-sm"
+                      className="w-28 h-28 object-contain mx-auto"
                     />
                   ) : (
                     <div className="w-16 h-12 border border-dashed border-slate-200 rounded-sm flex items-center justify-center text-[8px] text-slate-400 bg-slate-50 mx-auto">

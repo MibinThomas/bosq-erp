@@ -207,9 +207,6 @@ const styles = StyleSheet.create({
   productImage: {
     width: 110,
     height: 110,
-    borderRadius: 4,
-    borderWidth: 0.5,
-    borderColor: "#cbd5e1",
     objectFit: "contain",
     backgroundColor: "#ffffff",
   },
