@@ -3,7 +3,7 @@
 import React, { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2, Download, ExternalLink } from "lucide-react"
+import { ArrowLeft, Loader2, Download, ExternalLink, Check, X, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { useSession } from "next-auth/react"
@@ -68,8 +68,11 @@ export default function QuotationHtmlPreviewPage({
   const { data: session } = useSession()
   const [quotation, setQuotation] = useState<Quotation | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isApproving, setIsApproving] = useState(false)
+  const [isRejecting, setIsRejecting] = useState(false)
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
   const isPending = quotation?.status === "PENDING_APPROVAL"
   const isSalesPerson = userRole === "SALES_EXECUTIVE"
   const disableDownload = isSalesPerson && isPending
@@ -92,6 +95,44 @@ export default function QuotationHtmlPreviewPage({
     }
     loadQuotation()
   }, [id])
+
+  const handleApprove = async () => {
+    if (!quotation) return
+    setIsApproving(true)
+    try {
+      const res = await fetch(`/api/quotations/${quotation.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "APPROVED" })
+      })
+      if (!res.ok) throw new Error("Failed to approve quotation")
+      setQuotation({ ...quotation, status: "APPROVED" })
+      toast.success("Quotation approved successfully!")
+    } catch (error: any) {
+      toast.error(error.message || "Failed to approve quotation")
+    } finally {
+      setIsApproving(false)
+    }
+  }
+
+  const handleReject = async () => {
+    if (!quotation) return
+    setIsRejecting(true)
+    try {
+      const res = await fetch(`/api/quotations/${quotation.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "REJECTED" })
+      })
+      if (!res.ok) throw new Error("Failed to reject quotation")
+      setQuotation({ ...quotation, status: "REJECTED" })
+      toast.success("Quotation rejected.")
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reject quotation")
+    } finally {
+      setIsRejecting(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -191,6 +232,41 @@ export default function QuotationHtmlPreviewPage({
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          {isManagerOrAdmin && isPending && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-green-600 text-green-700 hover:bg-green-50"
+                onClick={handleApprove}
+                disabled={isApproving || isRejecting}
+              >
+                {isApproving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                Approve
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-red-600 text-red-700 hover:bg-red-50"
+                onClick={handleReject}
+                disabled={isApproving || isRejecting}
+              >
+                {isRejecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
+                Reject
+              </Button>
+            </>
+          )}
+          {isManagerOrAdmin && (
+            <Link href={`/quotations/new?editId=${quotation.id}`}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-primary/50 text-primary hover:bg-primary/10"
+              >
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </Button>
+            </Link>
+          )}
           {quotation.sharepointUrl && (
             <Button
               variant="outline"
