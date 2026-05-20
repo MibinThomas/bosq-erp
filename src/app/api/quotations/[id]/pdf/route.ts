@@ -175,7 +175,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Disposition": `${isPreview ? "inline" : "attachment"}; filename="${filename}"`,
         "Content-Length": pdfBuffer.length.toString(),
       },
     })
