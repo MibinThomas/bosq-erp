@@ -25,7 +25,7 @@ export default function NewClientPage() {
     contactPerson: "",
     email: "",
     phone: "",
-    clientType: "Corporate",
+    clientType: "Direct",
     trn: "",
     address: "",
     notes: "",
@@ -33,11 +33,11 @@ export default function NewClientPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, name: value }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSelectChange = (value: string | null) => {
-    setFormData((prev) => ({ ...prev, clientType: value || "Corporate" }))
+    setFormData((prev) => ({ ...prev, clientType: value || "Direct" }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,16 +148,17 @@ export default function NewClientPage() {
 
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                Client Type
+                Client Type <span className="text-red-500">*</span>
               </label>
               <Select value={formData.clientType} onValueChange={handleSelectChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Corporate">Corporate</SelectItem>
-                  <SelectItem value="Government">Government</SelectItem>
-                  <SelectItem value="Retail">Retail</SelectItem>
+                  <SelectItem value="Dealer">Dealer</SelectItem>
+                  <SelectItem value="Interior">Interior</SelectItem>
+                  <SelectItem value="Direct">Direct</SelectItem>
+                  <SelectItem value="Online">Online</SelectItem>
                 </SelectContent>
               </Select>
             </div>

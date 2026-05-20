@@ -62,6 +62,7 @@ interface Client {
   companyName: string
   contactPerson: string | null
   trn: string | null
+  clientType: string | null
 }
 
 interface Product {
@@ -201,6 +202,17 @@ function NewQuotationForm() {
   const selectedClientObj = clients.find((c) => c.id === watchClientId)
 
   const watchSegment = form.watch("customerSegment") || "Direct"
+
+  // Automatically select segment based on client type
+  useEffect(() => {
+    if (selectedClientObj && selectedClientObj.clientType) {
+      const validTypes = ["Dealer", "Interior", "Direct", "Online"]
+      if (validTypes.includes(selectedClientObj.clientType)) {
+        form.setValue("customerSegment", selectedClientObj.clientType as any, { shouldValidate: true, shouldDirty: true })
+        toast.info(`Pricing updated to ${selectedClientObj.clientType} Segment based on client profile.`)
+      }
+    }
+  }, [watchClientId, selectedClientObj, form])
 
   // Subtotal, VAT and Grand Total Calculations
   const subtotal = watchItems.reduce((acc, item) => {

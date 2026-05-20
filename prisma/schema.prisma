@@ -33,7 +33,7 @@ model Client {
   email           String?
   address         String?
   trn             String?
-  clientType      String?     @default("Corporate")
+  clientType      String?     @default("Direct")
   salespersonId   String?
   sharepointFolder String?
   notes           String?
