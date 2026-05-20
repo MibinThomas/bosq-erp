@@ -93,6 +93,7 @@ function NewQuotationForm() {
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
 
   const [isRevision, setIsRevision] = useState(false)
+  const [isEdit, setIsEdit] = useState(false)
   const [existingQuote, setExistingQuote] = useState<any>(null)
   const [revisionNotes, setRevisionNotes] = useState("")
 
@@ -111,25 +112,32 @@ function NewQuotationForm() {
         setClients(clientsData)
         setProducts(productsData)
 
-        // Load details for revision if reviseId parameter is provided
+        // Load details for revision or update if ID is provided
         const reviseId = searchParams.get("reviseId")
-        if (reviseId) {
-          const reviseRes = await fetch(`/api/quotations/${reviseId}`)
-          if (reviseRes.ok) {
-            const reviseData = await reviseRes.json()
-            setExistingQuote(reviseData)
-            setIsRevision(true)
+        const editId = searchParams.get("editId")
+        const activeId = reviseId || editId
+
+        if (activeId) {
+          const fetchRes = await fetch(`/api/quotations/${activeId}`)
+          if (fetchRes.ok) {
+            const activeData = await fetchRes.json()
+            setExistingQuote(activeData)
+            if (reviseId) {
+              setIsRevision(true)
+            } else {
+              setIsEdit(true)
+            }
 
             // Populate form values
             form.reset({
-              clientId: reviseData.clientId,
-              projectName: reviseData.projectName || "",
-              customerSegment: reviseData.customerSegment || "Direct",
-              date: new Date().toISOString().split("T")[0],
-              validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-              deliveryDate: reviseData.deliveryDate ? new Date(reviseData.deliveryDate).toISOString().split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-              paymentTerms: reviseData.paymentTerms || "50% Advance, 50% on Delivery",
-              items: reviseData.items.map((item: any) => {
+              clientId: activeData.clientId,
+              projectName: activeData.projectName || "",
+              customerSegment: activeData.customerSegment || "Direct",
+              date: reviseId ? new Date().toISOString().split("T")[0] : activeData.date.split("T")[0],
+              validityDate: reviseId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : activeData.validityDate.split("T")[0],
+              deliveryDate: activeData.deliveryDate ? new Date(activeData.deliveryDate).toISOString().split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              paymentTerms: activeData.paymentTerms || "50% Advance, 50% on Delivery",
+              items: activeData.items.map((item: any) => {
                 const marginVal = item.margin || 0
                 const basePriceVal = item.unitPrice / (1 + marginVal / 100)
                 return {
@@ -143,8 +151,8 @@ function NewQuotationForm() {
                   margin: marginVal,
                 }
               }),
-              deliveryCharge: reviseData.deliveryCharge || 0,
-              notes: reviseData.notes || "",
+              deliveryCharge: activeData.deliveryCharge || 0,
+              notes: activeData.notes || "",
             })
           }
         }
@@ -248,47 +256,50 @@ function NewQuotationForm() {
     }
   }
 
-  async function onSubmit(data: QuotationFormValues) {
-    if (isRevision && !revisionNotes.trim()) {
-      toast.error("Revision notes are required to revise this quotation!")
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      const url = isRevision ? `/api/quotations/${existingQuote.id}` : "/api/quotations"
-      const method = isRevision ? "PUT" : "POST"
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          isRevision: isRevision,
-          revisionNotes: revisionNotes,
-          status: "APPROVED", // Auto-approved and finalized on submit
-        }),
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || "Failed to submit quotation")
+    async function onSubmit(data: QuotationFormValues) {
+      if (isRevision && !revisionNotes.trim()) {
+        toast.error("Revision notes are required to revise this quotation!")
+        return
       }
 
-      const result = await res.json()
-      toast.success(
-        isRevision
-          ? `Quotation revised successfully to Revision #${result.revisionNumber}! PDF updated on SharePoint.`
-          : `Quotation ${result.quotationNumber} compiled & uploaded to SharePoint!`
-      )
-      router.push("/quotations")
-    } catch (error: any) {
-      console.error("Error submitting quotation:", error)
-      toast.error(error.message || "Failed to submit quotation. Please try again.")
-    } finally {
-      setSubmitting(false)
+      setSubmitting(true)
+      try {
+        const url = (isRevision || isEdit) ? `/api/quotations/${existingQuote.id}` : "/api/quotations"
+        const method = (isRevision || isEdit) ? "PUT" : "POST"
+
+        const res = await fetch(url, {
+          method: method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...data,
+            isRevision: isRevision,
+            isUpdate: isEdit,
+            revisionNotes: revisionNotes,
+            status: isManagerOrAdmin ? "APPROVED" : "PENDING_APPROVAL",
+          }),
+        })
+
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || "Failed to submit quotation")
+        }
+
+        const result = await res.json()
+        toast.success(
+          isRevision
+            ? `Quotation revised successfully to Revision #${result.revisionNumber}! PDF updated on SharePoint.`
+            : isEdit
+            ? `Quotation ${result.quotationNumber} updated successfully! PDF updated on SharePoint.`
+            : `Quotation ${result.quotationNumber} compiled & uploaded to SharePoint!`
+        )
+        router.push("/quotations")
+      } catch (error: any) {
+        console.error("Error submitting quotation:", error)
+        toast.error(error.message || "Failed to submit quotation. Please try again.")
+      } finally {
+        setSubmitting(false)
+      }
     }
-  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -300,11 +311,13 @@ function NewQuotationForm() {
         </Link>
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            {isRevision ? "Revise Quotation" : "Create Quotation"}
+            {isRevision ? "Revise Quotation" : isEdit ? "Update Quotation" : "Create Quotation"}
           </h1>
           <p className="text-muted-foreground">
             {isRevision
               ? `Create a new revised version of Quotation ${existingQuote?.quotationNumber}`
+              : isEdit
+              ? `Modify and update Quotation ${existingQuote?.quotationNumber}`
               : "Select a client, add catalog products, and compile a PDF immediately."}
           </p>
         </div>
@@ -317,6 +330,18 @@ function NewQuotationForm() {
             <h3 className="font-semibold">Revising Quotation {existingQuote.quotationNumber}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
               You are creating **Revision #{existingQuote.revisionNumber + 1}** for this quotation. A new PDF will be compiled and uploaded as the active revision on SharePoint, and the revision history will be logged.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isEdit && existingQuote && (
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-xl p-4 flex items-start gap-3 text-amber-950 dark:text-amber-300">
+          <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div>
+            <h3 className="font-semibold">Updating Quotation {existingQuote.quotationNumber}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              You are updating this quotation draft directly. Changes will overwrite the current draft version and update the compiled PDF on SharePoint without creating a new revision.
             </p>
           </div>
         </div>

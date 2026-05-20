@@ -75,11 +75,14 @@ export async function GET(
     const userRole = (session.user as any).role
     const userId = (session.user as any).id
 
+    const { searchParams } = new URL(request.url)
+    const isPreview = searchParams.get("preview") === "true"
+
     if (userRole === "SALES_EXECUTIVE") {
       if (quotation.preparedById !== userId) {
         return new Response("Unauthorized access to this quotation", { status: 403 })
       }
-      if (quotation.status === "PENDING_APPROVAL") {
+      if (quotation.status === "PENDING_APPROVAL" && !isPreview) {
         return new Response("Download is disabled pending manager approval", { status: 403 })
       }
     }

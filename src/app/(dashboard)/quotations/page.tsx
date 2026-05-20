@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle } from "lucide-react"
+import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle, Edit } from "lucide-react"
 import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
@@ -292,17 +292,43 @@ export default function QuotationsPage() {
                         </Button>
                       )}
 
-                      {/* Revise Quotation directly */}
-                      <Link href={`/quotations/new?reviseId=${quote.id}`}>
+                      {/* Preview PDF option for creator/manager to preview pending quotations */}
+                      {quote.status === "PENDING_APPROVAL" && (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 hover:bg-muted text-purple-600 hover:text-purple-700"
-                          title="Revise Quotation"
+                          className="h-8 w-8 hover:bg-muted text-blue-600 hover:text-blue-700"
+                          title="Preview PDF"
+                          onClick={() => window.open(`/api/quotations/${quote.id}/pdf?preview=true`, "_blank")}
                         >
-                          <RefreshCw className="h-4 w-4" />
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      </Link>
+                      )}
+
+                      {/* Update or Revise button based on status */}
+                      {quote.status === "PENDING_APPROVAL" ? (
+                        <Link href={`/quotations/new?editId=${quote.id}`}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-muted text-amber-600 hover:text-amber-700"
+                            title="Update Quotation"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Link href={`/quotations/new?reviseId=${quote.id}`}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-muted text-purple-600 hover:text-purple-700"
+                            title="Revise Quotation"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                      )}
 
                       {/* Options Dropdown */}
                       <DropdownMenu>
@@ -343,13 +369,22 @@ export default function QuotationsPage() {
                           </DropdownMenuItem>
                           
                           <DropdownMenuSeparator />
-                          <DropdownMenuLabel>Revision Action</DropdownMenuLabel>
-                          <Link href={`/quotations/new?reviseId=${quote.id}`}>
-                            <DropdownMenuItem className="flex items-center text-purple-600 focus:text-purple-600 focus:bg-purple-50 cursor-pointer">
-                              <RefreshCw className="mr-2 h-4 w-4 text-purple-600" />
-                              Revise Quotation
-                            </DropdownMenuItem>
-                          </Link>
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          {quote.status === "PENDING_APPROVAL" ? (
+                            <Link href={`/quotations/new?editId=${quote.id}`}>
+                              <DropdownMenuItem className="flex items-center text-amber-600 focus:text-amber-600 focus:bg-amber-50 cursor-pointer">
+                                <Edit className="mr-2 h-4 w-4 text-amber-600" />
+                                Update Quotation
+                              </DropdownMenuItem>
+                            </Link>
+                          ) : (
+                            <Link href={`/quotations/new?reviseId=${quote.id}`}>
+                              <DropdownMenuItem className="flex items-center text-purple-600 focus:text-purple-600 focus:bg-purple-50 cursor-pointer">
+                                <RefreshCw className="mr-2 h-4 w-4 text-purple-600" />
+                                Revise Quotation
+                              </DropdownMenuItem>
+                            </Link>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

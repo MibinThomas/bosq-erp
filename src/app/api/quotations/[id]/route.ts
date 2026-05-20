@@ -91,6 +91,7 @@ export async function PUT(
       include: {
         client: true,
         items: true,
+        preparedBy: true,
       }
     })
 
@@ -329,8 +330,7 @@ export async function PUT(
       }
 
       const isIDC = logUserRole === "SALES_EXECUTIVE"
-      const hasCustomItems = items.some((item: any) => !item.productId)
-      const resolvedStatus = (isIDC && hasCustomItems) ? "PENDING_APPROVAL" : "APPROVED"
+      const resolvedStatus = isIDC ? "PENDING_APPROVAL" : "APPROVED"
 
       // Execute atomic transaction for revision (create a new quotation record, keep the old one)
       const updatedQuotation = await prisma.$transaction(async (tx) => {
@@ -408,6 +408,246 @@ export async function PUT(
             entityType: "QUOTATION",
             entityId: updatedQuotation.id,
             details: `Revised quotation ${existingQuotation.quotationNumber} to ${revQuoteNum}. Notes: ${revisionNotes}`,
+          },
+        })
+      }
+
+      return NextResponse.json(updatedQuotation)
+    }
+
+    // CASE 3: DIRECT UPDATE OF CURRENT DRAFT
+    if (body.isUpdate === true) {
+      if (logUserRole === "SALES_EXECUTIVE" && existingQuotation.preparedById !== logUserId) {
+        return NextResponse.json({ error: "Unauthorized: You can only update your own quotations" }, { status: 403 })
+      }
+
+      const {
+        items,
+        projectName,
+        deliveryDate,
+        paymentTerms,
+        deliveryCharge,
+        notes,
+        clientId,
+        customerSegment,
+      } = body
+
+      if (!items || items.length === 0) {
+        return NextResponse.json(
+          { error: "Items array is required to update quotation" },
+          { status: 400 }
+        )
+      }
+
+      // Prefetch products catalog details
+      const productIds = items.map((i: any) => i.productId).filter(Boolean)
+      const dbProducts = await prisma.product.findMany({
+        where: { id: { in: productIds } },
+        include: { category: true }
+      })
+
+      // Calculate financial totals
+      let calculatedSubtotal = 0
+      const quotationItemsToCreate = items.map((item: any, idx: number) => {
+        const qty = parseInt(item.quantity) || 1
+        const price = parseFloat(item.unitPrice) || 0
+        const disc = parseFloat(item.discount) || 0
+        const marginVal = parseFloat(item.margin) || 0.0
+        const amt = (price - disc) * qty
+        calculatedSubtotal += amt
+
+        const matchedProd = dbProducts.find((p) => p.id === item.productId)
+
+        return {
+          itemNo: idx + 1,
+          productId: item.productId || null,
+          description: item.description,
+          specifications: item.specifications || "",
+          quantity: qty,
+          basePrice: parseFloat(item.basePrice) || price,
+          unitPrice: price,
+          discount: disc,
+          margin: marginVal,
+          amount: amt,
+          imageUrl: matchedProd?.imageUrl || null,
+          categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
+        }
+      })
+
+      const calculatedVat = calculatedSubtotal * 0.05
+      const charge = parseFloat(deliveryCharge) || 0
+      const calculatedGrandTotal = calculatedSubtotal + calculatedVat + charge
+
+      // Read brand logo to base64 for SharePoint PDF generation
+      let logoBase64 = ""
+      try {
+        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq logo.jpg")
+        if (fs.existsSync(logoPath)) {
+          const fileBuffer = fs.readFileSync(logoPath)
+          logoBase64 = `data:image/jpeg;base64,${fileBuffer.toString("base64")}`
+        }
+      } catch (logoErr) {
+        console.error("Failed to read logo buffer in update:", logoErr)
+      }
+
+      let aynMuskLogoBase64 = ""
+      try {
+        const aynMuskLogoPath = path.join(process.cwd(), "public", "assets", "logo", "AYN Musk_PNG.png")
+        if (fs.existsSync(aynMuskLogoPath)) {
+          const fileBuffer = fs.readFileSync(aynMuskLogoPath)
+          aynMuskLogoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
+        }
+      } catch (aynMuskErr) {
+        console.error("Failed to read AYN Musk logo buffer in update:", aynMuskErr)
+      }
+
+      let barcodeBase64 = ""
+      try {
+        const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(existingQuotation.quotationNumber)}&scale=2&rotate=N&includetext=false`
+        const res = await fetch(barcodeUrl)
+        if (res.ok) {
+          const arrayBuffer = await res.arrayBuffer()
+          barcodeBase64 = `data:image/png;base64,${Buffer.from(arrayBuffer).toString("base64")}`
+        }
+      } catch (barcodeErr) {
+        console.error("Failed to generate barcode in update:", barcodeErr)
+      }
+
+      const companySettings = await getSettings([
+        "company_name",
+        "company_address",
+        "company_trn"
+      ])
+
+      // Re-fetch client in case it changed
+      const currentClient = await prisma.client.findUnique({
+        where: { id: clientId || existingQuotation.clientId }
+      })
+      if (!currentClient) {
+        return NextResponse.json({ error: "Client not found" }, { status: 404 })
+      }
+
+      // Construct PDF props
+      const termsArray = [
+        "Validity: This quotation is valid for 30 days from date of issue.",
+        "Delivery: Delivery within 4-6 weeks of order approval.",
+        "Warranty: All structural elements carry a 5-year warranty."
+      ]
+
+      const pdfProps = {
+        quotationNumber: existingQuotation.quotationNumber,
+        date: new Date(existingQuotation.date).toISOString().split("T")[0],
+        validityDate: new Date(existingQuotation.validityDate).toISOString().split("T")[0],
+        companyName: companySettings.company_name,
+        companyAddress: companySettings.company_address,
+        companyTrn: companySettings.company_trn,
+        clientName: currentClient.companyName,
+        clientContact: currentClient.contactPerson || "Valued Customer",
+        clientPhone: currentClient.phone || "",
+        clientEmail: currentClient.email || "",
+        clientAddress: currentClient.address || "Dubai, UAE",
+        clientTrn: currentClient.trn,
+        projectName: projectName || existingQuotation.projectName || "Office Furnishing Project",
+        paymentTerms: paymentTerms || existingQuotation.paymentTerms,
+        deliveryDate: deliveryDate || "TBD",
+        subtotal: calculatedSubtotal,
+        vatAmount: calculatedVat,
+        deliveryCharge: charge,
+        grandTotal: calculatedGrandTotal,
+        preparedBy: existingQuotation.preparedBy?.name || "Sales Rep",
+        termsConditions: termsArray,
+        companyLogoUrl: logoBase64 || null,
+        aynMuskLogoUrl: aynMuskLogoBase64 || null,
+        barcodeBase64: barcodeBase64 || null,
+        clientId: currentClient.clientId || null,
+        items: quotationItemsToCreate,
+      }
+
+      let pdfBuffer: Buffer
+      try {
+        pdfBuffer = await renderToBuffer(
+          React.createElement(QuotationDocument, pdfProps) as any
+        )
+      } catch (pdfError) {
+        console.error("Failed to compile updated PDF buffer:", pdfError)
+        return NextResponse.json(
+          { error: "Failed to generate updated PDF document" },
+          { status: 500 }
+        )
+      }
+
+      const sanitizedClientNameForFile = currentClient.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+      const filenameBase = `${existingQuotation.quotationNumber}_${sanitizedClientNameForFile}`
+      let sharepointUrl = ""
+      try {
+        sharepointUrl = await uploadQuotationPdf(
+          currentClient.companyName,
+          filenameBase,
+          pdfBuffer
+        )
+      } catch (spError) {
+        console.error("Failed to upload updated PDF to SharePoint:", spError)
+        sharepointUrl = existingQuotation.sharepointUrl || ""
+      }
+
+      // Execute transaction to delete and recreate items, and update parent quotation
+      const updatedQuotation = await prisma.$transaction(async (tx) => {
+        // 1. Delete existing items
+        await tx.quotationItem.deleteMany({
+          where: { quotationId: existingQuotation.id }
+        })
+
+        const isIDC = logUserRole === "SALES_EXECUTIVE"
+        const resolvedStatus = isIDC ? "PENDING_APPROVAL" : (body.status || "APPROVED")
+
+        // 2. Update parent quotation
+        return await tx.quotation.update({
+          where: { id: existingQuotation.id },
+          data: {
+            clientId: clientId || existingQuotation.clientId,
+            customerSegment: customerSegment || existingQuotation.customerSegment,
+            projectName: projectName || null,
+            deliveryDate: deliveryDate ? new Date(deliveryDate) : existingQuotation.deliveryDate,
+            paymentTerms: paymentTerms || existingQuotation.paymentTerms,
+            status: resolvedStatus,
+            subtotal: calculatedSubtotal,
+            deliveryCharge: charge,
+            vatAmount: calculatedVat,
+            grandTotal: calculatedGrandTotal,
+            sharepointUrl,
+            notes: notes || null,
+            items: {
+              create: quotationItemsToCreate.map((item: any) => ({
+                itemNo: item.itemNo,
+                productId: item.productId,
+                description: item.description,
+                specifications: item.specifications,
+                quantity: item.quantity,
+                basePrice: item.basePrice,
+                unitPrice: item.unitPrice,
+                discount: item.discount,
+                margin: item.margin,
+                amount: item.amount,
+              })),
+            },
+          },
+          include: {
+            client: true,
+            items: true,
+            revisions: true,
+          }
+        })
+      })
+
+      // Log Activity
+      if (logUserId) {
+        await prisma.activityLog.create({
+          data: {
+            userId: logUserId,
+            action: "UPDATED_QUOTATION",
+            entityType: "QUOTATION",
+            entityId: updatedQuotation.id,
+            details: `Updated quotation draft details for ${existingQuotation.quotationNumber}`,
           },
         })
       }
