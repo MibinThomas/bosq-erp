@@ -221,12 +221,12 @@ export default function QuotationHtmlPreviewPage({
         <div className="flex justify-between items-start border-b border-slate-200 pb-5 mb-6">
           {/* Left Column: Logo & Company details */}
           <div className="w-[53%] space-y-4">
-            <div>
-              {/* BOSQ Logo left aligned */}
+            <div className="mb-3">
+              {/* BOSQ Logo - larger and flush left */}
               <img
                 src="/assets/logo/bosq logo.jpg"
                 alt="BOSQ"
-                className="w-32 h-9 object-contain -ml-2"
+                className="w-44 h-14 object-contain object-left"
               />
             </div>
             <div className="space-y-1">
