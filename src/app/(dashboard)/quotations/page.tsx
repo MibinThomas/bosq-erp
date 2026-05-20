@@ -299,7 +299,7 @@ export default function QuotationsPage() {
                           size="icon"
                           className="h-8 w-8 hover:bg-muted text-blue-600 hover:text-blue-700"
                           title="Preview PDF"
-                          onClick={() => window.open(`/api/quotations/${quote.id}/pdf?preview=true`, "_blank")}
+                          onClick={() => window.open(`/quotations/${quote.id}/preview`, "_blank")}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
