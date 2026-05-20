@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "../../auth/[...nextauth]/route"
 
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || ((session.user as any).role !== "ADMIN" && (session.user as any).role !== "SALES_MANAGER")) {
+      return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+
     const body = await request.json()
     const { ids } = body
 
@@ -14,21 +21,15 @@ export async function POST(request: Request) {
     }
 
     // 1. Log Activity
-    const defaultUser = await prisma.user.findFirst({
-      where: { role: "SALES_EXECUTIVE" },
+    await prisma.activityLog.create({
+      data: {
+        userId: (session.user as any).id,
+        action: "DELETED_PRODUCTS",
+        entityType: "PRODUCT",
+        entityId: "BULK",
+        details: `Bulk deleted ${ids.length} products`,
+      },
     })
-
-    if (defaultUser) {
-      await prisma.activityLog.create({
-        data: {
-          userId: defaultUser.id,
-          action: "DELETED_PRODUCTS",
-          entityType: "PRODUCT",
-          entityId: "BULK",
-          details: `Bulk deleted ${ids.length} products`,
-        },
-      })
-    }
 
     // 2. Perform deletion
     const deleteResult = await prisma.product.deleteMany({

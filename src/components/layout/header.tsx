@@ -1,6 +1,7 @@
 "use client"
 
 import { Menu, Bell } from "lucide-react"
+import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,6 +14,20 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export function Header() {
+  const { data: session } = useSession()
+  
+  const user = session?.user
+  const userName = user?.name || "User"
+  const userEmail = user?.email || ""
+  const userImage = user?.image || ""
+  
+  const initials = userName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase() || "US"
+
   return (
     <header className="h-16 border-b bg-background flex items-center justify-between px-4 md:px-6">
       <div className="flex items-center">
@@ -28,24 +43,26 @@ export function Header() {
         <DropdownMenu>
           <DropdownMenuTrigger className="relative h-8 w-8 rounded-full cursor-pointer hover:opacity-85 transition-opacity outline-none">
             <Avatar className="h-8 w-8">
-              <AvatarImage src="" alt="User" />
-              <AvatarFallback>AD</AvatarFallback>
+              <AvatarImage src={userImage} alt={userName} />
+              <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">Admin User</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  admin@bosq.ae
-                </p>
+                <p className="text-sm font-medium leading-none">{userName}</p>
+                {userEmail && (
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {userEmail}
+                  </p>
+                )}
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem>Settings</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Log out</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => signOut()}>Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

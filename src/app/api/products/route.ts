@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "../auth/[...nextauth]/route"
 
 export async function GET() {
   try {
@@ -21,6 +23,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || ((session.user as any).role !== "ADMIN" && (session.user as any).role !== "SALES_MANAGER")) {
+      return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+
     const body = await request.json()
     const {
       productCode,
@@ -102,21 +109,15 @@ export async function POST(request: Request) {
     })
 
     // Log Activity
-    const defaultUser = await prisma.user.findFirst({
-      where: { role: "SALES_EXECUTIVE" },
+    await prisma.activityLog.create({
+      data: {
+        userId: (session.user as any).id,
+        action: "CREATED_PRODUCT",
+        entityType: "PRODUCT",
+        entityId: newProduct.id,
+        details: `Created product ${productName} (${finalCode})`,
+      },
     })
-
-    if (defaultUser) {
-      await prisma.activityLog.create({
-        data: {
-          userId: defaultUser.id,
-          action: "CREATED_PRODUCT",
-          entityType: "PRODUCT",
-          entityId: newProduct.id,
-          details: `Created product ${productName} (${finalCode})`,
-        },
-      })
-    }
 
     return NextResponse.json(newProduct, { status: 201 })
   } catch (error) {

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import React from "react"
 import { renderToBuffer } from "@react-pdf/renderer"
 import prisma from "@/lib/prisma"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "../../../auth/[...nextauth]/route"
 import { QuotationDocument } from "@/lib/pdf/QuotationDocument"
 import fs from "fs"
 import path from "path"
@@ -63,6 +65,23 @@ export async function GET(
 
     if (!quotation) {
       return new Response("Quotation not found", { status: 404 })
+    }
+
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return new Response("Unauthorized", { status: 401 })
+    }
+
+    const userRole = (session.user as any).role
+    const userId = (session.user as any).id
+
+    if (userRole === "SALES_EXECUTIVE") {
+      if (quotation.preparedById !== userId) {
+        return new Response("Unauthorized access to this quotation", { status: 403 })
+      }
+      if (quotation.status === "PENDING_APPROVAL") {
+        return new Response("Download is disabled pending manager approval", { status: 403 })
+      }
     }
 
     // Generate barcode image dynamically

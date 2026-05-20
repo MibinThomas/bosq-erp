@@ -18,6 +18,11 @@ export async function GET(
   try {
     const { id } = await params
 
+    const session = await getServerSession(authOptions)
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const quotation = await prisma.quotation.findFirst({
       where: {
         OR: [
@@ -38,6 +43,13 @@ export async function GET(
       return NextResponse.json(
         { error: "Quotation not found" },
         { status: 404 }
+      )
+    }
+
+    if ((session.user as any).role === "SALES_EXECUTIVE" && quotation.preparedById !== (session.user as any).id) {
+      return NextResponse.json(
+        { error: "Unauthorized access to this quotation" },
+        { status: 403 }
       )
     }
 
@@ -105,6 +117,9 @@ export async function PUT(
 
     // CASE 0: MANAGER APPROVES A PENDING_APPROVAL QUOTATION
     if (body.action === "APPROVE") {
+      if (logUserRole !== "ADMIN" && logUserRole !== "SALES_MANAGER") {
+        return NextResponse.json({ error: "Unauthorized to approve quotations" }, { status: 403 })
+      }
       const approvedQuotation = await prisma.quotation.update({
         where: { id: existingQuotation.id },
         data: { status: "APPROVED" },
@@ -126,6 +141,9 @@ export async function PUT(
 
     // CASE 1: FULL REVISION REQUEST
     if (body.isRevision === true) {
+      if (logUserRole === "SALES_EXECUTIVE" && existingQuotation.preparedById !== logUserId) {
+        return NextResponse.json({ error: "Unauthorized: You can only revise your own quotations" }, { status: 403 })
+      }
       const {
         items,
         projectName,
@@ -399,6 +417,12 @@ export async function PUT(
 
     // CASE 2: NORMAL STATUS/NOTES UPDATE (PO RECEIVED, STATUS CHANGES, etc.)
     const { status, poStatus, paymentStatus, notes } = body
+    if (logUserRole === "SALES_EXECUTIVE" && existingQuotation.preparedById !== logUserId) {
+      return NextResponse.json({ error: "Unauthorized: You can only update your own quotations" }, { status: 403 })
+    }
+    if (status === "APPROVED" && logUserRole !== "ADMIN" && logUserRole !== "SALES_MANAGER") {
+      return NextResponse.json({ error: "Unauthorized: Only managers or admins can approve quotations" }, { status: 403 })
+    }
     const updateData: any = {}
     if (status) updateData.status = status
     if (poStatus) updateData.poStatus = poStatus

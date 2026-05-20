@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "../../auth/[...nextauth]/route"
 
 // Get single product
 export async function GET(
@@ -33,6 +35,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || ((session.user as any).role !== "ADMIN" && (session.user as any).role !== "SALES_MANAGER")) {
+      return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+
     const { id } = await params
     const body = await request.json()
     const {
@@ -98,21 +105,15 @@ export async function PUT(
     })
 
     // Log Activity
-    const defaultUser = await prisma.user.findFirst({
-      where: { role: "SALES_EXECUTIVE" },
+    await prisma.activityLog.create({
+      data: {
+        userId: (session.user as any).id,
+        action: "UPDATED_PRODUCT",
+        entityType: "PRODUCT",
+        entityId: updatedProduct.id,
+        details: `Updated product ${productName} (${updatedProduct.productCode})`,
+      },
     })
-
-    if (defaultUser) {
-      await prisma.activityLog.create({
-        data: {
-          userId: defaultUser.id,
-          action: "UPDATED_PRODUCT",
-          entityType: "PRODUCT",
-          entityId: updatedProduct.id,
-          details: `Updated product ${productName} (${updatedProduct.productCode})`,
-        },
-      })
-    }
 
     return NextResponse.json(updatedProduct)
   } catch (error) {
@@ -130,27 +131,26 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || ((session.user as any).role !== "ADMIN" && (session.user as any).role !== "SALES_MANAGER")) {
+      return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+
     const { id } = await params
     const deletedProduct = await prisma.product.delete({
       where: { id },
     })
 
     // Log Activity
-    const defaultUser = await prisma.user.findFirst({
-      where: { role: "SALES_EXECUTIVE" },
+    await prisma.activityLog.create({
+      data: {
+        userId: (session.user as any).id,
+        action: "DELETED_PRODUCT",
+        entityType: "PRODUCT",
+        entityId: id,
+        details: `Deleted product ${deletedProduct.productName} (${deletedProduct.productCode})`,
+      },
     })
-
-    if (defaultUser) {
-      await prisma.activityLog.create({
-        data: {
-          userId: defaultUser.id,
-          action: "DELETED_PRODUCT",
-          entityType: "PRODUCT",
-          entityId: id,
-          details: `Deleted product ${deletedProduct.productName} (${deletedProduct.productCode})`,
-        },
-      })
-    }
 
     return NextResponse.json({ success: true, product: deletedProduct })
   } catch (error) {

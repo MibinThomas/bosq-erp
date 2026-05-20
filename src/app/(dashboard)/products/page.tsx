@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { Plus, Search, MoreHorizontal, Loader2, Package, Sparkles, LayoutGrid, List, Edit } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -44,6 +45,10 @@ interface Product {
 }
 
 export default function ProductsPage() {
+  const { data: session } = useSession()
+  const userRole = (session?.user as any)?.role
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -122,22 +127,24 @@ export default function ProductsPage() {
             Manage your office furniture catalog.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button 
-            variant="outline" 
-            onClick={() => setIsBulkOpen(true)}
-            className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
-          >
-            <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-            Bulk Upload
-          </Button>
-          <Link href="/products/new">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
+        {isManagerOrAdmin && (
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsBulkOpen(true)}
+              className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+            >
+              <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+              Bulk Upload
             </Button>
-          </Link>
-        </div>
+            <Link href="/products/new">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Product
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -211,20 +218,22 @@ export default function ProductsPage() {
                 }`}
               >
                 {/* Checkbox Overlay */}
-                <div className="absolute top-3 left-3 z-10 bg-white/85 dark:bg-black/75 p-1.5 rounded-lg border shadow-sm transition-opacity opacity-100 sm:opacity-0 group-hover:opacity-100 flex items-center justify-center">
-                  <input 
-                    type="checkbox"
-                    className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
-                    checked={selectedIds.includes(product.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedIds([...selectedIds, product.id])
-                      } else {
-                        setSelectedIds(selectedIds.filter(id => id !== product.id))
-                      }
-                    }}
-                  />
-                </div>
+                {isManagerOrAdmin && (
+                  <div className="absolute top-3 left-3 z-10 bg-white/85 dark:bg-black/75 p-1.5 rounded-lg border shadow-sm transition-opacity opacity-100 sm:opacity-0 group-hover:opacity-100 flex items-center justify-center">
+                    <input 
+                      type="checkbox"
+                      className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                      checked={selectedIds.includes(product.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds([...selectedIds, product.id])
+                        } else {
+                          setSelectedIds(selectedIds.filter(id => id !== product.id))
+                        }
+                      }}
+                    />
+                  </div>
+                )}
 
                 {/* Card Status Badge */}
                 <div className="absolute top-3 right-3 z-10">
@@ -288,19 +297,21 @@ export default function ProductsPage() {
                     </div>
                     
                     {/* Card Actions Button */}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEditingProduct(product)
-                        setIsEditOpen(true)
-                      }}
-                      className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-8 rounded-full"
-                    >
-                      <Edit className="h-3.5 w-3.5 mr-1" />
-                      Update Item
-                    </Button>
+                    {isManagerOrAdmin && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingProduct(product)
+                          setIsEditOpen(true)
+                        }}
+                        className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-8 rounded-full"
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-1" />
+                        Update Item
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -313,18 +324,20 @@ export default function ProductsPage() {
               <TableHeader className="bg-muted/50">
                 <TableRow>
                   <TableHead className="w-12">
-                    <input 
-                      type="checkbox"
-                      className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
-                      checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedIds(filteredProducts.map(p => p.id))
-                        } else {
-                          setSelectedIds([])
-                        }
-                      }}
-                    />
+                    {isManagerOrAdmin && (
+                      <input 
+                        type="checkbox"
+                        className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                        checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds(filteredProducts.map(p => p.id))
+                          } else {
+                            setSelectedIds([])
+                          }
+                        }}
+                      />
+                    )}
                   </TableHead>
                   <TableHead>Code</TableHead>
                   <TableHead>Product Name</TableHead>
@@ -340,18 +353,20 @@ export default function ProductsPage() {
                 {filteredProducts.map((product) => (
                   <TableRow key={product.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="w-12">
-                      <input 
-                        type="checkbox"
-                        className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
-                        checked={selectedIds.includes(product.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedIds([...selectedIds, product.id])
-                          } else {
-                            setSelectedIds(selectedIds.filter(id => id !== product.id))
-                          }
-                        }}
-                      />
+                      {isManagerOrAdmin && (
+                        <input 
+                          type="checkbox"
+                          className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                          checked={selectedIds.includes(product.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds([...selectedIds, product.id])
+                            } else {
+                              setSelectedIds(selectedIds.filter(id => id !== product.id))
+                            }
+                          }}
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="font-mono font-medium text-primary">{product.productCode}</TableCell>
                     <TableCell className="font-semibold">{product.productName}</TableCell>
@@ -380,12 +395,14 @@ export default function ProductsPage() {
                           <DropdownMenuItem onClick={() => toast.info("Details page coming soon")}>
                             View details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => {
-                            setEditingProduct(product)
-                            setIsEditOpen(true)
-                          }}>
-                            Edit product
-                          </DropdownMenuItem>
+                          {isManagerOrAdmin && (
+                            <DropdownMenuItem onClick={() => {
+                              setEditingProduct(product)
+                              setIsEditOpen(true)
+                            }}>
+                              Edit product
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
