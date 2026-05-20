@@ -190,7 +190,7 @@ function NewQuotationForm() {
     }
   }, [initialClientId, clients])
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     name: "items",
     control: form.control,
   })
@@ -247,7 +247,6 @@ function NewQuotationForm() {
     })
   }, [watchSegment, products])
 
-  // Handle select catalog product auto-population
   const handleProductSelect = (index: number, productId: string | null) => {
     if (!productId) return
     const matchedProduct = products.find((p) => p.id === productId)
@@ -260,12 +259,15 @@ function NewQuotationForm() {
 
       const currentItem = form.getValues(`items.${index}`)
       
-      form.setValue(`items.${index}.productId`, matchedProduct.id, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.description`, matchedProduct.productName, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.specifications`, matchedProduct.specifications || "", { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.unitPrice`, basePrice, { shouldValidate: true, shouldDirty: true })
+      update(index, {
+        ...currentItem,
+        productId: matchedProduct.id,
+        description: matchedProduct.productName,
+        specifications: matchedProduct.specifications || "",
+        margin: 0,
+        basePrice: basePrice,
+        unitPrice: basePrice,
+      })
       
       toast.info(`Populated ${matchedProduct.productName} for ${watchSegment} segment at base price AED ${basePrice}!`)
     }
