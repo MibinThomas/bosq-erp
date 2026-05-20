@@ -3,9 +3,10 @@
 import React, { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Printer, Loader2, Download, ExternalLink } from "lucide-react"
+import { ArrowLeft, Loader2, Download, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { useSession } from "next-auth/react"
 
 interface QuotationItem {
   id: string
@@ -64,8 +65,14 @@ export default function QuotationHtmlPreviewPage({
 }) {
   const { id } = use(params)
   const router = useRouter()
+  const { data: session } = useSession()
   const [quotation, setQuotation] = useState<Quotation | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const isPending = quotation?.status === "PENDING_APPROVAL"
+  const isSalesPerson = userRole === "SALES_EXECUTIVE"
+  const disableDownload = isSalesPerson && isPending
 
   useEffect(() => {
     async function loadQuotation() {
@@ -189,6 +196,8 @@ export default function QuotationHtmlPreviewPage({
               variant="outline"
               size="sm"
               onClick={() => window.open(quotation.sharepointUrl || "", "_blank")}
+              disabled={disableDownload}
+              title={disableDownload ? "SharePoint folder is locked pending manager approval" : "Open SharePoint Folder"}
             >
               <ExternalLink className="mr-2 h-4 w-4" /> SharePoint File
             </Button>
@@ -197,15 +206,10 @@ export default function QuotationHtmlPreviewPage({
             variant="outline"
             size="sm"
             onClick={() => window.open(`/api/quotations/${quotation.id}/pdf?preview=true`, "_blank")}
+            disabled={disableDownload}
+            title={disableDownload ? "PDF download is locked pending manager approval" : "Download PDF"}
           >
             <Download className="mr-2 h-4 w-4" /> Download PDF
-          </Button>
-          <Button
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            size="sm"
-            onClick={() => window.print()}
-          >
-            <Printer className="mr-2 h-4 w-4" /> Print Quotation
           </Button>
         </div>
       </div>
