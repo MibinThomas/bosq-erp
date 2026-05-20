@@ -335,9 +335,9 @@ export default function QuotationHtmlPreviewPage({
               <img
                 src={barcodeUrl}
                 alt={quotation.quotationNumber}
-                className="h-10 w-44 object-contain"
+                className="h-10 w-44 object-contain object-right"
               />
-              <span className="text-[9px] text-slate-500 font-mono mt-1 uppercase tracking-widest">
+              <span className="text-[9px] text-slate-500 font-mono mt-1 uppercase tracking-widest text-right">
                 {quotation.quotationNumber}
               </span>
             </div>

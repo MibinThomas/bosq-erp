@@ -51,10 +51,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logoImageLeft: {
-    width: 130,
-    height: 33,
+    width: 176,
+    height: 56,
     objectFit: "contain",
-    marginLeft: -10,
+    objectPositionX: "left",
   },
   logoTextFallback: {
     fontSize: 14,
@@ -135,6 +135,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 25,
     objectFit: "contain",
+    objectPositionX: "right",
   },
   barcodeText: {
     fontSize: 7,
