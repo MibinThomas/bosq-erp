@@ -221,15 +221,15 @@ function NewQuotationForm() {
         const matchedProduct = products.find((p) => p.id === item.productId)
         if (matchedProduct) {
           let basePrice = matchedProduct.unitPrice
-          if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
-          else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
-          else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
-          else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
+          if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice || matchedProduct.unitPrice
+          else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
+          else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
+          else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
           
-          form.setValue(`items.${index}.basePrice`, basePrice)
+          form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
           const margin = item.margin || 0
           const calculatedPrice = basePrice * (1 + margin / 100)
-          form.setValue(`items.${index}.unitPrice`, Number(calculatedPrice.toFixed(2)))
+          form.setValue(`items.${index}.unitPrice`, Number(calculatedPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
         }
       }
     })
@@ -241,17 +241,20 @@ function NewQuotationForm() {
     const matchedProduct = products.find((p) => p.id === productId)
     if (matchedProduct) {
       let basePrice = matchedProduct.unitPrice
-      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
-      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
-      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
-      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
+      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice || matchedProduct.unitPrice
+      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
+      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
+      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
 
-      form.setValue(`items.${index}.productId`, matchedProduct.id)
-      form.setValue(`items.${index}.description`, matchedProduct.productName)
-      form.setValue(`items.${index}.specifications`, matchedProduct.specifications || "")
-      form.setValue(`items.${index}.margin`, 0) // reset margin to 0
-      form.setValue(`items.${index}.basePrice`, basePrice)
-      form.setValue(`items.${index}.unitPrice`, basePrice)
+      const currentItem = form.getValues(`items.${index}`)
+      
+      form.setValue(`items.${index}.productId`, matchedProduct.id, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.description`, matchedProduct.productName, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.specifications`, matchedProduct.specifications || "", { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.unitPrice`, basePrice, { shouldValidate: true, shouldDirty: true })
+      
       toast.info(`Populated ${matchedProduct.productName} for ${watchSegment} segment at base price AED ${basePrice}!`)
     }
   }
@@ -725,10 +728,10 @@ function NewQuotationForm() {
                                     let basePrice = 0
                                     if (matchedProduct) {
                                       basePrice = matchedProduct.unitPrice
-                                      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
-                                      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
-                                      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
-                                      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
+                                      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice || matchedProduct.unitPrice
+                                      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
+                                      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
+                                      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
                                     } else {
                                       basePrice = watchItems[index]?.basePrice || 0
                                     }
