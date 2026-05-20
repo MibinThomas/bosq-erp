@@ -144,7 +144,7 @@ export async function POST(request: Request) {
     // Read both brand logos to base64
     let logoBase64 = ""
     try {
-      const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq orange bg reg.png")
+      const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq-orange-bg-reg.png")
       if (fs.existsSync(logoPath)) {
         const fileBuffer = fs.readFileSync(logoPath)
         logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`

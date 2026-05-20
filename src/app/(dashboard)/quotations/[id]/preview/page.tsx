@@ -224,7 +224,7 @@ export default function QuotationHtmlPreviewPage({
             <div className="mb-3">
               {/* BOSQ Logo - larger and flush left */}
               <img
-                src="/assets/logo/bosq orange bg reg.png"
+                src="/assets/logo/bosq-orange-bg-reg.png"
                 alt="BOSQ"
                 className="w-44 h-14 object-contain object-left"
               />
@@ -475,7 +475,7 @@ export default function QuotationHtmlPreviewPage({
         <div className="pt-12 mt-12 border-t border-slate-100 flex justify-between text-slate-500 text-[9px]">
           <div>
             <img
-              src="/assets/logo/bosq orange bg reg.png"
+              src="/assets/logo/bosq-orange-bg-reg.png"
               alt="BOSQ"
               className="w-14 h-4 object-contain"
             />

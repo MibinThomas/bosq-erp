@@ -33,7 +33,8 @@ export async function GET(
       include: {
         client: true,
         items: {
-          orderBy: { itemNo: "asc" }
+          orderBy: { itemNo: "asc" },
+          include: { product: true }
         },
         preparedBy: true,
       },
@@ -217,7 +218,7 @@ export async function PUT(
       // Read both brand logos to base64
       let logoBase64 = ""
       try {
-        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq orange bg reg.png")
+        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq-orange-bg-reg.png")
         if (fs.existsSync(logoPath)) {
           const fileBuffer = fs.readFileSync(logoPath)
           logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
@@ -481,7 +482,7 @@ export async function PUT(
       // Read brand logo to base64 for SharePoint PDF generation
       let logoBase64 = ""
       try {
-        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq orange bg reg.png")
+        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq-orange-bg-reg.png")
         if (fs.existsSync(logoPath)) {
           const fileBuffer = fs.readFileSync(logoPath)
           logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
