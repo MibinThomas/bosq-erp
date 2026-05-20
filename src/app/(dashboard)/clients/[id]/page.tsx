@@ -21,7 +21,8 @@ import {
   ChevronRight,
   TrendingUp,
   TrendingDown,
-  Plus
+  Plus,
+  Edit
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -157,12 +158,22 @@ export default function ClientDetailPage() {
           </div>
         </div>
 
-        <Link href={`/quotations/new?clientId=${client.id}`}>
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Quotation
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {isManagerOrAdmin && (
+            <Link href={`/clients/new?editId=${client.id}`}>
+              <Button variant="outline" className="border-primary/20 text-primary hover:bg-primary/5">
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Client
+              </Button>
+            </Link>
+          )}
+          <Link href={`/quotations/new?clientId=${client.id}`}>
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Quotation
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Tabs Switcher */}

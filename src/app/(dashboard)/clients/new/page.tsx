@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation" // Wait! In Next.js, let's import from "next/navigation"!
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Loader2, Save, Building2, User, Mail, Phone, MapPin, FileText, Hash } from "lucide-react"
 
@@ -17,9 +17,13 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 
-export default function NewClientPage() {
+function ClientFormContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const editId = searchParams.get("editId")
+  
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(!!editId)
   const [formData, setFormData] = useState({
     companyName: "",
     contactPerson: "",
@@ -30,6 +34,35 @@ export default function NewClientPage() {
     address: "",
     notes: "",
   })
+
+  useEffect(() => {
+    if (editId) {
+      const fetchClient = async () => {
+        try {
+          const res = await fetch(`/api/clients/${editId}`)
+          if (res.ok) {
+            const data = await res.json()
+            setFormData({
+              companyName: data.companyName || "",
+              contactPerson: data.contactPerson || "",
+              email: data.email || "",
+              phone: data.phone || "",
+              clientType: data.clientType || "Direct",
+              trn: data.trn || "",
+              address: data.address || "",
+              notes: data.notes || "",
+            })
+          }
+        } catch (error) {
+          console.error("Failed to load client details for editing:", error)
+          toast.error("Failed to load client details.")
+        } finally {
+          setLoading(false)
+        }
+      }
+      fetchClient()
+    }
+  }, [editId])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -49,26 +82,38 @@ export default function NewClientPage() {
 
     setSaving(true)
     try {
-      const res = await fetch("/api/clients", {
-        method: "POST",
+      const url = editId ? `/api/clients/${editId}` : "/api/clients"
+      const method = editId ? "PUT" : "POST"
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       })
 
       if (!res.ok) {
         const errorData = await res.json()
-        throw new Error(errorData.error || "Failed to create client")
+        throw new Error(errorData.error || `Failed to ${editId ? "update" : "create"} client`)
       }
 
-      const newClient = await res.json()
-      toast.success(`Client ${newClient.companyName} created successfully!`)
+      const savedClient = await res.json()
+      toast.success(`Client ${savedClient.companyName} ${editId ? "updated" : "created"} successfully!`)
       router.push("/clients")
     } catch (error: any) {
-      console.error("Error creating client:", error)
-      toast.error(error.message || "Failed to create client. Please try again.")
+      console.error(`Error ${editId ? "updating" : "creating"} client:`, error)
+      toast.error(error.message || `Failed to ${editId ? "update" : "create"} client. Please try again.`)
     } finally {
       setSaving(false)
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-40 gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground font-medium">Loading client details...</p>
+      </div>
+    )
   }
 
   return (
@@ -80,9 +125,9 @@ export default function NewClientPage() {
           </Button>
         </Link>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Add New Client</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{editId ? "Edit Client Profile" : "Add New Client"}</h1>
           <p className="text-muted-foreground">
-            Create a new client profile and auto-generate their SharePoint folder.
+            {editId ? "Update the client profile and contact details." : "Create a new client profile and auto-generate their SharePoint folder."}
           </p>
         </div>
       </div>
@@ -216,17 +261,25 @@ export default function NewClientPage() {
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Client...
+                {editId ? "Updating..." : "Saving..."}
               </>
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                Save Client
+                {editId ? "Update Client" : "Save Client"}
               </>
             )}
           </Button>
         </div>
       </form>
     </div>
+  )
+}
+
+export default function NewClientPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+      <ClientFormContent />
+    </Suspense>
   )
 }

@@ -37,8 +37,14 @@ interface Client {
   sharepointFolder: string | null
 }
 
+import { useSession } from "next-auth/react"
+
 export default function ClientsPage() {
   const router = useRouter()
+  const { data: session } = useSession()
+  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
@@ -173,9 +179,11 @@ export default function ClientsPage() {
                         <DropdownMenuItem onClick={() => router.push(`/clients/${client.id}`)} className="cursor-pointer">
                           View details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => toast.info("Editing clients coming soon")}>
-                          Edit client
-                        </DropdownMenuItem>
+                        {isManagerOrAdmin && (
+                          <DropdownMenuItem onClick={() => router.push(`/clients/new?editId=${client.id}`)} className="cursor-pointer">
+                            Edit client
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
