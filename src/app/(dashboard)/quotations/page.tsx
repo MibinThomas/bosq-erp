@@ -292,18 +292,16 @@ export default function QuotationsPage() {
                         </Button>
                       )}
 
-                      {/* Preview PDF option for creator/manager to preview pending quotations */}
-                      {quote.status === "PENDING_APPROVAL" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 hover:bg-muted text-blue-600 hover:text-blue-700"
-                          title="Preview PDF"
-                          onClick={() => window.open(`/quotations/${quote.id}/preview`, "_blank")}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
+                      {/* Preview button - always visible for all quotations */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:bg-muted text-blue-600 hover:text-blue-700"
+                        title="Preview Quotation"
+                        onClick={() => window.open(`/quotations/${quote.id}/preview`, "_blank")}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
 
                       {/* Update or Revise button based on status */}
                       {quote.status === "PENDING_APPROVAL" ? (
