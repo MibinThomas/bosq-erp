@@ -42,6 +42,7 @@ const quotationSchema = z.object({
   validityDate: z.string(),
   deliveryDate: z.string().optional(),
   paymentTerms: z.string().min(1, "Payment terms is required"),
+  preparedById: z.string().optional(),
   deliveryCharge: z.number().min(0),
   notes: z.string().optional(),
   items: z.array(
@@ -101,17 +102,31 @@ function NewQuotationForm() {
   const [existingQuote, setExistingQuote] = useState<any>(null)
   const [revisionNotes, setRevisionNotes] = useState("")
 
+  const [users, setUsers] = useState<any[]>([])
+
   // Fetch clients and products catalog
   useEffect(() => {
     async function loadData() {
       try {
-        const [clientsRes, productsRes] = await Promise.all([
+        const fetchPromises = [
           fetch("/api/clients"),
           fetch("/api/products"),
-        ])
-        if (!clientsRes.ok || !productsRes.ok) throw new Error("Failed to load catalog data")
-        const clientsData = await clientsRes.json()
-        const productsData = await productsRes.json()
+        ]
+        
+        if (isManagerOrAdmin) {
+          fetchPromises.push(fetch("/api/settings/users"))
+        }
+
+        const responses = await Promise.all(fetchPromises)
+        if (!responses[0].ok || !responses[1].ok) throw new Error("Failed to load catalog data")
+        
+        const clientsData = await responses[0].json()
+        const productsData = await responses[1].json()
+        
+        if (isManagerOrAdmin && responses[2] && responses[2].ok) {
+          const usersData = await responses[2].json()
+          setUsers(Array.isArray(usersData) ? usersData : [])
+        }
 
         setClients(clientsData)
         setProducts(productsData)
@@ -137,6 +152,7 @@ function NewQuotationForm() {
               clientId: activeData.clientId,
               projectName: activeData.projectName || "",
               customerSegment: activeData.customerSegment || "Direct",
+              preparedById: activeData.preparedById || "",
               date: reviseId ? new Date().toISOString().split("T")[0] : activeData.date.split("T")[0],
               validityDate: reviseId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : activeData.validityDate.split("T")[0],
               deliveryDate: activeData.deliveryDate ? new Date(activeData.deliveryDate).toISOString().split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -176,6 +192,7 @@ function NewQuotationForm() {
       clientId: initialClientId,
       projectName: "",
       customerSegment: "Direct",
+      preparedById: (session?.user as any)?.id || "",
       date: new Date().toISOString().split("T")[0],
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -561,8 +578,9 @@ function NewQuotationForm() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="50% Advance, 50% on Delivery">50% Advance, 50% on Delivery</SelectItem>
                             <SelectItem value="100% Advance">100% Advance</SelectItem>
+                            <SelectItem value="50% Advance, 50% on Delivery">50% Advance, 50% on Delivery</SelectItem>
+                            <SelectItem value="100% on Delivery">100% on Delivery</SelectItem>
                             <SelectItem value="30 Days PDC">30 Days PDC</SelectItem>
                           </SelectContent>
                         </Select>
@@ -570,6 +588,33 @@ function NewQuotationForm() {
                       </FormItem>
                     )}
                   />
+
+                  {isManagerOrAdmin && (
+                    <FormField
+                      control={form.control}
+                      name="preparedById"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Prepared By (Design Consultant)</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select consultant" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {users.map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </CardContent>
               </Card>
             </div>

@@ -90,10 +90,17 @@ export async function POST(request: Request) {
     let creatorUser = { id: "", name: "Sales Rep", role: "SALES_EXECUTIVE" }
 
     if (session?.user) {
+      const userRole = (session.user as any).role || "SALES_EXECUTIVE"
+      let finalId = (session.user as any).id
+      
+      if ((userRole === "ADMIN" || userRole === "SALES_MANAGER") && body.preparedById) {
+        finalId = body.preparedById
+      }
+
       creatorUser = {
-        id: (session.user as any).id,
+        id: finalId,
         name: session.user.name || "Sales Rep",
-        role: (session.user as any).role || "SALES_EXECUTIVE",
+        role: userRole,
       }
     } else {
       const defaultUser = await prisma.user.findFirst({
