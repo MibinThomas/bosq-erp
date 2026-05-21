@@ -86,24 +86,35 @@ export async function ensureFolderStructure(
   quotationGroupFolder?: string
 ) {
   const sanitizedCompany = sanitizeClientName(companyName)
-  const folders = ["Clients", sanitizedCompany, "Quotations"]
+  const folders = [
+    "Clients", 
+    `Clients/${sanitizedCompany}`, 
+    `Clients/${sanitizedCompany}/Quotations`
+  ]
+  
   if (quotationGroupFolder) {
-    folders.push(quotationGroupFolder)
+    folders.push(`Clients/${sanitizedCompany}/Quotations/${quotationGroupFolder}`)
   }
 
-  let currentPath = ""
-  for (const folder of folders) {
-    const parentPath = currentPath === "" ? "root" : `root:${currentPath}`
-    currentPath = currentPath === "" ? `/${folder}` : `${currentPath}/${folder}`
-    
+  for (const folderPath of folders) {
     try {
       // Check if folder exists
-      await client.api(`/sites/${siteId}/drives/${driveId}/${parentPath}:/${folder}`).get()
+      await client
+        .api(`/sites/${siteId}/drives/${driveId}/root:/${folderPath}`)
+        .get()
     } catch (err: any) {
       if (err.statusCode === 404) {
+        const pathParts = folderPath.split("/")
+        const folderName = pathParts.pop()
+        const parentPath = pathParts.join("/")
+        
+        const endpoint = parentPath 
+          ? `/sites/${siteId}/drives/${driveId}/root:/${parentPath}:/children`
+          : `/sites/${siteId}/drives/${driveId}/root/children`
+          
         // Create folder if it doesn't exist
-        await client.api(`/sites/${siteId}/drives/${driveId}/${parentPath}:/children`).post({
-          name: folder,
+        await client.api(endpoint).post({
+          name: folderName,
           folder: {},
           "@microsoft.graph.conflictBehavior": "fail"
         })
