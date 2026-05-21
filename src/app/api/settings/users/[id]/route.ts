@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import bcrypt from "bcrypt"
+import { hashPassword } from "@/lib/auth"
 
 export async function PATCH(
   request: Request,
@@ -37,7 +37,7 @@ export async function PATCH(
     }
 
     if (password && password.trim() !== "") {
-      const hashedPassword = await bcrypt.hash(password, 10)
+      const hashedPassword = hashPassword(password)
       updateData.password = hashedPassword
     }
 
