@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { X, Loader2, Sparkles, Image as ImageIcon, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 
 interface Product {
@@ -19,6 +20,7 @@ interface Product {
   warranty: string | null
   availableColors: string | null
   dimensions: string | null
+  specifications: string | null
   status: string
   imageUrl: string | null
   category: {
@@ -45,6 +47,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
   const [onlinePrice, setOnlinePrice] = useState("")
   const [warranty, setWarranty] = useState("")
   const [dimensions, setDimensions] = useState("")
+  const [specifications, setSpecifications] = useState("")
   const [status, setStatus] = useState("ACTIVE")
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [base64Image, setBase64Image] = useState<string | null>(null)
@@ -63,6 +66,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
       setOnlinePrice(product.onlinePrice?.toString() || "")
       setWarranty(product.warranty || "5 Years")
       setDimensions(product.dimensions || "Standard")
+      setSpecifications(product.specifications || "")
       setStatus(product.status)
       setImagePreview(product.imageUrl)
       setBase64Image(null)
@@ -105,6 +109,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
           onlinePrice: onlinePrice !== "" ? parseFloat(onlinePrice) : parseFloat(price),
           warranty,
           dimensions,
+          specifications,
           status,
           imageUrl: base64Image || undefined
         })
@@ -255,6 +260,16 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
                 value={dimensions} 
                 onChange={(e) => setDimensions(e.target.value)} 
                 placeholder="E.g., 650W x 600D x 1150H" 
+              />
+            </div>
+
+            <div className="space-y-1.5 col-span-2">
+              <label className="text-xs font-bold">Product Specifications</label>
+              <Textarea 
+                value={specifications} 
+                onChange={(e) => setSpecifications(e.target.value)} 
+                placeholder="E.g., High quality Italian leather, ergonomic lumbar support..." 
+                rows={3}
               />
             </div>
 
