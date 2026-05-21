@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, Search, MoreHorizontal, Loader2, Folder } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Loader2, Folder, FileSpreadsheet } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { BulkUploadModal } from "@/components/clients/bulk-upload-modal"
 import {
   Table,
   TableBody,
@@ -48,21 +49,24 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [isBulkOpen, setIsBulkOpen] = useState(false)
+
+  async function fetchClients() {
+    try {
+      setLoading(true)
+      const res = await fetch("/api/clients")
+      if (!res.ok) throw new Error("Failed to fetch clients")
+      const data = await res.json()
+      setClients(data)
+    } catch (error) {
+      console.error("Error fetching clients:", error)
+      toast.error("Failed to load clients. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    async function fetchClients() {
-      try {
-        const res = await fetch("/api/clients")
-        if (!res.ok) throw new Error("Failed to fetch clients")
-        const data = await res.json()
-        setClients(data)
-      } catch (error) {
-        console.error("Error fetching clients:", error)
-        toast.error("Failed to load clients. Please try again.")
-      } finally {
-        setLoading(false)
-      }
-    }
     fetchClients()
   }, [])
 
@@ -86,12 +90,20 @@ export default function ClientsPage() {
             Manage your client database and their SharePoint directories.
           </p>
         </div>
-        <Link href="/clients/new">
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Client
-          </Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          {isManagerOrAdmin && (
+            <Button variant="outline" onClick={() => setIsBulkOpen(true)} className="border-primary/20 text-primary hover:bg-primary/5">
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              Bulk Import
+            </Button>
+          )}
+          <Link href="/clients/new">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Client
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className="flex items-center justify-between">
@@ -193,6 +205,12 @@ export default function ClientsPage() {
           </Table>
         )}
       </div>
+
+      <BulkUploadModal 
+        isOpen={isBulkOpen}
+        onClose={() => setIsBulkOpen(false)}
+        onSuccess={() => fetchClients()}
+      />
     </div>
   )
 }
