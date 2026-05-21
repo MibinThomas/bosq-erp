@@ -34,9 +34,14 @@ interface Product {
   productName: string
   unitPrice: number
   costPrice: number
+  interiorPrice?: number
+  dealerPrice?: number
+  directPrice?: number
+  onlinePrice?: number
   warranty: string | null
   availableColors: string | null
   dimensions: string | null
+  specifications: string | null
   status: string
   imageUrl: string | null
   category: {
