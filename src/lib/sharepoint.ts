@@ -78,34 +78,35 @@ export function sanitizeClientName(name: string): string {
   return name.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
 }
 
-async function ensureFolderStructure(client: any, siteId: string, driveId: string, companyName: string) {
+export async function ensureFolderStructure(
+  client: any, 
+  siteId: string, 
+  driveId: string, 
+  companyName: string,
+  quotationGroupFolder?: string
+) {
   const sanitizedCompany = sanitizeClientName(companyName)
-  const folders = ["Clients", `Clients/${sanitizedCompany}`, `Clients/${sanitizedCompany}/Quotations`]
-  
-  for (const folderPath of folders) {
+  const folders = ["Clients", sanitizedCompany, "Quotations"]
+  if (quotationGroupFolder) {
+    folders.push(quotationGroupFolder)
+  }
+
+  let currentPath = ""
+  for (const folder of folders) {
+    const parentPath = currentPath === "" ? "root" : `root:${currentPath}`
+    currentPath = currentPath === "" ? `/${folder}` : `${currentPath}/${folder}`
+    
     try {
-      await client
-        .api(`/sites/${siteId}/drives/${driveId}/root:/${folderPath}`)
-        .get()
+      // Check if folder exists
+      await client.api(`/sites/${siteId}/drives/${driveId}/${parentPath}:/${folder}`).get()
     } catch (err: any) {
       if (err.statusCode === 404) {
-        const pathParts = folderPath.split("/")
-        const folderName = pathParts.pop()
-        const parentPath = pathParts.join("/")
-        
-        const folderPayload = {
-          name: folderName,
+        // Create folder if it doesn't exist
+        await client.api(`/sites/${siteId}/drives/${driveId}/${parentPath}:/children`).post({
+          name: folder,
           folder: {},
           "@microsoft.graph.conflictBehavior": "fail"
-        }
-        
-        const endpoint = parentPath 
-          ? `/sites/${siteId}/drives/${driveId}/root:/${parentPath}:/children`
-          : `/sites/${siteId}/drives/${driveId}/root/children`
-          
-        await client
-          .api(endpoint)
-          .post(folderPayload)
+        })
       } else {
         throw err
       }
@@ -118,9 +119,17 @@ export async function uploadQuotationPdf(companyName: string, filenameBase: stri
   const sanitizedCompany = sanitizeClientName(companyName)
   const sanitizedFilename = filenameBase.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
   
+  // Extract base quotation number (e.g. "I2230" from "I2230_Acme Corp" or "I2230-1_Acme Corp")
+  const match = sanitizedFilename.match(/^([A-Z0-9]+)(?:-\d+)?_/)
+  const quotationGroupFolder = match ? match[1] : ""
+
+  const fallbackPath = quotationGroupFolder
+    ? `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Quotations/${quotationGroupFolder}/${sanitizedFilename}.pdf`
+    : `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Quotations/${sanitizedFilename}.pdf`
+
   if (!hasCreds) {
     console.warn("SharePoint credentials are not configured. Falling back to mock PDF upload.")
-    return `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Quotations/${sanitizedFilename}.pdf`
+    return fallbackPath
   }
 
   try {
@@ -131,10 +140,12 @@ export async function uploadQuotationPdf(companyName: string, filenameBase: stri
     )
     
     // Ensure all directories are created
-    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName)
+    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName, quotationGroupFolder)
     
     const fileName = `${sanitizedFilename}.pdf`
-    const path = `/Clients/${sanitizedCompany}/Quotations/${fileName}`
+    const path = quotationGroupFolder 
+      ? `/Clients/${sanitizedCompany}/Quotations/${quotationGroupFolder}/${fileName}`
+      : `/Clients/${sanitizedCompany}/Quotations/${fileName}`
     
     const result = await client
       .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:${path}:/content`)
