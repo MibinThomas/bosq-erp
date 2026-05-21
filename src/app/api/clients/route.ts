@@ -48,6 +48,23 @@ export async function POST(request: Request) {
       )
     }
 
+    // 0. Check for duplicate company name
+    const existingClient = await prisma.client.findFirst({
+      where: {
+        companyName: {
+          equals: companyName.trim(),
+          mode: "insensitive"
+        }
+      }
+    })
+
+    if (existingClient) {
+      return NextResponse.json(
+        { error: `A client with the company name "${existingClient.companyName}" already exists.` },
+        { status: 409 }
+      )
+    }
+
     // 1. Generate client ID (e.g. C-1004)
     const lastClient = await prisma.client.findFirst({
       orderBy: { clientId: "desc" },

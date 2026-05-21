@@ -57,9 +57,23 @@ export async function POST(request: Request) {
         continue // Skip invalid rows gracefully
       }
 
-      // 2. Determine Client ID
+      // 2. Check for duplicate by companyName or use provided Client ID
       let finalClientId = clientId ? clientId.trim() : null
-      if (!finalClientId) {
+      
+      const existingClient = await prisma.client.findFirst({
+        where: {
+          companyName: {
+            equals: companyName.trim(),
+            mode: "insensitive"
+          }
+        }
+      })
+      
+      if (existingClient && (!finalClientId || existingClient.clientId !== finalClientId)) {
+        // Update the existing client instead of creating a duplicate
+        finalClientId = existingClient.clientId
+      } else if (!finalClientId) {
+        // Generate new client ID
         finalClientId = `C-${nextNum.toString().padStart(4, "0")}`
         nextNum++
       }
