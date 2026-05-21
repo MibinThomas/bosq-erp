@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { BulkUploadModal } from "@/components/clients/bulk-upload-modal"
 import { EditClientModal } from "@/components/clients/edit-client-modal"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -56,6 +57,8 @@ export default function ClientsPage() {
   const [isBulkOpen, setIsBulkOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [deleting, setDeleting] = useState(false)
 
   async function fetchClients() {
     try {
@@ -75,6 +78,32 @@ export default function ClientsPage() {
   useEffect(() => {
     fetchClients()
   }, [])
+
+  async function handleBulkDelete() {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Are you sure you want to delete the ${selectedIds.length} selected client(s)?`)) return
+    
+    try {
+      setDeleting(true)
+      const res = await fetch("/api/clients/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds })
+      })
+      const data = await res.json()
+      
+      if (!res.ok) throw new Error(data.error || "Bulk delete failed")
+      
+      toast.success(data.warning ? `Deleted ${data.count} clients. ${data.warning}` : `Successfully deleted ${data.count} client(s)!`)
+      setSelectedIds([])
+      fetchClients()
+    } catch (error: any) {
+      console.error("Error bulk deleting clients:", error)
+      toast.error(error.message || "Failed to delete clients. Please try again.")
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Are you sure you want to delete ${name}? This action cannot be undone.`)) return
@@ -114,6 +143,21 @@ export default function ClientsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {selectedIds.length > 0 && isManagerOrAdmin && (
+            <Button 
+              variant="destructive" 
+              onClick={handleBulkDelete} 
+              disabled={deleting}
+              className="animate-in fade-in"
+            >
+              {deleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Delete Selected ({selectedIds.length})
+            </Button>
+          )}
           {isManagerOrAdmin && (
             <Button variant="outline" onClick={() => setIsBulkOpen(true)} className="border-primary/20 text-primary hover:bg-primary/5">
               <FileSpreadsheet className="mr-2 h-4 w-4" />
@@ -158,6 +202,21 @@ export default function ClientsPage() {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
+                {isManagerOrAdmin && (
+                  <TableHead className="w-12 text-center">
+                    <Checkbox 
+                      checked={filteredClients.length > 0 && selectedIds.length === filteredClients.length}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedIds(filteredClients.map(c => c.id))
+                        } else {
+                          setSelectedIds([])
+                        }
+                      }}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
+                )}
                 <TableHead>Client ID</TableHead>
                 <TableHead>Company Name</TableHead>
                 <TableHead>Contact Person</TableHead>
@@ -171,6 +230,21 @@ export default function ClientsPage() {
             <TableBody>
               {filteredClients.map((client) => (
                 <TableRow key={client.id} className="hover:bg-muted/30 transition-colors">
+                  {isManagerOrAdmin && (
+                    <TableCell className="text-center">
+                      <Checkbox 
+                        checked={selectedIds.includes(client.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedIds(prev => [...prev, client.id])
+                          } else {
+                            setSelectedIds(prev => prev.filter(id => id !== client.id))
+                          }
+                        }}
+                        aria-label={`Select ${client.companyName}`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-mono font-medium">{client.clientId}</TableCell>
                   <TableCell className="font-semibold">
                     <Link href={`/clients/${client.id}`} className="hover:underline text-primary">

@@ -158,7 +158,7 @@ export async function DELETE(
     // Log Activity
     await prisma.activityLog.create({
       data: {
-        userId: (session.user as any).id,
+        userId: (session?.user as any)?.id || "SYSTEM",
         action: "DELETED_CLIENT",
         entityType: "CLIENT",
         entityId: id,
