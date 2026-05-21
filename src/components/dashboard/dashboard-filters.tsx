@@ -31,7 +31,7 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
 
   useEffect(() => {
     if (isManagerOrAdmin) {
-      fetch("/api/users")
+      fetch("/api/settings/users")
         .then(res => res.json())
         .then(data => setUsers(Array.isArray(data) ? data : []))
         .catch(err => console.error(err))
