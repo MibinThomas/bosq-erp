@@ -260,17 +260,12 @@ function NewQuotationForm() {
       else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
       else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
 
-      const currentItem = form.getValues(`items.${index}`)
-      
-      update(index, {
-        ...currentItem,
-        productId: matchedProduct.id,
-        description: matchedProduct.productName,
-        specifications: matchedProduct.specifications || "",
-        margin: 0,
-        basePrice: basePrice,
-        unitPrice: basePrice,
-      })
+      form.setValue(`items.${index}.productId`, matchedProduct.id, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.description`, matchedProduct.productName, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.specifications`, matchedProduct.specifications || "", { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.unitPrice`, basePrice, { shouldValidate: true, shouldDirty: true })
       
       toast.info(`Populated ${matchedProduct.productName} for ${watchSegment} segment at base price AED ${basePrice}!`)
     }
@@ -734,6 +729,7 @@ function NewQuotationForm() {
                                     placeholder="Spec details (e.g. Dimensions, colors, soft-close drawers...)"
                                     rows={2}
                                     {...field}
+                                    value={field.value || ""}
                                   />
                                 </FormControl>
                               </FormItem>
