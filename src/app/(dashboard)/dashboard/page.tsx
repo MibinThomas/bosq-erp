@@ -1,114 +1,137 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Users, Clock, CheckCircle } from "lucide-react"
+"use client"
+
+import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
+import { DashboardFilters, DashboardFilterState } from "@/components/dashboard/dashboard-filters"
+import { DashboardKPIs } from "@/components/dashboard/kpi-cards"
+import { DashboardSalesChart } from "@/components/dashboard/sales-chart"
+import { DashboardSegmentChart } from "@/components/dashboard/segment-pie-chart"
+import { DashboardTimeline } from "@/components/dashboard/activity-timeline"
+import { Download } from "lucide-react"
 
 export default function DashboardPage() {
+  const { data: session } = useSession()
+  const [loadingKPIs, setLoadingKPIs] = useState(true)
+  const [loadingCharts, setLoadingCharts] = useState(true)
+  const [loadingTimeline, setLoadingTimeline] = useState(true)
+
+  const [summaryData, setSummaryData] = useState<any>(null)
+  const [chartData, setChartData] = useState<any>({ salesData: [], segmentData: [] })
+  const [timelineData, setTimelineData] = useState<any>({ activities: [], followUps: [] })
+
+  const [filters, setFilters] = useState<DashboardFilterState>({
+    startDate: (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0] })(),
+    endDate: new Date().toISOString().split("T")[0],
+    userId: "all",
+    clientId: "all",
+    clientType: "all",
+    status: "all"
+  })
+
+  const buildQueryString = () => {
+    const params = new URLSearchParams()
+    if (filters.startDate) params.append("startDate", filters.startDate)
+    if (filters.endDate) params.append("endDate", filters.endDate)
+    if (filters.userId && filters.userId !== "all") params.append("userId", filters.userId)
+    if (filters.clientId && filters.clientId !== "all") params.append("clientId", filters.clientId)
+    if (filters.clientType && filters.clientType !== "all") params.append("clientType", filters.clientType)
+    if (filters.status && filters.status !== "all") params.append("status", filters.status)
+    return params.toString()
+  }
+
+  useEffect(() => {
+    if (session) {
+      fetchDashboardData()
+    }
+  }, [filters, session])
+
+  async function fetchDashboardData() {
+    const qs = buildQueryString()
+    
+    // Fetch Summary
+    setLoadingKPIs(true)
+    fetch(`/api/dashboard/summary?${qs}`)
+      .then(res => res.json())
+      .then(data => setSummaryData(data))
+      .catch(err => console.error(err))
+      .finally(() => setLoadingKPIs(false))
+
+    // Fetch Charts
+    setLoadingCharts(true)
+    fetch(`/api/dashboard/charts?${qs}`)
+      .then(res => res.json())
+      .then(data => setChartData(data))
+      .catch(err => console.error(err))
+      .finally(() => setLoadingCharts(false))
+
+    // Fetch Timeline
+    setLoadingTimeline(true)
+    fetch(`/api/dashboard/activities?${qs}`)
+      .then(res => res.json())
+      .then(data => setTimelineData(data))
+      .catch(err => console.error(err))
+      .finally(() => setLoadingTimeline(false))
+  }
+
+  const handleExport = () => {
+    // In a real app, this would generate a CSV from the summary/chart data.
+    // We'll trigger a simple CSV download of the sales performance data for now.
+    if (!chartData?.salesData?.length) return
+    
+    const headers = ["Date", "Converted Value (AED)", "Pending Value (AED)"]
+    const rows = chartData.salesData.map((row: any) => [
+      row.date,
+      row.convertedValue,
+      row.pendingValue
+    ])
+    
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + headers.join(",") + "\n" 
+      + rows.map((e: any[]) => e.join(",")).join("\n")
+
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement("a")
+    link.setAttribute("href", encodedUri)
+    link.setAttribute("download", `dashboard_export_${filters.startDate}_to_${filters.endDate}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">
-          Overview of your quotation and sales performance.
+          Advanced overview of your quotation and sales performance.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Quotations</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">142</div>
-            <p className="text-xs text-muted-foreground">+12% from last month</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Follow-ups</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">28</div>
-            <p className="text-xs text-muted-foreground">8 due today</p>
-          </CardContent>
-        </Card>
+      <DashboardFilters 
+        filters={filters} 
+        setFilters={setFilters} 
+        onExport={handleExport} 
+      />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Approved Quotations</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">45</div>
-            <p className="text-xs text-muted-foreground">+5% from last month</p>
-          </CardContent>
-        </Card>
+      <DashboardKPIs data={summaryData} loading={loadingKPIs} />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Value (AED)</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1,250,000</div>
-            <p className="text-xs text-muted-foreground">+18% from last month</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <DashboardSalesChart data={chartData?.salesData || []} loading={loadingCharts} />
+        <DashboardSegmentChart data={chartData?.segmentData || []} loading={loadingCharts} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Recent Quotations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Table placeholder */}
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
-                  <div>
-                    <p className="font-medium">I195{i}</p>
-                    <p className="text-sm text-muted-foreground">Client {i} LLC</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">AED {(i * 12500).toLocaleString()}</p>
-                    <p className="text-sm text-muted-foreground text-yellow-600">Pending</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="col-span-3">
-          <CardHeader>
-            <CardTitle>Salesperson Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                { name: "John Doe", value: "850,000", progress: 85 },
-                { name: "Jane Smith", value: "450,000", progress: 45 },
-                { name: "Mike Johnson", value: "250,000", progress: 25 },
-              ].map((sp) => (
-                <div key={sp.name} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{sp.name}</span>
-                    <span>AED {sp.value}</span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-secondary">
-                    <div 
-                      className="h-full rounded-full bg-primary" 
-                      style={{ width: `${sp.progress}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-5">
+        {/* Placeholder for future expansion, Timeline takes 2 cols, could put Top Products in 3 cols */}
+        <div className="lg:col-span-3">
+          {/* We can place additional advanced tables here if needed later */}
+        </div>
+        <DashboardTimeline 
+          activities={timelineData?.activities || []} 
+          followUps={timelineData?.followUps || []} 
+          loading={loadingTimeline} 
+        />
       </div>
+
     </div>
   )
 }
