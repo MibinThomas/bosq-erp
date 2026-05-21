@@ -122,10 +122,10 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
           </Select>
         </div>
 
-        {/* Salesperson - Only for managers */}
+        {/* Design Consultant - Only for managers */}
         {isManagerOrAdmin && (
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Salesperson</label>
+            <label className="text-xs font-medium text-muted-foreground">Design Consultant</label>
             <Select value={filters.userId} onValueChange={v => setFilters(p => ({ ...p, userId: v as string }))}>
               <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All Users" /></SelectTrigger>
               <SelectContent>

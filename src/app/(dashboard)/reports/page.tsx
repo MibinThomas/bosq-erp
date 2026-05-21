@@ -13,7 +13,7 @@ export default function ReportsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Salesperson Performance</CardTitle>
+            <CardTitle>Design Consultant Performance</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px] flex items-center justify-center bg-muted/20 border-t">
             <p className="text-muted-foreground">Chart placeholder (e.g., Recharts)</p>
