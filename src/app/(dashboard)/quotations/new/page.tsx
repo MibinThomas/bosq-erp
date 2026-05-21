@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -28,6 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { QuickAddProductModal } from "@/components/products/quick-add-product-modal"
 
@@ -404,24 +407,57 @@ function NewQuotationForm() {
                     control={form.control}
                     name="clientId"
                     render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="flex flex-col mt-2">
                         <FormLabel>Client Company</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={isRevision}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select an active client">
-                                {selectedClientObj?.companyName}
-                              </SelectValue>
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {clients.map((client) => (
-                              <SelectItem key={client.id} value={client.id}>
-                                {client.companyName}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                disabled={isRevision}
+                                className={cn(
+                                  "w-full justify-between font-normal bg-card",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                {field.value
+                                  ? clients.find((client) => client.id === field.value)?.companyName
+                                  : "Search and select a client..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[400px] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Search client name..." />
+                              <CommandList>
+                                <CommandEmpty>No client found.</CommandEmpty>
+                                <CommandGroup>
+                                  {clients.map((client) => (
+                                    <CommandItem
+                                      value={client.companyName}
+                                      key={client.id}
+                                      onSelect={() => {
+                                        form.setValue("clientId", client.id)
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          client.id === field.value
+                                            ? "opacity-100"
+                                            : "opacity-0"
+                                        )}
+                                      />
+                                      {client.companyName}
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -580,31 +616,63 @@ function NewQuotationForm() {
                               label = `${selectedProd.productCode} - ${selectedProd.productName} (${watchSegment} Price: AED ${basePrice.toFixed(2)})`
                             }
                             return (
-                              <Select
-                                onValueChange={(val) => handleProductSelect(index, val)}
-                                value={watchItems[index]?.productId || ""}
-                              >
-                                <SelectTrigger className="bg-card w-full">
-                                  <SelectValue placeholder="Search or select catalog product...">
-                                    {label || undefined}
-                                  </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {products.map((product) => {
-                                    let basePrice = product.unitPrice
-                                    if (watchSegment === "Interior") basePrice = product.interiorPrice ?? product.unitPrice
-                                    else if (watchSegment === "Dealer") basePrice = product.dealerPrice ?? product.unitPrice
-                                    else if (watchSegment === "Direct") basePrice = product.directPrice ?? product.unitPrice
-                                    else if (watchSegment === "Online") basePrice = product.onlinePrice ?? product.unitPrice
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn(
+                                      "w-full justify-between font-normal bg-card",
+                                      !watchItems[index]?.productId && "text-muted-foreground"
+                                    )}
+                                  >
+                                    <span className="truncate flex-1 text-left">
+                                      {watchItems[index]?.productId ? label : "Search catalog product by name or code..."}
+                                    </span>
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[500px] p-0" align="start">
+                                  <Command>
+                                    <CommandInput placeholder="Search products..." />
+                                    <CommandList className="max-h-[300px]">
+                                      <CommandEmpty>No product found.</CommandEmpty>
+                                      <CommandGroup>
+                                        {products.map((product) => {
+                                          let basePrice = product.unitPrice
+                                          if (watchSegment === "Interior") basePrice = product.interiorPrice ?? product.unitPrice
+                                          else if (watchSegment === "Dealer") basePrice = product.dealerPrice ?? product.unitPrice
+                                          else if (watchSegment === "Direct") basePrice = product.directPrice ?? product.unitPrice
+                                          else if (watchSegment === "Online") basePrice = product.onlinePrice ?? product.unitPrice
 
-                                    return (
-                                      <SelectItem key={product.id} value={product.id}>
-                                        {product.productCode} - {product.productName} ({watchSegment} Price: AED ${basePrice.toFixed(2)})
-                                      </SelectItem>
-                                    )
-                                  })}
-                                </SelectContent>
-                              </Select>
+                                          const productLabel = `${product.productCode} - ${product.productName}`
+                                          
+                                          return (
+                                            <CommandItem
+                                              value={`${productLabel} ${basePrice}`}
+                                              key={product.id}
+                                              onSelect={() => handleProductSelect(index, product.id)}
+                                            >
+                                              <Check
+                                                className={cn(
+                                                  "mr-2 h-4 w-4 shrink-0",
+                                                  product.id === watchItems[index]?.productId
+                                                    ? "opacity-100"
+                                                    : "opacity-0"
+                                                )}
+                                              />
+                                              <div className="flex flex-col">
+                                                <span>{productLabel}</span>
+                                                <span className="text-xs text-muted-foreground">({watchSegment} Price: AED {basePrice.toFixed(2)})</span>
+                                              </div>
+                                            </CommandItem>
+                                          )
+                                        })}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
                             )
                           })()}
                         </div>
