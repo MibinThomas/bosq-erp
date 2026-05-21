@@ -20,7 +20,8 @@ import {
   Briefcase,
   UserCheck,
   Eye,
-  EyeOff
+  EyeOff,
+  Pencil
 } from "lucide-react"
 
 // Types matching system models
@@ -70,6 +71,9 @@ export default function SettingsPage() {
   const [newUserEmail, setNewUserEmail] = useState("")
   const [newUserPassword, setNewUserPassword] = useState("")
   const [newUserRole, setNewUserRole] = useState("SALES_EXECUTIVE")
+  
+  const [showEditUserModal, setShowEditUserModal] = useState(false)
+  const [editUserData, setEditUserData] = useState<{id: string, name: string, email: string, role: string, password?: string} | null>(null)
 
   // 3. Terms & Conditions Tab State
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([])
@@ -209,6 +213,43 @@ export default function SettingsPage() {
       } else {
         const errData = await res.json()
         toast.error(errData.error || "Failed to create user account")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Connection failed")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Handle updating user profile
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editUserData?.id || !editUserData.name || !editUserData.email || !editUserData.role) {
+      toast.error("All user fields are required")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/settings/users/${editUserData.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editUserData.name,
+          email: editUserData.email,
+          role: editUserData.role,
+          password: editUserData.password || undefined // Only send if entered
+        })
+      })
+
+      if (res.ok) {
+        toast.success(`User ${editUserData.name} updated successfully!`)
+        setShowEditUserModal(false)
+        setEditUserData(null)
+        fetchUsers()
+      } else {
+        const errData = await res.json()
+        toast.error(errData.error || "Failed to update user account")
       }
     } catch (err) {
       console.error(err)
@@ -500,6 +541,17 @@ export default function SettingsPage() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
+                            className="text-blue-500 hover:text-blue-400 hover:bg-blue-950/30 mr-2"
+                            onClick={() => {
+                              setEditUserData({ ...usr })
+                              setShowEditUserModal(true)
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
                             className="text-red-500 hover:text-red-400 hover:bg-red-950/30"
                             onClick={() => handleDeleteUser(usr.id, usr.name)}
                           >
@@ -761,6 +813,76 @@ export default function SettingsPage() {
                 <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white flex items-center gap-2" disabled={loading}>
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                   Create Account
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditUserModal && editUserData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-250">
+          <Card className="w-full max-w-md bg-slate-950 border-slate-800 text-white shadow-2xl">
+            <CardHeader className="border-b border-slate-800">
+              <CardTitle className="text-lg">Edit User Account</CardTitle>
+              <CardDescription className="text-slate-400">Update employee details or role.</CardDescription>
+            </CardHeader>
+            <form onSubmit={handleEditUser}>
+              <CardContent className="space-y-4 pt-6">
+                <div className="space-y-2">
+                  <Label htmlFor="editName" className="text-slate-300">Full Name</Label>
+                  <Input 
+                    id="editName"
+                    value={editUserData.name}
+                    onChange={(e) => setEditUserData({...editUserData, name: e.target.value})}
+                    className="bg-slate-900 border-slate-800"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editEmail" className="text-slate-300">Corporate Email</Label>
+                  <Input 
+                    id="editEmail"
+                    type="email"
+                    value={editUserData.email}
+                    onChange={(e) => setEditUserData({...editUserData, email: e.target.value})}
+                    className="bg-slate-900 border-slate-800"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editPass" className="text-slate-300">New Password (Optional)</Label>
+                  <Input 
+                    id="editPass"
+                    type="password"
+                    placeholder="Leave blank to keep current password"
+                    value={editUserData.password || ""}
+                    onChange={(e) => setEditUserData({...editUserData, password: e.target.value})}
+                    className="bg-slate-900 border-slate-800"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editRole" className="text-slate-300">System Role</Label>
+                  <select 
+                    id="editRole"
+                    value={editUserData.role}
+                    onChange={(e) => setEditUserData({...editUserData, role: e.target.value})}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600"
+                  >
+                    <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
+                    <option value="SALES_MANAGER">Sales Manager</option>
+                    <option value="ADMIN">Administrator</option>
+                  </select>
+                </div>
+              </CardContent>
+              <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
+                <Button type="button" variant="ghost" onClick={() => { setShowEditUserModal(false); setEditUserData(null); }} className="text-slate-400 hover:text-slate-200">
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white flex items-center gap-2" disabled={loading}>
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Save Changes
                 </Button>
               </div>
             </form>
