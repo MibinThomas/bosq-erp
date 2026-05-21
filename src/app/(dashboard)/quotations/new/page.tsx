@@ -410,24 +410,26 @@ function NewQuotationForm() {
                       <FormItem className="flex flex-col mt-2">
                         <FormLabel>Client Company</FormLabel>
                         <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                disabled={isRevision}
-                                className={cn(
-                                  "w-full justify-between font-normal bg-card",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value
-                                  ? clients.find((client) => client.id === field.value)?.companyName
-                                  : "Search and select a client..."}
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
+                          <PopoverTrigger
+                            render={
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  disabled={isRevision}
+                                  className={cn(
+                                    "w-full justify-between font-normal bg-card",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value
+                                    ? clients.find((client) => client.id === field.value)?.companyName
+                                    : "Search and select a client..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            }
+                          />
                           <PopoverContent className="w-[400px] p-0" align="start">
                             <Command>
                               <CommandInput placeholder="Search client name..." />
@@ -617,21 +619,23 @@ function NewQuotationForm() {
                             }
                             return (
                               <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    className={cn(
-                                      "w-full justify-between font-normal bg-card",
-                                      !watchItems[index]?.productId && "text-muted-foreground"
-                                    )}
-                                  >
-                                    <span className="truncate flex-1 text-left">
-                                      {watchItems[index]?.productId ? label : "Search catalog product by name or code..."}
-                                    </span>
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </PopoverTrigger>
+                                <PopoverTrigger
+                                  render={
+                                    <Button
+                                      variant="outline"
+                                      role="combobox"
+                                      className={cn(
+                                        "w-full justify-between font-normal bg-card",
+                                        !watchItems[index]?.productId && "text-muted-foreground"
+                                      )}
+                                    >
+                                      <span className="truncate flex-1 text-left">
+                                        {watchItems[index]?.productId ? label : "Search catalog product by name or code..."}
+                                      </span>
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                  }
+                                />
                                 <PopoverContent className="w-[500px] p-0" align="start">
                                   <Command>
                                     <CommandInput placeholder="Search products..." />
