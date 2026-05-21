@@ -466,9 +466,9 @@ function NewQuotationForm() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Customer Segment <span className="text-red-500">*</span></FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={isRevision}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="bg-muted/30">
                               <SelectValue placeholder="Select customer segment" />
                             </SelectTrigger>
                           </FormControl>
