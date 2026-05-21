@@ -104,29 +104,31 @@ function NewQuotationForm() {
 
   const [users, setUsers] = useState<any[]>([])
 
+  // Fetch users if manager or admin
+  useEffect(() => {
+    if (isManagerOrAdmin) {
+      fetch("/api/settings/users")
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setUsers(data)
+          }
+        })
+        .catch(err => console.error("Failed to load users", err))
+    }
+  }, [isManagerOrAdmin])
+
   // Fetch clients and products catalog
   useEffect(() => {
     async function loadData() {
       try {
-        const fetchPromises = [
+        const [clientsRes, productsRes] = await Promise.all([
           fetch("/api/clients"),
           fetch("/api/products"),
-        ]
-        
-        if (isManagerOrAdmin) {
-          fetchPromises.push(fetch("/api/settings/users"))
-        }
-
-        const responses = await Promise.all(fetchPromises)
-        if (!responses[0].ok || !responses[1].ok) throw new Error("Failed to load catalog data")
-        
-        const clientsData = await responses[0].json()
-        const productsData = await responses[1].json()
-        
-        if (isManagerOrAdmin && responses[2] && responses[2].ok) {
-          const usersData = await responses[2].json()
-          setUsers(Array.isArray(usersData) ? usersData : [])
-        }
+        ])
+        if (!clientsRes.ok || !productsRes.ok) throw new Error("Failed to load catalog data")
+        const clientsData = await clientsRes.json()
+        const productsData = await productsRes.json()
 
         setClients(clientsData)
         setProducts(productsData)

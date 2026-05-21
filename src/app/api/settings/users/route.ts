@@ -7,8 +7,12 @@ import { hashPassword } from "@/lib/auth"
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const role = (session.user as any).role
+    if (role !== "ADMIN" && role !== "SALES_MANAGER") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const users = await prisma.user.findMany({
