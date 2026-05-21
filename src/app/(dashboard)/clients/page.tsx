@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, Search, MoreHorizontal, Loader2, Folder, FileSpreadsheet } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Loader2, Folder, FileSpreadsheet, Edit, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { BulkUploadModal } from "@/components/clients/bulk-upload-modal"
+import { EditClientModal } from "@/components/clients/edit-client-modal"
 import {
   Table,
   TableBody,
@@ -34,8 +35,11 @@ interface Client {
   contactPerson: string | null
   email: string | null
   phone: string | null
+  address: string | null
+  trn: string | null
   clientType: string | null
   sharepointFolder: string | null
+  notes: string | null
 }
 
 import { useSession } from "next-auth/react"
@@ -50,6 +54,8 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isBulkOpen, setIsBulkOpen] = useState(false)
+  const [editingClient, setEditingClient] = useState<Client | null>(null)
+  const [isEditOpen, setIsEditOpen] = useState(false)
 
   async function fetchClients() {
     try {
@@ -69,6 +75,23 @@ export default function ClientsPage() {
   useEffect(() => {
     fetchClients()
   }, [])
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Are you sure you want to delete ${name}? This action cannot be undone.`)) return
+    
+    try {
+      const res = await fetch(`/api/clients/${id}`, { method: "DELETE" })
+      const data = await res.json()
+      
+      if (!res.ok) throw new Error(data.error || "Failed to delete client")
+      
+      toast.success("Client deleted successfully")
+      fetchClients()
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error.message || "An error occurred while deleting the client.")
+    }
+  }
 
   // Filter clients dynamically
   const filteredClients = clients.filter((client) => {
@@ -192,9 +215,14 @@ export default function ClientsPage() {
                           View details
                         </DropdownMenuItem>
                         {isManagerOrAdmin && (
-                          <DropdownMenuItem onClick={() => router.push(`/clients/new?editId=${client.id}`)} className="cursor-pointer">
-                            Edit client
-                          </DropdownMenuItem>
+                          <>
+                            <DropdownMenuItem onClick={() => { setEditingClient(client); setIsEditOpen(true) }} className="cursor-pointer flex items-center gap-2">
+                              <Edit className="h-4 w-4" /> Edit client
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDelete(client.id, client.companyName)} className="cursor-pointer flex items-center gap-2 text-destructive focus:text-destructive">
+                              <Trash2 className="h-4 w-4" /> Delete client
+                            </DropdownMenuItem>
+                          </>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -209,6 +237,13 @@ export default function ClientsPage() {
       <BulkUploadModal 
         isOpen={isBulkOpen}
         onClose={() => setIsBulkOpen(false)}
+        onSuccess={() => fetchClients()}
+      />
+
+      <EditClientModal
+        isOpen={isEditOpen}
+        client={editingClient}
+        onClose={() => setIsEditOpen(false)}
         onSuccess={() => fetchClients()}
       />
     </div>

@@ -78,14 +78,97 @@ export async function PUT(
 
     const { companyName, contactPerson, phone, email, address, trn, clientType, notes } = body
 
+    if (!companyName) {
+      return NextResponse.json({ error: "Company name is required" }, { status: 400 })
+    }
+
+    // Check for duplicate company name
+    const existingClient = await prisma.client.findFirst({
+      where: {
+        companyName: {
+          equals: companyName.trim(),
+          mode: "insensitive"
+        },
+        id: { not: id } // Exclude the current client being edited
+      }
+    })
+
+    if (existingClient) {
+      return NextResponse.json(
+        { error: `A client with the company name "${existingClient.companyName}" already exists.` },
+        { status: 409 }
+      )
+    }
+
     const updated = await prisma.client.update({
       where: { id },
-      data: { companyName, contactPerson, phone, email, address, trn, clientType, notes },
+      data: { companyName: companyName.trim(), contactPerson, phone, email, address, trn, clientType, notes },
     })
 
     return NextResponse.json(updated)
   } catch (error) {
     console.error("Failed to update client:", error)
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+
+    const session = await getServerSession(authOptions)
+    const userRole = (session?.user as any)?.role || ""
+
+    // Only ADMIN/SALES_MANAGER can delete clients
+    if (!["ADMIN", "SALES_MANAGER"].includes(userRole)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    }
+
+    // Check if client has associated quotations
+    const client = await prisma.client.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: { quotations: true }
+        }
+      }
+    })
+
+    if (!client) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 })
+    }
+
+    if (client._count.quotations > 0) {
+      return NextResponse.json(
+        { error: "Cannot delete client. There are quotations associated with this client." },
+        { status: 400 }
+      )
+    }
+
+    await prisma.client.delete({
+      where: { id },
+    })
+
+    // Log Activity
+    await prisma.activityLog.create({
+      data: {
+        userId: (session.user as any).id,
+        action: "DELETED_CLIENT",
+        entityType: "CLIENT",
+        entityId: id,
+        details: `Deleted client ${client.companyName}`,
+      },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Failed to delete client:", error)
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }
