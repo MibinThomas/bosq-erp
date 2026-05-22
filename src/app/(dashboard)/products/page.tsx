@@ -347,6 +347,7 @@ export default function ProductsPage() {
                   <TableHead>Code</TableHead>
                   <TableHead>Product Name</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Specifications</TableHead>
                   <TableHead>Dimensions</TableHead>
                   <TableHead>Warranty</TableHead>
                   <TableHead className="text-right">Unit Price (AED)</TableHead>
@@ -376,6 +377,9 @@ export default function ProductsPage() {
                     <TableCell className="font-mono font-medium text-primary">{product.productCode}</TableCell>
                     <TableCell className="font-semibold">{product.productName}</TableCell>
                     <TableCell>{product.category.name}</TableCell>
+                    <TableCell className="max-w-[250px] truncate text-muted-foreground" title={product.specifications || undefined}>
+                      {product.specifications || "-"}
+                    </TableCell>
                     <TableCell>{product.dimensions || "-"}</TableCell>
                     <TableCell>{product.warranty || "-"}</TableCell>
                     <TableCell className="text-right font-mono font-medium">
