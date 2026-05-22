@@ -21,7 +21,8 @@ import {
   UserCheck,
   Eye,
   EyeOff,
-  Pencil
+  Pencil,
+  Tag
 } from "lucide-react"
 
 // Types matching system models
@@ -95,12 +96,35 @@ export default function SettingsPage() {
   // Deletion modal state
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: "payment" | "condition" | "user"; label: string } | null>(null)
 
+  // 4. Pricing Markup State
+  const [dealerPct, setDealerPct] = useState(15)
+  const [interiorPct, setInteriorPct] = useState(30)
+  const [directPct, setDirectPct] = useState(50)
+  const [onlinePct, setOnlinePct] = useState(75)
+  const [savingPricing, setSavingPricing] = useState(false)
+
   // Fetch all system settings on load
   useEffect(() => {
     fetchSettings()
     fetchUsers()
     fetchTerms()
+    fetchPricing()
   }, [])
+
+  const fetchPricing = async () => {
+    try {
+      const res = await fetch("/api/settings/pricing")
+      if (res.ok) {
+        const data = await res.json()
+        setDealerPct(data.dealer || 15)
+        setInteriorPct(data.interior || 30)
+        setDirectPct(data.direct || 50)
+        setOnlinePct(data.online || 75)
+      }
+    } catch (err) {
+      console.error(err)
+    }
+  }
 
   const fetchSettings = async () => {
     try {
@@ -388,6 +412,29 @@ export default function SettingsPage() {
     }
   }
 
+  const handleSavePricing = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingPricing(true)
+    try {
+      const res = await fetch("/api/settings/pricing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dealer: dealerPct, interior: interiorPct, direct: directPct, online: onlinePct })
+      })
+      if (res.ok) {
+        toast.success("Pricing markup percentages saved!")
+      } else {
+        const errData = await res.json()
+        toast.error(errData.error || "Failed to save pricing percentages")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("An error occurred while saving pricing percentages")
+    } finally {
+      setSavingPricing(false)
+    }
+  }
+
   if (pageLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -409,10 +456,14 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="company" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 bg-slate-900/60 p-1 border border-slate-800 rounded-xl max-w-2xl">
+        <TabsList className="grid w-full grid-cols-5 bg-slate-900/60 p-1 border border-slate-800 rounded-xl max-w-4xl">
           <TabsTrigger value="company" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
             <Building className="h-4 w-4" />
             Company Details
+          </TabsTrigger>
+          <TabsTrigger value="pricing" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
+            <Tag className="h-4 w-4" />
+            Pricing Markup
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
             <Users className="h-4 w-4" />
@@ -489,6 +540,89 @@ export default function SettingsPage() {
                   <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white font-semibold flex items-center gap-2" disabled={loading}>
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                     Save Company Details
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </form>
+        </TabsContent>
+
+        {/* Tab: Pricing Markup */}
+        <TabsContent value="pricing" className="mt-6">
+          <form onSubmit={handleSavePricing}>
+            <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl">
+              <CardHeader className="border-b border-slate-800/80 pb-4">
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <Tag className="text-orange-500 h-5 w-5" />
+                  Pricing Markup
+                </CardTitle>
+                <CardDescription className="text-slate-400">
+                  Set the default markup percentages used to auto-calculate price tiers from the Base Price during bulk imports.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-6">
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Dealer Markup (%)</Label>
+                    <div className="relative">
+                      <Input 
+                        type="number" 
+                        value={dealerPct}
+                        onChange={(e) => setDealerPct(parseFloat(e.target.value))}
+                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
+                        required
+                        min="0"
+                      />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Interior Markup (%)</Label>
+                    <div className="relative">
+                      <Input 
+                        type="number" 
+                        value={interiorPct}
+                        onChange={(e) => setInteriorPct(parseFloat(e.target.value))}
+                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
+                        required
+                        min="0"
+                      />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Direct Markup (%)</Label>
+                    <div className="relative">
+                      <Input 
+                        type="number" 
+                        value={directPct}
+                        onChange={(e) => setDirectPct(parseFloat(e.target.value))}
+                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
+                        required
+                        min="0"
+                      />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">Online Markup (%)</Label>
+                    <div className="relative">
+                      <Input 
+                        type="number" 
+                        value={onlinePct}
+                        onChange={(e) => setOnlinePct(parseFloat(e.target.value))}
+                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
+                        required
+                        min="0"
+                      />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-slate-800 flex justify-end mt-4">
+                  <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white font-semibold flex items-center gap-2" disabled={savingPricing}>
+                    {savingPricing && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Save Pricing Markup
                   </Button>
                 </div>
               </CardContent>
