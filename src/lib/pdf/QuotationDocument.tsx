@@ -365,6 +365,7 @@ export interface QuotationPdfProps {
   deliveryCharge: number
   grandTotal: number
   preparedBy: string
+  preparedByContact?: string | null
   termsConditions: string[]
   companyLogoUrl?: string | null // Base64 logo png
   aynMuskLogoUrl?: string | null
@@ -393,6 +394,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   deliveryCharge,
   grandTotal,
   preparedBy,
+  preparedByContact,
   termsConditions,
   companyLogoUrl,
   aynMuskLogoUrl,
@@ -574,7 +576,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
               <View style={styles.metaRowRight}>
                 <Text style={styles.metaKeyRight}>Contact Number:</Text>
-                <Text style={styles.metaValueRight}>+971 50 360 9762</Text>
+                <Text style={styles.metaValueRight}>{preparedByContact || "-"}</Text>
               </View>
 
             </View>

@@ -70,10 +70,12 @@ export default function SettingsPage() {
   const [newUserName, setNewUserName] = useState("")
   const [newUserEmail, setNewUserEmail] = useState("")
   const [newUserPassword, setNewUserPassword] = useState("")
+  const [newUserPhone, setNewUserPhone] = useState("")
+  const [newUserDepartment, setNewUserDepartment] = useState("")
   const [newUserRole, setNewUserRole] = useState("SALES_EXECUTIVE")
   
   const [showEditUserModal, setShowEditUserModal] = useState(false)
-  const [editUserData, setEditUserData] = useState<{id: string, name: string, email: string, role: string, password?: string} | null>(null)
+  const [editUserData, setEditUserData] = useState<{id: string, name: string, email: string, role: string, phone?: string, department?: string, password?: string} | null>(null)
 
   // 3. Terms & Conditions Tab State
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([])
@@ -186,8 +188,8 @@ export default function SettingsPage() {
   // Handle adding new user profile
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newUserName || !newUserEmail || !newUserPassword || !newUserRole) {
-      toast.error("All user fields are required")
+    if (!newUserName || !newUserEmail || !newUserPassword || !newUserRole || !newUserPhone) {
+      toast.error("Name, email, password, role, and contact number are required")
       return
     }
     setLoading(true)
@@ -199,7 +201,9 @@ export default function SettingsPage() {
           name: newUserName,
           email: newUserEmail,
           password: newUserPassword,
-          role: newUserRole
+          role: newUserRole,
+          phone: newUserPhone,
+          department: newUserDepartment
         })
       })
 
@@ -209,6 +213,8 @@ export default function SettingsPage() {
         setNewUserName("")
         setNewUserEmail("")
         setNewUserPassword("")
+        setNewUserPhone("")
+        setNewUserDepartment("")
         fetchUsers()
       } else {
         const errData = await res.json()
@@ -225,8 +231,8 @@ export default function SettingsPage() {
   // Handle updating user profile
   const handleEditUser = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!editUserData?.id || !editUserData.name || !editUserData.email || !editUserData.role) {
-      toast.error("All user fields are required")
+    if (!editUserData?.id || !editUserData.name || !editUserData.email || !editUserData.role || !editUserData.phone) {
+      toast.error("Name, email, role, and contact number are required")
       return
     }
     setLoading(true)
@@ -238,6 +244,8 @@ export default function SettingsPage() {
           name: editUserData.name,
           email: editUserData.email,
           role: editUserData.role,
+          phone: editUserData.phone,
+          department: editUserData.department,
           password: editUserData.password || undefined // Only send if entered
         })
       })
@@ -793,6 +801,29 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="newPhone" className="text-slate-300">Contact Number</Label>
+                  <Input 
+                    id="newPhone"
+                    type="tel"
+                    placeholder="+971 XXXXXXXX"
+                    value={newUserPhone}
+                    onChange={(e) => setNewUserPhone(e.target.value)}
+                    className="bg-slate-900 border-slate-800"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newDepartment" className="text-slate-300">Department (Optional)</Label>
+                  <Input 
+                    id="newDepartment"
+                    type="text"
+                    placeholder="e.g. Sales"
+                    value={newUserDepartment}
+                    onChange={(e) => setNewUserDepartment(e.target.value)}
+                    className="bg-slate-900 border-slate-800"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="newRole" className="text-slate-300">System Role</Label>
                   <select 
                     id="newRole"
@@ -859,6 +890,29 @@ export default function SettingsPage() {
                     placeholder="Leave blank to keep current password"
                     value={editUserData.password || ""}
                     onChange={(e) => setEditUserData({...editUserData, password: e.target.value})}
+                    className="bg-slate-900 border-slate-800"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editPhone" className="text-slate-300">Contact Number</Label>
+                  <Input 
+                    id="editPhone"
+                    type="tel"
+                    placeholder="+971 XXXXXXXX"
+                    value={editUserData.phone || ""}
+                    onChange={(e) => setEditUserData({...editUserData, phone: e.target.value})}
+                    className="bg-slate-900 border-slate-800"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editDepartment" className="text-slate-300">Department (Optional)</Label>
+                  <Input 
+                    id="editDepartment"
+                    type="text"
+                    placeholder="e.g. Sales"
+                    value={editUserData.department || ""}
+                    onChange={(e) => setEditUserData({...editUserData, department: e.target.value})}
                     className="bg-slate-900 border-slate-800"
                   />
                 </div>

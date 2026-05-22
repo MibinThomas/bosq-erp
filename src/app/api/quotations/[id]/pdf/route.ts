@@ -49,6 +49,7 @@ export async function GET(
       },
       include: {
         client: true,
+        preparedBy: true,
         items: {
           orderBy: { itemNo: "asc" },
           include: {
@@ -153,7 +154,8 @@ export async function GET(
       vatAmount: quotation.vatAmount,
       deliveryCharge: quotation.deliveryCharge,
       grandTotal: quotation.grandTotal,
-      preparedBy: quotation.preparedBy.name || "Sales Executive",
+      preparedBy: quotation.preparedBy?.name || "Sales Executive",
+      preparedByContact: quotation.preparedBy?.phone || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,

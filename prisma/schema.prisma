@@ -16,6 +16,8 @@ model User {
   emailVerified DateTime?
   image         String?
   password      String?
+  phone         String?
+  department    String?
   role          String    @default("SALES_EXECUTIVE") // Roles: ADMIN, SALES_MANAGER, SALES_EXECUTIVE, ACCOUNTS, PRODUCTION
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

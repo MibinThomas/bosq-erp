@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     }
 
     const session = await getServerSession(authOptions)
-    let creatorUser = { id: "", name: "Sales Rep", role: "SALES_EXECUTIVE" }
+    let creatorUser = { id: "", name: "Sales Rep", role: "SALES_EXECUTIVE", phone: null as string | null }
 
     if (session?.user) {
       const userRole = (session.user as any).role || "SALES_EXECUTIVE"
@@ -97,10 +97,24 @@ export async function POST(request: Request) {
         finalId = body.preparedById
       }
 
-      creatorUser = {
-        id: finalId,
-        name: session.user.name || "Sales Rep",
-        role: userRole,
+      const dbUser = await prisma.user.findUnique({
+        where: { id: finalId }
+      })
+
+      if (dbUser) {
+        creatorUser = {
+          id: dbUser.id,
+          name: dbUser.name || "Sales Rep",
+          role: dbUser.role,
+          phone: dbUser.phone
+        }
+      } else {
+        creatorUser = {
+          id: finalId,
+          name: session.user.name || "Sales Rep",
+          role: userRole,
+          phone: null
+        }
       }
     } else {
       const defaultUser = await prisma.user.findFirst({
@@ -116,6 +130,7 @@ export async function POST(request: Request) {
         id: defaultUser.id,
         name: defaultUser.name || "Sales Manager",
         role: defaultUser.role,
+        phone: defaultUser.phone
       }
     }
 
@@ -264,6 +279,7 @@ export async function POST(request: Request) {
       deliveryCharge: charge,
       grandTotal: calculatedGrandTotal,
       preparedBy: creatorUser.name,
+      preparedByContact: creatorUser.phone,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,
