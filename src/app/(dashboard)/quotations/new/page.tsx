@@ -709,9 +709,22 @@ function NewQuotationForm() {
                                                     : "opacity-0"
                                                 )}
                                               />
-                                              <div className="flex flex-col">
-                                                <span>{productLabel}</span>
-                                                <span className="text-xs text-muted-foreground">({watchSegment} Price: AED {basePrice.toFixed(2)})</span>
+                                              <div className="flex items-center gap-3 w-full py-1">
+                                                <div className="h-10 w-10 shrink-0 border rounded overflow-hidden flex items-center justify-center bg-white shadow-sm">
+                                                  {product.imageUrl ? (
+                                                    <img src={product.imageUrl} alt={product.productName} className="object-contain w-full h-full" />
+                                                  ) : (
+                                                    <div className="text-[8px] text-muted-foreground text-center px-1 leading-tight">No Image</div>
+                                                  )}
+                                                </div>
+                                                <div className="flex flex-col flex-1 overflow-hidden">
+                                                  <span className="font-medium text-sm text-foreground truncate">{product.productName}</span>
+                                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                                    <span className="truncate">SKU: {product.productCode}</span>
+                                                    <span>•</span>
+                                                    <span className="font-semibold text-primary whitespace-nowrap">AED {basePrice.toFixed(2)}</span>
+                                                  </div>
+                                                </div>
                                               </div>
                                             </CommandItem>
                                           )
