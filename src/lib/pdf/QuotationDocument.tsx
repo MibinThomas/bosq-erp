@@ -163,8 +163,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: "flex-start",
   },
-  colDesc: { width: "46%", paddingRight: 15 },
-  colImage: { width: "26%", alignItems: "center", justifyContent: "center", paddingRight: 10 },
+  colDesc: { width: "40%", paddingRight: 15 },
+  colImage: { width: "32%", alignItems: "center", justifyContent: "center", paddingRight: 10 },
   colQty: { width: "8%", textAlign: "center" },
   colPrice: { width: "10%", textAlign: "right" },
   colAmount: { width: "10%", textAlign: "right" },
@@ -205,8 +205,8 @@ const styles = StyleSheet.create({
   },
 
   productImage: {
-    width: 110,
-    height: 110,
+    width: 150,
+    height: 150,
     objectFit: "contain",
     backgroundColor: "#ffffff",
   },
@@ -631,56 +631,59 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           </View>
         ))}
 
-        {/* Financial Totals & Terms */}
-        <View style={styles.totalsSection} wrap={false}>
-          {/* Left Terms & Conditions */}
-          <View style={styles.termsBox}>
-            {termsConditions && termsConditions.length > 0 && (
-              <>
-                <Text style={styles.termsTitle}>Terms & Conditions</Text>
-                {termsConditions.map((term, idx) => (
-                  <Text key={idx} style={styles.termRow}>
-                    {idx + 1}. {term}
-                  </Text>
-                ))}
-              </>
-            )}
-          </View>
+        {/* Group Totals and Signatures to prevent orphaned signature page */}
+        <View wrap={false}>
+          {/* Financial Totals & Terms */}
+          <View style={styles.totalsSection}>
+            {/* Left Terms & Conditions */}
+            <View style={styles.termsBox}>
+              {termsConditions && termsConditions.length > 0 && (
+                <>
+                  <Text style={styles.termsTitle}>Terms & Conditions</Text>
+                  {termsConditions.map((term, idx) => (
+                    <Text key={idx} style={styles.termRow}>
+                      {idx + 1}. {term}
+                    </Text>
+                  ))}
+                </>
+              )}
+            </View>
 
-          {/* Right Sum Box */}
-          <View style={styles.totalsBox}>
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLabel}>Subtotal</Text>
-              <Text style={styles.totalsValue}>{formatCurrency(subtotal)}</Text>
-            </View>
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsLabel}>VAT (5%)</Text>
-              <Text style={styles.totalsValue}>{formatCurrency(vatAmount)}</Text>
-            </View>
-            {deliveryCharge > 0 && (
+            {/* Right Sum Box */}
+            <View style={styles.totalsBox}>
               <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>Delivery & Install</Text>
-                <Text style={styles.totalsValue}>{formatCurrency(deliveryCharge)}</Text>
+                <Text style={styles.totalsLabel}>Subtotal</Text>
+                <Text style={styles.totalsValue}>{formatCurrency(subtotal)}</Text>
               </View>
-            )}
-            <View style={styles.grandTotalRow}>
-              <Text style={styles.grandTotalLabel}>Grand Total</Text>
-              <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLabel}>VAT (5%)</Text>
+                <Text style={styles.totalsValue}>{formatCurrency(vatAmount)}</Text>
+              </View>
+              {deliveryCharge > 0 && (
+                <View style={styles.totalsRow}>
+                  <Text style={styles.totalsLabel}>Delivery & Install</Text>
+                  <Text style={styles.totalsValue}>{formatCurrency(deliveryCharge)}</Text>
+                </View>
+              )}
+              <View style={styles.grandTotalRow}>
+                <Text style={styles.grandTotalLabel}>Grand Total</Text>
+                <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Signatures */}
-        <View style={styles.signatureSection} wrap={false}>
-          <View style={styles.signatureBox}>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureLabel}>Prepared By</Text>
-            <Text style={styles.signatureCompany}>{preparedBy} | {companyName}</Text>
-          </View>
-          <View style={styles.signatureBox}>
-            <View style={styles.signatureLine} />
-            <Text style={styles.signatureLabel}>Accepted & Approved By</Text>
-            <Text style={styles.signatureCompany}>Authorized Customer Signature</Text>
+          {/* Signatures */}
+          <View style={styles.signatureSection}>
+            <View style={styles.signatureBox}>
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureLabel}>Prepared By</Text>
+              <Text style={styles.signatureCompany}>{preparedBy} | {companyName}</Text>
+            </View>
+            <View style={styles.signatureBox}>
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureLabel}>Accepted & Approved By</Text>
+              <Text style={styles.signatureCompany}>Authorized Customer Signature</Text>
+            </View>
           </View>
         </View>
 
