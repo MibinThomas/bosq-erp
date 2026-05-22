@@ -202,7 +202,11 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         const colHeader = mappings[fieldKey]
         if (!colHeader) return ""
         const colIdx = headers.indexOf(colHeader)
-        return colIdx !== -1 ? row[colIdx] : ""
+        if (colIdx !== -1) {
+          const val = row[colIdx]
+          return val !== undefined && val !== null ? String(val) : ""
+        }
+        return ""
       }
 
       const priceVal = parseFloat(getVal("unitPrice").replace(/[^0-9.]/g, ""))
