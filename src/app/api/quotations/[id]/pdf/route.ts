@@ -8,6 +8,7 @@ import { QuotationDocument } from "@/lib/pdf/QuotationDocument"
 import fs from "fs"
 import path from "path"
 import { getSettings } from "@/lib/settings"
+import sharp from "sharp"
 
 export async function GET(
   request: Request,
@@ -115,16 +116,45 @@ export async function GET(
 
     const resolveImageUrl = async (url: string | null | undefined): Promise<string | null> => {
       if (!url) return null;
+      
+      // External images (HTTP/HTTPS)
       if (url.startsWith("http://") || url.startsWith("https://")) {
+        try {
+          // react-pdf fails on WEBP entirely, even remotely.
+          // Fetch external URLs to check if they are WEBP
+          const res = await fetch(url);
+          if (res.ok) {
+            const arrayBuffer = await res.arrayBuffer();
+            let fileBuffer = Buffer.from(arrayBuffer);
+            const contentType = res.headers.get('content-type');
+            if (contentType === 'image/webp' || url.toLowerCase().endsWith('.webp')) {
+              fileBuffer = await sharp(fileBuffer).png().toBuffer();
+              return `data:image/png;base64,${fileBuffer.toString("base64")}`;
+            }
+            // Return raw URL for standard formats to let react-pdf handle it
+            return url;
+          }
+        } catch (e) {
+          console.error("Failed to fetch/process external image:", url, e);
+        }
         return url;
       }
+      
+      // Local images (/uploads/...)
       if (url.startsWith("/")) {
         try {
           const filePath = path.join(process.cwd(), "public", url);
           if (fs.existsSync(filePath)) {
-            const fileBuffer = fs.readFileSync(filePath);
+            let fileBuffer = fs.readFileSync(filePath);
             const ext = path.extname(filePath).substring(1).toLowerCase();
-            const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+            
+            // @react-pdf/renderer does not support WEBP, automatically convert it
+            if (ext === "webp") {
+              fileBuffer = await sharp(fileBuffer).png().toBuffer();
+              return `data:image/png;base64,${fileBuffer.toString("base64")}`;
+            }
+            
+            const mime = ext === "png" ? "image/png" : "image/jpeg";
             return `data:${mime};base64,${fileBuffer.toString("base64")}`;
           }
         } catch (e) {
