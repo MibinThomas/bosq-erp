@@ -35,6 +35,7 @@ interface Quotation {
   preparedBy: {
     name: string | null
     email: string
+    phone: string | null
   }
   deliveryDate: string | null
   paymentTerms: string | null
@@ -402,7 +403,7 @@ export default function QuotationHtmlPreviewPage({
               </div>
               <div className="flex justify-end">
                 <span className="font-bold text-slate-800 mr-2">Contact Number:</span>
-                <span>+971 50 360 9762</span>
+                <span>{quotation.preparedBy?.phone || "-"}</span>
               </div>
             </div>
 

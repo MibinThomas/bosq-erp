@@ -601,7 +601,9 @@ function NewQuotationForm() {
                           <Select onValueChange={field.onChange} value={field.value || ""}>
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select consultant" />
+                                <SelectValue placeholder="Select consultant">
+                                  {users.find(u => u.id === field.value)?.name || "Select consultant"}
+                                </SelectValue>
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
