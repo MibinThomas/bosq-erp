@@ -117,6 +117,21 @@ export async function GET(
     const resolveImageUrl = async (url: string | null | undefined): Promise<string | null> => {
       if (!url) return null;
       
+      // Handle Base64 Data URIs natively
+      if (url.startsWith("data:")) {
+        if (url.startsWith("data:image/webp")) {
+          try {
+            const base64Data = url.split(",")[1];
+            const buffer = Buffer.from(base64Data, "base64");
+            const convertedBuffer = await sharp(buffer).png().toBuffer();
+            return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
+          } catch (e) {
+            console.error("Failed to convert data URI webp:", e);
+          }
+        }
+        return url; // Return standard format data URIs as-is
+      }
+      
       // External images (HTTP/HTTPS)
       if (url.startsWith("http://") || url.startsWith("https://")) {
         try {
