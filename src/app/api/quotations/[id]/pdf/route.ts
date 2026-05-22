@@ -59,8 +59,7 @@ export async function GET(
               }
             }
           }
-        },
-        preparedBy: true,
+        }
       },
     })
 
