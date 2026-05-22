@@ -281,7 +281,7 @@ function NewQuotationForm() {
 
       form.setValue(`items.${index}.productId`, matchedProduct.id, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.description`, matchedProduct.productName, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.specifications`, matchedProduct.specifications || "", { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.specifications`, matchedProduct.specifications ? matchedProduct.specifications.replace(/【/g, '• ').replace(/】 ?/g, ': ') : "", { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.unitPrice`, basePrice, { shouldValidate: true, shouldDirty: true })
@@ -1059,7 +1059,7 @@ function NewQuotationForm() {
             // For temp custom items, clear productId so they submit as free-text lines
             form.setValue(`items.${activeLineIndex}.productId`, isTemp ? "" : newProduct.id)
             form.setValue(`items.${activeLineIndex}.description`, newProduct.productName)
-            form.setValue(`items.${activeLineIndex}.specifications`, newProduct.specifications || "")
+            form.setValue(`items.${activeLineIndex}.specifications`, newProduct.specifications ? newProduct.specifications.replace(/【/g, '• ').replace(/】 ?/g, ': ') : "")
             form.setValue(`items.${activeLineIndex}.margin`, 0)
             form.setValue(`items.${activeLineIndex}.basePrice`, basePrice)
             form.setValue(`items.${activeLineIndex}.unitPrice`, basePrice)
