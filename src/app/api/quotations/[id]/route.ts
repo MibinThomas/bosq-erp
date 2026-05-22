@@ -117,6 +117,15 @@ export async function PUT(
       logUserRole = defaultUser?.role || "SALES_EXECUTIVE"
     }
 
+    // Determine the actual PreparedBy user (could be changed by admin/manager)
+    let finalPreparedById = existingQuotation.preparedById
+    if ((logUserRole === "ADMIN" || logUserRole === "SALES_MANAGER") && body.preparedById) {
+      finalPreparedById = body.preparedById
+    }
+    const finalPreparedByUser = await prisma.user.findUnique({
+      where: { id: finalPreparedById }
+    }) || existingQuotation.preparedBy
+
     // CASE 0: MANAGER APPROVES A PENDING_APPROVAL QUOTATION
     if (body.action === "APPROVE") {
       if (logUserRole !== "ADMIN" && logUserRole !== "SALES_MANAGER") {
@@ -291,7 +300,8 @@ export async function PUT(
         vatAmount: calculatedVat,
         deliveryCharge: charge,
         grandTotal: calculatedGrandTotal,
-        preparedBy: defaultUser?.name || "Sales Rep",
+        preparedBy: finalPreparedByUser.name || "Sales Rep",
+        preparedByContact: finalPreparedByUser.phone || null,
         termsConditions: termsArray,
         companyLogoUrl: logoBase64 || null,
         aynMuskLogoUrl: aynMuskLogoBase64 || null,
@@ -555,7 +565,8 @@ export async function PUT(
         vatAmount: calculatedVat,
         deliveryCharge: charge,
         grandTotal: calculatedGrandTotal,
-        preparedBy: existingQuotation.preparedBy?.name || "Sales Rep",
+        preparedBy: finalPreparedByUser.name || "Sales Rep",
+        preparedByContact: finalPreparedByUser.phone || null,
         termsConditions: termsArray,
         companyLogoUrl: logoBase64 || null,
         aynMuskLogoUrl: aynMuskLogoBase64 || null,
@@ -606,6 +617,7 @@ export async function PUT(
           where: { id: existingQuotation.id },
           data: {
             clientId: clientId || existingQuotation.clientId,
+            preparedById: finalPreparedById,
             customerSegment: customerSegment || existingQuotation.customerSegment,
             projectName: projectName || null,
             deliveryDate: deliveryDate ? new Date(deliveryDate) : existingQuotation.deliveryDate,
