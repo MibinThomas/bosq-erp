@@ -113,8 +113,29 @@ export async function GET(
       )
     }
 
+    const resolveImageUrl = async (url: string | null | undefined): Promise<string | null> => {
+      if (!url) return null;
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        return url;
+      }
+      if (url.startsWith("/")) {
+        try {
+          const filePath = path.join(process.cwd(), "public", url);
+          if (fs.existsSync(filePath)) {
+            const fileBuffer = fs.readFileSync(filePath);
+            const ext = path.extname(filePath).substring(1).toLowerCase();
+            const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+            return `data:${mime};base64,${fileBuffer.toString("base64")}`;
+          }
+        } catch (e) {
+          console.error("Failed to read local image:", url, e);
+        }
+      }
+      return null;
+    }
+
     // Convert items format for QuotationDocument
-    const docItems = quotation.items.map((item) => ({
+    const docItems = await Promise.all(quotation.items.map(async (item) => ({
       itemNo: item.itemNo,
       description: item.description,
       specifications: item.specifications,
@@ -122,9 +143,9 @@ export async function GET(
       unitPrice: item.unitPrice,
       discount: item.discount,
       amount: item.amount,
-      imageUrl: item.customImageUrl || item.product?.imageUrl || null,
+      imageUrl: await resolveImageUrl(item.customImageUrl || item.product?.imageUrl),
       categoryName: item.product?.category?.name || "OFFICE FURNITURE",
-    }))
+    })))
 
     const companySettings = await getSettings([
       "company_name",
