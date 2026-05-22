@@ -97,11 +97,11 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   // Generate and download a clean CSV import template
   const downloadSampleCSV = (e: React.MouseEvent) => {
     e.stopPropagation()
-    const headers = ["Product Code", "Product Name", "CategoryName", "Base Price (AED)", "Dealer Price", "Interior Price", "Direct Price", "Online Price", "Dimensions", "Warranty", "Description", "Image Filename"]
+    const headers = ["Product Code", "Product Name", "CategoryName", "Base Price (AED)", "Dealer Price", "Interior Price", "Direct Price", "Online Price", "Dimensions", "Warranty", "Description", "Specifications", "Image Filename"]
     const rows = [
-      ["CH-1001", "Aero Ergonomic Mesh Task Chair", "Chairs", "850.00", "", "", "", "", "650W x 600D x 1150H", "5 Years", "High-performance ergonomic mesh chair with adaptive lumbar support", "aero_mesh_chair.jpg"],
-      ["CH-1002", "Ergo Pro Leather Executive Chair", "Chairs", "1250.00", "1437.50", "", "", "", "700W x 650D x 1200H", "5 Years", "Luxury bonded leather manager chair with pneumatic height tilt adjust", "ergo_leather_chair.jpg"],
-      ["DK-2001", "Linear Triple Bench Workstation", "Desks", "2450.00", "", "", "", "", "2100W x 700D x 755H", "3 Years", "Premium steel frame corporate collaborative workspace table", "bench_workstation.jpg"]
+      ["CH-1001", "Aero Ergonomic Mesh Task Chair", "Chairs", "850.00", "", "", "", "", "650W x 600D x 1150H", "5 Years", "High-performance ergonomic mesh chair with adaptive lumbar support", "Material: Mesh, Base: Nylon", "aero_mesh_chair.jpg"],
+      ["CH-1002", "Ergo Pro Leather Executive Chair", "Chairs", "1250.00", "1437.50", "", "", "", "700W x 650D x 1200H", "5 Years", "Luxury bonded leather manager chair with pneumatic height tilt adjust", "Material: PU Leather, Base: Aluminum", "ergo_leather_chair.jpg"],
+      ["DK-2001", "Linear Triple Bench Workstation", "Desks", "2450.00", "", "", "", "", "2100W x 700D x 755H", "3 Years", "Premium steel frame corporate collaborative workspace table", "Material: MFC, Legs: Powder Coated Steel", "bench_workstation.jpg"]
     ]
     
     const csvContent = [
@@ -165,6 +165,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         { key: "directPrice", synonyms: ["directprice", "direct"] },
         { key: "onlinePrice", synonyms: ["onlineprice", "online"] },
         { key: "description", synonyms: ["description", "details", "desc", "about"] },
+        { key: "specifications", synonyms: ["specifications", "specs", "specification"] },
         { key: "dimensions", synonyms: ["dimensions", "size", "dimension", "width", "height"] },
         { key: "warranty", synonyms: ["warranty", "guarantee", "period"] },
         { key: "imageFilename", synonyms: ["image", "photo", "filename", "imagename", "imagefilename", "picture"] }
@@ -500,6 +501,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                   { key: "dimensions", label: "Dimensions", required: false },
                   { key: "warranty", label: "Warranty period", required: false },
                   { key: "description", label: "Description / About", required: false },
+                  { key: "specifications", label: "Specifications / Details", required: false },
                   { key: "imageFilename", label: "Image Filename (e.g. chair1.jpg)", required: false }
                 ].map((field) => (
                   <div key={field.key} className="space-y-2 p-3 border rounded-xl bg-card/50 shadow-inner">
@@ -577,6 +579,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                       <th className="p-3 text-xs font-bold w-20 text-right">Direct</th>
                       <th className="p-3 text-xs font-bold w-20 text-right">Online</th>
                       <th className="p-3 text-xs font-bold w-24">Warranty</th>
+                      <th className="p-3 text-xs font-bold w-32">Specifications</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -708,6 +711,17 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                             onChange={(e) => {
                               const updated = [...products]
                               updated[idx].warranty = e.target.value
+                              setProducts(updated)
+                            }}
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input 
+                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
+                            value={p.specifications}
+                            onChange={(e) => {
+                              const updated = [...products]
+                              updated[idx].specifications = e.target.value
                               setProducts(updated)
                             }}
                           />
