@@ -128,8 +128,8 @@ export async function GET(
             let fileBuffer = Buffer.from(arrayBuffer);
             const contentType = res.headers.get('content-type');
             if (contentType === 'image/webp' || url.toLowerCase().endsWith('.webp')) {
-              fileBuffer = await sharp(fileBuffer).png().toBuffer();
-              return `data:image/png;base64,${fileBuffer.toString("base64")}`;
+              const convertedBuffer = await sharp(fileBuffer).png().toBuffer();
+              return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
             }
             // Return raw URL for standard formats to let react-pdf handle it
             return url;
@@ -150,8 +150,8 @@ export async function GET(
             
             // @react-pdf/renderer does not support WEBP, automatically convert it
             if (ext === "webp") {
-              fileBuffer = await sharp(fileBuffer).png().toBuffer();
-              return `data:image/png;base64,${fileBuffer.toString("base64")}`;
+              const convertedBuffer = await sharp(fileBuffer).png().toBuffer();
+              return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
             }
             
             const mime = ext === "png" ? "image/png" : "image/jpeg";
