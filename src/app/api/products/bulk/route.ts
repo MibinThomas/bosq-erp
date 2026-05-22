@@ -142,7 +142,6 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       count: createdProducts.length,
-      products: createdProducts,
     })
   } catch (error) {
     console.error("Failed to bulk import products:", error)

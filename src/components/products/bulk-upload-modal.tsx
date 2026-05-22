@@ -330,9 +330,10 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
           // For absolute robustness, we will convert the image to a Base64 string which we pass to our backend,
           // or we can save it. Converting to base64 gives a fully mockable/embeddable representation,
           // or we can upload via standard body!
-          const base64Data = await new Promise<string>((resolve) => {
+          const base64Data = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader()
             reader.onloadend = () => resolve(reader.result as string)
+            reader.onerror = () => reject(new Error("Failed to read image file"))
             reader.readAsDataURL(prod.localImageFile!)
           })
           
