@@ -67,8 +67,12 @@ export default function BoqBuilderPage() {
   const [notes, setNotes] = useState("")
 
   const isSentToEstimator = status === "SENT_TO_ESTIMATOR" || status === "PENDING_COSTING"
+  const isCostingCompleted = status === "COSTING_COMPLETED"
+  
   let canEditPricing = true
-  if (isSentToEstimator) {
+  if (isCostingCompleted) {
+    canEditPricing = userRole === "ADMIN" // Locked for both IDC and Estimator
+  } else if (isSentToEstimator) {
     canEditPricing = isEstimator || userRole === "ADMIN"
   } else {
     canEditPricing = isIDC || userRole === "ADMIN" || userRole === "SALES_MANAGER"
@@ -366,6 +370,31 @@ export default function BoqBuilderPage() {
     }
   }
 
+  const handleCompleteCosting = async () => {
+    // First save the BOQ
+    setSaving(true)
+    const payload = { clientId, projectName, customerSegment, status, notes, termsConditions, items }
+    try {
+      const saveRes = await fetch(`/api/boq/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      if (!saveRes.ok) throw new Error("Failed to save before marking completed")
+
+      const res = await fetch(`/api/boq/${id}/complete-costing`, { method: "POST" })
+      if (!res.ok) throw new Error("Failed to complete costing")
+      
+      toast.success("Costing completed! IDC has been notified.")
+      setStatus("COSTING_COMPLETED")
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "An error occurred")
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleConvert = async () => {
     if (!paymentTerms || !validityDate) return toast.error("Payment Terms and Validity Date are required")
     
@@ -460,14 +489,15 @@ export default function BoqBuilderPage() {
               <Send className="mr-2 h-4 w-4" /> Send to Estimator
             </Button>
           )}
-          {status === "PENDING_COSTING" && isEstimator && !isNew && (
-            <Button onClick={() => handleSave("COSTING_COMPLETED")} className="bg-blue-600 hover:bg-blue-700">
-              <CheckCircle className="mr-2 h-4 w-4" /> Submit Costing
+          {isSentToEstimator && isEstimator && !isNew && (
+            <Button onClick={handleCompleteCosting} disabled={saving} className="bg-blue-600 hover:bg-blue-700">
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />} 
+              Mark Costing Completed
             </Button>
           )}
           {status === "COSTING_COMPLETED" && isIDC && !isNew && (
             <Button onClick={() => setConvertModalOpen(true)} className="bg-green-600 hover:bg-green-700">
-              <FileText className="mr-2 h-4 w-4" /> Convert to Quotation
+              <FileText className="mr-2 h-4 w-4" /> Create Quotation
             </Button>
           )}
         </div>

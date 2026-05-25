@@ -233,7 +233,7 @@ export async function POST(request: Request) {
         discount: disc,
         margin: marginVal,
         amount: amt,
-        imageUrl: matchedProd?.imageUrl || null,
+        imageUrl: item.customImageUrl || matchedProd?.imageUrl || null,
         categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
       }
     })
