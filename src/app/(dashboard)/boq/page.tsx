@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, Loader2, Edit, FileText, ArrowRightCircle } from "lucide-react"
+import { Plus, Search, Loader2, Edit, FileText, ArrowRightCircle, Trash2 } from "lucide-react"
 import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 
 interface Boq {
@@ -39,6 +40,11 @@ export default function BoqDashboard() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [tab, setTab] = useState<"all" | "templates">("all")
+  
+  // Selection and Delete States
+  const [selectedBoqs, setSelectedBoqs] = useState<string[]>([])
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [refreshToggle, setRefreshToggle] = useState(0)
 
   useEffect(() => {
     async function fetchBoqs() {
@@ -57,7 +63,7 @@ export default function BoqDashboard() {
       }
     }
     fetchBoqs()
-  }, [tab])
+  }, [tab, refreshToggle])
 
   const filteredBoqs = boqs.filter((boq) => {
     const term = searchTerm.toLowerCase()
@@ -83,6 +89,41 @@ export default function BoqDashboard() {
       default:
         return <Badge className="font-medium">{status}</Badge>
     }
+  }
+
+  const handleDeleteSelected = async () => {
+    if (selectedBoqs.length === 0) return
+    if (!window.confirm(`Are you sure you want to delete ${selectedBoqs.length} selected BOQs?`)) return
+    
+    try {
+      setIsDeleting(true)
+      const res = await fetch("/api/boq", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedBoqs })
+      })
+      if (!res.ok) throw new Error("Failed to delete BOQs")
+      toast.success("Successfully deleted selected BOQs")
+      setSelectedBoqs([])
+      setRefreshToggle(prev => prev + 1)
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to delete BOQs")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedBoqs.length === filteredBoqs.length && filteredBoqs.length > 0) {
+      setSelectedBoqs([])
+    } else {
+      setSelectedBoqs(filteredBoqs.map(b => b.id))
+    }
+  }
+
+  const toggleSelectBoq = (id: string) => {
+    setSelectedBoqs(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   }
 
   return (
@@ -115,6 +156,17 @@ export default function BoqDashboard() {
         >
           Templates
         </Button>
+        {userRole === "ADMIN" && selectedBoqs.length > 0 && (
+          <Button 
+            variant="destructive" 
+            onClick={handleDeleteSelected}
+            disabled={isDeleting}
+            className="ml-auto"
+          >
+            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            Delete Selected ({selectedBoqs.length})
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center justify-between">
@@ -147,6 +199,14 @@ export default function BoqDashboard() {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
+                {userRole === "ADMIN" && (
+                  <TableHead className="w-12">
+                    <Checkbox 
+                      checked={selectedBoqs.length === filteredBoqs.length && filteredBoqs.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                )}
                 <TableHead>BOQ No.</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Client & Project</TableHead>
@@ -160,6 +220,14 @@ export default function BoqDashboard() {
             <TableBody>
               {filteredBoqs.map((boq) => (
                 <TableRow key={boq.id} className="hover:bg-muted/30 transition-colors">
+                  {userRole === "ADMIN" && (
+                    <TableCell>
+                      <Checkbox 
+                        checked={selectedBoqs.includes(boq.id)}
+                        onCheckedChange={() => toggleSelectBoq(boq.id)}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-mono font-medium text-primary">
                     {boq.boqNumber}
                   </TableCell>

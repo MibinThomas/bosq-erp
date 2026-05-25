@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle, Edit } from "lucide-react"
+import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle, Edit, Map } from "lucide-react"
 import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { QuotationJourneyModal } from "@/components/quotations/QuotationJourneyModal"
 
 interface QuotationRevision {
   id: string
@@ -77,6 +78,8 @@ export default function QuotationsPage() {
   
   const [historyQuote, setHistoryQuote] = useState<Quotation | null>(null)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [journeyQuoteId, setJourneyQuoteId] = useState<string | null>(null)
+  const [isJourneyOpen, setIsJourneyOpen] = useState(false)
 
   useEffect(() => {
     async function fetchQuotations() {
@@ -294,7 +297,19 @@ export default function QuotationsPage() {
                     </TableCell>
                   )}
                   <TableCell className="font-mono font-medium text-primary">
-                    {quote.quotationNumber}
+                    {userRole === "ADMIN" ? (
+                      <span 
+                        className="cursor-pointer hover:underline text-blue-600"
+                        onClick={() => {
+                          setJourneyQuoteId(quote.id)
+                          setIsJourneyOpen(true)
+                        }}
+                      >
+                        {quote.quotationNumber}
+                      </span>
+                    ) : (
+                      quote.quotationNumber
+                    )}
                   </TableCell>
                   <TableCell>{new Date(quote.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</TableCell>
                   <TableCell>
@@ -431,6 +446,19 @@ export default function QuotationsPage() {
                             Revision History
                           </DropdownMenuItem>
                           
+                          {userRole === "ADMIN" && (
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setJourneyQuoteId(quote.id)
+                                setIsJourneyOpen(true)
+                              }}
+                              className="flex items-center cursor-pointer font-medium"
+                            >
+                              <Map className="mr-2 h-4 w-4 text-blue-600" />
+                              View Journey
+                            </DropdownMenuItem>
+                          )}
+                          
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "APPROVED", "status")} className="cursor-pointer">
@@ -478,6 +506,15 @@ export default function QuotationsPage() {
           </Table>
         )}
       </div>
+
+      <QuotationJourneyModal 
+        quotationId={journeyQuoteId} 
+        open={isJourneyOpen} 
+        onOpenChange={(val) => {
+          setIsJourneyOpen(val)
+          if (!val) setJourneyQuoteId(null)
+        }} 
+      />
 
       {/* Revision History Modal */}
       <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>

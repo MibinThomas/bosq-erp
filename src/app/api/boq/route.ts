@@ -17,10 +17,16 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const isTemplate = searchParams.get("isTemplate") === "true"
+    const showArchived = searchParams.get("archived") === "true"
+    
     if (isTemplate) {
       whereClause.isTemplate = true
     } else {
       whereClause.isTemplate = false
+    }
+
+    if (!showArchived) {
+      whereClause.status = { not: "ARCHIVED" }
     }
 
     const boqs = await prisma.boq.findMany({
@@ -35,6 +41,56 @@ export async function GET(request: Request) {
     return NextResponse.json(boqs)
   } catch (error) {
     console.error("Failed to fetch BOQs:", error)
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    const userRole = (session?.user as any)?.role
+
+    if (userRole !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
+    }
+
+    const body = await request.json()
+    const { ids } = body
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: "No BOQ IDs provided for deletion" }, { status: 400 })
+    }
+
+    // Soft delete by updating status to ARCHIVED
+    const result = await prisma.boq.updateMany({
+      where: {
+        id: { in: ids }
+      },
+      data: {
+        status: "ARCHIVED"
+      }
+    })
+
+    // Log the action
+    const userId = (session?.user as any)?.id
+    if (userId) {
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          action: "ARCHIVED_BOQ",
+          entityType: "BOQ",
+          entityId: "BATCH",
+          details: `Admin batch archived ${result.count} BOQs. IDs: ${ids.join(", ")}`
+        }
+      })
+    }
+
+    return NextResponse.json({ success: true, count: result.count })
+  } catch (error) {
+    console.error("Failed to batch archive BOQs:", error)
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }
