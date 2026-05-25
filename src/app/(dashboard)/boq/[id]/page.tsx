@@ -50,8 +50,8 @@ export default function BoqBuilderPage() {
   
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isEstimator = userRole === "ESTIMATOR"
   const isIDC = userRole === "SALES_EXECUTIVE" || userRole === "SALES_MANAGER" || userRole === "ADMIN"
+  const isEstimator = userRole === "ESTIMATOR"
 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
@@ -65,6 +65,14 @@ export default function BoqBuilderPage() {
   const [customerSegment, setCustomerSegment] = useState("Direct")
   const [status, setStatus] = useState("DRAFT")
   const [notes, setNotes] = useState("")
+
+  const isSentToEstimator = status === "SENT_TO_ESTIMATOR" || status === "PENDING_COSTING"
+  let canEditPricing = true
+  if (isSentToEstimator) {
+    canEditPricing = isEstimator || userRole === "ADMIN"
+  } else {
+    canEditPricing = isIDC || userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  }
   const [termsConditions, setTermsConditions] = useState("Design Approval & Client Responsibility\n\nAll final design approvals—including but not limited to dimensions, materials, colors, layouts, and product specifications—are the sole responsibility of the client. BOSQ provides detailed quotations and design documentation for client review and confirmation prior to production.")
 
   // Clients list for dropdown
@@ -86,6 +94,11 @@ export default function BoqBuilderPage() {
   const [deliveryDate, setDeliveryDate] = useState("")
   const [validityDate, setValidityDate] = useState("")
 
+  const [estimators, setEstimators] = useState<any[]>([])
+  const [estimatorModalOpen, setEstimatorModalOpen] = useState(false)
+  const [selectedEstimator, setSelectedEstimator] = useState("")
+  const [sendingToEstimator, setSendingToEstimator] = useState(false)
+
   useEffect(() => {
     async function fetchClients() {
       try {
@@ -105,8 +118,16 @@ export default function BoqBuilderPage() {
         console.error("Failed to load products", err)
       }
     }
+    async function fetchEstimators() {
+      try {
+        const res = await fetch("/api/estimators")
+        if (res.ok) setEstimators(await res.json())
+      } catch (e) {}
+    }
+
     fetchClients()
     fetchProducts()
+    fetchEstimators()
   }, [])
 
   useEffect(() => {
@@ -301,8 +322,47 @@ export default function BoqBuilderPage() {
     } catch (err) {
       console.error(err)
       toast.error("An error occurred while saving")
+      return false
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSendToEstimator = async () => {
+    if (!clientId) return toast.error("Client is required")
+    if (items.length === 0) return toast.error("At least one item is required")
+    if (!selectedEstimator) return toast.error("Please select an estimator")
+    
+    setSendingToEstimator(true)
+    try {
+      // Auto-save the BOQ first
+      const payload = { clientId, projectName, customerSegment, status, notes, termsConditions, items }
+      const saveRes = await fetch(`/api/boq/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      if (!saveRes.ok) throw new Error("Failed to save BOQ before sending")
+
+      const res = await fetch(`/api/boq/${id}/send-to-estimator`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estimatorId: selectedEstimator })
+      })
+      
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || "Failed to send to estimator")
+      }
+      
+      toast.success("BOQ Sent to Estimator & uploaded to SharePoint")
+      setStatus("SENT_TO_ESTIMATOR")
+      setEstimatorModalOpen(false)
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Failed to send to estimator")
+    } finally {
+      setSendingToEstimator(false)
     }
   }
 
@@ -355,7 +415,7 @@ export default function BoqBuilderPage() {
   }
 
   const canEditCosting = isEstimator || userRole === "ADMIN" || userRole === "SALES_MANAGER"
-  const canEditPricing = isIDC || userRole === "ADMIN" || userRole === "SALES_MANAGER"
+
 
   return (
     <div className="space-y-6 pb-20">
@@ -396,7 +456,7 @@ export default function BoqBuilderPage() {
 
           {/* Workflow Buttons */}
           {status === "DRAFT" && isIDC && !isNew && (
-            <Button onClick={() => handleSave("PENDING_COSTING")} className="bg-amber-600 hover:bg-amber-700">
+            <Button onClick={() => setEstimatorModalOpen(true)} className="bg-amber-600 hover:bg-amber-700">
               <Send className="mr-2 h-4 w-4" /> Send to Estimator
             </Button>
           )}
@@ -837,6 +897,41 @@ export default function BoqBuilderPage() {
             <Button onClick={handleConvert} disabled={converting} className="bg-green-600 hover:bg-green-700">
               {converting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirm & Convert
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send to Estimator Modal */}
+      <Dialog open={estimatorModalOpen} onOpenChange={setEstimatorModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send BOQ to Estimator</DialogTitle>
+            <DialogDescription>
+              This will lock the BOQ pricing fields, generate the Excel export based on the strict layout, and upload it to the client's SharePoint folder.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Assign Estimator <span className="text-red-500">*</span></label>
+              <Select value={selectedEstimator} onValueChange={(val) => val && setSelectedEstimator(val)}>
+                <SelectTrigger><SelectValue placeholder="Select an estimator..." /></SelectTrigger>
+                <SelectContent>
+                  {estimators.map(est => (
+                    <SelectItem key={est.id} value={est.id}>{est.name} ({est.email})</SelectItem>
+                  ))}
+                  {estimators.length === 0 && (
+                    <SelectItem value="none" disabled>No estimators found in the system.</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEstimatorModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSendToEstimator} disabled={sendingToEstimator || !selectedEstimator} className="bg-amber-600 hover:bg-amber-700">
+              {sendingToEstimator && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm & Send
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -54,6 +54,7 @@ export async function POST(
     
     // We pass the payload matching what the Quotation POST expects.
     const quotationPayload = {
+      quotationNumber: boq.boqNumber,
       clientId: boq.clientId,
       projectName: boq.projectName,
       date: new Date().toISOString(),

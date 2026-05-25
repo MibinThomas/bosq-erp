@@ -967,6 +967,7 @@ export default function SettingsPage() {
                   >
                     <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
                     <option value="SALES_MANAGER">Sales Manager</option>
+                    <option value="ESTIMATOR">Estimator</option>
                     <option value="ADMIN">Administrator</option>
                   </select>
                 </div>
@@ -1060,6 +1061,7 @@ export default function SettingsPage() {
                   >
                     <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
                     <option value="SALES_MANAGER">Sales Manager</option>
+                    <option value="ESTIMATOR">Estimator</option>
                     <option value="ADMIN">Administrator</option>
                   </select>
                 </div>

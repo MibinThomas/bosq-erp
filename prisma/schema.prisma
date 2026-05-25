@@ -25,6 +25,7 @@ model User {
   quotations    Quotation[]
   activities    ActivityLog[]
   boqs          Boq[]
+  estimatedBoqs Boq[]     @relation("EstimatorBoqs")
 }
 
 model Client {
@@ -216,7 +217,10 @@ model Boq {
   preparedById    String
   preparedBy      User      @relation(fields: [preparedById], references: [id])
   
-  status          String    @default("DRAFT") // DRAFT, PENDING_COSTING, COSTING_COMPLETED, REJECTED, CONVERTED
+  estimatorId     String?
+  estimator       User?     @relation("EstimatorBoqs", fields: [estimatorId], references: [id])
+  
+  status          String    @default("DRAFT") // DRAFT, SENT_TO_ESTIMATOR, COSTING_COMPLETED, REJECTED, CONVERTED
   
   totalMaterialCost Float   @default(0.0)
   totalLaborCost    Float   @default(0.0)
@@ -231,6 +235,7 @@ model Boq {
   isTemplate        Boolean @default(false)
   notes             String?
   termsConditions   String?
+  sharepointUrl     String?
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

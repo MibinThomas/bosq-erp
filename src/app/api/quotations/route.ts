@@ -139,29 +139,32 @@ export async function POST(request: Request) {
     const resolvedStatus = isIDC ? "PENDING_APPROVAL" : "APPROVED"
 
     // 2. Generate quotation number (e.g. I2223-1)
-    const segment = body.customerSegment || "Direct"
-    let prefix = "P"
-    if (segment === "Interior") prefix = "I"
-    else if (segment === "Dealer") prefix = "D"
-    else if (segment === "Direct" || segment === "Online") prefix = "P"
+    let nextQuoteNo = body.quotationNumber
+    if (!nextQuoteNo) {
+      const segment = body.customerSegment || "Direct"
+      let prefix = "P"
+      if (segment === "Interior") prefix = "I"
+      else if (segment === "Dealer") prefix = "D"
+      else if (segment === "Direct" || segment === "Online") prefix = "P"
 
-    const allQuotes = await prisma.quotation.findMany({
-      select: { quotationNumber: true }
-    })
+      const allQuotes = await prisma.quotation.findMany({
+        select: { quotationNumber: true }
+      })
 
-    let maxNumber = 2222
-    for (const q of allQuotes) {
-      const match = q.quotationNumber.match(/^[IDP](\d+)/)
-      if (match) {
-        const num = parseInt(match[1], 10)
-        if (num > maxNumber) {
-          maxNumber = num
+      let maxNumber = 2222
+      for (const q of allQuotes) {
+        const match = q.quotationNumber.match(/^[IDP](\d+)/)
+        if (match) {
+          const num = parseInt(match[1], 10)
+          if (num > maxNumber) {
+            maxNumber = num
+          }
         }
       }
-    }
 
-    const nextBaseNumber = maxNumber + 1
-    const nextQuoteNo = `${prefix}${nextBaseNumber}-1`
+      const nextBaseNumber = maxNumber + 1
+      nextQuoteNo = `${prefix}${nextBaseNumber}-1`
+    }
 
     // Read both brand logos to base64
     let logoBase64 = ""

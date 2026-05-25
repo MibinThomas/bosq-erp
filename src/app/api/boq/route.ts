@@ -80,24 +80,33 @@ export async function POST(request: Request) {
       creatorId = defaultUser.id
     }
 
-    // Generate BOQ number
-    const prefix = "BOQ"
-    const allBoqs = await prisma.boq.findMany({
-      select: { boqNumber: true }
-    })
+    // Generate BOQ number matching Quotation ID standard
+    const segment = customerSegment || "Direct"
+    let prefix = "P"
+    if (segment === "Interior") prefix = "I"
+    else if (segment === "Dealer") prefix = "D"
 
+    // Find max number across BOTH Quotations and BOQs to prevent collisions
+    const allQuotes = await prisma.quotation.findMany({ select: { quotationNumber: true } })
+    const allBoqs = await prisma.boq.findMany({ select: { boqNumber: true } })
+    
     let maxNumber = 1000
-    for (const b of allBoqs) {
-      const match = b.boqNumber.match(/^BOQ-(\d+)/)
+    for (const q of allQuotes) {
+      const match = q.quotationNumber.match(/^[IDP](\d+)/)
       if (match) {
         const num = parseInt(match[1], 10)
-        if (num > maxNumber) {
-          maxNumber = num
-        }
+        if (num > maxNumber) maxNumber = num
+      }
+    }
+    for (const b of allBoqs) {
+      const match = b.boqNumber.match(/^[IDP](\d+)/)
+      if (match) {
+        const num = parseInt(match[1], 10)
+        if (num > maxNumber) maxNumber = num
       }
     }
 
-    const nextBoqNo = `${prefix}-${maxNumber + 1}`
+    const nextBoqNo = `${prefix}${maxNumber + 1}-1`
 
     // Calculate initial totals (likely zero for cost at this stage, but we handle whatever is passed)
     let totalMaterialCost = 0
