@@ -140,8 +140,9 @@ export async function POST(request: Request) {
 
     // 2. Generate quotation number (e.g. I2223-1)
     let nextQuoteNo = body.quotationNumber
+    const segment = body.customerSegment || "Direct"
+    
     if (!nextQuoteNo) {
-      const segment = body.customerSegment || "Direct"
       let prefix = "P"
       if (segment === "Interior") prefix = "I"
       else if (segment === "Dealer") prefix = "D"
