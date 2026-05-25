@@ -8,9 +8,10 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const session = await getServerSession(authOptions)
     const userId = (session?.user as any)?.id
 
@@ -18,7 +19,7 @@ export async function POST(
     const { paymentTerms, deliveryDate, validityDate } = body
 
     const boq = await prisma.boq.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         items: true,
         client: true

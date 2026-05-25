@@ -5,11 +5,12 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const boq = await prisma.boq.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         client: true,
         preparedBy: true,
@@ -33,9 +34,10 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const {
       status,
@@ -51,7 +53,7 @@ export async function PUT(
     const userId = (session?.user as any)?.id || "system"
 
     const existingBoq = await prisma.boq.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: { items: true }
     })
 
@@ -123,12 +125,12 @@ export async function PUT(
 
     // Delete existing items
     await prisma.boqItem.deleteMany({
-      where: { boqId: params.id }
+      where: { boqId: id }
     })
 
     // Update BOQ
     const updatedBoq = await prisma.boq.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         status: status !== undefined ? status : existingBoq.status,
         customerSegment: customerSegment || existingBoq.customerSegment,
@@ -159,7 +161,7 @@ export async function PUT(
         userId,
         action: "UPDATED_BOQ",
         entityType: "BOQ",
-        entityId: params.id,
+        entityId: id,
         details: `Updated BOQ ${updatedBoq.boqNumber} to status ${updatedBoq.status}`
       }
     })
@@ -176,11 +178,12 @@ export async function PUT(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     await prisma.boq.delete({
-      where: { id: params.id }
+      where: { id }
     })
     return NextResponse.json({ success: true })
   } catch (error) {

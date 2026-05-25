@@ -496,7 +496,7 @@ export default function BoqBuilderPage() {
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">Pricing Segment</label>
-          <Select value={customerSegment} onValueChange={setCustomerSegment} disabled={!isIDC && !isNew}>
+          <Select value={customerSegment} onValueChange={(val) => val && setCustomerSegment(val)} disabled={!isIDC && !isNew}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Direct">Direct</SelectItem>
@@ -822,7 +822,7 @@ export default function BoqBuilderPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Payment Terms <span className="text-red-500">*</span></label>
-              <Select value={paymentTerms} onValueChange={setPaymentTerms}>
+              <Select value={paymentTerms} onValueChange={(val) => val && setPaymentTerms(val)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="100% Advance">100% Advance</SelectItem>

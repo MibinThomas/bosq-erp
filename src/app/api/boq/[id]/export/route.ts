@@ -5,14 +5,15 @@ import * as XLSX from "xlsx"
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json().catch(() => ({}))
     const { quotationNumber, quotationGroupFolder } = body
 
     const boq = await prisma.boq.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         items: true,
         client: true,
