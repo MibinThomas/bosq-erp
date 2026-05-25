@@ -154,7 +154,12 @@ export default function ProfilePage() {
                     type="file" 
                     accept="image/*" 
                     className="hidden" 
-                    onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], "image")}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        handleUpload(e.target.files[0], "image");
+                        e.target.value = ''; // Reset input to allow selecting the same file again
+                      }
+                    }}
                   />
                   <Button type="button" variant="outline" size="sm" onClick={() => document.getElementById("avatar-upload")?.click()}>
                     Upload New
@@ -233,7 +238,12 @@ export default function ProfilePage() {
                       type="file" 
                       accept="image/*" 
                       className="hidden" 
-                      onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], "signature")}
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          handleUpload(e.target.files[0], "signature");
+                          e.target.value = ''; // Reset input to allow selecting the same file again
+                        }
+                      }}
                     />
                     <Button type="button" variant="secondary" onClick={() => document.getElementById("signature-upload")?.click()}>
                       Upload Signature
