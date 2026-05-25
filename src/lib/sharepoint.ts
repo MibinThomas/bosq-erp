@@ -78,6 +78,16 @@ export function sanitizeClientName(name: string): string {
   return name.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
 }
 
+export function getBaseQuotationFolder(identifier: string): string {
+  // Extract base project number (e.g. "P2230-1" -> "P2230", "P2230 - 1" -> "P2230", "BOQ-1002" -> "BOQ-1002")
+  if (!identifier) return ""
+  const match = identifier.match(/^([a-zA-Z]+\s*[-_]?\s*\d+)/)
+  if (match) {
+    return match[1].replace(/\s/g, "").toUpperCase()
+  }
+  return identifier
+}
+
 export async function ensureFolderStructure(
   client: any, 
   siteId: string, 
@@ -130,9 +140,8 @@ export async function uploadQuotationPdf(companyName: string, filenameBase: stri
   const sanitizedCompany = sanitizeClientName(companyName)
   const sanitizedFilename = filenameBase.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
   
-  // Extract base quotation number (e.g. "I2230" from "I2230_Acme Corp" or "I2230-1_Acme Corp")
-  const match = sanitizedFilename.match(/^([A-Z0-9]+)(?:-\d+)?_/)
-  const quotationGroupFolder = match ? match[1] : ""
+  // Extract base quotation number ensuring revisions go into the main folder
+  const quotationGroupFolder = getBaseQuotationFolder(sanitizedFilename)
 
   const fallbackPath = quotationGroupFolder
     ? `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Quotations/${quotationGroupFolder}/${sanitizedFilename}.pdf`
@@ -174,8 +183,11 @@ export async function uploadBoqExcel(companyName: string, filenameBase: string, 
   const sanitizedCompany = sanitizeClientName(companyName)
   const sanitizedFilename = filenameBase.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
   
-  const fallbackPath = quotationGroupFolder
-    ? `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Quotations/${quotationGroupFolder}/${sanitizedFilename}.xlsx`
+  // Clean the provided folder name to ensure revisions go to the root base folder
+  const cleanGroupFolder = quotationGroupFolder ? getBaseQuotationFolder(quotationGroupFolder) : ""
+  
+  const fallbackPath = cleanGroupFolder
+    ? `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Quotations/${cleanGroupFolder}/${sanitizedFilename}.xlsx`
     : `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Quotations/${sanitizedFilename}.xlsx`
 
   if (!hasCreds) {
@@ -190,11 +202,11 @@ export async function uploadBoqExcel(companyName: string, filenameBase: string, 
       config.sharepoint_client_secret
     )
     
-    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName, quotationGroupFolder)
+    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName, cleanGroupFolder)
     
     const fileName = `${sanitizedFilename}.xlsx`
-    const path = quotationGroupFolder 
-      ? `/Clients/${sanitizedCompany}/Quotations/${quotationGroupFolder}/${fileName}`
+    const path = cleanGroupFolder 
+      ? `/Clients/${sanitizedCompany}/Quotations/${cleanGroupFolder}/${fileName}`
       : `/Clients/${sanitizedCompany}/Quotations/${fileName}`
     
     const result = await client
