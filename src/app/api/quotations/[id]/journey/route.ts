@@ -72,7 +72,7 @@ export async function GET(
       },
       include: {
         user: {
-          select: { name: true, role: true, email: true }
+          select: { name: true, role: true, email: true, image: true }
         }
       },
       orderBy: { createdAt: "asc" }

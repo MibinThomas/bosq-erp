@@ -31,6 +31,11 @@ interface SystemUser {
   name: string
   email: string
   role: string
+  phone?: string
+  department?: string
+  designation?: string
+  image?: string
+  isActive?: boolean
   createdAt: string
 }
 
@@ -76,7 +81,7 @@ export default function SettingsPage() {
   const [newUserRole, setNewUserRole] = useState("SALES_EXECUTIVE")
   
   const [showEditUserModal, setShowEditUserModal] = useState(false)
-  const [editUserData, setEditUserData] = useState<{id: string, name: string, email: string, role: string, phone?: string, department?: string, password?: string} | null>(null)
+  const [editUserData, setEditUserData] = useState<{id: string, name: string, email: string, role: string, phone?: string, department?: string, password?: string, designation?: string, isActive?: boolean, image?: string} | null>(null)
 
   // 3. Terms & Conditions Tab State
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([])
@@ -270,6 +275,8 @@ export default function SettingsPage() {
           role: editUserData.role,
           phone: editUserData.phone,
           department: editUserData.department,
+          designation: editUserData.designation,
+          isActive: editUserData.isActive,
           password: editUserData.password || undefined // Only send if entered
         })
       })
@@ -662,11 +669,26 @@ export default function SettingsPage() {
                   </thead>
                   <tbody>
                     {users.map((usr) => (
-                      <tr key={usr.id} className="border-b border-slate-800 bg-slate-950/40 hover:bg-slate-900/60 transition-colors">
-                        <td className="px-6 py-4 font-semibold text-slate-100 flex items-center gap-2">
-                          {usr.name}
+                      <tr key={usr.id} className={`border-b border-slate-800 transition-colors ${usr.isActive === false ? "bg-slate-950/20 opacity-70" : "bg-slate-950/40 hover:bg-slate-900/60"}`}>
+                        <td className="px-6 py-4 font-semibold text-slate-100 flex items-center gap-3">
+                          {usr.image ? (
+                            <img src={usr.image} alt={usr.name} className="h-8 w-8 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className="h-8 w-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-bold shrink-0">
+                              {usr.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex flex-col">
+                            <span>{usr.name}</span>
+                            {usr.designation && <span className="text-[10px] text-slate-400 font-normal">{usr.designation}</span>}
+                          </div>
                         </td>
-                        <td className="px-6 py-4">{usr.email}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span>{usr.email}</span>
+                            {usr.isActive === false && <span className="text-[10px] text-red-400">Inactive</span>}
+                          </div>
+                        </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                             usr.role === "ADMIN" ? "bg-red-500/10 text-red-400 border border-red-500/20" :
@@ -1050,6 +1072,27 @@ export default function SettingsPage() {
                     onChange={(e) => setEditUserData({...editUserData, department: e.target.value})}
                     className="bg-slate-900 border-slate-800"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="editDesignation" className="text-slate-300">Designation (Optional)</Label>
+                  <Input 
+                    id="editDesignation"
+                    type="text"
+                    placeholder="e.g. Senior Architect"
+                    value={editUserData.designation || ""}
+                    onChange={(e) => setEditUserData({...editUserData, designation: e.target.value})}
+                    className="bg-slate-900 border-slate-800"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-2 pb-2">
+                  <input 
+                    id="editIsActive"
+                    type="checkbox"
+                    checked={editUserData.isActive !== false}
+                    onChange={(e) => setEditUserData({...editUserData, isActive: e.target.checked})}
+                    className="rounded border-slate-850 text-orange-600 focus:ring-orange-600 bg-slate-900 h-4 w-4"
+                  />
+                  <Label htmlFor="editIsActive" className="text-slate-300 cursor-pointer select-none">Account is Active</Label>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="editRole" className="text-slate-300">System Role</Label>

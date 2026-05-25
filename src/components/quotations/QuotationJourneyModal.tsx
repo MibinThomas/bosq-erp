@@ -20,6 +20,7 @@ interface Log {
     name: string | null
     role: string
     email: string
+    image?: string | null
   }
 }
 
@@ -158,9 +159,18 @@ export function QuotationJourneyModal({
                         </p>
                         
                         <div className="flex items-center gap-2 pt-2">
-                          <span className="text-sm font-medium bg-muted/50 px-3 py-1 rounded-md text-foreground">
-                            {log.user?.name || "System"} <span className="text-muted-foreground font-normal ml-1">({log.user?.role || "SYSTEM"})</span>
-                          </span>
+                          <div className="flex items-center gap-2 bg-muted/50 px-2.5 py-1.5 rounded-md">
+                            {log.user?.image ? (
+                              <img src={log.user.image} alt={log.user?.name || "System"} className="h-5 w-5 rounded-full object-cover shrink-0" />
+                            ) : (
+                              <div className="h-5 w-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
+                                {log.user?.name ? log.user.name.charAt(0).toUpperCase() : "S"}
+                              </div>
+                            )}
+                            <span className="text-sm font-medium text-foreground">
+                              {log.user?.name || "System"} <span className="text-muted-foreground font-normal ml-1">({log.user?.role || "SYSTEM"})</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>

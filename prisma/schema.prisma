@@ -18,7 +18,10 @@ model User {
   password      String?
   phone         String?
   department    String?
+  designation   String?
+  signature     String?
   role          String    @default("SALES_EXECUTIVE") // Roles: ADMIN, SALES_MANAGER, SALES_EXECUTIVE, ACCOUNTS, PRODUCTION, ESTIMATOR
+  isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   

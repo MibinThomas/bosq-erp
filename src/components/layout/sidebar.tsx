@@ -26,6 +26,7 @@ const navItems = [
   { name: "BOQs", href: "/boq", icon: Calculator },
   { name: "Quotations", href: "/quotations", icon: FileText },
   { name: "Reports", href: "/reports", icon: BarChart3 },
+  { name: "My Profile", href: "/profile", icon: UserIcon },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
@@ -103,8 +104,12 @@ export function Sidebar() {
       {/* User Session Profile Badge */}
       {session?.user && (
         <div className="mx-4 my-2 p-3 bg-secondary/35 rounded-lg border border-secondary/45 flex items-center space-x-3">
-          <div className="h-8 w-8 rounded-full bg-orange-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-            {userName.split(" ").map(n => n[0]).join("").toUpperCase()}
+          <div className="h-8 w-8 rounded-full bg-orange-600 text-white flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
+            {session.user.image ? (
+              <img src={session.user.image} alt={userName} className="h-full w-full object-cover" />
+            ) : (
+              userName.split(" ").map(n => n[0]).join("").toUpperCase()
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-foreground truncate">{userName}</p>

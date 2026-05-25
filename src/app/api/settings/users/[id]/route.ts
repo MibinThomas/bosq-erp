@@ -25,7 +25,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { name, email, role, password, phone, department } = body
+    const { name, email, role, password, phone, department, designation, isActive } = body
 
     if (!name || !email || !role || !phone) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -36,7 +36,9 @@ export async function PATCH(
       email,
       role,
       phone,
-      department
+      department,
+      designation,
+      isActive
     }
 
     if (password && password.trim() !== "") {
@@ -54,6 +56,8 @@ export async function PATCH(
         role: true,
         phone: true,
         department: true,
+        designation: true,
+        isActive: true,
         createdAt: true
       }
     })
