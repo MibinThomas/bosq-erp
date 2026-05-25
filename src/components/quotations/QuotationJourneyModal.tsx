@@ -72,93 +72,104 @@ export function QuotationJourneyModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl">Quotation Journey</DialogTitle>
+      <DialogContent className="max-w-[850px] max-h-[85vh] overflow-hidden p-0 flex flex-col">
+        <DialogHeader className="px-8 py-5 border-b shrink-0 bg-muted/10">
+          <DialogTitle className="text-2xl font-bold tracking-tight">Quotation Journey</DialogTitle>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : error ? (
-          <div className="text-center text-red-500 py-8 font-medium">{error}</div>
-        ) : data ? (
-          <div className="space-y-6 mt-2">
-            {/* Header Cards */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 border rounded-xl bg-muted/20">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Quotation</p>
-                <div className="flex items-center justify-between">
-                  <p className="text-lg font-bold font-mono text-primary">{data.quotation.quotationNumber}</p>
-                  <Badge variant="outline">{data.quotation.status}</Badge>
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => window.open(`/api/quotations/${data.quotation.id}/pdf`, "_blank")}>
-                    <FileDown className="mr-2 h-3 w-3" /> PDF
-                  </Button>
-                  {data.quotation.sharepointUrl && (
-                    <Button size="sm" variant="outline" className="h-8 text-xs text-yellow-700" onClick={() => window.open(data.quotation.sharepointUrl!, "_blank")}>
-                      <FolderOpen className="mr-2 h-3 w-3" /> SharePoint
+        <div className="overflow-y-auto px-8 py-8 flex-1 bg-muted/5">
+          {loading ? (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            </div>
+          ) : error ? (
+            <div className="text-center text-red-500 py-12 font-medium text-lg">{error}</div>
+          ) : data ? (
+            <div className="space-y-10">
+              {/* Header Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-6 border rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow">
+                  <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider mb-2">Final Quotation</p>
+                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+                    <p className="text-2xl font-bold font-mono text-primary">{data.quotation.quotationNumber}</p>
+                    <Badge variant="outline" className="text-sm px-3 py-1 bg-background">{data.quotation.status}</Badge>
+                  </div>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Button size="sm" variant="default" className="text-sm" onClick={() => window.open(`/api/quotations/${data.quotation.id}/pdf`, "_blank")}>
+                      <FileDown className="mr-2 h-4 w-4" /> Download PDF
                     </Button>
-                  )}
-                </div>
-              </div>
-              
-              {data.boq && (
-                <div className="p-4 border rounded-xl bg-muted/20">
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Origin BOQ</p>
-                  <p className="text-lg font-bold font-mono">{data.boq.boqNumber}</p>
-                  <div className="mt-4 flex gap-2">
-                    {data.boq.sharepointUrl && (
-                      <Button size="sm" variant="outline" className="h-8 text-xs text-green-700" onClick={() => window.open(data.boq?.sharepointUrl!, "_blank")}>
-                        <ExternalLink className="mr-2 h-3 w-3" /> BOQ Excel
+                    {data.quotation.sharepointUrl && (
+                      <Button size="sm" variant="outline" className="text-sm text-yellow-700 hover:text-yellow-800 hover:bg-yellow-50" onClick={() => window.open(data.quotation.sharepointUrl!, "_blank")}>
+                        <FolderOpen className="mr-2 h-4 w-4" /> SharePoint
                       </Button>
                     )}
                   </div>
                 </div>
-              )}
-            </div>
-
-            {/* Timeline */}
-            <div className="relative pl-6 border-l-2 border-muted-foreground/20 space-y-8 mt-8 pb-4">
-              {data.logs.length === 0 && (
-                <p className="text-muted-foreground text-sm">No activity logs found for this journey.</p>
-              )}
-              {data.logs.map((log, index) => (
-                <div key={log.id} className="relative">
-                  {/* Timeline Dot */}
-                  <span className="absolute -left-[31px] top-1 h-3 w-3 rounded-full bg-primary ring-4 ring-background" />
-                  
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs rounded-sm">
-                        {log.action.replace(/_/g, " ")}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(log.createdAt).toLocaleString("en-US", {
-                          month: "short", day: "numeric", year: "numeric",
-                          hour: "numeric", minute: "2-digit"
-                        })}
-                      </span>
+                
+                {data.boq && (
+                  <div className="p-6 border rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow">
+                    <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider mb-2">Origin BOQ</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-2xl font-bold font-mono">{data.boq.boqNumber}</p>
                     </div>
-                    
-                    <p className="text-sm pt-1">{log.details}</p>
-                    
-                    <div className="flex items-center gap-2 pt-2">
-                      <span className="text-xs font-medium bg-muted px-2 py-0.5 rounded text-muted-foreground">
-                        {log.user?.name || "System"} ({log.user?.role || "SYSTEM"})
-                      </span>
-                      <span className="text-xs text-muted-foreground border-l pl-2">
-                        {log.entityType}
-                      </span>
+                    <div className="mt-6 flex flex-wrap gap-3">
+                      {data.boq.sharepointUrl && (
+                        <Button size="sm" variant="outline" className="text-sm text-green-700 hover:text-green-800 hover:bg-green-50" onClick={() => window.open(data.boq?.sharepointUrl!, "_blank")}>
+                          <ExternalLink className="mr-2 h-4 w-4" /> BOQ Excel
+                        </Button>
+                      )}
                     </div>
                   </div>
+                )}
+              </div>
+
+              {/* Timeline */}
+              <div className="mt-10">
+                <h3 className="text-lg font-semibold mb-6 tracking-tight">Activity Timeline</h3>
+                <div className="relative pl-8 border-l-2 border-muted-foreground/20 space-y-8 pb-4 ml-4">
+                  {data.logs.length === 0 && (
+                    <p className="text-muted-foreground text-sm">No activity logs found for this journey.</p>
+                  )}
+                  {data.logs.map((log, index) => (
+                    <div key={log.id} className="relative">
+                      {/* Timeline Dot */}
+                      <span className="absolute -left-[41px] top-5 h-4 w-4 rounded-full bg-primary ring-4 ring-background" />
+                      
+                      <div className="p-5 border rounded-xl bg-card shadow-sm space-y-3 hover:shadow-md transition-shadow">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="secondary" className="px-2.5 py-1 text-xs font-semibold rounded-md uppercase tracking-wider bg-muted text-muted-foreground border-transparent">
+                              {log.action.replace(/_/g, " ")}
+                            </Badge>
+                            <span className="text-sm font-medium text-muted-foreground border-l pl-3">
+                              {log.entityType}
+                            </span>
+                          </div>
+                          <span className="text-sm text-muted-foreground font-medium">
+                            {new Date(log.createdAt).toLocaleString("en-US", {
+                              month: "short", day: "numeric", year: "numeric",
+                              hour: "numeric", minute: "2-digit"
+                            })}
+                          </span>
+                        </div>
+                        
+                        <p className="text-base text-foreground leading-relaxed pt-1">
+                          {log.details}
+                        </p>
+                        
+                        <div className="flex items-center gap-2 pt-2">
+                          <span className="text-sm font-medium bg-muted/50 px-3 py-1 rounded-md text-foreground">
+                            {log.user?.name || "System"} <span className="text-muted-foreground font-normal ml-1">({log.user?.role || "SYSTEM"})</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   )
