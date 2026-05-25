@@ -56,14 +56,17 @@ export default function ProfilePage() {
         method: "POST",
         body: formData
       })
-      if (!res.ok) throw new Error("Upload failed")
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `Upload failed with status ${res.status}`);
+      }
       const { url } = await res.json()
       
       setProfile(prev => prev ? { ...prev, [field]: url } : null)
       toast.success("Image uploaded successfully", { id: toastId })
-    } catch (error) {
+    } catch (error: any) {
       console.error(error)
-      toast.error("Failed to upload image", { id: toastId })
+      toast.error(error.message || "Failed to upload image", { id: toastId })
     }
   }
 

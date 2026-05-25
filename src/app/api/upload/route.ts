@@ -27,9 +27,7 @@ export async function POST(request: Request) {
     console.log("[UPLOAD API] File found:", file.name, file.type, file.size);
 
     // Generate unique filename
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1E9)
-    const ext = path.extname(file.name) || ".jpg"
-    const filename = `upload-${uniqueSuffix}${ext}`
+    const filename = file.name ? `upload-${Date.now()}-${file.name}` : `upload-${Date.now()}.jpg`;
 
     // If no Vercel Blob token, check if we are on Vercel
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
@@ -66,9 +64,9 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json({ url: blob.url })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Upload failed:", error)
-    return NextResponse.json({ error: "Failed to upload image" }, { status: 500 })
+    return NextResponse.json({ error: error.message || "Failed to upload image" }, { status: 500 })
   }
 }
 
