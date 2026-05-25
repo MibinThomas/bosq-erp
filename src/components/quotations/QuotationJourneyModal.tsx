@@ -72,12 +72,12 @@ export function QuotationJourneyModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[850px] max-h-[85vh] overflow-hidden p-0 flex flex-col">
+      <DialogContent className="max-w-[95vw] md:max-w-[900px] w-full max-h-[85vh] overflow-hidden p-0 flex flex-col">
         <DialogHeader className="px-8 py-5 border-b shrink-0 bg-muted/10">
           <DialogTitle className="text-2xl font-bold tracking-tight">Quotation Journey</DialogTitle>
         </DialogHeader>
 
-        <div className="overflow-y-auto px-8 py-8 flex-1 bg-muted/5">
+        <div className="overflow-y-auto overflow-x-hidden px-5 md:px-8 py-8 flex-1 bg-muted/5 w-full">
           {loading ? (
             <div className="flex justify-center items-center py-20">
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -90,9 +90,9 @@ export function QuotationJourneyModal({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="p-6 border rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow">
                   <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider mb-2">Final Quotation</p>
-                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
-                    <p className="text-2xl font-bold font-mono text-primary">{data.quotation.quotationNumber}</p>
-                    <Badge variant="outline" className="text-sm px-3 py-1 bg-background">{data.quotation.status}</Badge>
+                  <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-3 w-full">
+                    <p className="text-2xl font-bold font-mono text-primary break-words w-full">{data.quotation.quotationNumber}</p>
+                    <Badge variant="outline" className="text-sm px-3 py-1 bg-background shrink-0">{data.quotation.status}</Badge>
                   </div>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Button size="sm" variant="default" className="text-sm" onClick={() => window.open(`/api/quotations/${data.quotation.id}/pdf`, "_blank")}>
@@ -109,8 +109,8 @@ export function QuotationJourneyModal({
                 {data.boq && (
                   <div className="p-6 border rounded-xl bg-card shadow-sm hover:shadow-md transition-shadow">
                     <p className="text-sm text-muted-foreground font-semibold uppercase tracking-wider mb-2">Origin BOQ</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-2xl font-bold font-mono">{data.boq.boqNumber}</p>
+                    <div className="flex items-start justify-between w-full">
+                      <p className="text-2xl font-bold font-mono break-words w-full">{data.boq.boqNumber}</p>
                     </div>
                     <div className="mt-6 flex flex-wrap gap-3">
                       {data.boq.sharepointUrl && (
@@ -133,11 +133,11 @@ export function QuotationJourneyModal({
                   {data.logs.map((log, index) => (
                     <div key={log.id} className="relative">
                       {/* Timeline Dot */}
-                      <span className="absolute -left-[41px] top-5 h-4 w-4 rounded-full bg-primary ring-4 ring-background" />
+                      <span className="absolute -left-[41px] top-5 h-4 w-4 rounded-full bg-primary ring-4 ring-background shrink-0" />
                       
-                      <div className="p-5 border rounded-xl bg-card shadow-sm space-y-3 hover:shadow-md transition-shadow">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-3">
+                      <div className="p-5 border rounded-xl bg-card shadow-sm space-y-3 hover:shadow-md transition-shadow w-full">
+                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 w-full">
+                          <div className="flex flex-wrap items-center gap-3">
                             <Badge variant="secondary" className="px-2.5 py-1 text-xs font-semibold rounded-md uppercase tracking-wider bg-muted text-muted-foreground border-transparent">
                               {log.action.replace(/_/g, " ")}
                             </Badge>
@@ -145,7 +145,7 @@ export function QuotationJourneyModal({
                               {log.entityType}
                             </span>
                           </div>
-                          <span className="text-sm text-muted-foreground font-medium">
+                          <span className="text-sm text-muted-foreground font-medium sm:text-right shrink-0">
                             {new Date(log.createdAt).toLocaleString("en-US", {
                               month: "short", day: "numeric", year: "numeric",
                               hour: "numeric", minute: "2-digit"
@@ -153,7 +153,7 @@ export function QuotationJourneyModal({
                           </span>
                         </div>
                         
-                        <p className="text-base text-foreground leading-relaxed pt-1">
+                        <p className="text-base text-foreground leading-relaxed pt-1 break-words">
                           {log.details}
                         </p>
                         
