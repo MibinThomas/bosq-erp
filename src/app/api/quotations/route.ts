@@ -350,6 +350,7 @@ export async function POST(request: Request) {
             productId: item.productId,
             description: item.description,
             specifications: item.specifications,
+            customImageUrl: item.imageUrl,
             quantity: item.quantity,
             basePrice: item.basePrice,
             unitPrice: item.unitPrice,

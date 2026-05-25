@@ -135,24 +135,28 @@ export async function GET(
       // External images (HTTP/HTTPS)
       if (url.startsWith("http://") || url.startsWith("https://")) {
         try {
-          // react-pdf fails on WEBP entirely, even remotely.
-          // Fetch external URLs to check if they are WEBP
           const res = await fetch(url);
           if (res.ok) {
             const arrayBuffer = await res.arrayBuffer();
             let fileBuffer = Buffer.from(arrayBuffer);
-            const contentType = res.headers.get('content-type');
-            if (contentType === 'image/webp' || url.toLowerCase().endsWith('.webp')) {
+            const contentType = res.headers.get('content-type') || "";
+            
+            // @react-pdf/renderer does not support WEBP, convert it
+            if (contentType.includes('webp') || url.toLowerCase().endsWith('.webp')) {
               const convertedBuffer = await sharp(fileBuffer).png().toBuffer();
               return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
             }
-            // Return raw URL for standard formats to let react-pdf handle it
-            return url;
+            
+            // For all other formats (JPG, PNG), we still convert to Base64 
+            // to bypass react-pdf CORS and network fetching issues entirely.
+            let mime = "image/jpeg";
+            if (contentType.includes("png") || url.toLowerCase().endsWith(".png")) mime = "image/png";
+            return `data:${mime};base64,${fileBuffer.toString("base64")}`;
           }
         } catch (e) {
           console.error("Failed to fetch/process external image:", url, e);
         }
-        return url;
+        return url; // Final fallback, though unlikely to render if fetch failed
       }
       
       // Local images (/uploads/...)
