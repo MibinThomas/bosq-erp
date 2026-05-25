@@ -168,3 +168,42 @@ export async function uploadQuotationPdf(companyName: string, filenameBase: stri
     throw error
   }
 }
+
+export async function uploadBoqExcel(companyName: string, filenameBase: string, excelBuffer: Buffer, quotationGroupFolder?: string) {
+  const { config, hasCreds } = await getSharePointConfig()
+  const sanitizedCompany = sanitizeClientName(companyName)
+  const sanitizedFilename = filenameBase.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+  
+  const fallbackPath = quotationGroupFolder
+    ? `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Quotations/${quotationGroupFolder}/${sanitizedFilename}.xlsx`
+    : `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Quotations/${sanitizedFilename}.xlsx`
+
+  if (!hasCreds) {
+    console.warn("SharePoint credentials are not configured. Falling back to mock Excel upload.")
+    return fallbackPath
+  }
+
+  try {
+    const client = await getGraphClient(
+      config.sharepoint_tenant_id,
+      config.sharepoint_client_id,
+      config.sharepoint_client_secret
+    )
+    
+    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName, quotationGroupFolder)
+    
+    const fileName = `${sanitizedFilename}.xlsx`
+    const path = quotationGroupFolder 
+      ? `/Clients/${sanitizedCompany}/Quotations/${quotationGroupFolder}/${fileName}`
+      : `/Clients/${sanitizedCompany}/Quotations/${fileName}`
+    
+    const result = await client
+      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:${path}:/content`)
+      .put(excelBuffer)
+
+    return result.webUrl
+  } catch (error) {
+    console.error("Error uploading Excel to SharePoint:", error)
+    throw error
+  }
+}

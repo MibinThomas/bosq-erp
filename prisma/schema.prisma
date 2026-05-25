@@ -18,12 +18,13 @@ model User {
   password      String?
   phone         String?
   department    String?
-  role          String    @default("SALES_EXECUTIVE") // Roles: ADMIN, SALES_MANAGER, SALES_EXECUTIVE, ACCOUNTS, PRODUCTION
+  role          String    @default("SALES_EXECUTIVE") // Roles: ADMIN, SALES_MANAGER, SALES_EXECUTIVE, ACCOUNTS, PRODUCTION, ESTIMATOR
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
   quotations    Quotation[]
   activities    ActivityLog[]
+  boqs          Boq[]
 }
 
 model Client {
@@ -43,6 +44,7 @@ model Client {
   updatedAt       DateTime    @updatedAt
 
   quotations      Quotation[]
+  boqs            Boq[]
 }
 
 model ProductCategory {
@@ -77,6 +79,7 @@ model Product {
   updatedAt       DateTime  @updatedAt
 
   quotationItems  QuotationItem[]
+  boqItems        BoqItem[]
 }
 
 model Quotation {
@@ -108,6 +111,9 @@ model Quotation {
   sharepointUrl   String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  boqId           String?
+  boq             Boq?      @relation(fields: [boqId], references: [id])
 
   parentId        String?
   parent          Quotation?       @relation("QuotationRevisions", fields: [parentId], references: [id], onDelete: Cascade)
@@ -195,4 +201,74 @@ model SystemSetting {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Boq {
+  id              String    @id @default(cuid())
+  boqNumber       String    @unique // E.g. BOQ-1001
+  clientId        String
+  client          Client    @relation(fields: [clientId], references: [id])
+  projectId       String?
+  projectName     String?
+  
+  customerSegment String    @default("Direct") // Interior, Dealer, Direct, Online
+  
+  preparedById    String
+  preparedBy      User      @relation(fields: [preparedById], references: [id])
+  
+  status          String    @default("DRAFT") // DRAFT, PENDING_COSTING, COSTING_COMPLETED, REJECTED, CONVERTED
+  
+  totalMaterialCost Float   @default(0.0)
+  totalLaborCost    Float   @default(0.0)
+  totalInstallation Float   @default(0.0)
+  totalTransport    Float   @default(0.0)
+  totalOverhead     Float   @default(0.0)
+  totalCost         Float   @default(0.0)
+  
+  marginAmount      Float   @default(0.0)
+  totalSellingPrice Float   @default(0.0)
+  
+  isTemplate        Boolean @default(false)
+  notes             String?
+  termsConditions   String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  items           BoqItem[]
+  quotations      Quotation[]
+}
+
+model BoqItem {
+  id              String    @id @default(cuid())
+  boqId           String
+  boq             Boq       @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  
+  productId       String?
+  product         Product?  @relation(fields: [productId], references: [id])
+  
+  itemNo          Int
+  description     String
+  specifications  String?
+  dimensions      String?
+  customImageUrl  String?
+  
+  quantity        Int       @default(1)
+  unit            String    @default("Nos") // Nos, Sqft, Lm, etc.
+  
+  materialCost    Float     @default(0.0)
+  laborCost       Float     @default(0.0)
+  installationCost Float    @default(0.0)
+  transportCost   Float     @default(0.0)
+  overheadCost    Float     @default(0.0)
+  
+  unitCost        Float     @default(0.0)
+  totalCost       Float     @default(0.0)
+  
+  marginPercentage Float    @default(0.0)
+  unitSellingPrice Float    @default(0.0)
+  totalSellingPrice Float   @default(0.0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }

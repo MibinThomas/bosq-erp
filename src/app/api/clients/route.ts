@@ -9,9 +9,7 @@ export async function GET() {
     const session = await getServerSession(authOptions)
     
     let whereClause = {}
-    if (session?.user && (session.user as any).role === "SALES_EXECUTIVE") {
-      whereClause = { salespersonId: (session.user as any).id }
-    }
+    // We allow fetching all clients to ensure dropdowns work correctly across roles
 
     const clients = await prisma.client.findMany({
       where: whereClause,

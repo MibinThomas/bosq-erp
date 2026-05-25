@@ -12,7 +12,8 @@ import {
   BarChart3, 
   Settings,
   LogOut,
-  User as UserIcon
+  User as UserIcon,
+  Calculator
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -22,6 +23,7 @@ const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Clients", href: "/clients", icon: Users },
   { name: "Products", href: "/products", icon: Package },
+  { name: "BOQs", href: "/boq", icon: Calculator },
   { name: "Quotations", href: "/quotations", icon: FileText },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "Settings", href: "/settings", icon: Settings },
@@ -55,6 +57,8 @@ export function Sidebar() {
         return "Sales Manager"
       case "SALES_EXECUTIVE":
         return "Interior Design Consultant"
+      case "ESTIMATOR":
+        return "Cost Estimator"
       default:
         return "Interior Design Consultant"
     }
