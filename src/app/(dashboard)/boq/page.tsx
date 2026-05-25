@@ -41,20 +41,28 @@ export default function BoqDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [tab, setTab] = useState<"all" | "templates">("all")
   
-  // Selection and Delete States
   const [selectedBoqs, setSelectedBoqs] = useState<string[]>([])
   const [isDeleting, setIsDeleting] = useState(false)
   const [refreshToggle, setRefreshToggle] = useState(0)
+
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const limit = 20
 
   useEffect(() => {
     async function fetchBoqs() {
       try {
         setLoading(true)
         const isTemplateFlag = tab === "templates"
-        const res = await fetch(`/api/boq?isTemplate=${isTemplateFlag}`)
+        const res = await fetch(`/api/boq?isTemplate=${isTemplateFlag}&page=${currentPage}&limit=${limit}`)
         if (!res.ok) throw new Error("Failed to fetch BOQs")
-        const data = await res.json()
-        setBoqs(data)
+        const json = await res.json()
+        if (json.data) {
+          setBoqs(json.data)
+          setTotalPages(json.totalPages)
+        } else {
+          setBoqs(json)
+        }
       } catch (error) {
         console.error("Error fetching BOQs:", error)
         toast.error("Failed to load BOQs. Please try again.")
@@ -63,7 +71,7 @@ export default function BoqDashboard() {
       }
     }
     fetchBoqs()
-  }, [tab, refreshToggle])
+  }, [tab, refreshToggle, currentPage])
 
   const filteredBoqs = boqs.filter((boq) => {
     const term = searchTerm.toLowerCase()
@@ -261,6 +269,34 @@ export default function BoqDashboard() {
               ))}
             </TableBody>
           </Table>
+        )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-800">
+            <div className="text-sm text-slate-400">
+              Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-800 hover:bg-slate-800 text-slate-300"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1 || loading}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-800 hover:bg-slate-800 text-slate-300"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || loading}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     </div>

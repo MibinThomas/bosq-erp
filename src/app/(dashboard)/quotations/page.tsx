@@ -75,6 +75,10 @@ export default function QuotationsPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const limit = 20
   
   const [historyQuote, setHistoryQuote] = useState<Quotation | null>(null)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
@@ -84,10 +88,16 @@ export default function QuotationsPage() {
   useEffect(() => {
     async function fetchQuotations() {
       try {
-        const res = await fetch("/api/quotations")
+        setLoading(true)
+        const res = await fetch(`/api/quotations?page=${currentPage}&limit=${limit}`)
         if (!res.ok) throw new Error("Failed to fetch quotations")
-        const data = await res.json()
-        setQuotations(data)
+        const json = await res.json()
+        if (json.data) {
+          setQuotations(json.data)
+          setTotalPages(json.totalPages)
+        } else {
+          setQuotations(json)
+        }
       } catch (error) {
         console.error("Error fetching quotations:", error)
         toast.error("Failed to load quotations. Please try again.")
@@ -96,7 +106,7 @@ export default function QuotationsPage() {
       }
     }
     fetchQuotations()
-  }, [])
+  }, [currentPage])
 
   // Filter quotations dynamically
   const filteredQuotations = quotations.filter((quote) => {
@@ -262,7 +272,8 @@ export default function QuotationsPage() {
             </p>
           </div>
         ) : (
-          <Table>
+          <>
+            <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
                 {userRole === "ADMIN" && (
@@ -504,8 +515,37 @@ export default function QuotationsPage() {
               ))}
             </TableBody>
           </Table>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-800">
+            <div className="text-sm text-slate-400">
+              Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-800 hover:bg-slate-800 text-slate-300"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1 || loading}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-slate-800 hover:bg-slate-800 text-slate-300"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || loading}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         )}
-      </div>
+        </>
+      )}
+    </div>
 
       <QuotationJourneyModal 
         quotationId={journeyQuoteId} 

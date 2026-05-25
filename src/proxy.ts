@@ -7,14 +7,29 @@ export default withAuth(
     const path = req.nextUrl.pathname
     const role = token?.role as string
 
-    // Restrict /settings to ADMIN
-    if (path.startsWith("/settings") && role !== "ADMIN") {
-      return NextResponse.redirect(new URL("/dashboard", req.url))
+    // 1. Settings Routes Protection
+    if (path.startsWith("/settings") || path.startsWith("/api/settings")) {
+      if (path.startsWith("/settings/users") || path.startsWith("/api/settings/users")) {
+        if (role !== "ADMIN") {
+          return new NextResponse("Forbidden: Administrator access required", { status: 403 })
+        }
+      } else {
+        if (role !== "ADMIN" && role !== "SALES_MANAGER") {
+          return new NextResponse("Forbidden: Manager access required", { status: 403 })
+        }
+      }
     }
 
-    // Restrict /reports to ADMIN or SALES_MANAGER
+    // 2. Report Protection
     if (path.startsWith("/reports") && role !== "ADMIN" && role !== "SALES_MANAGER") {
-      return NextResponse.redirect(new URL("/dashboard", req.url))
+      return new NextResponse("Forbidden: Manager access required", { status: 403 })
+    }
+
+    // 3. Estimator Role Protection
+    if (role === "ESTIMATOR") {
+      if (path.startsWith("/clients") || path.startsWith("/reports")) {
+        return new NextResponse("Forbidden: Estimators cannot access this section", { status: 403 })
+      }
     }
 
     return NextResponse.next()

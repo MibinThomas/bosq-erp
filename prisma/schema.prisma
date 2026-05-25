@@ -22,6 +22,7 @@ model User {
   signature     String?
   role          String    @default("SALES_EXECUTIVE") // Roles: ADMIN, SALES_MANAGER, SALES_EXECUTIVE, ACCOUNTS, PRODUCTION, ESTIMATOR
   isActive      Boolean   @default(true)
+  deletedAt     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
@@ -44,6 +45,7 @@ model Client {
   salespersonId   String?
   sharepointFolder String?
   notes           String?
+  deletedAt       DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -79,6 +81,7 @@ model Product {
   availableColors String?
   dimensions      String?
   status          String    @default("ACTIVE") // ACTIVE, DISCONTINUED
+  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -113,6 +116,7 @@ model Quotation {
   termsConditions String?
   notes           String?
   sharepointUrl   String?
+  deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -242,6 +246,7 @@ model Boq {
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
   items           BoqItem[]
   quotations      Quotation[]

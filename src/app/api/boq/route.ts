@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     // Determine the role
     const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
     
-    let whereClause: any = {}
+    let whereClause: any = { deletedAt: null }
     if (userRole === "SALES_EXECUTIVE") {
       whereClause.preparedById = (session?.user as any)?.id
     }
@@ -29,6 +29,11 @@ export async function GET(request: Request) {
       whereClause.status = { not: "ARCHIVED" }
     }
 
+    const page = parseInt(searchParams.get("page") || "1", 10)
+    const limit = parseInt(searchParams.get("limit") || "50", 10)
+
+    const totalCount = await prisma.boq.count({ where: whereClause })
+
     const boqs = await prisma.boq.findMany({
       where: whereClause,
       include: {
@@ -36,9 +41,16 @@ export async function GET(request: Request) {
         preparedBy: true,
       },
       orderBy: { boqNumber: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
     })
 
-    return NextResponse.json(boqs)
+    return NextResponse.json({
+      data: boqs,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page
+    })
   } catch (error) {
     console.error("Failed to fetch BOQs:", error)
     return NextResponse.json(

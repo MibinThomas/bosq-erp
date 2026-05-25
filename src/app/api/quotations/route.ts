@@ -12,16 +12,23 @@ import { getSettings } from "@/lib/settings"
 import sharp from "sharp"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     
     let whereClause: any = {
-      status: { not: "REVISED" }
+      status: { not: "REVISED" },
+      deletedAt: null
     }
     if (session?.user && (session.user as any).role === "SALES_EXECUTIVE") {
       whereClause.preparedById = (session.user as any).id
     }
+
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get("page") || "1", 10)
+    const limit = parseInt(searchParams.get("limit") || "50", 10)
+
+    const totalCount = await prisma.quotation.count({ where: whereClause })
 
     const quotations = await prisma.quotation.findMany({
       where: whereClause,
@@ -30,6 +37,8 @@ export async function GET() {
         preparedBy: true,
       },
       orderBy: { quotationNumber: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
     })
 
     const quotationsWithRevisions = await Promise.all(
@@ -46,7 +55,12 @@ export async function GET() {
       })
     )
 
-    return NextResponse.json(quotationsWithRevisions)
+    return NextResponse.json({
+      data: quotationsWithRevisions,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: page
+    })
   } catch (error) {
     console.error("Failed to fetch quotations:", error)
     return NextResponse.json(

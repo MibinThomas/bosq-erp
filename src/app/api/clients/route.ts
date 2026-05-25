@@ -8,8 +8,8 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     
-    let whereClause = {}
-    // We allow fetching all clients to ensure dropdowns work correctly across roles
+    let whereClause: any = { deletedAt: null }
+    // We allow fetching all active clients to ensure dropdowns work correctly across roles
 
     const clients = await prisma.client.findMany({
       where: whereClause,

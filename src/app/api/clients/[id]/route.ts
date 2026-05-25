@@ -11,7 +11,7 @@ export async function GET(
     const { id } = await params
 
     const client = await prisma.client.findUnique({
-      where: { id },
+      where: { id, deletedAt: null },
     })
 
     if (!client) {
@@ -151,8 +151,9 @@ export async function DELETE(
       )
     }
 
-    await prisma.client.delete({
+    await prisma.client.update({
       where: { id },
+      data: { deletedAt: new Date() }
     })
 
     // Log Activity

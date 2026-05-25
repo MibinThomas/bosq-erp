@@ -16,6 +16,7 @@ export async function GET() {
     }
 
     const users = await prisma.user.findMany({
+      where: { deletedAt: null },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -118,8 +119,9 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    await prisma.user.delete({
-      where: { id }
+    await prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date(), isActive: false }
     })
 
     // Log this activity

@@ -11,7 +11,10 @@ export async function GET(
   try {
     const { id } = await params
     const product = await prisma.product.findUnique({
-      where: { id },
+      where: { 
+        id,
+        deletedAt: null
+      },
       include: { category: true },
     })
 
@@ -137,8 +140,9 @@ export async function DELETE(
     }
 
     const { id } = await params
-    const deletedProduct = await prisma.product.delete({
+    const deletedProduct = await prisma.product.update({
       where: { id },
+      data: { deletedAt: new Date() }
     })
 
     // Log Activity
