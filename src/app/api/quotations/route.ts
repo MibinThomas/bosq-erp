@@ -9,6 +9,8 @@ import path from "path"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { getSettings } from "@/lib/settings"
+import sharp from "sharp"
+import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 
 export async function GET() {
   try {
@@ -164,7 +166,7 @@ export async function POST(request: Request) {
       }
 
       const nextBaseNumber = maxNumber + 1
-      nextQuoteNo = `${prefix}${nextBaseNumber}-1`
+      nextQuoteNo = `${prefix}${nextBaseNumber}`
     }
 
     // Read both brand logos to base64
@@ -212,7 +214,7 @@ export async function POST(request: Request) {
 
     // 3. Calculate financial totals
     let calculatedSubtotal = 0
-    const quotationItemsToCreate = items.map((item: any, idx: number) => {
+    const quotationItemsToCreate = await Promise.all(items.map(async (item: any, idx: number) => {
       const qty = parseInt(item.quantity) || 1
       const price = parseFloat(item.unitPrice) || 0
       const disc = parseFloat(item.discount) || 0
@@ -221,22 +223,26 @@ export async function POST(request: Request) {
       calculatedSubtotal += amt
 
       const matchedProd = dbProducts.find((p) => p.id === item.productId)
+      
+      const rawImageUrl = item.customImageUrl || item.imageUrl || matchedProd?.imageUrl || null;
+      const resolvedImage = await resolveImageUrl(rawImageUrl);
 
       return {
         itemNo: idx + 1,
         productId: item.productId || null,
         description: item.description,
         specifications: item.specifications || "",
+        customImageUrl: item.customImageUrl || null,
         quantity: qty,
         basePrice: parseFloat(item.basePrice) || price, // locked segment base price
         unitPrice: price,
         discount: disc,
         margin: marginVal,
         amount: amt,
-        imageUrl: item.customImageUrl || matchedProd?.imageUrl || null,
+        imageUrl: resolvedImage,
         categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
       }
-    })
+    }))
 
     const calculatedVat = calculatedSubtotal * 0.05
     const charge = parseFloat(deliveryCharge) || 0

@@ -79,11 +79,12 @@ export function sanitizeClientName(name: string): string {
 }
 
 export function getBaseQuotationFolder(identifier: string): string {
-  // Extract base project number (e.g. "P2230-1" -> "P2230", "P2230 - 1" -> "P2230", "BOQ-1002" -> "BOQ-1002")
   if (!identifier) return ""
-  const match = identifier.match(/^([a-zA-Z]+\s*[-_]?\s*\d+)/)
+  // Extract base project number (e.g. "P2230-1_Client" -> "P2230", "BOQ_P2230" -> "P2230", "ID2230" -> "ID2230")
+  // It looks for a sequence of letters followed directly by numbers (e.g. P, ID, BOQ)
+  const match = identifier.match(/(?:BOQ_)?([a-zA-Z]+\d+)/i)
   if (match) {
-    return match[1].replace(/\s/g, "").toUpperCase()
+    return match[1].toUpperCase()
   }
   return identifier
 }

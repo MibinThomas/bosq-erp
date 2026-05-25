@@ -7,6 +7,8 @@ import { QuotationDocument } from "@/lib/pdf/QuotationDocument"
 import fs from "fs"
 import path from "path"
 import { getSettings } from "@/lib/settings"
+import sharp from "sharp"
+import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
@@ -181,7 +183,7 @@ export async function PUT(
 
       // Calculate new financial totals
       let calculatedSubtotal = 0
-      const quotationItemsToCreate = items.map((item: any, idx: number) => {
+      const quotationItemsToCreate = await Promise.all(items.map(async (item: any, idx: number) => {
         const qty = parseInt(item.quantity) || 1
         const price = parseFloat(item.unitPrice) || 0
         const disc = parseFloat(item.discount) || 0
@@ -190,22 +192,27 @@ export async function PUT(
         calculatedSubtotal += amt
 
         const matchedProd = dbProducts.find((p) => p.id === item.productId)
+        
+        // Use customImageUrl if it exists, otherwise fall back to product image
+        const rawImageUrl = item.customImageUrl || item.imageUrl || matchedProd?.imageUrl || null;
+        const resolvedImage = await resolveImageUrl(rawImageUrl);
 
         return {
           itemNo: idx + 1,
           productId: item.productId || null,
           description: item.description,
           specifications: item.specifications || "",
+          customImageUrl: item.customImageUrl || null,
           quantity: qty,
           basePrice: parseFloat(item.basePrice) || price,
           unitPrice: price,
           discount: disc,
           margin: marginVal,
           amount: amt,
-          imageUrl: matchedProd?.imageUrl || null,
+          imageUrl: resolvedImage, // this will be used for PDF rendering
           categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
         }
-      })
+      }))
 
       const calculatedVat = calculatedSubtotal * 0.05
       const charge = parseFloat(deliveryCharge) || 0
@@ -279,9 +286,9 @@ export async function PUT(
         "company_trn"
       ])
 
-      // Construct Revised PDF props (e.g. quote number I1951-R1)
+      // Construct Revised PDF props (e.g. quote number P2231-1)
       const pdfProps = {
-        quotationNumber: `${existingQuotation.quotationNumber}-R${nextRevNo}`,
+        quotationNumber: revQuoteNum,
         date: new Date().toISOString().split("T")[0],
         validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         companyName: companySettings.company_name,
