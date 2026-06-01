@@ -35,8 +35,6 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
     }
   }, [isOpen, imageSrc])
 
-  if (!isOpen || !imageSrc) return null
-
   // Crop frame dimensions based on aspect ratio
   // Centered in a 380px x 300px viewport
   const getCropFrameStyle = () => {
@@ -200,6 +198,8 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
       console.error("Failed to export crop canvas:", err)
     }
   }
+
+  if (!isOpen || !imageSrc) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-300">
