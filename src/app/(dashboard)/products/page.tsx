@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { Plus, Search, MoreHorizontal, Loader2, Package, Sparkles, LayoutGrid, List, Edit } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Loader2, Package, Sparkles, LayoutGrid, List, Edit, ShoppingCart, Trash2, X, ChevronRight } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -50,6 +51,7 @@ interface Product {
 }
 
 export default function ProductsPage() {
+  const router = useRouter()
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
@@ -64,6 +66,204 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState("")
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
+
+  // Cart States
+  const [quoteCart, setQuoteCart] = useState<{ product: Product; quantity: number }[]>([])
+  const [isCartOpen, setIsCartOpen] = useState(false)
+  const [clients, setClients] = useState<any[]>([])
+  const [selectedClientId, setSelectedClientId] = useState("")
+  const [isCreatingClient, setIsCreatingClient] = useState(false)
+  
+  // New Client Form inputs
+  const [newClientName, setNewClientName] = useState("")
+  const [newClientContact, setNewClientContact] = useState("")
+  const [newClientPhone, setNewClientPhone] = useState("")
+  const [newClientEmail, setNewClientEmail] = useState("")
+  const [newClientType, setNewClientType] = useState("Interior")
+  const [newClientAddress, setNewClientAddress] = useState("")
+  const [newClientTrn, setNewClientTrn] = useState("")
+  const [newClientNotes, setNewClientNotes] = useState("")
+  const [clientSubmitting, setClientSubmitting] = useState(false)
+
+  useEffect(() => {
+    async function loadClients() {
+      try {
+        const res = await fetch("/api/clients")
+        if (res.ok) {
+          const data = await res.json()
+          setClients(data)
+        }
+      } catch (err) {
+        console.error("Failed to load clients:", err)
+      }
+    }
+    if (userRole === "SALES_EXECUTIVE" || isManagerOrAdmin) {
+      loadClients()
+    }
+  }, [userRole, isManagerOrAdmin])
+
+  useEffect(() => {
+    const cached = localStorage.getItem("quoteCart")
+    if (cached) {
+      try {
+        setQuoteCart(JSON.parse(cached))
+      } catch (err) {
+        console.error("Failed to parse cached cart:", err)
+      }
+    }
+  }, [])
+
+  const saveCartToStorage = (updatedCart: { product: Product; quantity: number }[]) => {
+    setQuoteCart(updatedCart)
+    localStorage.setItem("quoteCart", JSON.stringify(updatedCart))
+  }
+
+  const addToQuoteCart = (product: Product) => {
+    const existingIndex = quoteCart.findIndex(item => item.product.id === product.id)
+    let updatedCart = []
+    if (existingIndex > -1) {
+      updatedCart = [...quoteCart]
+      updatedCart[existingIndex].quantity += 1
+    } else {
+      updatedCart = [...quoteCart, { product, quantity: 1 }]
+    }
+    saveCartToStorage(updatedCart)
+    toast.success(`Added "${product.productName}" to Quote Cart!`)
+  }
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    const newQty = Math.max(1, quantity)
+    const updatedCart = quoteCart.map(item => 
+      item.product.id === productId ? { ...item, quantity: newQty } : item
+    )
+    saveCartToStorage(updatedCart)
+  }
+
+  const removeFromQuoteCart = (productId: string) => {
+    const updatedCart = quoteCart.filter(item => item.product.id !== productId)
+    saveCartToStorage(updatedCart)
+    toast.success("Item removed from cart.")
+  }
+
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newClientName.trim()) {
+      toast.error("Company name is required.")
+      return
+    }
+
+    setClientSubmitting(true)
+    try {
+      const res = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: newClientName.trim(),
+          contactPerson: newClientContact.trim() || undefined,
+          phone: newClientPhone.trim() || undefined,
+          email: newClientEmail.trim() || undefined,
+          clientType: newClientType,
+          address: newClientAddress.trim() || undefined,
+          trn: newClientTrn.trim() || undefined,
+          notes: newClientNotes.trim() || undefined,
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create client")
+      }
+
+      toast.success("New client registered successfully!")
+      
+      // Refresh clients list
+      const clientsRes = await fetch("/api/clients")
+      if (clientsRes.ok) {
+        const refreshedClients = await clientsRes.json()
+        setClients(refreshedClients)
+      }
+      
+      // Auto-select the newly created client
+      setSelectedClientId(data.id)
+      
+      // Reset client inputs
+      setNewClientName("")
+      setNewClientContact("")
+      setNewClientPhone("")
+      setNewClientEmail("")
+      setNewClientType("Interior")
+      setNewClientAddress("")
+      setNewClientTrn("")
+      setNewClientNotes("")
+      setIsCreatingClient(false)
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Failed to register client.")
+    } finally {
+      setClientSubmitting(false)
+    }
+  }
+
+  const handleCreateQuotation = () => {
+    if (!selectedClientId) {
+      toast.error("Please select a client before creating a quotation.")
+      return
+    }
+    if (quoteCart.length === 0) {
+      toast.error("Your quote cart is empty.")
+      return
+    }
+
+    const selectedClient = clients.find(c => c.id === selectedClientId)
+    if (!selectedClient) {
+      toast.error("Selected client not found.")
+      return
+    }
+
+    // Determine segment & pricing segment mapping
+    const clientType = selectedClient.clientType || "Direct"
+    // Valid values for Quotation Form Segment: "Interior", "Dealer", "Direct", "Online"
+    let segment: "Interior" | "Dealer" | "Direct" | "Online" = "Direct"
+    if (clientType === "Interior" || clientType === "Interior Designer") segment = "Interior"
+    else if (clientType === "Dealer") segment = "Dealer"
+    else if (clientType === "Online" || clientType === "Online / Ecommerce") segment = "Online"
+
+    const quotationPayload = {
+      clientId: selectedClientId,
+      customerSegment: segment,
+      items: quoteCart.map(item => {
+        const prod = item.product
+        // Dynamic Pricing Segment Mapping
+        let rate = prod.unitPrice
+        if (segment === "Interior") rate = prod.interiorPrice ?? prod.unitPrice
+        else if (segment === "Dealer") rate = prod.dealerPrice ?? prod.unitPrice
+        else if (segment === "Direct") rate = prod.directPrice ?? prod.unitPrice
+        else if (segment === "Online") rate = prod.onlinePrice ?? prod.unitPrice
+
+        return {
+          productId: prod.id,
+          description: prod.productName,
+          specifications: prod.specifications || "",
+          quantity: item.quantity,
+          basePrice: rate,
+          unitPrice: rate,
+          discount: 0,
+          margin: 0,
+          customImageUrl: prod.imageUrl || ""
+        }
+      })
+    }
+
+    localStorage.setItem("quoteCartItems", JSON.stringify(quotationPayload))
+    
+    // Clear cart since it is compiled
+    setQuoteCart([])
+    localStorage.removeItem("quoteCart")
+    
+    toast.success("Redirecting to quotation builder...")
+    // Navigate to /quotations/new
+    router.push("/quotations/new")
+  }
 
   async function fetchProducts() {
     try {
@@ -132,24 +332,43 @@ export default function ProductsPage() {
             Manage your office furniture catalog.
           </p>
         </div>
-        {isManagerOrAdmin && (
-          <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              onClick={() => setIsBulkOpen(true)}
-              className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+        <div className="flex items-center gap-3">
+          {/* Quote Cart Button */}
+          {(userRole === "SALES_EXECUTIVE" || isManagerOrAdmin) && (
+            <Button
+              variant="outline"
+              onClick={() => setIsCartOpen(true)}
+              className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2 relative h-10 px-4 rounded-xl"
             >
-              <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-              Bulk Upload
+              <ShoppingCart className="h-4 w-4 text-primary" />
+              <span className="font-bold text-xs uppercase tracking-wider">Quote Cart</span>
+              {quoteCart.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[10px] font-extrabold h-5 w-5 rounded-full flex items-center justify-center animate-in scale-in duration-200 shadow shadow-primary/30">
+                  {quoteCart.reduce((sum, item) => sum + item.quantity, 0)}
+                </span>
+              )}
             </Button>
-            <Link href="/products/new">
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
+          )}
+
+          {isManagerOrAdmin && (
+            <>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsBulkOpen(true)}
+                className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+              >
+                <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                Bulk Upload
               </Button>
-            </Link>
-          </div>
-        )}
+              <Link href="/products/new">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Product
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -301,22 +520,38 @@ export default function ProductsPage() {
                       </p>
                     </div>
                     
-                    {/* Card Actions Button */}
-                    {isManagerOrAdmin && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setEditingProduct(product)
-                          setIsEditOpen(true)
-                        }}
-                        className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-8 rounded-full"
-                      >
-                        <Edit className="h-3.5 w-3.5 mr-1" />
-                        Update Item
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {isManagerOrAdmin && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditingProduct(product)
+                            setIsEditOpen(true)
+                          }}
+                          className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-8 rounded-full px-3"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      
+                      {/* Add to Quote Button */}
+                      {(userRole === "SALES_EXECUTIVE" || isManagerOrAdmin) && (
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            addToQuoteCart(product)
+                          }}
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs shrink-0 cursor-pointer h-8 rounded-full px-4 flex items-center gap-1 font-bold shadow-sm"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add to Quote
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -393,7 +628,18 @@ export default function ProductsPage() {
                         {product.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right flex items-center justify-end gap-2">
+                      {(userRole === "SALES_EXECUTIVE" || isManagerOrAdmin) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => addToQuoteCart(product)}
+                          className="h-8 w-8 text-primary hover:text-primary-foreground hover:bg-primary rounded-full cursor-pointer shrink-0"
+                          title="Add to quote cart"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      )}
                       <DropdownMenu>
                         <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
                           <span className="sr-only">Open menu</span>
@@ -428,6 +674,322 @@ export default function ProductsPage() {
         onClose={() => setIsBulkOpen(false)}
         onSuccess={fetchProducts}
       />
+
+      <EditProductModal
+        product={editingProduct}
+        isOpen={isEditOpen}
+        onClose={() => {
+          setIsEditOpen(false)
+          setEditingProduct(null)
+        }}
+        onSuccess={fetchProducts}
+      />
+
+      {/* Quote Cart Drawer */}
+      {isCartOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden animate-in fade-in duration-200">
+          {/* Backdrop overlay */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+            onClick={() => setIsCartOpen(false)}
+          />
+          
+          <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-md bg-card border-l border-border/80 shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300">
+              
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-border/60 bg-muted/10 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-primary/10 rounded-xl">
+                    <ShoppingCart className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">Quote Compilation Cart</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Collect items and assign client pricing</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsCartOpen(false)} className="rounded-full h-8 w-8 hover:bg-muted">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Drawer Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                
+                {/* Product List */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider animate-pulse">Selected Items ({quoteCart.length})</h4>
+                  {quoteCart.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-10 border border-dashed rounded-2xl bg-muted/10 text-muted-foreground">
+                      <ShoppingCart className="h-8 w-8 stroke-[1.5] text-muted-foreground/50 mb-2 animate-bounce" />
+                      <span className="text-xs font-medium">Your cart is empty</span>
+                      <p className="text-[10px] text-center max-w-[200px] mt-1 text-muted-foreground/60">Browse catalog and click "+ Add to Quote" on any product.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {quoteCart.map((item) => {
+                        const prod = item.product
+                        // Determine Price dynamically based on client type segment
+                        const selectedClient = clients.find(c => c.id === selectedClientId)
+                        let priceSegment = "Direct"
+                        if (selectedClient) {
+                          const cType = selectedClient.clientType || "Direct"
+                          if (cType === "Interior" || cType === "Interior Designer") priceSegment = "Interior"
+                          else if (cType === "Dealer") priceSegment = "Dealer"
+                          else if (cType === "Online" || cType === "Online / Ecommerce") priceSegment = "Online"
+                        }
+                        
+                        let price = prod.unitPrice
+                        if (priceSegment === "Interior") price = prod.interiorPrice ?? prod.unitPrice
+                        else if (priceSegment === "Dealer") price = prod.dealerPrice ?? prod.unitPrice
+                        else if (priceSegment === "Online") price = prod.onlinePrice ?? prod.unitPrice
+
+                        return (
+                          <div key={prod.id} className="flex gap-4 p-3 border rounded-xl bg-muted/10 hover:bg-muted/20 transition-all items-start group">
+                            <div className="h-12 w-12 border rounded-lg bg-white overflow-hidden shrink-0 flex items-center justify-center shadow-inner">
+                              {prod.imageUrl ? (
+                                <img src={prod.imageUrl} alt={prod.productName} className="object-contain h-full w-full" />
+                              ) : (
+                                <Package className="h-5 w-5 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[9px] font-mono text-muted-foreground uppercase bg-secondary/80 px-1.5 py-0.2 rounded border">
+                                {prod.productCode}
+                              </span>
+                              <h5 className="font-semibold text-xs mt-1 text-foreground truncate" title={prod.productName}>
+                                {prod.productName}
+                              </h5>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                                {prod.dimensions || "Standard"} • {prod.warranty || "5 Years"}
+                              </p>
+                              
+                              {/* Quantity & Actions */}
+                              <div className="flex items-center justify-between mt-2.5">
+                                <div className="flex items-center border rounded-lg overflow-hidden bg-background">
+                                  <button 
+                                    type="button" 
+                                    onClick={() => updateQuantity(prod.id, item.quantity - 1)}
+                                    className="px-2 py-1 text-xs hover:bg-muted font-bold text-muted-foreground transition-colors border-r"
+                                  >
+                                    -
+                                  </button>
+                                  <input 
+                                    type="number" 
+                                    value={item.quantity}
+                                    onChange={(e) => updateQuantity(prod.id, parseInt(e.target.value) || 1)}
+                                    className="w-10 text-center text-xs bg-transparent border-0 focus:ring-0 font-semibold font-mono"
+                                  />
+                                  <button 
+                                    type="button" 
+                                    onClick={() => updateQuantity(prod.id, item.quantity + 1)}
+                                    className="px-2 py-1 text-xs hover:bg-muted font-bold text-muted-foreground transition-colors border-l"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                                <span className="text-xs font-bold text-primary font-mono">
+                                  AED {(price * item.quantity).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => removeFromQuoteCart(prod.id)}
+                              className="h-6 w-6 text-muted-foreground hover:text-red-500 rounded-full hover:bg-red-500/10 shrink-0"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Client Assignment Section */}
+                <div className="border-t border-border/60 pt-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Client Assignment</h4>
+                    <Button 
+                      variant="link" 
+                      onClick={() => setIsCreatingClient(!isCreatingClient)}
+                      className="text-xs text-primary p-0 h-auto font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      {isCreatingClient ? "Cancel" : "+ Add New Client"}
+                    </Button>
+                  </div>
+
+                  {/* Inline Client creation form */}
+                  {isCreatingClient ? (
+                    <form onSubmit={handleCreateClient} className="p-4 border border-primary/20 bg-primary/[0.01] rounded-2xl space-y-3 animate-in slide-in-from-top duration-300">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-primary mb-1">
+                        <Sparkles className="h-4 w-4" />
+                        <span>Register New Client</span>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase">Company Name *</label>
+                        <Input 
+                          placeholder="e.g. Design Studio LLC" 
+                          value={newClientName}
+                          onChange={(e) => setNewClientName(e.target.value)}
+                          className="h-8 text-xs rounded-lg"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Contact Person</label>
+                          <Input 
+                            placeholder="e.g. Sarah Smith" 
+                            value={newClientContact}
+                            onChange={(e) => setNewClientContact(e.target.value)}
+                            className="h-8 text-xs rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Client Type</label>
+                          <select
+                            className="w-full h-8 rounded-lg border bg-background px-2.5 py-1 text-xs shadow-sm cursor-pointer"
+                            value={newClientType}
+                            onChange={(e) => setNewClientType(e.target.value)}
+                          >
+                            <option value="Interior">Interior Designer</option>
+                            <option value="Dealer">Dealer</option>
+                            <option value="Direct">Direct Client</option>
+                            <option value="Online">Online ecommerce</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Phone Number</label>
+                          <Input 
+                            placeholder="e.g. +97150..." 
+                            value={newClientPhone}
+                            onChange={(e) => setNewClientPhone(e.target.value)}
+                            className="h-8 text-xs rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">Email Address</label>
+                          <Input 
+                            type="email"
+                            placeholder="e.g. contact@..." 
+                            value={newClientEmail}
+                            onChange={(e) => setNewClientEmail(e.target.value)}
+                            className="h-8 text-xs rounded-lg"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase">TRN (Optional)</label>
+                        <Input 
+                          placeholder="e.g. 100..." 
+                          value={newClientTrn}
+                          onChange={(e) => setNewClientTrn(e.target.value)}
+                          className="h-8 text-xs rounded-lg"
+                        />
+                      </div>
+
+                      <Button 
+                        type="submit" 
+                        disabled={clientSubmitting}
+                        className="w-full h-8 bg-primary hover:bg-primary/90 text-primary-foreground text-xs rounded-lg mt-2 font-bold cursor-pointer"
+                      >
+                        {clientSubmitting ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-1.5" />
+                            Registering Client...
+                          </>
+                        ) : (
+                          "Register & Select Client"
+                        )}
+                      </Button>
+                    </form>
+                  ) : (
+                    <div className="space-y-2">
+                      <select
+                        className="w-full h-10 rounded-xl border bg-background px-3 py-1 text-xs shadow-sm cursor-pointer hover:bg-muted/40 transition-colors"
+                        value={selectedClientId}
+                        onChange={(e) => setSelectedClientId(e.target.value)}
+                      >
+                        <option value="">-- Choose Assigned Client --</option>
+                        {clients.map(c => (
+                          <option key={c.id} value={c.id}>{c.companyName} ({c.clientType || "Direct"})</option>
+                        ))}
+                      </select>
+
+                      {selectedClientId && (() => {
+                        const sel = clients.find(c => c.id === selectedClientId)
+                        if (!sel) return null
+                        const type = sel.clientType || "Direct"
+                        let explanation = "Standard general rates applied."
+                        if (type === "Interior" || type === "Interior Designer") explanation = "IDC Special Interior Designer wholesale rates applied."
+                        else if (type === "Dealer") explanation = "Dealer wholesale pricing tier applied."
+                        else if (type === "Online") explanation = "Online ecommerce pricing segment applied."
+
+                        return (
+                          <div className="p-3 border border-primary/10 bg-primary/5 rounded-xl text-[10px] leading-relaxed text-primary">
+                            <span className="font-bold uppercase tracking-wider block mb-0.5">Applied pricing tier: {type}</span>
+                            {explanation}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Footer */}
+              {quoteCart.length > 0 && (
+                <div className="p-6 border-t border-border/60 bg-muted/10 space-y-4 shrink-0">
+                  <div className="flex justify-between items-center text-sm font-semibold">
+                    <span className="text-muted-foreground">Estimated Total Value:</span>
+                    <span className="text-lg font-bold font-mono text-primary">
+                      AED {quoteCart.reduce((sum, item) => {
+                        const prod = item.product
+                        const selectedClient = clients.find(c => c.id === selectedClientId)
+                        let priceSegment = "Direct"
+                        if (selectedClient) {
+                          const cType = selectedClient.clientType || "Direct"
+                          if (cType === "Interior" || cType === "Interior Designer") priceSegment = "Interior"
+                          else if (cType === "Dealer") priceSegment = "Dealer"
+                          else if (cType === "Online" || cType === "Online / Ecommerce") priceSegment = "Online"
+                        }
+                        
+                        let price = prod.unitPrice
+                        if (priceSegment === "Interior") price = prod.interiorPrice ?? prod.unitPrice
+                        else if (priceSegment === "Dealer") price = prod.dealerPrice ?? prod.unitPrice
+                        else if (priceSegment === "Online") price = prod.onlinePrice ?? prod.unitPrice
+
+                        return sum + (price * item.quantity)
+                      }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <Button 
+                    type="button"
+                    onClick={handleCreateQuotation}
+                    disabled={!selectedClientId}
+                    className="w-full bg-primary hover:bg-primary/95 text-primary-foreground h-11 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/25 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <span>Create Quotation</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
 
       <EditProductModal
         product={editingProduct}

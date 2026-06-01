@@ -190,6 +190,46 @@ function NewQuotationForm() {
     loadData()
   }, [])
 
+  useEffect(() => {
+    if (loadingOptions) return
+
+    const cachedCart = localStorage.getItem("quoteCartItems")
+    if (cachedCart) {
+      try {
+        const data = JSON.parse(cachedCart)
+        localStorage.removeItem("quoteCartItems")
+        
+        form.reset({
+          clientId: data.clientId,
+          customerSegment: data.customerSegment || "Direct",
+          projectName: "",
+          preparedById: (session?.user as any)?.id || "",
+          date: new Date().toISOString().split("T")[0],
+          validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          paymentTerms: "50% Advance, 50% on Delivery",
+          items: data.items.map((item: any) => ({
+            productId: item.productId || "",
+            description: item.description,
+            specifications: item.specifications || "",
+            quantity: item.quantity,
+            basePrice: item.basePrice,
+            unitPrice: item.unitPrice,
+            discount: 0,
+            margin: 0,
+            customImageUrl: item.customImageUrl || "",
+          })),
+          deliveryCharge: 0,
+          notes: "",
+        })
+        
+        toast.success("Pre-filled quotation from Product Master Quote Cart!")
+      } catch (err) {
+        console.error("Failed to parse cached quoteCartItems:", err)
+      }
+    }
+  }, [loadingOptions, session])
+
   const form = useForm<QuotationFormValues>({
     resolver: zodResolver(quotationSchema),
     defaultValues: {
