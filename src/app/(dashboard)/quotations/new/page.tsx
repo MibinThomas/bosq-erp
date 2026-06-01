@@ -868,7 +868,7 @@ function NewQuotationForm() {
                       </div>
 
                       {/* Quantity, Unit Price and Discount */}
-                      <div className="md:col-span-6 grid grid-cols-5 gap-2 pt-6 md:pt-0">
+                      <div className="md:col-span-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-4 md:pt-0">
                         <FormField
                           control={form.control}
                           name={`items.${index}.basePrice`}

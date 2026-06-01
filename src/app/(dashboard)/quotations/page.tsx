@@ -216,7 +216,7 @@ export default function QuotationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Quotations</h1>
           <p className="text-muted-foreground">
@@ -231,8 +231,8 @@ export default function QuotationsPage() {
         </Link>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3 w-full max-w-sm">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:max-w-md">
           <div className="relative flex items-center w-full">
             <Search className="h-4 w-4 text-muted-foreground absolute left-3" />
             <Input
@@ -273,40 +273,41 @@ export default function QuotationsPage() {
           </div>
         ) : (
           <>
-            <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                {userRole === "ADMIN" && (
-                  <TableHead className="w-12">
-                    <Checkbox 
-                      checked={selectedIds.length > 0 && selectedIds.length === filteredQuotations.length}
-                      onCheckedChange={handleSelectAll}
-                      aria-label="Select all"
-                    />
-                  </TableHead>
-                )}
-                <TableHead>Quote No.</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Client & Project</TableHead>
-                <TableHead>Interior Design Consultant (IDC)</TableHead>
-                <TableHead className="text-right">Total Amount (AED)</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>PO Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredQuotations.map((quote) => (
-                <TableRow key={quote.id} className="hover:bg-muted/30 transition-colors">
-                  {userRole === "ADMIN" && (
-                    <TableCell>
-                      <Checkbox 
-                        checked={selectedIds.includes(quote.id)}
-                        onCheckedChange={(checked) => handleSelectOne(checked as boolean, quote.id)}
-                        aria-label={`Select ${quote.quotationNumber}`}
-                      />
-                    </TableCell>
-                  )}
+            <div className="overflow-x-auto w-full">
+              <Table className="min-w-[1000px]">
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    {userRole === "ADMIN" && (
+                      <TableHead className="w-12">
+                        <Checkbox 
+                          checked={selectedIds.length > 0 && selectedIds.length === filteredQuotations.length}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
+                    )}
+                    <TableHead>Quote No.</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Client & Project</TableHead>
+                    <TableHead>Interior Design Consultant (IDC)</TableHead>
+                    <TableHead className="text-right">Total Amount (AED)</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>PO Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredQuotations.map((quote) => (
+                    <TableRow key={quote.id} className="hover:bg-muted/30 transition-colors">
+                      {userRole === "ADMIN" && (
+                        <TableCell>
+                          <Checkbox 
+                            checked={selectedIds.includes(quote.id)}
+                            onCheckedChange={(checked) => handleSelectOne(checked as boolean, quote.id)}
+                            aria-label={`Select ${quote.quotationNumber}`}
+                          />
+                        </TableCell>
+                      )}
                   <TableCell className="font-mono font-medium text-primary">
                     {userRole === "ADMIN" ? (
                       <span 

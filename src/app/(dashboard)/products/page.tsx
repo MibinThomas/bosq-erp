@@ -353,14 +353,14 @@ export default function ProductsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Product Master</h1>
           <p className="text-muted-foreground">
             Manage your office furniture catalog.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Quote Cart Button */}
           {(userRole === "SALES_EXECUTIVE" || isManagerOrAdmin) && (
             <Button
@@ -594,9 +594,10 @@ export default function ProductsPage() {
             ))}
           </div>
         ) : (
-          <div className="border rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm">
-            <Table>
-              <TableHeader className="bg-muted/50">
+          <div className="overflow-x-auto w-full">
+            <div className="border rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm min-w-[800px]">
+              <Table>
+                <TableHeader className="bg-muted/50">
                 <TableRow>
                   <TableHead className="w-12">
                     {isManagerOrAdmin && (
@@ -704,8 +705,9 @@ export default function ProductsPage() {
               </TableBody>
             </Table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+    </div>
 
       <BulkUploadModal 
         isOpen={isBulkOpen}

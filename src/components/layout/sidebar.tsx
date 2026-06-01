@@ -30,7 +30,7 @@ const navItems = [
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
-export function Sidebar() {
+export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname()
   const { data: session } = useSession()
 
@@ -66,7 +66,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="hidden md:flex w-64 flex-col border-r bg-background">
+    <aside className={cn("hidden md:flex w-64 flex-col border-r bg-background", className)}>
       <div className="px-6 py-5">
         <Link href="/dashboard" className="flex items-center">
           <div className="relative h-16 w-full">

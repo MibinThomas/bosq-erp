@@ -204,7 +204,7 @@ export default function ClientDetailPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isManagerOrAdmin && client.status !== "Approved" && (
             <Button 
               onClick={() => handleStatusUpdate("Approved")} 
@@ -455,8 +455,8 @@ export default function ClientDetailPage() {
                       {/* Items List inside Quotation */}
                       <div className="space-y-3">
                         <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Quotation Items</h4>
-                        <div className="border rounded-xl overflow-hidden">
-                          <table className="w-full text-sm text-left">
+                        <div className="border rounded-xl overflow-x-auto">
+                          <table className="w-full text-sm text-left min-w-[600px]">
                             <thead className="bg-muted/30 text-muted-foreground text-xs uppercase tracking-wider font-semibold border-b">
                               <tr>
                                 <th className="p-3">#</th>

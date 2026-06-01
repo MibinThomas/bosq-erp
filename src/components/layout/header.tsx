@@ -14,7 +14,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useNotifications } from "@/hooks/use-notifications"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sidebar } from "@/components/layout/sidebar"
 import { ScrollArea } from "@/components/ui/scroll-area"
+
 export function Header() {
   const { data: session } = useSession()
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications()
@@ -35,9 +38,16 @@ export function Header() {
   return (
     <header className="h-16 border-b bg-background flex items-center justify-between px-4 md:px-6">
       <div className="flex items-center">
-        <Button variant="ghost" size="icon" className="md:hidden mr-2">
-          <Menu className="h-5 w-5" />
-        </Button>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="md:hidden mr-2">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-64">
+            <Sidebar className="flex border-none w-full h-full" />
+          </SheetContent>
+        </Sheet>
       </div>
       <div className="flex items-center gap-3">
         <DropdownMenu>

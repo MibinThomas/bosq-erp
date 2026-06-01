@@ -136,7 +136,7 @@ export default function BoqDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Bill of Quantities (BOQ)</h1>
           <p className="text-muted-foreground">
@@ -204,8 +204,9 @@ export default function BoqDashboard() {
             </p>
           </div>
         ) : (
-          <Table>
-            <TableHeader className="bg-muted/50">
+          <div className="overflow-x-auto w-full">
+            <Table className="min-w-[800px]">
+              <TableHeader className="bg-muted/50">
               <TableRow>
                 {userRole === "ADMIN" && (
                   <TableHead className="w-12">
@@ -269,6 +270,7 @@ export default function BoqDashboard() {
               ))}
             </TableBody>
           </Table>
+          </div>
         )}
 
         {totalPages > 1 && (

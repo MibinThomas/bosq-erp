@@ -463,7 +463,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="company" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5 bg-slate-900/60 p-1 border border-slate-800 rounded-xl max-w-4xl">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 h-auto gap-2 bg-slate-900/60 p-2 border border-slate-800 rounded-xl max-w-4xl">
           <TabsTrigger value="company" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
             <Building className="h-4 w-4" />
             Company Details
