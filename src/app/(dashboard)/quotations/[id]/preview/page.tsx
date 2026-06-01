@@ -215,9 +215,9 @@ export default function QuotationHtmlPreviewPage({
   ]
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-900 pb-12">
+    <div className="absolute inset-0 bg-slate-100 dark:bg-slate-900 flex flex-col overflow-hidden z-20 print:relative print:inset-auto print:bg-white print:h-auto print:overflow-visible">
       {/* Top Header Bar - Invisible when printed */}
-      <div className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 py-4 px-6 flex flex-wrap justify-between items-center gap-4 print:hidden">
+      <div className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 py-4 px-6 flex flex-wrap justify-between items-center gap-4 print:hidden shrink-0 z-30 shadow-sm">
         <div className="flex items-center space-x-3">
           <Link href="/quotations">
             <Button variant="ghost" size="icon" className="rounded-full">
@@ -292,8 +292,10 @@ export default function QuotationHtmlPreviewPage({
         </div>
       </div>
 
-      {/* Main A4 Document Sheet Wrapper */}
-      <div className="max-w-[210mm] min-h-[297mm] mx-auto my-6 p-[15mm] bg-white text-slate-900 shadow-xl border border-slate-200 rounded-sm font-sans text-[11px] leading-relaxed relative print:my-0 print:border-none print:shadow-none print:p-0 print:max-w-none print:min-h-0 print:bg-white print:text-black">
+      {/* Dedicated Scrollable Preview Area Workspace */}
+      <div className="flex-1 overflow-y-auto p-6 md:p-8 lg:p-10 w-full bg-slate-100 dark:bg-slate-900 print:relative print:p-0 print:overflow-visible print:h-auto">
+        {/* Main A4 Document Sheet Wrapper */}
+        <div className="max-w-[210mm] min-h-[297mm] mx-auto p-[15mm] bg-white text-slate-900 shadow-xl border border-slate-200 rounded-sm font-sans text-[11px] leading-relaxed relative print:my-0 print:border-none print:shadow-none print:p-0 print:max-w-none print:min-h-0 print:bg-white print:text-black">
         
         {/* Two-Column Header Section */}
         <div className="flex justify-between items-start border-b border-slate-200 pb-5 mb-6">
@@ -565,5 +567,6 @@ export default function QuotationHtmlPreviewPage({
         </div>
       </div>
     </div>
+  </div>
   )
 }
