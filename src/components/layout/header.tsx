@@ -3,6 +3,7 @@
 import { Menu, Bell } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +21,7 @@ export function Header() {
   const userName = user?.name || "User"
   const userEmail = user?.email || ""
   const userImage = user?.image || ""
+  const userRole = (user as any)?.role || "SALES_EXECUTIVE"
   
   const initials = userName
     .split(" ")
@@ -41,11 +43,13 @@ export function Header() {
           <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive"></span>
         </Button>
         <DropdownMenu>
-          <DropdownMenuTrigger className="relative h-8 w-8 rounded-full cursor-pointer hover:opacity-85 transition-opacity outline-none">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={userImage} alt={userName} />
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
+          <DropdownMenuTrigger className="relative h-8 w-8 rounded-full cursor-pointer hover:ring-2 hover:ring-primary/60 transition-all outline-none flex shrink-0">
+            <Link href="/profile" className="w-full h-full flex shrink-0 rounded-full overflow-hidden">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={userImage} alt={userName} />
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+            </Link>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel className="font-normal">
@@ -59,10 +63,22 @@ export function Header() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile</DropdownMenuItem>
-            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuItem className="p-0">
+              <Link href="/profile" className="w-full h-full px-1.5 py-1 cursor-pointer flex items-center">
+                My Profile
+              </Link>
+            </DropdownMenuItem>
+            {userRole === "ADMIN" && (
+              <DropdownMenuItem className="p-0">
+                <Link href="/settings" className="w-full h-full px-1.5 py-1 cursor-pointer flex items-center">
+                  Settings
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOut()}>Log out</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => signOut()} className="text-red-500 cursor-pointer">
+              Log out
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
