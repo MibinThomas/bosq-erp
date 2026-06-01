@@ -5,6 +5,7 @@ import { X, Loader2, Sparkles, Image as ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
+import { ImageCropper } from "@/components/ui/image-cropper"
 
 interface Product {
   id: string
@@ -37,20 +38,72 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [base64Image, setBase64Image] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  
+  // Cropper states
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null)
+  const [isCropperOpen, setIsCropperOpen] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   // Sales Executives cannot write to the product catalog - they add directly to the quote line
   const isSalesExec = userRole === "SALES_EXECUTIVE"
 
   if (!isOpen) return null
 
+  // Utility to convert Base64 Data URL to a File
+  const dataURLtoFile = (dataurl: string, filename: string): File => {
+    const arr = dataurl.split(",")
+    const mime = arr[0].match(/:(.*?);/)![1]
+    const bstr = atob(arr[1])
+    let n = bstr.length
+    const u8arr = new Uint8Array(n)
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n)
+    }
+    return new File([u8arr], filename, { type: mime })
+  }
+
   const handleImageChange = (file: File) => {
     const reader = new FileReader()
     reader.onloadend = () => {
-      const resultStr = reader.result as string
-      setImagePreview(resultStr)
-      setBase64Image(resultStr)
+      setRawImageSrc(reader.result as string)
+      setIsCropperOpen(true)
     }
     reader.readAsDataURL(file)
+  }
+
+  const handleCropSave = async (croppedBase64: string) => {
+    setIsCropperOpen(false)
+    setImagePreview(croppedBase64)
+    setUploadingImage(true)
+
+    try {
+      const croppedFile = dataURLtoFile(croppedBase64, `product-cropped-${Date.now()}.png`)
+      const formData = new FormData()
+      formData.append("file", croppedFile)
+
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (uploadRes.ok) {
+        const data = await uploadRes.json()
+        if (data.url) {
+          setBase64Image(data.url)
+          toast.success("Image cropped and uploaded successfully!")
+        } else {
+          setBase64Image(croppedBase64)
+        }
+      } else {
+        console.warn("Upload endpoint failed, falling back to base64 encoding")
+        setBase64Image(croppedBase64)
+      }
+    } catch (err) {
+      console.error("Failed to upload cropped image:", err)
+      setBase64Image(croppedBase64)
+    } finally {
+      setUploadingImage(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -251,6 +304,11 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
                   ) : (
                     <ImageIcon className="h-7 w-7 text-muted-foreground" />
                   )}
+                  {uploadingImage && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <span className="text-[10px] font-medium text-muted-foreground block">
@@ -269,10 +327,10 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
 
           {/* Footer */}
           <div className="flex justify-end gap-3 pt-6 border-t">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={loading || uploadingImage}>
               Cancel
             </Button>
-            <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={loading}>
+            <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground" disabled={loading || uploadingImage}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -288,6 +346,16 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
         </form>
 
       </div>
+
+      <ImageCropper
+        isOpen={isCropperOpen}
+        imageSrc={rawImageSrc}
+        onClose={() => {
+          setIsCropperOpen(false)
+          setRawImageSrc(null)
+        }}
+        onCrop={handleCropSave}
+      />
     </div>
   )
 }

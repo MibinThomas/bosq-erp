@@ -400,6 +400,7 @@ export async function PUT(
                 productId: item.productId,
                 description: item.description,
                 specifications: item.specifications,
+                customImageUrl: item.customImageUrl || item.imageUrl,
                 quantity: item.quantity,
                 basePrice: item.basePrice,
                 unitPrice: item.unitPrice,
@@ -466,7 +467,7 @@ export async function PUT(
 
       // Calculate financial totals
       let calculatedSubtotal = 0
-      const quotationItemsToCreate = items.map((item: any, idx: number) => {
+      const quotationItemsToCreate = await Promise.all(items.map(async (item: any, idx: number) => {
         const qty = parseInt(item.quantity) || 1
         const price = parseFloat(item.unitPrice) || 0
         const disc = parseFloat(item.discount) || 0
@@ -476,21 +477,25 @@ export async function PUT(
 
         const matchedProd = dbProducts.find((p) => p.id === item.productId)
 
+        const rawImageUrl = item.customImageUrl || item.imageUrl || matchedProd?.imageUrl || null;
+        const resolvedImage = await resolveImageUrl(rawImageUrl);
+
         return {
           itemNo: idx + 1,
           productId: item.productId || null,
           description: item.description,
           specifications: item.specifications || "",
+          customImageUrl: item.customImageUrl || null,
           quantity: qty,
           basePrice: parseFloat(item.basePrice) || price,
           unitPrice: price,
           discount: disc,
           margin: marginVal,
           amount: amt,
-          imageUrl: matchedProd?.imageUrl || null,
+          imageUrl: resolvedImage,
           categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
         }
-      })
+      }))
 
       const calculatedVat = calculatedSubtotal * 0.05
       const charge = parseFloat(deliveryCharge) || 0
@@ -642,6 +647,7 @@ export async function PUT(
                 productId: item.productId,
                 description: item.description,
                 specifications: item.specifications,
+                customImageUrl: item.customImageUrl || item.imageUrl,
                 quantity: item.quantity,
                 basePrice: item.basePrice,
                 unitPrice: item.unitPrice,

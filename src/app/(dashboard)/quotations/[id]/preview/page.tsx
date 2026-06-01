@@ -18,6 +18,7 @@ interface QuotationItem {
   discount: number
   margin: number
   amount: number
+  customImageUrl: string | null
   product?: {
     imageUrl: string | null
     sku: string
@@ -456,9 +457,9 @@ export default function QuotationHtmlPreviewPage({
 
                 {/* Product Image */}
                 <td className="p-3 text-center">
-                  {item.product?.imageUrl ? (
+                  {item.customImageUrl || item.product?.imageUrl ? (
                     <img
-                      src={item.product.imageUrl}
+                      src={(item.customImageUrl || item.product?.imageUrl) ?? undefined}
                       alt={item.description}
                       className="w-28 h-28 object-contain mx-auto"
                     />

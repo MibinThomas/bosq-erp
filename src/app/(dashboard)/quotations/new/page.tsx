@@ -55,6 +55,7 @@ const quotationSchema = z.object({
       unitPrice: z.number().min(0, "Price must be at least 0"),
       discount: z.number().min(0),
       margin: z.number().min(-100),
+      customImageUrl: z.string().nullable().optional(),
     })
   ).min(1, "At least one item is required"),
 })
@@ -171,6 +172,7 @@ function NewQuotationForm() {
                   unitPrice: item.unitPrice,
                   discount: item.discount || 0,
                   margin: marginVal,
+                  customImageUrl: item.customImageUrl || "",
                 }
               }),
               deliveryCharge: activeData.deliveryCharge || 0,
@@ -633,7 +635,7 @@ function NewQuotationForm() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => append({ productId: "", description: "", specifications: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0 })}
+                  onClick={() => append({ productId: "", description: "", specifications: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, customImageUrl: "" })}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Custom Item
@@ -758,10 +760,11 @@ function NewQuotationForm() {
                       <div className="md:col-span-5 flex flex-col sm:flex-row gap-4">
                         {(() => {
                           const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
-                          if (!selectedProd?.imageUrl) return null
+                          const imageUrl = watchItems[index]?.customImageUrl || selectedProd?.imageUrl
+                          if (!imageUrl) return null
                           return (
                             <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-inner self-start mt-6 hidden sm:flex">
-                              <img src={selectedProd.imageUrl} alt="Preview" className="object-contain h-full w-full" />
+                              <img src={imageUrl} alt="Preview" className="object-contain h-full w-full" />
                             </div>
                           )
                         })()}
@@ -1076,6 +1079,7 @@ function NewQuotationForm() {
             form.setValue(`items.${activeLineIndex}.margin`, 0)
             form.setValue(`items.${activeLineIndex}.basePrice`, basePrice)
             form.setValue(`items.${activeLineIndex}.unitPrice`, basePrice)
+            form.setValue(`items.${activeLineIndex}.customImageUrl`, newProduct.imageUrl || "")
           }
         }}
       />
