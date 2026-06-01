@@ -397,6 +397,27 @@ export async function POST(request: Request) {
       },
     })
 
+    // Notify Managers/Admins
+    const managers = await prisma.user.findMany({
+      where: {
+        role: { in: ["ADMIN", "SALES_MANAGER"] },
+        isActive: true,
+        id: { not: creatorUser.id }
+      }
+    })
+
+    if (managers.length > 0) {
+      await prisma.notification.createMany({
+        data: managers.map(mgr => ({
+          userId: mgr.id,
+          title: resolvedStatus === "PENDING_APPROVAL" ? "Quotation Pending Approval" : "New Quotation Created",
+          message: `Quotation ${nextQuoteNo} for ${clientObj.companyName} was created by ${creatorUser.name || 'a user'}.`,
+          type: "QUOTATION_UPDATE",
+          link: `/quotations` // Could link to specific quotation if there's a view page
+        }))
+      })
+    }
+
     return NextResponse.json(newQuotation, { status: 201 })
   } catch (error) {
     console.error("Failed to create quotation:", error)

@@ -136,6 +136,19 @@ export async function PUT(
       },
     })
 
+    // Notify the salesperson if status changed
+    if ((status === "Approved" || status === "Rejected") && updated.salespersonId) {
+      await prisma.notification.create({
+        data: {
+          userId: updated.salespersonId,
+          title: `Client ${status}`,
+          message: `Your client ${companyName.trim()} has been ${status.toLowerCase()}.`,
+          type: "CLIENT_APPROVAL",
+          link: `/clients/${id}`
+        }
+      })
+    }
+
     return NextResponse.json(updated)
   } catch (error) {
     console.error("Failed to update client:", error)

@@ -134,6 +134,28 @@ export async function POST(request: Request) {
       })
     }
 
+    // Create notifications for Admin/Managers if pending approval
+    if (initialStatus === "Pending Approval") {
+      const managers = await prisma.user.findMany({
+        where: {
+          role: { in: ["ADMIN", "SALES_MANAGER"] },
+          isActive: true
+        }
+      })
+
+      if (managers.length > 0) {
+        await prisma.notification.createMany({
+          data: managers.map(mgr => ({
+            userId: mgr.id,
+            title: "New Client Pending Approval",
+            message: `${companyName} (${nextClientId}) was created and requires approval.`,
+            type: "CLIENT_APPROVAL",
+            link: `/clients/${newClient.id}`
+          }))
+        })
+      }
+    }
+
     return NextResponse.json(newClient, { status: 201 })
   } catch (error) {
     console.error("Failed to create client:", error)
