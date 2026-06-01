@@ -3,7 +3,8 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Loader2, Save, Package, DollarSign, PenTool, ClipboardList, Layers } from "lucide-react"
+import { ArrowLeft, Loader2, Save, Package, DollarSign, PenTool, ClipboardList, Layers, Image as ImageIcon } from "lucide-react"
+import { ImageCropper } from "@/components/ui/image-cropper"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +21,75 @@ import { toast } from "sonner"
 export default function NewProductPage() {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [base64Image, setBase64Image] = useState<string | null>(null)
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null)
+  const [isCropperOpen, setIsCropperOpen] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+
+  // Utility to convert Base64 Data URL to a File
+  const dataURLtoFile = (dataurl: string, filename: string): File => {
+    const arr = dataurl.split(",")
+    const mime = arr[0].match(/:(.*?);/)![1]
+    const bstr = atob(arr[1])
+    let n = bstr.length
+    const u8arr = new Uint8Array(n)
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n)
+    }
+    return new File([u8arr], filename, { type: mime })
+  }
+
+  const handleImageChange = (file: File) => {
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setRawImageSrc(reader.result as string)
+      setIsCropperOpen(true)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleCropSave = async (croppedBase64: string) => {
+    setIsCropperOpen(false)
+    setImagePreview(croppedBase64)
+    setUploadingImage(true)
+
+    try {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[DEV MODE] Bypassing file upload to prevent Next.js dev compilation restarts. Using Base64 directly.");
+        setBase64Image(croppedBase64)
+        toast.success("Image cropped and saved locally (Dev Mode Base64)!")
+        return
+      }
+
+      const croppedFile = dataURLtoFile(croppedBase64, `product-cropped-${Date.now()}.png`)
+      const formData = new FormData()
+      formData.append("file", croppedFile)
+
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (uploadRes.ok) {
+        const data = await uploadRes.json()
+        if (data.url) {
+          setBase64Image(data.url)
+          toast.success("Image cropped and uploaded successfully!")
+        } else {
+          setBase64Image(croppedBase64)
+        }
+      } else {
+        console.warn("Upload endpoint failed, falling back to base64 encoding")
+        setBase64Image(croppedBase64)
+      }
+    } catch (err) {
+      console.error("Failed to upload cropped image:", err)
+      setBase64Image(croppedBase64)
+    } finally {
+      setUploadingImage(false)
+    }
+  }
   const [formData, setFormData] = useState({
     productCode: "",
     productName: "",
@@ -60,6 +130,7 @@ export default function NewProductPage() {
         dealerPrice: formData.dealerPrice.trim() || formData.unitPrice,
         directPrice: formData.directPrice.trim() || formData.unitPrice,
         onlinePrice: formData.onlinePrice.trim() || formData.unitPrice,
+        imageUrl: base64Image || undefined,
       }
 
       const res = await fetch("/api/products", {
@@ -290,6 +361,40 @@ export default function NewProductPage() {
               onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
             />
           </div>
+
+          {/* Image Selector */}
+          <div className="space-y-2 pt-4 border-t">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              <ImageIcon className="h-3.5 w-3.5 text-primary" />
+              Product Image
+            </label>
+            <div className="flex items-center gap-4 p-4 border rounded-2xl bg-muted/20">
+              <div className="h-20 w-20 border rounded-xl bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-inner">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Preview" className="object-contain h-full w-full" />
+                ) : (
+                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                )}
+                {uploadingImage && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-white" />
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <span className="text-xs font-medium text-muted-foreground block">
+                  Upload a JPEG, PNG, or WebP catalog image.
+                </span>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  className="text-xs cursor-pointer"
+                  disabled={uploadingImage}
+                  onChange={(e) => e.target.files?.[0] && handleImageChange(e.target.files[0])}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center justify-end space-x-4">
@@ -313,6 +418,16 @@ export default function NewProductPage() {
           </Button>
         </div>
       </form>
+
+      <ImageCropper
+        isOpen={isCropperOpen}
+        imageSrc={rawImageSrc}
+        onClose={() => {
+          setIsCropperOpen(false)
+          setRawImageSrc(null)
+        }}
+        onCrop={handleCropSave}
+      />
     </div>
   )
 }

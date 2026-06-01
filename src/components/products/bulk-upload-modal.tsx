@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { read, utils } from "xlsx"
+import { ImageCropper } from "@/components/ui/image-cropper"
 
 interface BulkUploadModalProps {
   isOpen: boolean
@@ -54,6 +55,11 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [pricingTiers, setPricingTiers] = useState({ dealer: 15, interior: 30, direct: 50, online: 75 })
+
+  // Cropper states
+  const [isCropperOpen, setIsCropperOpen] = useState(false)
+  const [cropperImageSrc, setCropperImageSrc] = useState<string | null>(null)
+  const [activeProductIndex, setActiveProductIndex] = useState<number | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
@@ -309,10 +315,22 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   }
 
   const handleSingleImageSelect = (index: number, file: File) => {
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setActiveProductIndex(index)
+      setCropperImageSrc(reader.result as string)
+      setIsCropperOpen(true)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleCropSave = (croppedBase64: string) => {
+    if (activeProductIndex === null) return
+    setIsCropperOpen(false)
     const updatedProducts = [...products]
-    updatedProducts[index].localImageFile = file
-    updatedProducts[index].previewUrl = URL.createObjectURL(file)
+    updatedProducts[activeProductIndex].previewUrl = croppedBase64
     setProducts(updatedProducts)
+    toast.success(`Image cropped and applied for product row ${activeProductIndex + 1}!`)
   }
 
   const handleImport = async () => {
@@ -325,7 +343,9 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         const prod = products[i]
         let uploadedUrl = null
 
-        if (prod.localImageFile) {
+        if (prod.previewUrl && prod.previewUrl.startsWith("data:image/")) {
+          uploadedUrl = prod.previewUrl
+        } else if (prod.localImageFile) {
           // In a real application we would upload this to Supabase Storage.
           // For absolute robustness, we will convert the image to a Base64 string which we pass to our backend,
           // or we can save it. Converting to base64 gives a fully mockable/embeddable representation,
@@ -588,11 +608,24 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                       <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
                         <td className="p-2 align-middle">
                           {p.previewUrl ? (
-                            <div className="relative h-10 w-10 border rounded-lg overflow-hidden bg-white shadow-inner">
+                            <div 
+                              className="relative h-10 w-10 border rounded-lg overflow-hidden bg-white shadow-inner cursor-pointer hover:border-primary group transition-all"
+                              onClick={() => {
+                                // Allow cropping/adjusting the existing image
+                                setActiveProductIndex(idx)
+                                setCropperImageSrc(p.previewUrl || null)
+                                setIsCropperOpen(true)
+                              }}
+                              title="Click to adjust and crop image"
+                            >
                               <img src={p.previewUrl} alt="Preview" className="object-contain h-full w-full" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <span className="text-[9px] text-white font-bold uppercase text-center">Crop</span>
+                              </div>
                             </div>
                           ) : (
                             <button 
+                              type="button"
                               className="h-10 w-10 border rounded-lg flex items-center justify-center bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
                               onClick={() => {
                                 const inp = document.createElement("input")
@@ -757,6 +790,17 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         </div>
 
       </div>
+
+      <ImageCropper
+        isOpen={isCropperOpen}
+        imageSrc={cropperImageSrc}
+        onClose={() => {
+          setIsCropperOpen(false)
+          setCropperImageSrc(null)
+          setActiveProductIndex(null)
+        }}
+        onCrop={handleCropSave}
+      />
     </div>
   )
 }
