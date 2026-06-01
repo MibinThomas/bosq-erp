@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, Search, MoreHorizontal, Loader2, Folder, FileSpreadsheet, Edit, Trash2, Check, X } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Loader2, Folder, FileSpreadsheet, Edit, Trash2, Check, X, Eye } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -337,66 +337,12 @@ export default function ClientsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                          render={
-                            client.status === "Approved" ? (
-                              <Link href={`/quotations/new?clientId=${client.id}`} className="cursor-pointer" />
-                            ) : undefined
-                          }
-                          disabled={client.status !== "Approved"}
-                          onClick={() => {
-                            if (client.status !== "Approved") {
-                              toast.error(
-                                client.status === "Pending Approval"
-                                  ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
-                                  : "This client has been rejected. Please contact Admin/Manager before creating quotation."
-                              )
-                            }
-                          }}
-                        >
-                          Create Quotation
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => router.push(`/clients/${client.id}`)} className="cursor-pointer">
-                          View details
-                        </DropdownMenuItem>
-                        {isManagerOrAdmin && (
-                          <>
-                            <DropdownMenuSeparator />
-                            {client.status !== "Approved" && (
-                              <DropdownMenuItem 
-                                onClick={() => handleStatusUpdate(client.id, client.companyName, "Approved")} 
-                                className="cursor-pointer flex items-center gap-2 text-green-600 focus:text-green-600 font-semibold"
-                              >
-                                <Check className="h-4 w-4" /> Approve client
-                              </DropdownMenuItem>
-                            )}
-                            {client.status !== "Rejected" && (
-                              <DropdownMenuItem 
-                                onClick={() => handleStatusUpdate(client.id, client.companyName, "Rejected")} 
-                                className="cursor-pointer flex items-center gap-2 text-red-600 focus:text-red-600 font-semibold"
-                              >
-                                <X className="h-4 w-4" /> Reject client
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => { setEditingClient(client); setIsEditOpen(true) }} className="cursor-pointer flex items-center gap-2">
-                              <Edit className="h-4 w-4" /> Edit client
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDelete(client.id, client.companyName)} className="cursor-pointer flex items-center gap-2 text-destructive focus:text-destructive">
-                              <Trash2 className="h-4 w-4" /> Delete client
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Link href={`/clients/${client.id}`}>
+                      <Button variant="outline" size="sm" className="h-8 gap-1.5 border-primary/20 text-primary hover:bg-primary/5 cursor-pointer">
+                        <Eye className="h-3.5 w-3.5" />
+                        View Client
+                      </Button>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))}

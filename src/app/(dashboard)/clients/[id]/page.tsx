@@ -22,7 +22,10 @@ import {
   TrendingUp,
   TrendingDown,
   Plus,
-  Edit
+  Edit,
+  Check,
+  X,
+  AlertCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -82,6 +85,7 @@ interface ClientDetail {
   clientType: string | null
   notes: string | null
   sharepointFolder: string | null
+  status: string
   quotations: Quotation[]
 }
 
@@ -97,6 +101,38 @@ export default function ClientDetailPage() {
   const [client, setClient] = useState<ClientDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<"overview" | "history">("overview")
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+
+  async function handleStatusUpdate(newStatus: "Approved" | "Rejected") {
+    try {
+      setUpdatingStatus(true)
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: client?.companyName || "",
+          status: newStatus,
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to update client status")
+
+      toast.success(
+        newStatus === "Approved"
+          ? `Successfully approved client "${client?.companyName}"!`
+          : `Client "${client?.companyName}" has been rejected.`
+      )
+      
+      // Update state instantly
+      setClient(prev => prev ? { ...prev, status: newStatus } : null)
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error.message || "An error occurred while updating status.")
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
 
   useEffect(() => {
     async function fetchClientDetails() {
@@ -151,6 +187,16 @@ export default function ClientDetailPage() {
               <Badge variant="outline" className="font-mono text-xs">
                 {client.clientId}
               </Badge>
+              <Badge 
+                variant="outline" 
+                className={`font-semibold border text-xs px-2.5 py-0.5 rounded-full ${
+                  client.status === "Approved" ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                  client.status === "Pending Approval" ? "bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse" :
+                  "bg-red-500/10 text-red-500 border-red-500/20"
+                }`}
+              >
+                {client.status || "Approved"}
+              </Badge>
             </div>
             <p className="text-muted-foreground mt-1">
               Client profile overview and comprehensive quotation audit trail.
@@ -159,20 +205,53 @@ export default function ClientDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {isManagerOrAdmin && client.status !== "Approved" && (
+            <Button 
+              onClick={() => handleStatusUpdate("Approved")} 
+              disabled={updatingStatus}
+              className="bg-green-600 hover:bg-green-700 text-white cursor-pointer font-semibold"
+            >
+              {updatingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="mr-2 h-4 w-4" />}
+              Approve Client
+            </Button>
+          )}
+          {isManagerOrAdmin && client.status === "Pending Approval" && (
+            <Button 
+              onClick={() => handleStatusUpdate("Rejected")} 
+              disabled={updatingStatus}
+              variant="destructive"
+              className="cursor-pointer font-semibold"
+            >
+              {updatingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <X className="mr-2 h-4 w-4" />}
+              Reject Client
+            </Button>
+          )}
+          
           {isManagerOrAdmin && (
             <Link href={`/clients/new?editId=${client.id}`}>
-              <Button variant="outline" className="border-primary/20 text-primary hover:bg-primary/5">
+              <Button variant="outline" className="border-primary/20 text-primary hover:bg-primary/5 cursor-pointer">
                 <Edit className="mr-2 h-4 w-4" />
-                Edit Client
+                Update Client
               </Button>
             </Link>
           )}
-          <Link href={`/quotations/new?clientId=${client.id}`}>
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Quotation
+          
+          {client.status === "Approved" ? (
+            <Link href={`/quotations/new?clientId=${client.id}`}>
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Quotation
+              </Button>
+            </Link>
+          ) : (
+            <Button 
+              disabled 
+              className="bg-muted text-muted-foreground border cursor-not-allowed opacity-50"
+            >
+              <Lock className="mr-2 h-4 w-4" />
+              Quotation Locked
             </Button>
-          </Link>
+          )}
         </div>
       </div>
 
