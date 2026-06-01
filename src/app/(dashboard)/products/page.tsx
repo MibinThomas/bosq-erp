@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { Plus, Search, MoreHorizontal, Loader2, Package, Sparkles, LayoutGrid, List, Edit, ShoppingCart, Trash2, X, ChevronRight } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { ProductDetailsModal } from "@/components/products/product-details-modal"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -66,6 +67,10 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState("")
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
+
+  // Details Modal States
+  const [selectedDetailProduct, setSelectedDetailProduct] = useState<Product | null>(null)
+  const [isDetailOpen, setIsDetailOpen] = useState(false)
 
   // Cart States
   const [quoteCart, setQuoteCart] = useState<{ product: Product; quantity: number }[]>([])
@@ -129,6 +134,21 @@ export default function ProductsPage() {
     }
     saveCartToStorage(updatedCart)
     toast.success(`Added "${product.productName}" to Quote Cart!`)
+  }
+
+  const addToQuoteCartWithQuantity = (product: Product, quantity: number) => {
+    const qty = Math.max(1, quantity)
+    const existingIndex = quoteCart.findIndex(item => item.product.id === product.id)
+    let updatedCart = []
+    if (existingIndex > -1) {
+      updatedCart = [...quoteCart]
+      updatedCart[existingIndex].quantity += qty
+    } else {
+      updatedCart = [...quoteCart, { product, quantity: qty }]
+    }
+    saveCartToStorage(updatedCart)
+    toast.success(`Added ${qty}x "${product.productName}" to Quote Cart!`)
+    setIsDetailOpen(false)
   }
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -467,7 +487,14 @@ export default function ProductsPage() {
                 </div>
 
                 {/* Product Image */}
-                <div className="h-48 w-full bg-muted/30 flex items-center justify-center overflow-hidden relative border-b p-4">
+                <div 
+                  className="h-48 w-full bg-muted/30 flex items-center justify-center overflow-hidden relative border-b p-4 cursor-pointer hover:bg-muted/40 transition-colors"
+                  onClick={() => {
+                    setSelectedDetailProduct(product)
+                    setIsDetailOpen(true)
+                  }}
+                  title="Click to view product details"
+                >
                   {product.imageUrl ? (
                     <img 
                       src={product.imageUrl} 
@@ -647,7 +674,10 @@ export default function ProductsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => toast.info("Details page coming soon")}>
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedDetailProduct(product)
+                            setIsDetailOpen(true)
+                          }}>
                             View details
                           </DropdownMenuItem>
                           {isManagerOrAdmin && (
@@ -999,6 +1029,19 @@ export default function ProductsPage() {
           setEditingProduct(null)
         }}
         onSuccess={fetchProducts}
+      />
+
+      <ProductDetailsModal
+        product={selectedDetailProduct}
+        isOpen={isDetailOpen}
+        onClose={() => {
+          setIsDetailOpen(false)
+          setSelectedDetailProduct(null)
+        }}
+        onAddToQuote={addToQuoteCartWithQuantity}
+        userRole={userRole}
+        clients={clients}
+        selectedClientId={selectedClientId}
       />
 
       {/* Floating Bulk Action Bar */}
