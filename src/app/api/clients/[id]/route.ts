@@ -76,7 +76,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    const { companyName, contactPerson, phone, email, address, trn, clientType, notes } = body
+    const { companyName, contactPerson, phone, email, address, trn, clientType, notes, status } = body
 
     if (!companyName) {
       return NextResponse.json({ error: "Company name is required" }, { status: 400 })
@@ -102,7 +102,38 @@ export async function PUT(
 
     const updated = await prisma.client.update({
       where: { id },
-      data: { companyName: companyName.trim(), contactPerson, phone, email, address, trn, clientType, notes },
+      data: { 
+        companyName: companyName.trim(), 
+        contactPerson, 
+        phone, 
+        email, 
+        address, 
+        trn, 
+        clientType, 
+        notes,
+        ...(status && { status })
+      },
+    })
+
+    // Log Activity for approval/rejection or general update
+    let action = "UPDATED_CLIENT"
+    let details = `Updated client ${companyName.trim()}`
+    if (status === "Approved") {
+      action = "APPROVED_CLIENT"
+      details = `Approved client ${companyName.trim()}`
+    } else if (status === "Rejected") {
+      action = "REJECTED_CLIENT"
+      details = `Rejected client ${companyName.trim()}`
+    }
+
+    await prisma.activityLog.create({
+      data: {
+        userId: (session?.user as any)?.id || "SYSTEM",
+        action,
+        entityType: "CLIENT",
+        entityId: id,
+        details,
+      },
     })
 
     return NextResponse.json(updated)

@@ -45,6 +45,7 @@ model Client {
   salespersonId   String?
   sharepointFolder String?
   notes           String?
+  status          String      @default("Approved")
   deletedAt       DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

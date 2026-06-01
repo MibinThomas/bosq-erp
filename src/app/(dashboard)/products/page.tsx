@@ -240,6 +240,14 @@ export default function ProductsPage() {
       return
     }
 
+    if (selectedClient.status && selectedClient.status !== "Approved") {
+      const errorMsg = selectedClient.status === "Pending Approval"
+        ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
+        : "This client has been rejected. Please contact Admin/Manager before creating quotation."
+      toast.error(errorMsg)
+      return
+    }
+
     // Determine segment & pricing segment mapping
     const clientType = selectedClient.clientType || "Direct"
     // Valid values for Quotation Form Segment: "Interior", "Dealer", "Direct", "Online"
@@ -951,7 +959,9 @@ export default function ProductsPage() {
                       >
                         <option value="">-- Choose Assigned Client --</option>
                         {clients.map(c => (
-                          <option key={c.id} value={c.id}>{c.companyName} ({c.clientType || "Direct"})</option>
+                          <option key={c.id} value={c.id} disabled={c.status && c.status !== "Approved"}>
+                            {c.companyName} ({c.clientType || "Direct"}){c.status && c.status !== "Approved" ? ` [${c.status}]` : ""}
+                          </option>
                         ))}
                       </select>
 

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -68,6 +68,7 @@ interface Client {
   contactPerson: string | null
   trn: string | null
   clientType: string | null
+  status: string
 }
 
 interface Product {
@@ -333,6 +334,16 @@ function NewQuotationForm() {
   }
 
     async function onSubmit(data: QuotationFormValues) {
+      // Check if selected client is approved
+      const selectedClient = clients.find((c) => c.id === data.clientId)
+      if (selectedClient && selectedClient.status !== "Approved") {
+        const errorMsg = selectedClient.status === "Pending Approval"
+          ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
+          : "This client has been rejected. Please contact Admin/Manager before creating quotation."
+        toast.error(errorMsg)
+        return
+      }
+
       if (isRevision && !revisionNotes.trim()) {
         toast.error("Revision notes are required to revise this quotation!")
         return
@@ -458,7 +469,20 @@ function NewQuotationForm() {
                     Client Details
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                 <CardContent className="space-y-4">
+                  {selectedClientObj && selectedClientObj.status !== "Approved" && (
+                    <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3 text-destructive animate-in fade-in">
+                      <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+                      <div>
+                        <h3 className="font-semibold text-sm">Quotation Creation Blocked</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {selectedClientObj.status === "Pending Approval"
+                            ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
+                            : "This client has been rejected. Please contact Admin/Manager before creating quotation."}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <FormField
                     control={form.control}
                     name="clientId"
@@ -491,9 +515,9 @@ function NewQuotationForm() {
                               <CommandInput placeholder="Search client name..." />
                               <CommandList>
                                 <CommandEmpty>No client found.</CommandEmpty>
-                                <CommandGroup>
-                                  {clients.map((client) => (
-                                    <CommandItem
+                                 <CommandGroup>
+                                   {clients.filter(c => c.status === "Approved").map((client) => (
+                                     <CommandItem
                                       value={client.companyName}
                                       key={client.id}
                                       onSelect={() => {
@@ -1072,7 +1096,11 @@ function NewQuotationForm() {
                   Cancel
                 </Button>
               </Link>
-              <Button type="submit" disabled={submitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button 
+                type="submit" 
+                disabled={submitting || (selectedClientObj && selectedClientObj.status !== "Approved")} 
+                className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 {submitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

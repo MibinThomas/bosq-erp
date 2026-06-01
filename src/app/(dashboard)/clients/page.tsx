@@ -41,6 +41,7 @@ interface Client {
   clientType: string | null
   sharepointFolder: string | null
   notes: string | null
+  status: string
 }
 
 import { useSession } from "next-auth/react"
@@ -224,6 +225,7 @@ export default function ClientsPage() {
                 <TableHead>Phone</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>SharePoint</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -269,6 +271,18 @@ export default function ClientsPage() {
                       <span className="text-xs text-muted-foreground">None</span>
                     )}
                   </TableCell>
+                  <TableCell>
+                    <Badge 
+                      variant="outline" 
+                      className={`font-medium border text-xs ${
+                        client.status === "Approved" ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                        client.status === "Pending Approval" ? "bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse" :
+                        "bg-red-500/10 text-red-500 border-red-500/20"
+                      }`}
+                    >
+                      {client.status || "Approved"}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
@@ -279,8 +293,20 @@ export default function ClientsPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem
                           render={
-                            <Link href={`/quotations/new?clientId=${client.id}`} className="cursor-pointer" />
+                            client.status === "Approved" ? (
+                              <Link href={`/quotations/new?clientId=${client.id}`} className="cursor-pointer" />
+                            ) : undefined
                           }
+                          disabled={client.status !== "Approved"}
+                          onClick={() => {
+                            if (client.status !== "Approved") {
+                              toast.error(
+                                client.status === "Pending Approval"
+                                  ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
+                                  : "This client has been rejected. Please contact Admin/Manager before creating quotation."
+                              )
+                            }
+                          }}
                         >
                           Create Quotation
                         </DropdownMenuItem>

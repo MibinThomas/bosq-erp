@@ -398,6 +398,15 @@ export default function BoqBuilderPage() {
   const handleConvert = async () => {
     if (!paymentTerms || !validityDate) return toast.error("Payment Terms and Validity Date are required")
     
+    const selectedClient = clients.find(c => c.id === clientId)
+    if (selectedClient && selectedClient.status && selectedClient.status !== "Approved") {
+      const errorMsg = selectedClient.status === "Pending Approval"
+        ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
+        : "This client has been rejected. Please contact Admin/Manager before creating quotation."
+      toast.error(errorMsg)
+      return
+    }
+    
     setConverting(true)
     try {
       const res = await fetch(`/api/boq/${id}/convert`, {
@@ -531,6 +540,7 @@ export default function BoqBuilderPage() {
                 </div>
                 <div className="max-h-[300px] overflow-y-auto p-1">
                   {clients.filter(c => {
+                    if (c.status && c.status !== "Approved") return false;
                     if (!clientSearch) return true;
                     const s = clientSearch.toLowerCase();
                     return (
@@ -543,6 +553,7 @@ export default function BoqBuilderPage() {
                     <div className="py-6 text-center text-sm text-muted-foreground">No clients found.</div>
                   ) : (
                     clients.filter(c => {
+                      if (c.status && c.status !== "Approved") return false;
                       if (!clientSearch) return true;
                       const s = clientSearch.toLowerCase();
                       return (

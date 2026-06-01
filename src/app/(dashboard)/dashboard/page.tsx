@@ -8,9 +8,13 @@ import { DashboardSalesChart } from "@/components/dashboard/sales-chart"
 import { DashboardSegmentChart } from "@/components/dashboard/segment-pie-chart"
 import { DashboardTimeline } from "@/components/dashboard/activity-timeline"
 import { Download } from "lucide-react"
+import { PendingClientApprovals } from "@/components/dashboard/pending-approvals"
 
 export default function DashboardPage() {
   const { data: session } = useSession()
+  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+
   const [loadingKPIs, setLoadingKPIs] = useState(true)
   const [loadingCharts, setLoadingCharts] = useState(true)
   const [loadingTimeline, setLoadingTimeline] = useState(true)
@@ -121,9 +125,14 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-5">
-        {/* Placeholder for future expansion, Timeline takes 2 cols, could put Top Products in 3 cols */}
-        <div className="lg:col-span-3">
-          {/* We can place additional advanced tables here if needed later */}
+        <div className="lg:col-span-3 h-full">
+          {isManagerOrAdmin ? (
+            <PendingClientApprovals onApprovalChanged={fetchDashboardData} />
+          ) : (
+            <div className="h-full border border-dashed rounded-xl bg-card flex items-center justify-center p-8 text-center text-muted-foreground min-h-[220px]">
+              <p className="text-xs">Advanced sales analytics and administrative operations are role-gated.</p>
+            </div>
+          )}
         </div>
         <DashboardTimeline 
           activities={timelineData?.activities || []} 

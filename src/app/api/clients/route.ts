@@ -89,15 +89,20 @@ export async function POST(request: Request) {
     // 3. Save to database
     const session = await getServerSession(authOptions)
     let creatorUserId: string | null = null
+    let userRole = "SALES_EXECUTIVE"
     
     if (session?.user) {
       creatorUserId = (session.user as any).id
+      userRole = (session.user as any).role || "SALES_EXECUTIVE"
     } else {
       const defaultUser = await prisma.user.findFirst({
         where: { role: "SALES_EXECUTIVE" },
       })
       creatorUserId = defaultUser?.id || null
     }
+
+    const isApprovedImmediately = ["ADMIN", "SALES_MANAGER"].includes(userRole)
+    const initialStatus = isApprovedImmediately ? "Approved" : "Pending Approval"
 
     const newClient = await prisma.client.create({
       data: {
@@ -112,6 +117,7 @@ export async function POST(request: Request) {
         notes,
         sharepointFolder: sharepointFolderId,
         salespersonId: creatorUserId,
+        status: initialStatus,
       },
     })
 

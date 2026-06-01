@@ -100,6 +100,7 @@ export async function POST(request: Request) {
           trn: trn || null,
           clientType: clientType || "Direct",
           notes: notes || null,
+          status: "Approved",
         },
         create: {
           clientId: finalClientId,
@@ -113,6 +114,7 @@ export async function POST(request: Request) {
           notes: notes || null,
           sharepointFolder: sharepointFolderId,
           salespersonId: creatorUserId,
+          status: "Approved",
         },
       })
 
