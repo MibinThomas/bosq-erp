@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, Search, MoreHorizontal, Loader2, Folder, FileSpreadsheet, Edit, Trash2 } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Loader2, Folder, FileSpreadsheet, Edit, Trash2, Check, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -60,6 +60,7 @@ export default function ClientsPage() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [deleting, setDeleting] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>("All")
 
   async function fetchClients() {
     try {
@@ -123,8 +124,38 @@ export default function ClientsPage() {
     }
   }
 
+  async function handleStatusUpdate(id: string, companyName: string, newStatus: "Approved" | "Rejected") {
+    try {
+      const res = await fetch(`/api/clients/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName,
+          status: newStatus,
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `Failed to update client status`)
+
+      toast.success(
+        newStatus === "Approved"
+          ? `Successfully approved client "${companyName}"!`
+          : `Client "${companyName}" has been rejected.`
+      )
+      fetchClients()
+    } catch (error: any) {
+      console.error(error)
+      toast.error(error.message || "An error occurred while updating status.")
+    }
+  }
+
   // Filter clients dynamically
   const filteredClients = clients.filter((client) => {
+    if (isManagerOrAdmin && statusFilter !== "All" && client.status !== statusFilter) {
+      return false
+    }
+
     const term = searchTerm.toLowerCase()
     return (
       client.companyName.toLowerCase().includes(term) ||
@@ -185,6 +216,28 @@ export default function ClientsPage() {
           />
         </div>
       </div>
+
+      {isManagerOrAdmin && (
+        <div className="flex border-b border-border gap-2 pb-px text-sm mt-2">
+          {["All", "Pending Approval", "Approved", "Rejected"].map((status) => {
+            const count = clients.filter(c => status === "All" ? true : c.status === status).length
+            return (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setStatusFilter(status)}
+                className={`pb-2.5 px-4 font-semibold border-b-2 transition-all cursor-pointer ${
+                  statusFilter === status 
+                    ? "border-primary text-primary font-bold" 
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {status} <span className="ml-1 text-xs opacity-70 font-mono">({count})</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       <div className="border rounded-xl overflow-hidden bg-card text-card-foreground shadow-sm">
         {loading ? (
@@ -316,6 +369,24 @@ export default function ClientsPage() {
                         </DropdownMenuItem>
                         {isManagerOrAdmin && (
                           <>
+                            <DropdownMenuSeparator />
+                            {client.status !== "Approved" && (
+                              <DropdownMenuItem 
+                                onClick={() => handleStatusUpdate(client.id, client.companyName, "Approved")} 
+                                className="cursor-pointer flex items-center gap-2 text-green-600 focus:text-green-600 font-semibold"
+                              >
+                                <Check className="h-4 w-4" /> Approve client
+                              </DropdownMenuItem>
+                            )}
+                            {client.status !== "Rejected" && (
+                              <DropdownMenuItem 
+                                onClick={() => handleStatusUpdate(client.id, client.companyName, "Rejected")} 
+                                className="cursor-pointer flex items-center gap-2 text-red-600 focus:text-red-600 font-semibold"
+                              >
+                                <X className="h-4 w-4" /> Reject client
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => { setEditingClient(client); setIsEditOpen(true) }} className="cursor-pointer flex items-center gap-2">
                               <Edit className="h-4 w-4" /> Edit client
                             </DropdownMenuItem>
