@@ -77,6 +77,15 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
     setUploadingImage(true)
 
     try {
+      // In local development, avoid uploading files to public/uploads disk directory 
+      // to completely prevent Next.js dev server file-watching hot-reload restarts.
+      if (process.env.NODE_ENV === "development") {
+        console.log("[DEV MODE] Bypassing file upload to prevent Next.js dev compilation restarts. Using Base64 directly.");
+        setBase64Image(croppedBase64)
+        toast.success("Image cropped and saved locally (Dev Mode Base64)!")
+        return
+      }
+
       const croppedFile = dataURLtoFile(croppedBase64, `product-cropped-${Date.now()}.png`)
       const formData = new FormData()
       formData.append("file", croppedFile)
