@@ -39,10 +39,8 @@ export function Header() {
     <header className="h-16 border-b bg-background flex items-center justify-between px-4 md:px-6">
       <div className="flex items-center">
         <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="md:hidden mr-2">
-              <Menu className="h-5 w-5" />
-            </Button>
+          <SheetTrigger render={<Button variant="ghost" size="icon" className="md:hidden mr-2" />}>
+            <Menu className="h-5 w-5" />
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64">
             <Sidebar className="flex border-none w-full h-full" />

@@ -66,7 +66,7 @@ export function Sidebar({ className }: { className?: string }) {
   }
 
   return (
-    <aside className={cn("hidden md:flex w-64 flex-col border-r bg-background", className)}>
+    <aside className={cn("flex w-64 flex-col border-r bg-background", className)}>
       <div className="px-6 py-5">
         <Link href="/dashboard" className="flex items-center">
           <div className="relative h-16 w-full">
