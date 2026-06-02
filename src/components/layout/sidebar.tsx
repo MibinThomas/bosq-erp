@@ -30,7 +30,7 @@ const navItems = [
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
-export function Sidebar({ className }: { className?: string }) {
+export function Sidebar({ className, onNavClick }: { className?: string, onNavClick?: () => void }) {
   const pathname = usePathname()
   const { data: session } = useSession()
 
@@ -68,7 +68,7 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <aside className={cn("flex w-64 flex-col border-r bg-background", className)}>
       <div className="px-6 py-5">
-        <Link href="/dashboard" className="flex items-center">
+        <Link href="/dashboard" className="flex items-center" onClick={onNavClick}>
           <div className="relative h-16 w-full">
             <Image
               src="/assets/logo/logo.png"
@@ -85,7 +85,7 @@ export function Sidebar({ className }: { className?: string }) {
         {filteredItems.map((item) => {
           const isActive = pathname.startsWith(item.href)
           return (
-            <Link key={item.name} href={item.href}>
+            <Link key={item.name} href={item.href} onClick={onNavClick}>
               <Button
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(

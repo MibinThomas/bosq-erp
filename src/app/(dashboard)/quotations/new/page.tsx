@@ -691,7 +691,7 @@ function NewQuotationForm() {
 
             {/* Line Items Card */}
             <Card className="rounded-xl shadow-sm border bg-card">
-              <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
                 <CardTitle className="text-lg flex items-center gap-2">
                   Line Items Catalog
                 </CardTitle>
@@ -699,6 +699,7 @@ function NewQuotationForm() {
                   type="button"
                   variant="outline"
                   size="sm"
+                  className="w-full sm:w-auto"
                   onClick={() => append({ productId: "", description: "", specifications: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, customImageUrl: "" })}
                 >
                   <Plus className="mr-2 h-4 w-4" />
@@ -714,8 +715,8 @@ function NewQuotationForm() {
                         <Sparkles className="h-3.5 w-3.5" />
                         Select from Product Catalog:
                       </div>
-                      <div className="flex flex-1 items-center gap-2 max-w-lg w-full">
-                        <div className="flex-1">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
+                        <div className="w-full sm:flex-1">
                           {(() => {
                             const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
                             let label = ""
@@ -746,7 +747,7 @@ function NewQuotationForm() {
                                     </Button>
                                   }
                                 />
-                                <PopoverContent className="w-[500px] p-0" align="start">
+                                <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[500px] p-0" align="start">
                                   <Command>
                                     <CommandInput placeholder="Search products..." />
                                     <CommandList className="max-h-[300px]">
@@ -811,10 +812,10 @@ function NewQuotationForm() {
                             setActiveLineIndex(index)
                             setIsQuickAddOpen(true)
                           }}
-                          className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-9 px-3 rounded-md flex items-center gap-1"
+                          className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-9 px-3 w-full sm:w-auto rounded-md flex items-center justify-center gap-1"
                         >
                           <Plus className="h-3.5 w-3.5" />
-                          + New
+                          + New Custom Product
                         </Button>
                       </div>
                     </div>
@@ -827,7 +828,7 @@ function NewQuotationForm() {
                           const imageUrl = watchItems[index]?.customImageUrl || selectedProd?.imageUrl
                           if (!imageUrl) return null
                           return (
-                            <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-inner self-start mt-6 hidden sm:flex">
+                            <div className="h-24 w-24 sm:h-20 sm:w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-inner self-center sm:self-start mt-2 sm:mt-6">
                               <img src={imageUrl} alt="Preview" className="object-contain h-full w-full" />
                             </div>
                           )
