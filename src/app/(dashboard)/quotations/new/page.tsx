@@ -1172,7 +1172,7 @@ function NewQuotationForm() {
                         </div>
 
                         {/* Specifications & Notes */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-4">
                           <FormField
                             control={form.control}
                             name={`items.${index}.specifications`}
