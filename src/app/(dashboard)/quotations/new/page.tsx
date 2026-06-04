@@ -104,6 +104,7 @@ function NewQuotationForm() {
   const [submitting, setSubmitting] = useState(false)
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
   const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false)
+  const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false)
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
 
   const [isRevision, setIsRevision] = useState(false)
@@ -507,7 +508,7 @@ function NewQuotationForm() {
                     render={({ field }) => (
                       <FormItem className="flex flex-col mt-2">
                         <FormLabel>Client Company</FormLabel>
-                        <Popover>
+                        <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
                           <PopoverTrigger
                             render={
                               <FormControl>
@@ -539,7 +540,10 @@ function NewQuotationForm() {
                                     size="sm"
                                     variant="outline"
                                     className="w-full flex items-center justify-center gap-1.5"
-                                    onClick={() => setIsQuickAddClientOpen(true)}
+                                    onClick={() => {
+                                      setIsQuickAddClientOpen(true)
+                                      setIsClientPopoverOpen(false)
+                                    }}
                                   >
                                     <Plus className="h-3.5 w-3.5" />
                                     Quick Add Client
@@ -550,6 +554,7 @@ function NewQuotationForm() {
                                     value="--quick-add-client--"
                                     onSelect={() => {
                                       setIsQuickAddClientOpen(true)
+                                      setIsClientPopoverOpen(false)
                                     }}
                                     className="text-primary font-medium flex items-center gap-1.5 cursor-pointer"
                                   >
@@ -562,6 +567,7 @@ function NewQuotationForm() {
                                       key={client.id}
                                       onSelect={() => {
                                         form.setValue("clientId", client.id)
+                                        setIsClientPopoverOpen(false)
                                       }}
                                     >
                                       <Check
