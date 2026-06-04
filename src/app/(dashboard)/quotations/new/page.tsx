@@ -89,6 +89,106 @@ interface Product {
   specifications: string | null
   imageUrl: string | null
 }
+interface ProductSearchSelectProps {
+  productId: string | null | undefined
+  products: Product[]
+  watchSegment: string
+  onProductSelect: (productId: string) => void
+}
+
+const ProductSearchSelect = React.memo(({
+  productId,
+  products,
+  watchSegment,
+  onProductSelect,
+}: ProductSearchSelectProps) => {
+  const selectedProd = products.find(p => p.id === productId)
+  let label = ""
+  if (selectedProd) {
+    let basePrice = selectedProd.unitPrice
+    if (watchSegment === "Interior") basePrice = selectedProd.interiorPrice ?? selectedProd.unitPrice
+    else if (watchSegment === "Dealer") basePrice = selectedProd.dealerPrice ?? selectedProd.unitPrice
+    else if (watchSegment === "Direct") basePrice = selectedProd.directPrice ?? selectedProd.unitPrice
+    else if (watchSegment === "Online") basePrice = selectedProd.onlinePrice ?? selectedProd.unitPrice
+    label = `${selectedProd.productCode} - ${selectedProd.productName} (${watchSegment} Price: AED ${basePrice.toFixed(2)})`
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            role="combobox"
+            className={cn(
+              "w-full justify-between font-normal bg-card",
+              !productId && "text-muted-foreground"
+            )}
+          >
+            <span className="truncate flex-1 text-left">
+              {productId ? label : "Search catalog product by name or code..."}
+            </span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        }
+      />
+      <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[500px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search products..." />
+          <CommandList className="max-h-[300px]">
+            <CommandEmpty>No product found.</CommandEmpty>
+            <CommandGroup>
+              {products.map((product) => {
+                let basePrice = product.unitPrice
+                if (watchSegment === "Interior") basePrice = product.interiorPrice ?? product.unitPrice
+                else if (watchSegment === "Dealer") basePrice = product.dealerPrice ?? product.unitPrice
+                else if (watchSegment === "Direct") basePrice = product.directPrice ?? product.unitPrice
+                else if (watchSegment === "Online") basePrice = product.onlinePrice ?? product.unitPrice
+
+                const productLabel = `${product.productCode} - ${product.productName}`
+
+                return (
+                  <CommandItem
+                    value={`${productLabel} ${basePrice}`}
+                    key={product.id}
+                    onSelect={() => onProductSelect(product.id)}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4 shrink-0",
+                        product.id === productId
+                          ? "opacity-100"
+                          : "opacity-0"
+                      )}
+                    />
+                    <div className="flex items-center gap-3 w-full py-1">
+                      <div className="h-10 w-10 shrink-0 border rounded overflow-hidden flex items-center justify-center bg-white shadow-sm">
+                        {product.imageUrl ? (
+                          <img src={product.imageUrl} alt={product.productName} className="object-contain w-full h-full" />
+                        ) : (
+                          <div className="text-[8px] text-muted-foreground text-center px-1 leading-tight">No Image</div>
+                        )}
+                      </div>
+                      <div className="flex flex-col flex-1 overflow-hidden">
+                        <span className="font-medium text-sm text-foreground truncate">{product.productName}</span>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                          <span className="truncate">SKU: {product.productCode}</span>
+                          <span>•</span>
+                          <span className="font-semibold text-primary whitespace-nowrap">AED {basePrice.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+})
+ProductSearchSelect.displayName = "ProductSearchSelect"
 
 function NewQuotationForm() {
   const router = useRouter()
@@ -789,92 +889,12 @@ function NewQuotationForm() {
                       </div>
                       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
                         <div className="w-full sm:flex-1">
-                          {(() => {
-                            const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
-                            let label = ""
-                            if (selectedProd) {
-                              let basePrice = selectedProd.unitPrice
-                              if (watchSegment === "Interior") basePrice = selectedProd.interiorPrice ?? selectedProd.unitPrice
-                              else if (watchSegment === "Dealer") basePrice = selectedProd.dealerPrice ?? selectedProd.unitPrice
-                              else if (watchSegment === "Direct") basePrice = selectedProd.directPrice ?? selectedProd.unitPrice
-                              else if (watchSegment === "Online") basePrice = selectedProd.onlinePrice ?? selectedProd.unitPrice
-                              label = `${selectedProd.productCode} - ${selectedProd.productName} (${watchSegment} Price: AED ${basePrice.toFixed(2)})`
-                            }
-                            return (
-                              <Popover>
-                                <PopoverTrigger
-                                  render={
-                                    <Button
-                                      variant="outline"
-                                      role="combobox"
-                                      className={cn(
-                                        "w-full justify-between font-normal bg-card",
-                                        !watchItems[index]?.productId && "text-muted-foreground"
-                                      )}
-                                    >
-                                      <span className="truncate flex-1 text-left">
-                                        {watchItems[index]?.productId ? label : "Search catalog product by name or code..."}
-                                      </span>
-                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                  }
-                                />
-                                <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[500px] p-0" align="start">
-                                  <Command>
-                                    <CommandInput placeholder="Search products..." />
-                                    <CommandList className="max-h-[300px]">
-                                      <CommandEmpty>No product found.</CommandEmpty>
-                                      <CommandGroup>
-                                        {products.map((product) => {
-                                          let basePrice = product.unitPrice
-                                          if (watchSegment === "Interior") basePrice = product.interiorPrice ?? product.unitPrice
-                                          else if (watchSegment === "Dealer") basePrice = product.dealerPrice ?? product.unitPrice
-                                          else if (watchSegment === "Direct") basePrice = product.directPrice ?? product.unitPrice
-                                          else if (watchSegment === "Online") basePrice = product.onlinePrice ?? product.unitPrice
-
-                                          const productLabel = `${product.productCode} - ${product.productName}`
-
-                                          return (
-                                            <CommandItem
-                                              value={`${productLabel} ${basePrice}`}
-                                              key={product.id}
-                                              onSelect={() => handleProductSelect(index, product.id)}
-                                            >
-                                              <Check
-                                                className={cn(
-                                                  "mr-2 h-4 w-4 shrink-0",
-                                                  product.id === watchItems[index]?.productId
-                                                    ? "opacity-100"
-                                                    : "opacity-0"
-                                                )}
-                                              />
-                                              <div className="flex items-center gap-3 w-full py-1">
-                                                <div className="h-10 w-10 shrink-0 border rounded overflow-hidden flex items-center justify-center bg-white shadow-sm">
-                                                  {product.imageUrl ? (
-                                                    <img src={product.imageUrl} alt={product.productName} className="object-contain w-full h-full" />
-                                                  ) : (
-                                                    <div className="text-[8px] text-muted-foreground text-center px-1 leading-tight">No Image</div>
-                                                  )}
-                                                </div>
-                                                <div className="flex flex-col flex-1 overflow-hidden">
-                                                  <span className="font-medium text-sm text-foreground truncate">{product.productName}</span>
-                                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                                                    <span className="truncate">SKU: {product.productCode}</span>
-                                                    <span>•</span>
-                                                    <span className="font-semibold text-primary whitespace-nowrap">AED {basePrice.toFixed(2)}</span>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </CommandItem>
-                                          )
-                                        })}
-                                      </CommandGroup>
-                                    </CommandList>
-                                  </Command>
-                                </PopoverContent>
-                              </Popover>
-                            )
-                          })()}
+                          <ProductSearchSelect
+                            productId={watchItems[index]?.productId}
+                            products={products}
+                            watchSegment={watchSegment}
+                            onProductSelect={(prodId) => handleProductSelect(index, prodId)}
+                          />
                         </div>
                         <Button
                           type="button"
