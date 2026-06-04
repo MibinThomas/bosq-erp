@@ -34,6 +34,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { QuickAddProductModal } from "@/components/products/quick-add-product-modal"
+import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
 
 const quotationSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
@@ -102,6 +103,7 @@ function NewQuotationForm() {
   const [loadingOptions, setLoadingOptions] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
+  const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false)
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
 
   const [isRevision, setIsRevision] = useState(false)
@@ -530,9 +532,31 @@ function NewQuotationForm() {
                             <Command>
                               <CommandInput placeholder="Search client name..." />
                               <CommandList>
-                                <CommandEmpty>No client found.</CommandEmpty>
+                                <CommandEmpty className="p-3 text-center">
+                                  <p className="text-xs text-muted-foreground mb-2">No client found.</p>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="w-full flex items-center justify-center gap-1.5"
+                                    onClick={() => setIsQuickAddClientOpen(true)}
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Quick Add Client
+                                  </Button>
+                                </CommandEmpty>
                                 <CommandGroup>
-                                  {clients.filter(c => c.status === "Approved").map((client) => (
+                                  <CommandItem
+                                    value="--quick-add-client--"
+                                    onSelect={() => {
+                                      setIsQuickAddClientOpen(true)
+                                    }}
+                                    className="text-primary font-medium flex items-center gap-1.5 cursor-pointer"
+                                  >
+                                    <Plus className="h-4 w-4 text-primary" />
+                                    <span>Quick Add Client...</span>
+                                  </CommandItem>
+                                  {clients.filter(c => c.status === "Approved" || c.status === "Pending Approval" || c.id === field.value).map((client) => (
                                     <CommandItem
                                       value={client.companyName}
                                       key={client.id}
@@ -1198,6 +1222,16 @@ function NewQuotationForm() {
             form.setValue(`items.${activeLineIndex}.unitPrice`, basePrice)
             form.setValue(`items.${activeLineIndex}.customImageUrl`, newProduct.imageUrl || "")
           }
+        }}
+      />
+
+      <QuickAddClientModal
+        isOpen={isQuickAddClientOpen}
+        userRole={userRole}
+        onClose={() => setIsQuickAddClientOpen(false)}
+        onSuccess={(newClient) => {
+          setClients((prev) => [...prev, newClient])
+          form.setValue("clientId", newClient.id)
         }}
       />
     </div>
