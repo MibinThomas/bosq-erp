@@ -53,6 +53,7 @@ const quotationSchema = z.object({
   items: z.array(
     z.object({
       productId: z.string().nullable().optional(),
+      priceSource: z.enum(["standard", "manual"]).default("standard"),
       description: z.string().min(1, "Description is required"),
       specifications: z.string(),
       productNotes: z.string().optional(),
@@ -306,9 +307,10 @@ function NewQuotationForm() {
               paymentTerms: activeData.paymentTerms || "50% Advance, 50% on Delivery",
               items: activeData.items.map((item: any) => {
                 const marginVal = item.margin || 0
-                const basePriceVal = item.unitPrice / (1 + marginVal / 100)
+                const basePriceVal = item.unitPrice * (1 - marginVal / 100)
                 return {
                   productId: item.productId || "",
+                  priceSource: item.productId ? "standard" : "manual",
                   description: item.description,
                   specifications: item.specifications || "",
                   productNotes: item.productNotes || "",
@@ -359,6 +361,7 @@ function NewQuotationForm() {
           paymentTerms: "50% Advance, 50% on Delivery",
           items: data.items.map((item: any) => ({
             productId: item.productId || "",
+            priceSource: item.productId ? "standard" : "manual",
             description: item.description,
             specifications: item.specifications || "",
             productNotes: "",
@@ -382,7 +385,7 @@ function NewQuotationForm() {
   }, [loadingOptions, session])
 
   const form = useForm<QuotationFormValues>({
-    resolver: zodResolver(quotationSchema),
+    resolver: zodResolver(quotationSchema) as any,
     defaultValues: {
       clientId: initialClientId,
       projectName: "",
@@ -395,7 +398,7 @@ function NewQuotationForm() {
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "" }],
+      items: [{ productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "" }],
       deliveryCharge: 0,
       notes: "",
     },
@@ -447,7 +450,7 @@ function NewQuotationForm() {
   useEffect(() => {
     const currentItems = form.getValues("items") || []
     currentItems.forEach((item, index) => {
-      if (item.productId) {
+      if (item.productId && item.priceSource === "standard") {
         const matchedProduct = products.find((p) => p.id === item.productId)
         if (matchedProduct) {
           let basePrice = matchedProduct.unitPrice
@@ -458,7 +461,8 @@ function NewQuotationForm() {
 
           form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
           const margin = Number(item.margin) || 0
-          const calculatedPrice = basePrice * (1 + margin / 100)
+          const marginDecimal = margin / 100
+          const calculatedPrice = marginDecimal === 1 ? basePrice : basePrice / (1 - marginDecimal)
           form.setValue(`items.${index}.unitPrice`, Number(calculatedPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
         }
       }
@@ -476,13 +480,76 @@ function NewQuotationForm() {
       else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
 
       form.setValue(`items.${index}.productId`, matchedProduct.id, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.description`, matchedProduct.productName, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.specifications`, matchedProduct.specifications ? matchedProduct.specifications.replace(/【/g, '• ').replace(/】 ?/g, ': ') : "", { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.manualMargin`, 0, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.unitPrice`, basePrice, { shouldValidate: true, shouldDirty: true })
 
       toast.info(`Populated ${matchedProduct.productName} for ${watchSegment} segment at base price AED ${basePrice}!`)
+    }
+  }
+
+  const recalculateRow = (
+    index: number,
+    fieldChanged: "basePrice" | "margin" | "unitPrice" | "priceSource" | "productId",
+    newValue: any
+  ) => {
+    const item = form.getValues(`items.${index}`)
+    if (!item) return
+
+    let priceSource = fieldChanged === "priceSource" ? newValue : item.priceSource
+    let productId = fieldChanged === "productId" ? newValue : item.productId
+    let basePrice = fieldChanged === "basePrice" ? (newValue === "" ? 0 : parseFloat(newValue) || 0) : (item.basePrice === "" ? 0 : parseFloat(item.basePrice as any) || 0)
+    let margin = fieldChanged === "margin" ? (newValue === "" ? 0 : parseFloat(newValue) || 0) : (item.margin === "" ? 0 : parseFloat(item.margin as any) || 0)
+    let unitPrice = fieldChanged === "unitPrice" ? (newValue === "" ? 0 : parseFloat(newValue) || 0) : (item.unitPrice === "" ? 0 : parseFloat(item.unitPrice as any) || 0)
+
+    // 1. Resolve standard catalog base price if priceSource is standard
+    if (priceSource === "standard" && productId) {
+      const matchedProduct = products.find((p) => p.id === productId)
+      if (matchedProduct) {
+        let segmentPrice = matchedProduct.unitPrice
+        if (watchSegment === "Interior") segmentPrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
+        else if (watchSegment === "Dealer") segmentPrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
+        else if (watchSegment === "Direct") segmentPrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
+        else if (watchSegment === "Online") segmentPrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
+        
+        basePrice = segmentPrice
+        form.setValue(`items.${index}.basePrice`, segmentPrice, { shouldValidate: true, shouldDirty: true })
+      }
+    }
+
+    // 2. Perform math based on what changed
+    if (fieldChanged === "unitPrice") {
+      if (newValue === "") {
+        margin = 0
+        form.setValue(`items.${index}.margin`, "", { shouldValidate: true, shouldDirty: true })
+        form.setValue(`items.${index}.manualMargin`, "", { shouldValidate: true, shouldDirty: true })
+      } else if (unitPrice > 0) {
+        // Unit Price = Base Price / (1 - Margin % / 100) => Margin % = (1 - (Base Price / Unit Price)) * 100
+        margin = (1 - (basePrice / unitPrice)) * 100
+        const roundedMargin = Number(margin.toFixed(2))
+        form.setValue(`items.${index}.margin`, roundedMargin, { shouldValidate: true, shouldDirty: true })
+        form.setValue(`items.${index}.manualMargin`, roundedMargin, { shouldValidate: true, shouldDirty: true })
+      } else {
+        margin = 0
+        form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
+        form.setValue(`items.${index}.manualMargin`, 0, { shouldValidate: true, shouldDirty: true })
+      }
+    } else {
+      const marginDecimal = margin / 100
+      if (marginDecimal >= 1) {
+        unitPrice = basePrice
+      } else {
+        unitPrice = basePrice / (1 - marginDecimal)
+      }
+      const finalPrice = newValue === "" && fieldChanged === "margin" ? "" : Number(unitPrice.toFixed(2))
+      form.setValue(`items.${index}.unitPrice`, finalPrice, { shouldValidate: true, shouldDirty: true })
+      if (fieldChanged === "margin") {
+        form.setValue(`items.${index}.manualMargin`, newValue, { shouldValidate: true, shouldDirty: true })
+      }
     }
   }
 
@@ -553,6 +620,21 @@ function NewQuotationForm() {
       toast.error(error.message || "Failed to submit quotation. Please try again.")
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const getSegmentPriceInfo = (productId: string | null | undefined) => {
+    if (!productId) return null
+    const product = products.find(p => p.id === productId)
+    if (!product) return null
+    let basePrice = product.unitPrice
+    if (watchSegment === "Interior") basePrice = product.interiorPrice ?? product.unitPrice
+    else if (watchSegment === "Dealer") basePrice = product.dealerPrice ?? product.unitPrice
+    else if (watchSegment === "Direct") basePrice = product.directPrice ?? product.unitPrice
+    else if (watchSegment === "Online") basePrice = product.onlinePrice ?? product.unitPrice
+    return {
+      label: `Standard ${watchSegment} Price`,
+      price: basePrice
     }
   }
 
@@ -942,7 +1024,7 @@ function NewQuotationForm() {
                   variant="outline"
                   size="sm"
                   className="w-full sm:w-auto"
-                  onClick={() => append({ productId: "", description: "", specifications: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "" })}
+                  onClick={() => append({ productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "" })}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Custom Item
@@ -950,7 +1032,7 @@ function NewQuotationForm() {
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 {fields.map((field, index) => (
-                  <div key={field.id} className="relative p-5 border rounded-xl bg-muted/20 space-y-4 transition-all">
+                  <div key={field.id} className="group relative p-6 border rounded-xl bg-card hover:shadow-md transition-all duration-300 border-muted-foreground/10 hover:border-primary/20 space-y-4">
                     {/* Catalog Autopopulate Select Row */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
                       <div className="flex items-center gap-2 text-xs font-semibold text-primary shrink-0">
@@ -982,43 +1064,54 @@ function NewQuotationForm() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                      {/* Description & Technical Specifications */}
-                      <div className="md:col-span-5 flex flex-col sm:flex-row gap-4">
-                        {(() => {
-                          const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
-                          const imageUrl = watchItems[index]?.customImageUrl || selectedProd?.imageUrl
-                          if (!imageUrl) return null
-                          return (
-                            <div className="h-24 w-24 sm:h-20 sm:w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-inner self-center sm:self-start mt-2 sm:mt-6">
-                              <img src={imageUrl} alt="Preview" className="object-contain h-full w-full" />
-                            </div>
-                          )
-                        })()}
-                        <div className="flex-1 space-y-3">
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.description`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Product Name / Title</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Item description" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+                      {/* Left Column: Image, Title, Specs & Notes */}
+                      <div className="lg:col-span-6 space-y-4">
+                        <div className="flex gap-4">
+                          {/* Thumbnail Image */}
+                          {(() => {
+                            const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
+                            const imageUrl = watchItems[index]?.customImageUrl || selectedProd?.imageUrl
+                            return (
+                              <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-sm">
+                                {imageUrl ? (
+                                  <img src={imageUrl} alt="Preview" className="object-contain h-full w-full" />
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground text-center px-1 font-medium">No Image</span>
+                                )}
+                              </div>
+                            )
+                          })()}
+                          
+                          {/* Product Title */}
+                          <div className="flex-1">
+                            <FormField
+                              control={form.control}
+                              name={`items.${index}.description`}
+                              render={({ field }) => (
+                                <FormItem className="space-y-1">
+                                  <FormLabel className="text-xs font-semibold text-muted-foreground">Product Name / Title <span className="text-red-500">*</span></FormLabel>
+                                  <FormControl>
+                                    <Input placeholder="Enter product name or short description" {...field} className="bg-muted/10 focus-visible:bg-background" />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
 
+                        {/* Specifications & Notes */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
                             name={`items.${index}.specifications`}
                             render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Quotation Specifications</FormLabel>
+                              <FormItem className="space-y-1">
+                                <FormLabel className="text-xs font-semibold text-muted-foreground">Quotation Specifications</FormLabel>
                                 <FormControl>
                                   <RichTextEditor
-                                    placeholder="Spec details (e.g. Dimensions, colors, soft-close drawers...)"
+                                    placeholder="Technical specs, dimensions, materials..."
                                     value={field.value || ""}
                                     onChange={(val) => field.onChange(val)}
                                   />
@@ -1031,13 +1124,14 @@ function NewQuotationForm() {
                             control={form.control}
                             name={`items.${index}.productNotes`}
                             render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Product Notes</FormLabel>
+                              <FormItem className="space-y-1">
+                                <FormLabel className="text-xs font-semibold text-muted-foreground">Special / Customization Notes</FormLabel>
                                 <FormControl>
                                   <Textarea
-                                    placeholder="Special notes, customization, delivery remarks..."
+                                    placeholder="Special instructions or customer specific requirements..."
                                     {...field}
-                                    rows={2}
+                                    rows={4}
+                                    className="resize-none bg-muted/10 focus-visible:bg-background min-h-[96px]"
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1047,235 +1141,234 @@ function NewQuotationForm() {
                         </div>
                       </div>
 
-                      {/* Quantity, Unit Price and Discount */}
-                      <div className="md:col-span-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4 md:pt-0">
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.basePrice`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="flex items-center gap-1">
-                                Base Price
-                                {!isManagerOrAdmin && <Lock className="h-3 w-3 text-muted-foreground" />}
-                              </FormLabel>
-                              <FormControl>
-                                <NumericInput
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  disabled={!isManagerOrAdmin}
-                                  value={field.value}
-                                  onChange={(val) => {
-                                    field.onChange(val === "" ? "" : (parseFloat(val) || 0))
-                                    const newBase = val === "" ? 0 : (parseFloat(val) || 0)
-                                    const currentMargin = parseFloat(watchItems[index]?.margin as any) || 0
-                                    const newPrice = newBase * (1 + currentMargin / 100)
-                                    form.setValue(`items.${index}.unitPrice`, val === "" ? "" : Number(newPrice.toFixed(2)))
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
+                      {/* Right Column: Pricing Math & Source Selector */}
+                      <div className="lg:col-span-6 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-muted pt-4 lg:pt-0 lg:pl-6 space-y-4">
+                        {/* Price Source & Helper Row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3 rounded-lg border border-muted/50">
+                          <div className="space-y-0.5">
+                            <span className="text-xs font-semibold text-foreground">Base Price Source</span>
+                            <div className="text-[11px] text-muted-foreground">
+                              {(() => {
+                                const info = getSegmentPriceInfo(watchItems[index]?.productId)
+                                if (watchItems[index]?.priceSource === "standard" && info) {
+                                  return (
+                                    <span className="text-primary font-medium flex items-center gap-1">
+                                      <Check className="h-3 w-3 text-emerald-500" />
+                                      Using {info.label}: AED {info.price.toFixed(2)}
+                                    </span>
+                                  )
+                                }
+                                return <span className="text-amber-600 font-medium">Using Manual Base Price</span>
+                              })()}
+                            </div>
+                          </div>
+
+                          {/* Pricing Segment Toggle */}
+                          <div className="flex items-center gap-1 bg-background border border-muted-foreground/10 p-1 rounded-md shrink-0">
+                            <button
+                              type="button"
+                              disabled={!watchItems[index]?.productId}
+                              onClick={() => {
+                                form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
+                                recalculateRow(index, "priceSource", "standard")
+                              }}
+                              className={cn(
+                                "px-2.5 py-1 text-[11px] font-medium rounded transition-all",
+                                watchItems[index]?.priceSource === "standard"
+                                  ? "bg-primary text-primary-foreground shadow-sm"
+                                  : "text-muted-foreground hover:text-foreground disabled:opacity-40"
+                              )}
+                            >
+                              Standard Price
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                form.setValue(`items.${index}.priceSource`, "manual", { shouldValidate: true, shouldDirty: true })
+                                recalculateRow(index, "priceSource", "manual")
+                              }}
+                              className={cn(
+                                "px-2.5 py-1 text-[11px] font-medium rounded transition-all",
+                                watchItems[index]?.priceSource === "manual"
+                                  ? "bg-primary text-primary-foreground shadow-sm"
+                                  : "text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              Manual Price
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Inputs Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {/* Quantity */}
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.quantity`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-1">
+                                <FormLabel className="text-xs font-semibold text-muted-foreground">Quantity</FormLabel>
+                                <FormControl>
+                                  <NumericInput
+                                    type="number"
+                                    min="1"
+                                    className="h-9 font-medium"
+                                    value={field.value}
+                                    onChange={(val) => {
+                                      field.onChange(val === "" ? "" : (parseInt(val) || 0))
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          {/* Base Price */}
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.basePrice`}
+                            render={({ field }) => {
+                              const isStandard = watchItems[index]?.priceSource === "standard"
+                              return (
+                                <FormItem className="space-y-1">
+                                  <FormLabel className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                                    Base Price
+                                    {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                  </FormLabel>
+                                  <FormControl>
+                                    <NumericInput
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      className={cn("h-9 font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
+                                      disabled={isStandard}
+                                      value={field.value}
+                                      onChange={(val) => {
+                                        recalculateRow(index, "basePrice", val)
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )
+                            }}
+                          />
+
+                          {/* Margin % */}
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.margin`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-1">
+                                <FormLabel className="text-xs font-semibold text-muted-foreground">Margin (%)</FormLabel>
+                                <FormControl>
+                                  <NumericInput
+                                    type="number"
+                                    min="-100"
+                                    max="99.9"
+                                    step="0.1"
+                                    className="h-9 font-mono"
+                                    value={field.value}
+                                    onChange={(val) => {
+                                      recalculateRow(index, "margin", val)
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          {/* Unit Price (AED) */}
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.unitPrice`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-1">
+                                <FormLabel className="text-xs font-semibold text-muted-foreground">Unit Price (AED)</FormLabel>
+                                <FormControl>
+                                  <NumericInput
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="h-9 font-mono"
+                                    value={field.value}
+                                    onChange={(val) => {
+                                      recalculateRow(index, "unitPrice", val)
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          {/* Discount (AED) */}
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.discount`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-1">
+                                <FormLabel className="text-xs font-semibold text-muted-foreground">Discount (AED)</FormLabel>
+                                <FormControl>
+                                  <NumericInput
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className="h-9 font-mono text-destructive focus-visible:ring-destructive"
+                                    value={field.value}
+                                    onChange={(val) => {
+                                      field.onChange(val === "" ? "" : (parseFloat(val) || 0))
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          {/* Calculated Line Total Display */}
+                          <div className="space-y-1 flex flex-col justify-end">
+                            <span className="text-xs font-semibold text-muted-foreground block">Line Total</span>
+                            <div className="h-9 px-3 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-between text-primary font-semibold font-mono text-sm shadow-inner">
+                              <span className="text-[10px] text-primary/70">AED</span>
+                              <span>
+                                {(() => {
+                                  const qty = Number(watchItems[index]?.quantity) || 0
+                                  const price = Number(watchItems[index]?.unitPrice) || 0
+                                  const disc = Number(watchItems[index]?.discount) || 0
+                                  return ((price - disc) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                })()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Visual Helper + Delete Row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                          {/* Math Helper Text */}
+                          <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2.5 py-1 rounded">
+                            <Info className="h-3.5 w-3.5 text-muted-foreground/75 shrink-0" />
+                            <span>
+                              Formula: Base Price ÷ (1 - Margin %)
+                            </span>
+                          </div>
+
+                          {/* Delete Row button */}
+                          {fields.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => remove(index)}
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs py-1 h-7 rounded px-2.5 ml-auto flex items-center gap-1"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Remove Line
+                            </Button>
                           )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.quantity`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Qty</FormLabel>
-                              <FormControl>
-                                <NumericInput
-                                  type="number"
-                                  min="1"
-                                  value={field.value}
-                                  onChange={(val) => {
-                                    field.onChange(val === "" ? "" : (parseInt(val) || 0))
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.margin`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Margin (%)</FormLabel>
-                              <FormControl>
-                                <NumericInput
-                                  type="number"
-                                  min="-100"
-                                  step="0.1"
-                                  value={field.value}
-                                  onChange={(val) => {
-                                    const newMargin = val === "" ? 0 : (parseFloat(val) || 0)
-                                    field.onChange(val === "" ? "" : newMargin)
-
-                                    const itemId = watchItems[index]?.productId
-                                    const matchedProduct = products.find((p) => p.id === itemId)
-                                    let basePrice = 0
-                                    if (matchedProduct) {
-                                      basePrice = matchedProduct.unitPrice
-                                      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice || matchedProduct.unitPrice
-                                      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
-                                      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
-                                      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
-                                    } else {
-                                      basePrice = parseFloat(watchItems[index]?.basePrice as any) || 0
-                                    }
-
-                                    if (basePrice > 0) {
-                                      const newPrice = basePrice * (1 + newMargin / 100)
-                                      form.setValue(`items.${index}.unitPrice`, val === "" ? "" : Number(newPrice.toFixed(2)))
-                                      // Sync manual margin too
-                                      form.setValue(`items.${index}.manualMargin`, val === "" ? "" : newMargin)
-                                    }
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.unitPrice`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Unit Price (AED)</FormLabel>
-                              <FormControl>
-                                <NumericInput
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={field.value}
-                                  onChange={(val) => {
-                                    const newPrice = val === "" ? 0 : (parseFloat(val) || 0)
-                                    field.onChange(val === "" ? "" : newPrice)
-
-                                    const itemId = watchItems[index]?.productId
-                                    const matchedProduct = products.find((p) => p.id === itemId)
-                                    let basePrice = 0
-                                    if (matchedProduct) {
-                                      basePrice = matchedProduct.unitPrice
-                                      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
-                                      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
-                                      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
-                                      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
-                                    } else {
-                                      const currentMargin = parseFloat(watchItems[index]?.margin as any) || 0
-                                      if (currentMargin === 0) {
-                                        form.setValue(`items.${index}.basePrice`, val === "" ? "" : newPrice)
-                                        basePrice = newPrice
-                                      } else {
-                                        basePrice = parseFloat(watchItems[index]?.basePrice as any) || 0
-                                      }
-                                    }
-
-                                    if (basePrice > 0) {
-                                      if (val === "") {
-                                        form.setValue(`items.${index}.margin`, "")
-                                        form.setValue(`items.${index}.manualMargin`, "")
-                                      } else {
-                                        const calculatedMargin = ((newPrice / basePrice) - 1) * 100
-                                        const formattedMargin = Number(calculatedMargin.toFixed(1))
-                                        form.setValue(`items.${index}.margin`, formattedMargin)
-                                        form.setValue(`items.${index}.manualMargin`, formattedMargin)
-                                      }
-                                    }
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.discount`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Discount (AED)</FormLabel>
-                              <FormControl>
-                                <NumericInput
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  value={field.value}
-                                  onChange={(val) => {
-                                    field.onChange(val === "" ? "" : (parseFloat(val) || 0))
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.manualMargin`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-destructive font-semibold">Manual Margin</FormLabel>
-                              <FormControl>
-                                <NumericInput
-                                  type="number"
-                                  min="-100"
-                                  step="0.1"
-                                  value={field.value ?? ""}
-                                  onChange={(val) => {
-                                    const newMargin = val === "" ? 0 : (parseFloat(val) || 0)
-                                    field.onChange(val === "" ? "" : newMargin)
-
-                                    const itemId = watchItems[index]?.productId
-                                    const matchedProduct = products.find((p) => p.id === itemId)
-                                    let basePrice = 0
-                                    if (matchedProduct) {
-                                      basePrice = matchedProduct.unitPrice
-                                      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice || matchedProduct.unitPrice
-                                      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
-                                      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
-                                      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
-                                    } else {
-                                      basePrice = parseFloat(watchItems[index]?.basePrice as any) || 0
-                                    }
-
-                                    if (basePrice > 0) {
-                                      const newPrice = basePrice * (1 + newMargin / 100)
-                                      form.setValue(`items.${index}.unitPrice`, val === "" ? "" : Number(newPrice.toFixed(2)))
-                                      // Sync standard margin
-                                      form.setValue(`items.${index}.margin`, val === "" ? "" : newMargin)
-                                    }
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Remove Button */}
-                      <div className="md:col-span-1 flex items-center justify-end md:justify-center pt-4 md:pt-0">
-                        {fields.length > 1 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:bg-destructive/10"
-                            onClick={() => remove(index)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1380,9 +1473,11 @@ function NewQuotationForm() {
 
             // For temp custom items, clear productId so they submit as free-text lines
             form.setValue(`items.${activeLineIndex}.productId`, isTemp ? "" : newProduct.id)
+            form.setValue(`items.${activeLineIndex}.priceSource`, isTemp ? "manual" : "standard")
             form.setValue(`items.${activeLineIndex}.description`, newProduct.productName)
             form.setValue(`items.${activeLineIndex}.specifications`, newProduct.specifications ? newProduct.specifications.replace(/【/g, '• ').replace(/】 ?/g, ': ') : "")
             form.setValue(`items.${activeLineIndex}.margin`, 0)
+            form.setValue(`items.${activeLineIndex}.manualMargin`, 0)
             form.setValue(`items.${activeLineIndex}.basePrice`, basePrice)
             form.setValue(`items.${activeLineIndex}.unitPrice`, basePrice)
             form.setValue(`items.${activeLineIndex}.customImageUrl`, newProduct.imageUrl || "")
