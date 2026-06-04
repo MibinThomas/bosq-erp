@@ -48,7 +48,7 @@ const quotationSchema = z.object({
   salesAgentId: z.string().optional(),
   salesAgentName: z.string().optional(),
   salesAgentContactNumber: z.string().optional(),
-  deliveryCharge: z.number().min(0),
+  deliveryCharge: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Delivery charge must be at least 0"),
   notes: z.string().optional(),
   items: z.array(
     z.object({
@@ -56,11 +56,11 @@ const quotationSchema = z.object({
       description: z.string().min(1, "Description is required"),
       specifications: z.string(),
       productNotes: z.string().optional(),
-      quantity: z.number().min(1, "Quantity must be at least 1"),
-      basePrice: z.number().min(0),
-      unitPrice: z.number().min(0, "Price must be at least 0"),
-      discount: z.number().min(0),
-      margin: z.number().min(-100),
+      quantity: z.union([z.number(), z.string()]).refine(val => (val === "" ? 1 : Number(val)) >= 1, "Quantity must be at least 1"),
+      basePrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Base price must be at least 0"),
+      unitPrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Price must be at least 0"),
+      discount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Discount must be at least 0"),
+      margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= -100, "Margin must be at least -100"),
       customImageUrl: z.string().nullable().optional(),
     })
   ).min(1, "At least one item is required"),
@@ -300,14 +300,14 @@ function NewQuotationForm() {
 
   // Subtotal, VAT and Grand Total Calculations
   const subtotal = watchItems.reduce((acc, item) => {
-    const qty = item.quantity || 0
-    const price = item.unitPrice || 0
-    const disc = item.discount || 0
+    const qty = Number(item.quantity) || 0
+    const price = Number(item.unitPrice) || 0
+    const disc = Number(item.discount) || 0
     return acc + (price - disc) * qty
   }, 0)
 
   const vatAmount = subtotal * 0.05
-  const grandTotal = subtotal + vatAmount + (watchDeliveryCharge || 0)
+  const grandTotal = subtotal + vatAmount + (Number(watchDeliveryCharge) || 0)
 
   // Watch for segment changes and update line item unit prices
   useEffect(() => {
@@ -323,7 +323,7 @@ function NewQuotationForm() {
           else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
 
           form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
-          const margin = item.margin || 0
+          const margin = Number(item.margin) || 0
           const calculatedPrice = basePrice * (1 + margin / 100)
           form.setValue(`items.${index}.unitPrice`, Number(calculatedPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
         }
@@ -373,11 +373,22 @@ function NewQuotationForm() {
       const url = (isRevision || isEdit) ? `/api/quotations/${existingQuote.id}` : "/api/quotations"
       const method = (isRevision || isEdit) ? "PUT" : "POST"
 
+      const formattedItems = data.items.map((item) => ({
+        ...item,
+        quantity: item.quantity === "" ? 1 : Number(item.quantity),
+        basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
+        unitPrice: item.unitPrice === "" ? 0 : Number(item.unitPrice),
+        discount: item.discount === "" ? 0 : Number(item.discount),
+        margin: item.margin === "" ? 0 : Number(item.margin),
+      }))
+
       const res = await fetch(url, {
         method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
+          items: formattedItems,
+          deliveryCharge: data.deliveryCharge === "" ? 0 : Number(data.deliveryCharge),
           isRevision: isRevision,
           isUpdate: isEdit,
           revisionNotes: revisionNotes,
@@ -965,11 +976,12 @@ function NewQuotationForm() {
                                   disabled={!isManagerOrAdmin}
                                   {...field}
                                   onChange={(e) => {
-                                    const newBase = parseFloat(e.target.value) || 0
-                                    field.onChange(newBase)
-                                    const currentMargin = watchItems[index]?.margin || 0
+                                    const val = e.target.value
+                                    field.onChange(val === "" ? "" : (parseFloat(val) || 0))
+                                    const newBase = val === "" ? 0 : (parseFloat(val) || 0)
+                                    const currentMargin = parseFloat(watchItems[index]?.margin as any) || 0
                                     const newPrice = newBase * (1 + currentMargin / 100)
-                                    form.setValue(`items.${index}.unitPrice`, Number(newPrice.toFixed(2)))
+                                    form.setValue(`items.${index}.unitPrice`, val === "" ? "" : Number(newPrice.toFixed(2)))
                                   }}
                                 />
                               </FormControl>
@@ -989,7 +1001,10 @@ function NewQuotationForm() {
                                   type="number"
                                   min="1"
                                   {...field}
-                                  onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                  onChange={(e) => {
+                                    const val = e.target.value
+                                    field.onChange(val === "" ? "" : (parseInt(val) || 0))
+                                  }}
                                 />
                               </FormControl>
                               <FormMessage />
@@ -1010,8 +1025,9 @@ function NewQuotationForm() {
                                   step="0.1"
                                   {...field}
                                   onChange={(e) => {
-                                    const newMargin = parseFloat(e.target.value) || 0
-                                    field.onChange(newMargin)
+                                    const val = e.target.value
+                                    const newMargin = val === "" ? 0 : (parseFloat(val) || 0)
+                                    field.onChange(val === "" ? "" : newMargin)
 
                                     const itemId = watchItems[index]?.productId
                                     const matchedProduct = products.find((p) => p.id === itemId)
@@ -1023,12 +1039,12 @@ function NewQuotationForm() {
                                       else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
                                       else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
                                     } else {
-                                      basePrice = watchItems[index]?.basePrice || 0
+                                      basePrice = parseFloat(watchItems[index]?.basePrice as any) || 0
                                     }
 
                                     if (basePrice > 0) {
                                       const newPrice = basePrice * (1 + newMargin / 100)
-                                      form.setValue(`items.${index}.unitPrice`, Number(newPrice.toFixed(2)))
+                                      form.setValue(`items.${index}.unitPrice`, val === "" ? "" : Number(newPrice.toFixed(2)))
                                     }
                                   }}
                                 />
@@ -1051,8 +1067,9 @@ function NewQuotationForm() {
                                   step="0.01"
                                   {...field}
                                   onChange={(e) => {
-                                    const newPrice = parseFloat(e.target.value) || 0
-                                    field.onChange(newPrice)
+                                    const val = e.target.value
+                                    const newPrice = val === "" ? 0 : (parseFloat(val) || 0)
+                                    field.onChange(val === "" ? "" : newPrice)
 
                                     const itemId = watchItems[index]?.productId
                                     const matchedProduct = products.find((p) => p.id === itemId)
@@ -1064,12 +1081,12 @@ function NewQuotationForm() {
                                       else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
                                       else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
                                     } else {
-                                      const currentMargin = watchItems[index]?.margin || 0
+                                      const currentMargin = parseFloat(watchItems[index]?.margin as any) || 0
                                       if (currentMargin === 0) {
-                                        form.setValue(`items.${index}.basePrice`, newPrice)
+                                        form.setValue(`items.${index}.basePrice`, val === "" ? "" : newPrice)
                                         basePrice = newPrice
                                       } else {
-                                        basePrice = watchItems[index]?.basePrice || 0
+                                        basePrice = parseFloat(watchItems[index]?.basePrice as any) || 0
                                       }
                                     }
 
@@ -1097,7 +1114,10 @@ function NewQuotationForm() {
                                   min="0"
                                   step="0.01"
                                   {...field}
-                                  onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                  onChange={(e) => {
+                                    const val = e.target.value
+                                    field.onChange(val === "" ? "" : (parseFloat(val) || 0))
+                                  }}
                                 />
                               </FormControl>
                               <FormMessage />
@@ -1153,7 +1173,10 @@ function NewQuotationForm() {
                               className="h-8 text-right font-mono"
                               min="0"
                               {...field}
-                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                              onChange={(e) => {
+                                const val = e.target.value
+                                field.onChange(val === "" ? "" : (parseFloat(val) || 0))
+                              }}
                             />
                           </FormControl>
                         )}
