@@ -1091,8 +1091,12 @@ function NewQuotationForm() {
                                     }
 
                                     if (basePrice > 0) {
-                                      const calculatedMargin = ((newPrice / basePrice) - 1) * 100
-                                      form.setValue(`items.${index}.margin`, Number(calculatedMargin.toFixed(1)))
+                                      if (val === "") {
+                                        form.setValue(`items.${index}.margin`, "")
+                                      } else {
+                                        const calculatedMargin = ((newPrice / basePrice) - 1) * 100
+                                        form.setValue(`items.${index}.margin`, Number(calculatedMargin.toFixed(1)))
+                                      }
                                     }
                                   }}
                                 />
