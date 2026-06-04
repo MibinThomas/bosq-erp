@@ -96,9 +96,6 @@ export async function GET(
       if (quotation.preparedById !== userId) {
         return new Response("Unauthorized access to this quotation", { status: 403 })
       }
-      if (quotation.status === "PENDING_APPROVAL" && !isPreview) {
-        return new Response("Download is disabled pending manager approval", { status: 403 })
-      }
     }
 
     // Generate barcode image dynamically
