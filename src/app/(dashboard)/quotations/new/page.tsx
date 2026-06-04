@@ -61,6 +61,7 @@ const quotationSchema = z.object({
       unitPrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Price must be at least 0"),
       discount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Discount must be at least 0"),
       margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= -100, "Margin must be at least -100"),
+      manualMargin: z.union([z.number(), z.string()]).optional(),
       customImageUrl: z.string().nullable().optional(),
     })
   ).min(1, "At least one item is required"),
@@ -316,6 +317,7 @@ function NewQuotationForm() {
                   unitPrice: item.unitPrice,
                   discount: item.discount || 0,
                   margin: marginVal,
+                  manualMargin: marginVal,
                   customImageUrl: item.customImageUrl || "",
                 }
               }),
@@ -365,6 +367,7 @@ function NewQuotationForm() {
             unitPrice: item.unitPrice,
             discount: 0,
             margin: 0,
+            manualMargin: "",
             customImageUrl: item.customImageUrl || "",
           })),
           deliveryCharge: 0,
@@ -392,7 +395,7 @@ function NewQuotationForm() {
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0 }],
+      items: [{ productId: "", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "" }],
       deliveryCharge: 0,
       notes: "",
     },
@@ -504,14 +507,18 @@ function NewQuotationForm() {
       const url = (isRevision || isEdit) ? `/api/quotations/${existingQuote.id}` : "/api/quotations"
       const method = (isRevision || isEdit) ? "PUT" : "POST"
 
-      const formattedItems = data.items.map((item) => ({
-        ...item,
-        quantity: item.quantity === "" ? 1 : Number(item.quantity),
-        basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
-        unitPrice: item.unitPrice === "" ? 0 : Number(item.unitPrice),
-        discount: item.discount === "" ? 0 : Number(item.discount),
-        margin: item.margin === "" ? 0 : Number(item.margin),
-      }))
+      const formattedItems = data.items.map((item) => {
+        const hasManual = item.manualMargin !== undefined && item.manualMargin !== ""
+        const finalMargin = hasManual ? item.manualMargin : item.margin
+        return {
+          ...item,
+          quantity: item.quantity === "" ? 1 : Number(item.quantity),
+          basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
+          unitPrice: item.unitPrice === "" ? 0 : Number(item.unitPrice),
+          discount: item.discount === "" ? 0 : Number(item.discount),
+          margin: finalMargin === "" ? 0 : Number(finalMargin),
+        }
+      })
 
       const res = await fetch(url, {
         method: method,
@@ -935,7 +942,7 @@ function NewQuotationForm() {
                   variant="outline"
                   size="sm"
                   className="w-full sm:w-auto"
-                  onClick={() => append({ productId: "", description: "", specifications: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, customImageUrl: "" })}
+                  onClick={() => append({ productId: "", description: "", specifications: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "" })}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Custom Item
@@ -1041,7 +1048,7 @@ function NewQuotationForm() {
                       </div>
 
                       {/* Quantity, Unit Price and Discount */}
-                      <div className="md:col-span-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-4 md:pt-0">
+                      <div className="md:col-span-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-4 md:pt-0">
                         <FormField
                           control={form.control}
                           name={`items.${index}.basePrice`}
@@ -1125,6 +1132,8 @@ function NewQuotationForm() {
                                     if (basePrice > 0) {
                                       const newPrice = basePrice * (1 + newMargin / 100)
                                       form.setValue(`items.${index}.unitPrice`, val === "" ? "" : Number(newPrice.toFixed(2)))
+                                      // Sync manual margin too
+                                      form.setValue(`items.${index}.manualMargin`, val === "" ? "" : newMargin)
                                     }
                                   }}
                                 />
@@ -1172,9 +1181,12 @@ function NewQuotationForm() {
                                     if (basePrice > 0) {
                                       if (val === "") {
                                         form.setValue(`items.${index}.margin`, "")
+                                        form.setValue(`items.${index}.manualMargin`, "")
                                       } else {
                                         const calculatedMargin = ((newPrice / basePrice) - 1) * 100
-                                        form.setValue(`items.${index}.margin`, Number(calculatedMargin.toFixed(1)))
+                                        const formattedMargin = Number(calculatedMargin.toFixed(1))
+                                        form.setValue(`items.${index}.margin`, formattedMargin)
+                                        form.setValue(`items.${index}.manualMargin`, formattedMargin)
                                       }
                                     }
                                   }}
@@ -1199,6 +1211,49 @@ function NewQuotationForm() {
                                   value={field.value}
                                   onChange={(val) => {
                                     field.onChange(val === "" ? "" : (parseFloat(val) || 0))
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name={`items.${index}.manualMargin`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-destructive font-semibold">Manual Margin</FormLabel>
+                              <FormControl>
+                                <NumericInput
+                                  type="number"
+                                  min="-100"
+                                  step="0.1"
+                                  value={field.value ?? ""}
+                                  onChange={(val) => {
+                                    const newMargin = val === "" ? 0 : (parseFloat(val) || 0)
+                                    field.onChange(val === "" ? "" : newMargin)
+
+                                    const itemId = watchItems[index]?.productId
+                                    const matchedProduct = products.find((p) => p.id === itemId)
+                                    let basePrice = 0
+                                    if (matchedProduct) {
+                                      basePrice = matchedProduct.unitPrice
+                                      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice || matchedProduct.unitPrice
+                                      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
+                                      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
+                                      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
+                                    } else {
+                                      basePrice = parseFloat(watchItems[index]?.basePrice as any) || 0
+                                    }
+
+                                    if (basePrice > 0) {
+                                      const newPrice = basePrice * (1 + newMargin / 100)
+                                      form.setValue(`items.${index}.unitPrice`, val === "" ? "" : Number(newPrice.toFixed(2)))
+                                      // Sync standard margin
+                                      form.setValue(`items.${index}.margin`, val === "" ? "" : newMargin)
+                                    }
                                   }}
                                 />
                               </FormControl>
