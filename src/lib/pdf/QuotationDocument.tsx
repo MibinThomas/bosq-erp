@@ -547,7 +547,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         )}
 
         {/* Unified Two-Row Header for Perfect Horizontal Alignment */}
-        <View style={[styles.headerContainer, { flexDirection: "column" }, items.length === 1 && { marginBottom: 12, paddingBottom: 8 }]}>
+        <View style={[styles.headerContainer, { flexDirection: "column" }, items.length === 1 ? { marginBottom: 12, paddingBottom: 8 } : {}]}>
           
           {/* Top Row: Logo & Quotation Title */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: 16 }}>
@@ -665,7 +665,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         </View>
 
         {/* Table Headers */}
-        <View style={[styles.tableHeader, items.length === 1 && { paddingVertical: 6 }]}>
+        <View style={[styles.tableHeader, items.length === 1 ? { paddingVertical: 6 } : {}]}>
           <Text style={styles.colDesc}>Item Description</Text>
           <Text style={[styles.colImage, { textAlign: "center" }]}>Image</Text>
           <Text style={styles.colQty}>QTY</Text>
@@ -675,7 +675,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Item Rows */}
         {items.map((item, index) => (
-          <View key={index} style={[styles.tableRow, items.length === 1 && { paddingVertical: 10 }]} wrap={false}>
+          <View key={index} style={[styles.tableRow, items.length === 1 ? { paddingVertical: 10 } : {}]} wrap={false}>
             {/* Description */}
             <View style={styles.colDesc}>
               {/* 1. Product Name */}
@@ -706,9 +706,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             {/* Product Image */}
             <View style={styles.colImage}>
               {item.imageUrl ? (
-                <PdfImage src={item.imageUrl} style={[styles.productImage, items.length === 1 && { height: 135 }]} />
+                <PdfImage src={item.imageUrl} style={[styles.productImage, items.length === 1 ? { height: 135 } : {}]} />
               ) : (
-                <View style={[styles.productImage, items.length === 1 && { height: 135 }, { alignItems: "center", justifyContent: "center" }]}>
+                <View style={[styles.productImage, items.length === 1 ? { height: 135 } : {}, { alignItems: "center", justifyContent: "center" }]}>
                   <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                 </View>
               )}
@@ -767,7 +767,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           </View>
 
           {/* Signatures */}
-          <View style={[styles.signatureSection, items.length === 1 && { marginTop: 20 }]}>
+          <View style={[styles.signatureSection, items.length === 1 ? { marginTop: 20 } : {}]}>
             <View style={styles.signatureBox}>
               <View style={styles.signatureLine} />
               <Text style={styles.signatureLabel}>Prepared By</Text>
