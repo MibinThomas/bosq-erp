@@ -96,6 +96,7 @@ interface ProductSearchSelectProps {
   products: Product[]
   watchSegment: string
   onProductSelect: (productId: string) => void
+  onCustomProductClick: () => void
 }
 
 const ProductSearchSelect = React.memo(({
@@ -103,7 +104,9 @@ const ProductSearchSelect = React.memo(({
   products,
   watchSegment,
   onProductSelect,
+  onCustomProductClick,
 }: ProductSearchSelectProps) => {
+  const [open, setOpen] = useState(false)
   const selectedProd = products.find(p => p.id === productId)
   let label = ""
   if (selectedProd) {
@@ -116,7 +119,7 @@ const ProductSearchSelect = React.memo(({
   }
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
           <Button
@@ -137,8 +140,23 @@ const ProductSearchSelect = React.memo(({
       <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[500px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search products..." />
-          <CommandList className="max-h-[300px]">
-            <CommandEmpty>No product found.</CommandEmpty>
+          <CommandList className="max-h-[260px]">
+            <CommandEmpty className="p-3 text-center flex flex-col items-center justify-center">
+              <p className="text-xs text-muted-foreground mb-2">No product found.</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full flex items-center justify-center gap-1.5 cursor-pointer"
+                onClick={() => {
+                  onCustomProductClick()
+                  setOpen(false)
+                }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Create New Custom Product
+              </Button>
+            </CommandEmpty>
             <CommandGroup>
               {products.map((product) => {
                 let basePrice = product.unitPrice
@@ -153,7 +171,10 @@ const ProductSearchSelect = React.memo(({
                   <CommandItem
                     value={`${productLabel} ${basePrice}`}
                     key={product.id}
-                    onSelect={() => onProductSelect(product.id)}
+                    onSelect={() => {
+                      onProductSelect(product.id)
+                      setOpen(false)
+                    }}
                   >
                     <Check
                       className={cn(
@@ -185,6 +206,22 @@ const ProductSearchSelect = React.memo(({
               })}
             </CommandGroup>
           </CommandList>
+          {/* Bottom Action Footer */}
+          <div className="p-2 border-t bg-muted/20">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-primary hover:text-primary hover:bg-primary/5 font-medium flex items-center gap-1.5 h-9 cursor-pointer"
+              onClick={() => {
+                onCustomProductClick()
+                setOpen(false)
+              }}
+            >
+              <Plus className="h-4 w-4 text-primary" />
+              <span>+ New Custom Product</span>
+            </Button>
+          </div>
         </Command>
       </PopoverContent>
     </Popover>
@@ -1088,21 +1125,12 @@ function NewQuotationForm() {
                             products={products}
                             watchSegment={watchSegment}
                             onProductSelect={(prodId) => handleProductSelect(index, prodId)}
+                            onCustomProductClick={() => {
+                              setActiveLineIndex(index)
+                              setIsQuickAddOpen(true)
+                            }}
                           />
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setActiveLineIndex(index)
-                            setIsQuickAddOpen(true)
-                          }}
-                          className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-9 px-3 w-full sm:w-auto rounded-md flex items-center justify-center gap-1"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          + New Custom Product
-                        </Button>
                       </div>
                     </div>
 
