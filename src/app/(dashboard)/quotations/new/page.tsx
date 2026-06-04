@@ -317,7 +317,7 @@ function NewQuotationForm() {
                   quantity: item.quantity,
                   basePrice: Number(basePriceVal.toFixed(2)),
                   unitPrice: item.unitPrice,
-                  discount: item.discount || 0,
+                  discount: item.unitPrice > 0 ? Number(((item.discount || 0) / item.unitPrice * 100).toFixed(2)) : 0,
                   margin: marginVal,
                   manualMargin: marginVal,
                   customImageUrl: item.customImageUrl || "",
@@ -439,8 +439,9 @@ function NewQuotationForm() {
   const subtotal = watchItems.reduce((acc, item) => {
     const qty = Number(item.quantity) || 0
     const price = Number(item.unitPrice) || 0
-    const disc = Number(item.discount) || 0
-    return acc + (price - disc) * qty
+    const discPercent = Number(item.discount) || 0
+    const discAmt = price * (discPercent / 100)
+    return acc + (price - discAmt) * qty
   }, 0)
 
   const vatAmount = subtotal * 0.05
@@ -577,12 +578,16 @@ function NewQuotationForm() {
       const formattedItems = data.items.map((item) => {
         const hasManual = item.manualMargin !== undefined && item.manualMargin !== ""
         const finalMargin = hasManual ? item.manualMargin : item.margin
+        const price = item.unitPrice === "" ? 0 : Number(item.unitPrice)
+        const discPercent = item.discount === "" ? 0 : Number(item.discount)
+        const absoluteDiscount = price * (discPercent / 100)
+
         return {
           ...item,
           quantity: item.quantity === "" ? 1 : Number(item.quantity),
           basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
-          unitPrice: item.unitPrice === "" ? 0 : Number(item.unitPrice),
-          discount: item.discount === "" ? 0 : Number(item.discount),
+          unitPrice: price,
+          discount: Number(absoluteDiscount.toFixed(2)),
           margin: finalMargin === "" ? 0 : Number(finalMargin),
         }
       })
@@ -1284,38 +1289,46 @@ function NewQuotationForm() {
                           <FormField
                             control={form.control}
                             name={`items.${index}.unitPrice`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormLabel className="text-xs font-semibold text-muted-foreground">Unit Price (AED)</FormLabel>
-                                <FormControl>
-                                  <NumericInput
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    className="h-9 font-mono"
-                                    value={field.value}
-                                    onChange={(val) => {
-                                      recalculateRow(index, "unitPrice", val)
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
+                            render={({ field }) => {
+                              const isStandard = watchItems[index]?.priceSource === "standard"
+                              return (
+                                <FormItem className="space-y-1">
+                                  <FormLabel className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                                    Unit Price (AED)
+                                    {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                  </FormLabel>
+                                  <FormControl>
+                                    <NumericInput
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      className={cn("h-9 font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
+                                      disabled={isStandard}
+                                      value={field.value}
+                                      onChange={(val) => {
+                                        recalculateRow(index, "unitPrice", val)
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )
+                            }}
                           />
 
-                          {/* Discount (AED) */}
+                          {/* Discount (%) */}
                           <FormField
                             control={form.control}
                             name={`items.${index}.discount`}
                             render={({ field }) => (
                               <FormItem className="space-y-1">
-                                <FormLabel className="text-xs font-semibold text-muted-foreground">Discount (AED)</FormLabel>
+                                <FormLabel className="text-xs font-semibold text-muted-foreground">Discount (%)</FormLabel>
                                 <FormControl>
                                   <NumericInput
                                     type="number"
                                     min="0"
-                                    step="0.01"
+                                    max="100"
+                                    step="0.1"
                                     className="h-9 font-mono text-destructive focus-visible:ring-destructive"
                                     value={field.value}
                                     onChange={(val) => {
@@ -1337,8 +1350,9 @@ function NewQuotationForm() {
                                 {(() => {
                                   const qty = Number(watchItems[index]?.quantity) || 0
                                   const price = Number(watchItems[index]?.unitPrice) || 0
-                                  const disc = Number(watchItems[index]?.discount) || 0
-                                  return ((price - disc) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                  const discPercent = Number(watchItems[index]?.discount) || 0
+                                  const discAmt = price * (discPercent / 100)
+                                  return ((price - discAmt) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                                 })()}
                               </span>
                             </div>
