@@ -10,10 +10,6 @@ export async function GET() {
     if (!session) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
-    const role = (session.user as any).role
-    if (role !== "ADMIN" && role !== "SALES_MANAGER") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
 
     const users = await prisma.user.findMany({
       where: { deletedAt: null },
