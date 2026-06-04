@@ -198,7 +198,7 @@ interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "on
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ value, onChange, onBlur, ...props }, ref) => {
+  ({ value, onChange, onBlur, onKeyDown, ...props }, ref) => {
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
 
     React.useEffect(() => {
@@ -212,12 +212,24 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       }
     }
 
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        e.preventDefault()
+        onChange(localVal)
+        e.currentTarget.blur()
+      }
+      if (onKeyDown) {
+        onKeyDown(e)
+      }
+    }
+
     return (
       <Input
         ref={ref}
         value={localVal}
         onChange={(e) => setLocalVal(e.target.value)}
         onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         {...props}
       />
     )
@@ -507,6 +519,18 @@ function NewQuotationForm() {
     let margin = fieldChanged === "margin" ? (newValue === "" ? 0 : parseFloat(newValue) || 0) : (item.margin === "" ? 0 : parseFloat(item.margin as any) || 0)
     let unitPrice = fieldChanged === "unitPrice" ? (newValue === "" ? 0 : parseFloat(newValue) || 0) : (item.unitPrice === "" ? 0 : parseFloat(item.unitPrice as any) || 0)
 
+    // Set the changed field itself in react-hook-form state so it persists
+    if (fieldChanged === "basePrice") {
+      form.setValue(`items.${index}.basePrice`, newValue, { shouldValidate: true, shouldDirty: true })
+    } else if (fieldChanged === "margin") {
+      form.setValue(`items.${index}.margin`, newValue, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.manualMargin`, newValue, { shouldValidate: true, shouldDirty: true })
+    } else if (fieldChanged === "unitPrice") {
+      form.setValue(`items.${index}.unitPrice`, newValue, { shouldValidate: true, shouldDirty: true })
+    } else if (fieldChanged === "priceSource") {
+      form.setValue(`items.${index}.priceSource`, newValue, { shouldValidate: true, shouldDirty: true })
+    }
+
     // 1. Resolve standard catalog base price if priceSource is standard
     if (priceSource === "standard" && productId) {
       const matchedProduct = products.find((p) => p.id === productId)
@@ -546,11 +570,8 @@ function NewQuotationForm() {
       } else {
         unitPrice = basePrice / (1 - marginDecimal)
       }
-      const finalPrice = newValue === "" && fieldChanged === "margin" ? "" : Number(unitPrice.toFixed(2))
+      const finalPrice = (newValue === "" && fieldChanged === "margin") || (fieldChanged === "basePrice" && newValue === "") ? "" : Number(unitPrice.toFixed(2))
       form.setValue(`items.${index}.unitPrice`, finalPrice, { shouldValidate: true, shouldDirty: true })
-      if (fieldChanged === "margin") {
-        form.setValue(`items.${index}.manualMargin`, newValue, { shouldValidate: true, shouldDirty: true })
-      }
     }
   }
 
@@ -696,7 +717,23 @@ function NewQuotationForm() {
         </div>
       ) : (
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const target = e.target as HTMLElement
+                if (
+                  target.tagName === "TEXTAREA" ||
+                  target.closest(".ProseMirror") ||
+                  target.closest("[contenteditable]")
+                ) {
+                  return
+                }
+                e.preventDefault()
+              }
+            }}
+            className="space-y-8"
+          >
             {isRevision && (
               <Card className="rounded-xl border border-purple-200 dark:border-purple-900/30 bg-purple-50/10">
                 <CardHeader>
