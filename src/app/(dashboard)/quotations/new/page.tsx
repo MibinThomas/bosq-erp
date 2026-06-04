@@ -35,6 +35,8 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { QuickAddProductModal } from "@/components/products/quick-add-product-modal"
 import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
+import { ImageCropper } from "@/components/ui/image-cropper"
+import { Image as ImageIcon, UploadCloud } from "lucide-react"
 
 const quotationSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
@@ -64,6 +66,9 @@ const quotationSchema = z.object({
       margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= -100, "Margin must be at least -100"),
       manualMargin: z.union([z.number(), z.string()]).optional(),
       customImageUrl: z.string().nullable().optional(),
+      shortDescription: z.string().optional(),
+      categoryName: z.string().optional(),
+      chairType: z.string().optional(),
     })
   ).min(1, "At least one item is required"),
 })
@@ -298,6 +303,61 @@ function NewQuotationForm() {
 
   const [users, setUsers] = useState<any[]>([])
 
+  const [cropperLineIndex, setCropperLineIndex] = useState<number | null>(null)
+  const [rawImageSrc, setRawImageSrc] = useState<string | null>(null)
+  const [isCropperOpen, setIsCropperOpen] = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
+
+  // Utility to convert Base64 Data URL to a File
+  const dataURLtoFile = (dataurl: string, filename: string): File => {
+    const arr = dataurl.split(",")
+    const mime = arr[0].match(/:(.*?);/)![1]
+    const bstr = atob(arr[1])
+    let n = bstr.length
+    const u8arr = new Uint8Array(n)
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n)
+    }
+    return new File([u8arr], filename, { type: mime })
+  }
+
+  const handleCropSave = async (croppedBase64: string) => {
+    if (cropperLineIndex === null) return
+    setIsCropperOpen(false)
+    setUploadingImage(true)
+    try {
+      if (process.env.NODE_ENV === "development") {
+        form.setValue(`items.${cropperLineIndex}.customImageUrl`, croppedBase64, { shouldValidate: true, shouldDirty: true })
+        toast.success("Image cropped and saved locally (Dev Mode Base64)!")
+        return
+      }
+      const croppedFile = dataURLtoFile(croppedBase64, `product-cropped-${Date.now()}.png`)
+      const formData = new FormData()
+      formData.append("file", croppedFile)
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+      if (uploadRes.ok) {
+        const data = await uploadRes.json()
+        if (data.url) {
+          form.setValue(`items.${cropperLineIndex}.customImageUrl`, data.url, { shouldValidate: true, shouldDirty: true })
+          toast.success("Image cropped and uploaded successfully!")
+        } else {
+          form.setValue(`items.${cropperLineIndex}.customImageUrl`, croppedBase64, { shouldValidate: true, shouldDirty: true })
+        }
+      } else {
+        form.setValue(`items.${cropperLineIndex}.customImageUrl`, croppedBase64, { shouldValidate: true, shouldDirty: true })
+      }
+    } catch (err) {
+      console.error("Failed to upload cropped image:", err)
+      form.setValue(`items.${cropperLineIndex}.customImageUrl`, croppedBase64, { shouldValidate: true, shouldDirty: true })
+    } finally {
+      setUploadingImage(false)
+      setCropperLineIndex(null)
+    }
+  }
+
   // Fetch users for selecting sales agent
   useEffect(() => {
     fetch("/api/settings/users")
@@ -370,6 +430,9 @@ function NewQuotationForm() {
                   margin: marginVal,
                   manualMargin: marginVal,
                   customImageUrl: item.customImageUrl || "",
+                  shortDescription: item.product?.shortDescription || "",
+                  categoryName: item.product?.category?.name || "Chairs",
+                  chairType: item.product?.chairType || "",
                 }
               }),
               deliveryCharge: activeData.deliveryCharge || 0,
@@ -421,6 +484,9 @@ function NewQuotationForm() {
             margin: 0,
             manualMargin: "",
             customImageUrl: item.customImageUrl || "",
+            shortDescription: item.shortDescription || "",
+            categoryName: item.categoryName || "Chairs",
+            chairType: item.chairType || "",
           })),
           deliveryCharge: 0,
           notes: "",
@@ -447,7 +513,7 @@ function NewQuotationForm() {
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "" }],
+      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", shortDescription: "", categoryName: "Chairs", chairType: "" }],
       deliveryCharge: 0,
       notes: "",
     },
@@ -633,22 +699,60 @@ function NewQuotationForm() {
       const url = (isRevision || isEdit) ? `/api/quotations/${existingQuote.id}` : "/api/quotations"
       const method = (isRevision || isEdit) ? "PUT" : "POST"
 
-      const formattedItems = data.items.map((item) => {
+      const formattedItems = []
+      for (const item of data.items) {
+        const isCustom = item.priceSource === "manual" && !item.productId
+        if (isCustom) {
+          if (!item.description.trim()) {
+            throw new Error("Product Name is required for custom products.")
+          }
+          if (!item.shortDescription || item.shortDescription.trim().length < 145 || item.shortDescription.trim().length > 260) {
+            throw new Error(`Custom product "${item.description}" short description must be between 145 and 260 characters (currently ${item.shortDescription?.trim().length || 0} chars).`)
+          }
+          if (item.categoryName === "Chairs" && !item.chairType) {
+            throw new Error(`Chair Type is required for custom chair "${item.description}".`)
+          }
+
+          if (isManagerOrAdmin) {
+            const prodRes = await fetch("/api/products", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                productName: item.description,
+                categoryName: item.categoryName || "General",
+                unitPrice: Number(item.unitPrice) || 0.0,
+                shortDescription: item.shortDescription,
+                specifications: item.specifications || undefined,
+                warranty: "5 Years",
+                imageUrl: item.customImageUrl || undefined,
+                chairType: item.categoryName === "Chairs" ? item.chairType : undefined,
+              }),
+            })
+            if (!prodRes.ok) {
+              const errData = await prodRes.json()
+              throw new Error(errData.error || `Failed to save custom product "${item.description}" to catalog.`)
+            }
+            const createdProduct = await prodRes.json()
+            item.productId = createdProduct.id
+          }
+        }
+
         const hasManual = item.manualMargin !== undefined && item.manualMargin !== ""
         const finalMargin = hasManual ? item.manualMargin : item.margin
         const price = item.unitPrice === "" ? 0 : Number(item.unitPrice)
         const discPercent = item.discount === "" ? 0 : Number(item.discount)
         const absoluteDiscount = price * (discPercent / 100)
 
-        return {
+        formattedItems.push({
           ...item,
+          productId: item.productId || null,
           quantity: item.quantity === "" ? 1 : Number(item.quantity),
           basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
           unitPrice: price,
           discount: Number(absoluteDiscount.toFixed(2)),
           margin: finalMargin === "" ? 0 : Number(finalMargin),
-        }
-      })
+        })
+      }
 
       const res = await fetch(url, {
         method: method,
@@ -1103,355 +1207,795 @@ function NewQuotationForm() {
                   variant="outline"
                   size="sm"
                   className="w-full sm:w-auto"
-                  onClick={() => append({ productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "" })}
+                  onClick={() => append({ productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", shortDescription: "", categoryName: "Chairs", chairType: "" })}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Custom Item
                 </Button>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="group relative p-6 border rounded-xl bg-card hover:shadow-md transition-all duration-300 border-muted-foreground/10 hover:border-primary/20 space-y-4">
-                    {/* Catalog Autopopulate Select Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-primary shrink-0">
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Select from Product Catalog:
-                      </div>
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
-                        <div className="w-full sm:flex-1">
-                          <ProductSearchSelect
-                            productId={watchItems[index]?.productId}
-                            products={products}
-                            watchSegment={watchSegment}
-                            onProductSelect={(prodId) => handleProductSelect(index, prodId)}
-                            onCustomProductClick={() => {
-                              setActiveLineIndex(index)
-                              setIsQuickAddOpen(true)
-                            }}
-                          />
+                {fields.map((field, index) => {
+                  const showDetails = !!(watchItems[index]?.productId || watchItems[index]?.priceSource === "manual")
+                  return (
+                    <div key={field.id} className="group relative p-6 border rounded-xl bg-card hover:shadow-md transition-all duration-300 border-muted-foreground/10 hover:border-primary/20 space-y-4">
+                      {/* Catalog Autopopulate Select Row */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-primary shrink-0">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Select from Product Catalog:
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
-                      {/* Left Column: Image, Title, Specs & Notes */}
-                      <div className="lg:col-span-6 space-y-4">
-                        <div className="flex gap-4">
-                          {/* Thumbnail Image */}
-                          {(() => {
-                            const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
-                            const imageUrl = watchItems[index]?.customImageUrl || selectedProd?.imageUrl
-                            return (
-                              <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-sm">
-                                {imageUrl ? (
-                                  <img src={imageUrl} alt="Preview" className="object-contain h-full w-full" />
-                                ) : (
-                                  <span className="text-[10px] text-muted-foreground text-center px-1 font-medium">No Image</span>
-                                )}
-                              </div>
-                            )
-                          })()}
-                          
-                          {/* Product Title */}
-                          <div className="flex-1">
-                            <FormField
-                              control={form.control}
-                              name={`items.${index}.description`}
-                              render={({ field }) => (
-                                <FormItem className="space-y-1">
-                                  <FormLabel className="text-xs font-semibold text-muted-foreground">Product Name / Title <span className="text-red-500">*</span></FormLabel>
-                                  <FormControl>
-                                    <Input placeholder="Enter product name or short description" {...field} className="bg-muted/10 focus-visible:bg-background" />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
+                          <div className="w-full sm:flex-1">
+                            <ProductSearchSelect
+                              productId={watchItems[index]?.productId}
+                              products={products}
+                              watchSegment={watchSegment}
+                              onProductSelect={(prodId) => handleProductSelect(index, prodId)}
+                              onCustomProductClick={() => {
+                                form.setValue(`items.${index}.priceSource`, "manual", { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.description`, "", { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.shortDescription`, "", { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.categoryName`, "Chairs", { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.chairType`, "", { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.quantity`, 1, { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.basePrice`, 0, { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.unitPrice`, 0, { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.discount`, 0, { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.specifications`, "", { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.productNotes`, "", { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })
+                              }}
                             />
                           </div>
                         </div>
-
-                        {/* Specifications & Notes */}
-                        <div className="flex flex-col gap-4">
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.specifications`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormLabel className="text-xs font-semibold text-muted-foreground">Quotation Specifications</FormLabel>
-                                <FormControl>
-                                  <RichTextEditor
-                                    placeholder="Technical specs, dimensions, materials..."
-                                    value={field.value || ""}
-                                    onChange={(val) => field.onChange(val)}
-                                  />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.productNotes`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormLabel className="text-xs font-semibold text-muted-foreground">Special / Customization Notes</FormLabel>
-                                <FormControl>
-                                  <Textarea
-                                    placeholder="Special instructions or customer specific requirements..."
-                                    {...field}
-                                    rows={4}
-                                    className="resize-none bg-muted/10 focus-visible:bg-background min-h-[96px]"
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
                       </div>
 
-                      {/* Right Column: Pricing Math & Source Selector */}
-                      <div className="lg:col-span-6 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-muted pt-4 lg:pt-0 lg:pl-6 space-y-4">
-                        {/* Price Source & Helper Row */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3 rounded-lg border border-muted/50">
-                          <div className="space-y-0.5">
-                            <span className="text-xs font-semibold text-foreground">Base Price Source</span>
-                            <div className="text-[11px] text-muted-foreground">
-                              {(() => {
-                                const info = getSegmentPriceInfo(watchItems[index]?.productId)
-                                if (watchItems[index]?.priceSource === "standard" && info) {
-                                  return (
-                                    <span className="text-primary font-medium flex items-center gap-1">
-                                      <Check className="h-3 w-3 text-emerald-500" />
-                                      Using {info.label}: AED {info.price.toFixed(2)}
+                      {(() => {
+                        const isCustom = watchItems[index]?.priceSource === "manual" && !watchItems[index]?.productId
+                        
+                        if (!showDetails) return null;
+
+                        if (isCustom) {
+                          return (
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                              {/* Left Column: Image, Title, Specs & Notes */}
+                              <div className="lg:col-span-6 space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  {/* Product Name */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.description`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Product Name *</FormLabel>
+                                        <FormControl>
+                                          <Input placeholder="Enter product name or short title" {...field} className="bg-muted/10 focus-visible:bg-background" />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Category Name */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.categoryName`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Product Type / Category *</FormLabel>
+                                        <Select
+                                          onValueChange={(val) => {
+                                            field.onChange(val)
+                                            if (val !== "Chairs") {
+                                              form.setValue(`items.${index}.chairType`, "")
+                                            }
+                                          }}
+                                          value={field.value || "Chairs"}
+                                        >
+                                          <FormControl>
+                                            <SelectTrigger className="bg-muted/10 focus:bg-background">
+                                              <SelectValue placeholder="Select Category" />
+                                            </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent>
+                                            <SelectItem value="Chairs">Chairs</SelectItem>
+                                            <SelectItem value="Desks">Desks</SelectItem>
+                                            <SelectItem value="Tables">Tables</SelectItem>
+                                            <SelectItem value="General">General / Other</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+
+                                {/* Chair Type (if category is Chairs) */}
+                                {watchItems[index]?.categoryName === "Chairs" && (
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.chairType`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Chair Type *</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                                          <FormControl>
+                                            <SelectTrigger className="bg-muted/10 focus:bg-background">
+                                              <SelectValue placeholder="Select Chair Type" />
+                                            </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent>
+                                            <SelectItem value="Task Chair">Task Chair</SelectItem>
+                                            <SelectItem value="Executive Chair">Executive Chair</SelectItem>
+                                            <SelectItem value="Ergonomic Chair">Ergonomic Chair</SelectItem>
+                                            <SelectItem value="Visitor Chair">Visitor Chair</SelectItem>
+                                            <SelectItem value="Lounge Chair">Lounge Chair</SelectItem>
+                                            <SelectItem value="Stool">Stool</SelectItem>
+                                            <SelectItem value="Other">Other</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                )}
+
+                                {/* Short Description */}
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.shortDescription`}
+                                  render={({ field }) => {
+                                    const valLength = (field.value || "").length
+                                    const isValidLength = valLength >= 145 && valLength <= 260
+                                    return (
+                                      <FormItem className="space-y-1">
+                                        <div className="flex justify-between items-center">
+                                          <FormLabel className="text-xs font-semibold text-muted-foreground">Short Description *</FormLabel>
+                                          <span className={cn("text-[10px] font-medium", valLength > 0 && !isValidLength ? "text-destructive font-bold" : "text-muted-foreground")}>
+                                            {valLength} / 260 characters (Min 145)
+                                          </span>
+                                        </div>
+                                        <FormControl>
+                                          <Textarea
+                                            placeholder="Premium ergonomic chair designed for long-hour comfort with durable materials, executive aesthetics, and superior lumbar support for professional workspaces."
+                                            {...field}
+                                            rows={3}
+                                            className={cn(
+                                              "resize-none bg-muted/10 focus-visible:bg-background min-h-[80px]",
+                                              valLength > 0 && !isValidLength && "border-destructive focus-visible:ring-destructive"
+                                            )}
+                                          />
+                                        </FormControl>
+                                        {valLength > 0 && !isValidLength && (
+                                          <p className="text-[10px] text-destructive font-medium">
+                                            Short description must be between 145 and 260 characters.
+                                          </p>
+                                        )}
+                                        <FormMessage />
+                                      </FormItem>
+                                    )
+                                  }}
+                                />
+
+                                {/* Product Image Upload Zone */}
+                                <div className="space-y-2">
+                                  <FormLabel className="text-xs font-semibold text-muted-foreground">Product Image Upload</FormLabel>
+                                  {watchItems[index]?.customImageUrl ? (
+                                    <div className="flex items-center gap-4 p-3 border rounded-xl bg-muted/30">
+                                      <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-sm">
+                                        <img src={watchItems[index]?.customImageUrl || ""} alt="Preview" className="object-contain h-full w-full" />
+                                        {uploadingImage && cropperLineIndex === index && (
+                                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                            <Loader2 className="h-4 w-4 animate-spin text-white" />
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setCropperLineIndex(index)
+                                            setRawImageSrc(watchItems[index]?.customImageUrl || "")
+                                            setIsCropperOpen(true)
+                                          }}
+                                          className="text-xs py-1 h-8"
+                                        >
+                                          Crop / Adjust Image
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
+                                          className="text-xs py-1 h-8 text-destructive hover:bg-destructive/10 hover:text-destructive ml-2"
+                                        >
+                                          Remove Image
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div
+                                      className={cn(
+                                        "border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all bg-muted/20 hover:bg-muted/40",
+                                        uploadingImage && cropperLineIndex === index && "opacity-50 pointer-events-none"
+                                      )}
+                                      onDragOver={(e) => e.preventDefault()}
+                                      onDrop={(e) => {
+                                        e.preventDefault()
+                                        const file = e.dataTransfer.files?.[0]
+                                        if (file && file.type.startsWith("image/")) {
+                                          setCropperLineIndex(index)
+                                          const reader = new FileReader()
+                                          reader.onloadend = () => {
+                                            setRawImageSrc(reader.result as string)
+                                            setIsCropperOpen(true)
+                                          }
+                                          reader.readAsDataURL(file)
+                                        }
+                                      }}
+                                      onClick={() => {
+                                        const input = document.getElementById(`image-upload-input-${index}`)
+                                        input?.click()
+                                      }}
+                                    >
+                                      <UploadCloud className="h-8 w-8 text-muted-foreground" />
+                                      <span className="text-xs font-semibold text-muted-foreground text-center">
+                                        Drag & drop or click to upload product image
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground text-center">
+                                        Supports JPG, PNG, WEBP
+                                      </span>
+                                      <input
+                                        id={`image-upload-input-${index}`}
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0]
+                                          if (file) {
+                                            setCropperLineIndex(index)
+                                            const reader = new FileReader()
+                                            reader.onloadend = () => {
+                                              setRawImageSrc(reader.result as string)
+                                              setIsCropperOpen(true)
+                                            }
+                                            reader.readAsDataURL(file)
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Technical Specifications */}
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.specifications`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Technical Specifications</FormLabel>
+                                      <FormControl>
+                                        <RichTextEditor
+                                          placeholder="Technical specs, dimensions, materials..."
+                                          value={field.value || ""}
+                                          onChange={(val) => field.onChange(val)}
+                                        />
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+
+                                {/* Special / Customization Notes */}
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.productNotes`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Special / Customization Notes</FormLabel>
+                                      <FormControl>
+                                        <Textarea
+                                          placeholder="Special instructions or customer specific requirements..."
+                                          {...field}
+                                          rows={3}
+                                          className="resize-none bg-muted/10 focus-visible:bg-background min-h-[80px]"
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              {/* Right Column: Pricing Math */}
+                              <div className="lg:col-span-6 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-muted pt-4 lg:pt-0 lg:pl-6 space-y-4">
+                                <div className="bg-muted/30 p-3 rounded-lg border border-muted/50">
+                                  <span className="text-xs font-semibold text-foreground block mb-0.5">Base Price Source</span>
+                                  <span className="text-amber-600 font-medium text-xs">Using Manual Base Price</span>
+                                </div>
+
+                                {/* Inputs Grid */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  {/* Quantity */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.quantity`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Quantity</FormLabel>
+                                        <FormControl>
+                                          <NumericInput
+                                            type="number"
+                                            min="1"
+                                            className="h-9 font-medium"
+                                            value={field.value}
+                                            onChange={(val) => field.onChange(val === "" ? "" : (parseInt(val) || 0))}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Base Price */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.basePrice`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Base Price</FormLabel>
+                                        <FormControl>
+                                          <NumericInput
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            className="h-9 font-mono"
+                                            value={field.value}
+                                            onChange={(val) => recalculateRow(index, "basePrice", val)}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Margin % */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.margin`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Margin (%)</FormLabel>
+                                        <FormControl>
+                                          <NumericInput
+                                            type="number"
+                                            min="-100"
+                                            max="99.9"
+                                            step="0.1"
+                                            className="h-9 font-mono"
+                                            value={field.value}
+                                            onChange={(val) => recalculateRow(index, "margin", val)}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Unit Price (AED) */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.unitPrice`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Unit Price (AED)</FormLabel>
+                                        <FormControl>
+                                          <NumericInput
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            className="h-9 font-mono bg-muted text-muted-foreground cursor-not-allowed"
+                                            disabled
+                                            value={field.value}
+                                            onChange={(val) => recalculateRow(index, "unitPrice", val)}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Discount (%) */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.discount`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Discount (%)</FormLabel>
+                                        <FormControl>
+                                          <NumericInput
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.1"
+                                            className="h-9 font-mono text-destructive focus-visible:ring-destructive"
+                                            value={field.value}
+                                            onChange={(val) => field.onChange(val === "" ? "" : (parseFloat(val) || 0))}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Line Total */}
+                                  <div className="space-y-1 flex flex-col justify-end">
+                                    <span className="text-xs font-semibold text-muted-foreground block">Line Total</span>
+                                    <div className="h-9 px-3 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-between text-primary font-semibold font-mono text-sm shadow-inner">
+                                      <span className="text-[10px] text-primary/70">AED</span>
+                                      <span>
+                                        {(() => {
+                                          const qty = Number(watchItems[index]?.quantity) || 0
+                                          const price = Number(watchItems[index]?.unitPrice) || 0
+                                          const discPercent = Number(watchItems[index]?.discount) || 0
+                                          const discAmt = price * (discPercent / 100)
+                                          return ((price - discAmt) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        })()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Math Helper Text + Remove Line */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2.5 py-1 rounded">
+                                    <Info className="h-3.5 w-3.5 text-muted-foreground/75 shrink-0" />
+                                    <span>Formula: Base Price ÷ (1 - Margin %)</span>
+                                  </div>
+
+                                  {fields.length > 1 && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => remove(index)}
+                                      className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs py-1 h-7 rounded px-2.5 ml-auto flex items-center gap-1"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                      Remove Line
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        } else {
+                          // Standard Product
+                          return (
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                              {/* Left Column: Image, Title, Specs & Notes */}
+                              <div className="lg:col-span-6 space-y-4">
+                                <div className="flex gap-4">
+                                  {/* Thumbnail Image */}
+                                  {(() => {
+                                    const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
+                                    const imageUrl = watchItems[index]?.customImageUrl || selectedProd?.imageUrl
+                                    return (
+                                      <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-sm">
+                                        {imageUrl ? (
+                                          <img src={imageUrl} alt="Preview" className="object-contain h-full w-full" />
+                                        ) : (
+                                          <span className="text-[10px] text-muted-foreground text-center px-1 font-medium">No Image</span>
+                                        )}
+                                      </div>
+                                    )
+                                  })()}
+                                  
+                                  {/* Product Title */}
+                                  <div className="flex-1">
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.description`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-xs font-semibold text-muted-foreground">Product Name</FormLabel>
+                                          <FormControl>
+                                            <Input placeholder="Product name" {...field} className="bg-muted text-muted-foreground cursor-not-allowed" disabled />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Specifications & Notes */}
+                                <div className="flex flex-col gap-4">
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.specifications`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Quotation Specifications</FormLabel>
+                                        <FormControl>
+                                          <RichTextEditor
+                                            placeholder="Technical specs, dimensions, materials..."
+                                            value={field.value || ""}
+                                            onChange={(val) => field.onChange(val)}
+                                          />
+                                        </FormControl>
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.productNotes`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Special / Customization Notes</FormLabel>
+                                        <FormControl>
+                                          <Textarea
+                                            placeholder="Special instructions or customer specific requirements..."
+                                            {...field}
+                                            rows={4}
+                                            className="resize-none bg-muted/10 focus-visible:bg-background min-h-[96px]"
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Right Column: Pricing Math & Source Selector */}
+                              <div className="lg:col-span-6 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-muted pt-4 lg:pt-0 lg:pl-6 space-y-4">
+                                {/* Price Source & Helper Row */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3 rounded-lg border border-muted/50">
+                                  <div className="space-y-0.5">
+                                    <span className="text-xs font-semibold text-foreground">Base Price Source</span>
+                                    <div className="text-[11px] text-muted-foreground">
+                                      {(() => {
+                                        const info = getSegmentPriceInfo(watchItems[index]?.productId)
+                                        if (watchItems[index]?.priceSource === "standard" && info) {
+                                          return (
+                                            <span className="text-primary font-medium flex items-center gap-1">
+                                              <Check className="h-3 w-3 text-emerald-500" />
+                                              Using {info.label}: AED {info.price.toFixed(2)}
+                                            </span>
+                                          )
+                                        }
+                                        return <span className="text-amber-600 font-medium">Using Manual Base Price</span>
+                                      })()}
+                                    </div>
+                                  </div>
+
+                                  {/* Pricing Segment Toggle */}
+                                  <div className="flex items-center gap-1 bg-background border border-muted-foreground/10 p-1 rounded-md shrink-0">
+                                    <button
+                                      type="button"
+                                      disabled={!watchItems[index]?.productId}
+                                      onClick={() => {
+                                        form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
+                                        recalculateRow(index, "priceSource", "standard")
+                                      }}
+                                      className={cn(
+                                        "px-2.5 py-1 text-[11px] font-medium rounded transition-all",
+                                        watchItems[index]?.priceSource === "standard"
+                                          ? "bg-primary text-primary-foreground shadow-sm"
+                                          : "text-muted-foreground hover:text-foreground disabled:opacity-40"
+                                      )}
+                                    >
+                                      Standard Price
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        form.setValue(`items.${index}.priceSource`, "manual", { shouldValidate: true, shouldDirty: true })
+                                        recalculateRow(index, "priceSource", "manual")
+                                      }}
+                                      className={cn(
+                                        "px-2.5 py-1 text-[11px] font-medium rounded transition-all",
+                                        watchItems[index]?.priceSource === "manual"
+                                          ? "bg-primary text-primary-foreground shadow-sm"
+                                          : "text-muted-foreground hover:text-foreground"
+                                      )}
+                                    >
+                                      Manual Price
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Inputs Grid */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  {/* Quantity */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.quantity`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Quantity</FormLabel>
+                                        <FormControl>
+                                          <NumericInput
+                                            type="number"
+                                            min="1"
+                                            className="h-9 font-medium"
+                                            value={field.value}
+                                            onChange={(val) => {
+                                              field.onChange(val === "" ? "" : (parseInt(val) || 0))
+                                            }}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Base Price */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.basePrice`}
+                                    render={({ field }) => {
+                                      const isStandard = watchItems[index]?.priceSource === "standard"
+                                      return (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                                            Base Price
+                                            {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                          </FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className={cn("h-9 font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
+                                              disabled={isStandard}
+                                              value={field.value}
+                                              onChange={(val) => {
+                                                recalculateRow(index, "basePrice", val)
+                                              }}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )
+                                    }}
+                                  />
+
+                                  {/* Margin % */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.margin`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Margin (%)</FormLabel>
+                                        <FormControl>
+                                          <NumericInput
+                                            type="number"
+                                            min="-100"
+                                            max="99.9"
+                                            step="0.1"
+                                            className="h-9 font-mono"
+                                            value={field.value}
+                                            onChange={(val) => {
+                                              recalculateRow(index, "margin", val)
+                                            }}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Unit Price (AED) */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.unitPrice`}
+                                    render={({ field }) => {
+                                      const isStandard = watchItems[index]?.priceSource === "standard"
+                                      return (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                                            Unit Price (AED)
+                                            {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                          </FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className={cn("h-9 font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
+                                              disabled={isStandard}
+                                              value={field.value}
+                                              onChange={(val) => {
+                                                recalculateRow(index, "unitPrice", val)
+                                              }}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )
+                                    }}
+                                  />
+
+                                  {/* Discount (%) */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.discount`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Discount (%)</FormLabel>
+                                        <FormControl>
+                                          <NumericInput
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.1"
+                                            className="h-9 font-mono text-destructive focus-visible:ring-destructive"
+                                            value={field.value}
+                                            onChange={(val) => {
+                                              field.onChange(val === "" ? "" : (parseFloat(val) || 0))
+                                            }}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Calculated Line Total Display */}
+                                  <div className="space-y-1 flex flex-col justify-end">
+                                    <span className="text-xs font-semibold text-muted-foreground block">Line Total</span>
+                                    <div className="h-9 px-3 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-between text-primary font-semibold font-mono text-sm shadow-inner">
+                                      <span className="text-[10px] text-primary/70">AED</span>
+                                      <span>
+                                        {(() => {
+                                          const qty = Number(watchItems[index]?.quantity) || 0
+                                          const price = Number(watchItems[index]?.unitPrice) || 0
+                                          const discPercent = Number(watchItems[index]?.discount) || 0
+                                          const discAmt = price * (discPercent / 100)
+                                          return ((price - discAmt) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        })()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Visual Helper + Delete Row */}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                                  {/* Math Helper Text */}
+                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2.5 py-1 rounded">
+                                    <Info className="h-3.5 w-3.5 text-muted-foreground/75 shrink-0" />
+                                    <span>
+                                      Formula: Base Price ÷ (1 - Margin %)
                                     </span>
-                                  )
-                                }
-                                return <span className="text-amber-600 font-medium">Using Manual Base Price</span>
-                              })()}
+                                  </div>
+
+                                  {/* Delete Row button */}
+                                  {fields.length > 1 && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => remove(index)}
+                                      className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs py-1 h-7 rounded px-2.5 ml-auto flex items-center gap-1"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                      Remove Line
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-
-                          {/* Pricing Segment Toggle */}
-                          <div className="flex items-center gap-1 bg-background border border-muted-foreground/10 p-1 rounded-md shrink-0">
-                            <button
-                              type="button"
-                              disabled={!watchItems[index]?.productId}
-                              onClick={() => {
-                                form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
-                                recalculateRow(index, "priceSource", "standard")
-                              }}
-                              className={cn(
-                                "px-2.5 py-1 text-[11px] font-medium rounded transition-all",
-                                watchItems[index]?.priceSource === "standard"
-                                  ? "bg-primary text-primary-foreground shadow-sm"
-                                  : "text-muted-foreground hover:text-foreground disabled:opacity-40"
-                              )}
-                            >
-                              Standard Price
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                form.setValue(`items.${index}.priceSource`, "manual", { shouldValidate: true, shouldDirty: true })
-                                recalculateRow(index, "priceSource", "manual")
-                              }}
-                              className={cn(
-                                "px-2.5 py-1 text-[11px] font-medium rounded transition-all",
-                                watchItems[index]?.priceSource === "manual"
-                                  ? "bg-primary text-primary-foreground shadow-sm"
-                                  : "text-muted-foreground hover:text-foreground"
-                              )}
-                            >
-                              Manual Price
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Inputs Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          {/* Quantity */}
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.quantity`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormLabel className="text-xs font-semibold text-muted-foreground">Quantity</FormLabel>
-                                <FormControl>
-                                  <NumericInput
-                                    type="number"
-                                    min="1"
-                                    className="h-9 font-medium"
-                                    value={field.value}
-                                    onChange={(val) => {
-                                      field.onChange(val === "" ? "" : (parseInt(val) || 0))
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          {/* Base Price */}
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.basePrice`}
-                            render={({ field }) => {
-                              const isStandard = watchItems[index]?.priceSource === "standard"
-                              return (
-                                <FormItem className="space-y-1">
-                                  <FormLabel className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                                    Base Price
-                                    {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
-                                  </FormLabel>
-                                  <FormControl>
-                                    <NumericInput
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      className={cn("h-9 font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
-                                      disabled={isStandard}
-                                      value={field.value}
-                                      onChange={(val) => {
-                                        recalculateRow(index, "basePrice", val)
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )
-                            }}
-                          />
-
-                          {/* Margin % */}
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.margin`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormLabel className="text-xs font-semibold text-muted-foreground">Margin (%)</FormLabel>
-                                <FormControl>
-                                  <NumericInput
-                                    type="number"
-                                    min="-100"
-                                    max="99.9"
-                                    step="0.1"
-                                    className="h-9 font-mono"
-                                    value={field.value}
-                                    onChange={(val) => {
-                                      recalculateRow(index, "margin", val)
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          {/* Unit Price (AED) */}
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.unitPrice`}
-                            render={({ field }) => {
-                              const isStandard = watchItems[index]?.priceSource === "standard"
-                              return (
-                                <FormItem className="space-y-1">
-                                  <FormLabel className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                                    Unit Price (AED)
-                                    {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
-                                  </FormLabel>
-                                  <FormControl>
-                                    <NumericInput
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      className={cn("h-9 font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
-                                      disabled={isStandard}
-                                      value={field.value}
-                                      onChange={(val) => {
-                                        recalculateRow(index, "unitPrice", val)
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )
-                            }}
-                          />
-
-                          {/* Discount (%) */}
-                          <FormField
-                            control={form.control}
-                            name={`items.${index}.discount`}
-                            render={({ field }) => (
-                              <FormItem className="space-y-1">
-                                <FormLabel className="text-xs font-semibold text-muted-foreground">Discount (%)</FormLabel>
-                                <FormControl>
-                                  <NumericInput
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    step="0.1"
-                                    className="h-9 font-mono text-destructive focus-visible:ring-destructive"
-                                    value={field.value}
-                                    onChange={(val) => {
-                                      field.onChange(val === "" ? "" : (parseFloat(val) || 0))
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          {/* Calculated Line Total Display */}
-                          <div className="space-y-1 flex flex-col justify-end">
-                            <span className="text-xs font-semibold text-muted-foreground block">Line Total</span>
-                            <div className="h-9 px-3 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-between text-primary font-semibold font-mono text-sm shadow-inner">
-                              <span className="text-[10px] text-primary/70">AED</span>
-                              <span>
-                                {(() => {
-                                  const qty = Number(watchItems[index]?.quantity) || 0
-                                  const price = Number(watchItems[index]?.unitPrice) || 0
-                                  const discPercent = Number(watchItems[index]?.discount) || 0
-                                  const discAmt = price * (discPercent / 100)
-                                  return ((price - discAmt) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                })()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Visual Helper + Delete Row */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                          {/* Math Helper Text */}
-                          <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2.5 py-1 rounded">
-                            <Info className="h-3.5 w-3.5 text-muted-foreground/75 shrink-0" />
-                            <span>
-                              Formula: Base Price ÷ (1 - Margin %)
-                            </span>
-                          </div>
-
-                          {/* Delete Row button */}
-                          {fields.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => remove(index)}
-                              className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs py-1 h-7 rounded px-2.5 ml-auto flex items-center gap-1"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Remove Line
-                            </Button>
-                          )}
-                        </div>
-                      </div>
+                          )
+                        }
+                      })()}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </CardContent>
 
               {/* Financial Calculation Footer */}
@@ -1572,6 +2116,16 @@ function NewQuotationForm() {
           setClients((prev) => [...prev, newClient])
           form.setValue("clientId", newClient.id)
         }}
+      />
+
+      <ImageCropper
+        isOpen={isCropperOpen}
+        imageSrc={rawImageSrc}
+        onClose={() => {
+          setIsCropperOpen(false)
+          setRawImageSrc(null)
+        }}
+        onCrop={handleCropSave}
       />
     </div>
   )
