@@ -537,7 +537,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
   return (
     <Document>
-      <Page size="A4" style={[styles.page, items.length === 1 && { paddingBottom: 55 }]}>
+      <Page size="A4" style={[styles.page, items.length === 1 ? { paddingBottom: 55 } : {}]}>
         
         {/* Bottom Right Watermark Logo (Repeats on every page) */}
         {watermarkUrl && (
