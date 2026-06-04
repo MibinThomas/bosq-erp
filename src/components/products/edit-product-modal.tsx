@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { ImageCropper } from "@/components/ui/image-cropper"
+import RichTextEditor from "@/components/ui/rich-text-editor"
 
 interface Product {
   id: string
@@ -22,6 +23,7 @@ interface Product {
   availableColors: string | null
   dimensions: string | null
   specifications: string | null
+  shortDescription: string | null
   status: string
   imageUrl: string | null
   category: {
@@ -36,7 +38,7 @@ interface EditProductModalProps {
   onSuccess: () => void
 }
 
-export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditProductModalProps) {
+export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole }: EditProductModalProps & { userRole?: string }) {
   const [name, setName] = useState("")
   const [code, setCode] = useState("")
   const [categoryName, setCategoryName] = useState("")
@@ -47,8 +49,8 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
   const [directPrice, setDirectPrice] = useState("")
   const [onlinePrice, setOnlinePrice] = useState("")
   const [warranty, setWarranty] = useState("")
-  const [dimensions, setDimensions] = useState("")
   const [specifications, setSpecifications] = useState("")
+  const [shortDescription, setShortDescription] = useState("")
   const [status, setStatus] = useState("ACTIVE")
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [base64Image, setBase64Image] = useState<string | null>(null)
@@ -58,6 +60,21 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
   const [rawImageSrc, setRawImageSrc] = useState<string | null>(null)
   const [isCropperOpen, setIsCropperOpen] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
+  
+  const [margins, setMargins] = useState({ dealer: 15, interior: 30, direct: 50, online: 75 })
+  const [manualOverride, setManualOverride] = useState(false)
+
+  // Fetch margins on mount
+  useEffect(() => {
+    fetch("/api/settings/pricing")
+      .then(res => res.json())
+      .then(data => {
+        if (data && !data.error) {
+          setMargins(data)
+        }
+      })
+      .catch(console.error)
+  }, [])
 
   useEffect(() => {
     if (product) {
@@ -71,8 +88,8 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
       setDirectPrice(product.directPrice?.toString() || "")
       setOnlinePrice(product.onlinePrice?.toString() || "")
       setWarranty(product.warranty || "5 Years")
-      setDimensions(product.dimensions || "Standard")
       setSpecifications(product.specifications || "")
+      setShortDescription(product.shortDescription || "")
       setStatus(product.status)
       setImagePreview(product.imageUrl)
       setBase64Image(null)
@@ -145,10 +162,35 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
     }
   }
 
+  // Handle cost price change & auto-calculate margins
+  const handleCostPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const costStr = e.target.value
+    const cost = parseFloat(costStr)
+    setCostPrice(costStr)
+
+    if (manualOverride || isNaN(cost) || cost <= 0) return
+
+    const dealer = (cost / (1 - margins.dealer / 100)).toFixed(2)
+    const interior = (cost / (1 - margins.interior / 100)).toFixed(2)
+    const direct = (cost / (1 - margins.direct / 100)).toFixed(2)
+    const online = (cost / (1 - margins.online / 100)).toFixed(2)
+
+    setDealerPrice(dealer)
+    setInteriorPrice(interior)
+    setDirectPrice(direct)
+    setOnlinePrice(online)
+    setPrice(direct) // default Selling Price
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name || !categoryName) {
       toast.error("Product name and category are required.")
+      return
+    }
+
+    if (shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260)) {
+      toast.error("Short description must be between 145 and 260 characters.")
       return
     }
 
@@ -168,7 +210,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
           directPrice: directPrice !== "" ? parseFloat(directPrice) : parseFloat(price),
           onlinePrice: onlinePrice !== "" ? parseFloat(onlinePrice) : parseFloat(price),
           warranty,
-          dimensions,
+          shortDescription,
           specifications,
           status,
           imageUrl: base64Image || undefined
@@ -242,66 +284,72 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
             <div className="space-y-1.5">
               <label className="text-xs font-bold">Selling Price (AED)</label>
               <Input 
-                type="number"
-                step="0.01"
                 value={price} 
                 onChange={(e) => setPrice(e.target.value)} 
-                placeholder="E.g., 850.00" 
+                type="number" step="0.01"
+                readOnly={!manualOverride}
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold">Cost Price (AED)</label>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500">Cost Price</label>
               <Input 
-                type="number"
-                step="0.01"
                 value={costPrice} 
-                onChange={(e) => setCostPrice(e.target.value)} 
-                placeholder="E.g., 500.00" 
+                onChange={handleCostPriceChange} 
+                type="number" step="0.01" 
               />
             </div>
+            
+            {/* Admin Manual Override Toggle */}
+            {(userRole === "ADMIN" || userRole === "SALES_MANAGER") && (
+              <div className="col-span-2 flex items-center gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg mt-2">
+                <input 
+                  type="checkbox"
+                  className="h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                  checked={manualOverride} 
+                  onChange={(e) => setManualOverride(e.target.checked)} 
+                />
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-red-500">Manual Override Enabled</span>
+                  <span className="text-xs text-red-400">Unlock pricing tiers to set custom prices instead of auto-calculating from Cost Price.</span>
+                </div>
+              </div>
+            )}
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold">Interior Price (AED)</label>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500">Interior Price ({margins.interior}% Margin)</label>
               <Input 
-                type="number"
-                step="0.01"
                 value={interiorPrice} 
                 onChange={(e) => setInteriorPrice(e.target.value)} 
-                placeholder="Defaults to Selling Price" 
+                type="number" step="0.01" 
+                readOnly={!manualOverride}
               />
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold">Dealer Price (AED)</label>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500">Dealer Price ({margins.dealer}% Margin)</label>
               <Input 
-                type="number"
-                step="0.01"
                 value={dealerPrice} 
                 onChange={(e) => setDealerPrice(e.target.value)} 
-                placeholder="Defaults to Selling Price" 
+                type="number" step="0.01" 
+                readOnly={!manualOverride}
               />
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold">Direct Price (AED)</label>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500">Direct Price ({margins.direct}% Margin)</label>
               <Input 
-                type="number"
-                step="0.01"
                 value={directPrice} 
                 onChange={(e) => setDirectPrice(e.target.value)} 
-                placeholder="Defaults to Selling Price" 
+                type="number" step="0.01" 
+                readOnly={!manualOverride}
               />
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold">Online Price (AED)</label>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-500">Online Price ({margins.online}% Margin)</label>
               <Input 
-                type="number"
-                step="0.01"
                 value={onlinePrice} 
                 onChange={(e) => setOnlinePrice(e.target.value)} 
-                placeholder="Defaults to Selling Price" 
+                type="number" step="0.01" 
+                readOnly={!manualOverride}
               />
             </div>
 
@@ -315,21 +363,32 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess }: EditPr
             </div>
 
             <div className="space-y-1.5 col-span-2">
-              <label className="text-xs font-bold">Dimensions</label>
-              <Input 
-                value={dimensions} 
-                onChange={(e) => setDimensions(e.target.value)} 
-                placeholder="E.g., 650W x 600D x 1150H" 
+              <label className="text-xs font-bold flex justify-between">
+                <span>Short Description</span>
+                <span className={`text-[10px] ${shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260) ? "text-destructive font-bold" : "text-muted-foreground"}`}>
+                  {shortDescription.length} / 260 (Min 145)
+                </span>
+              </label>
+              <textarea
+                className={`w-full border rounded-md px-3 py-2 text-sm bg-background resize-none min-h-[60px] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260) ? "border-destructive focus:ring-destructive" : ""}`}
+                value={shortDescription}
+                onChange={(e) => setShortDescription(e.target.value)}
+                placeholder={"Enter a brief product summary (145-260 characters)..."}
               />
+              {shortDescription.length > 0 && shortDescription.length < 145 && (
+                <p className="text-[10px] text-destructive">Short description must be at least 145 characters.</p>
+              )}
+              {shortDescription.length > 260 && (
+                <p className="text-[10px] text-destructive">Short description cannot exceed 260 characters.</p>
+              )}
             </div>
 
             <div className="space-y-1.5 col-span-2">
               <label className="text-xs font-bold">Product Specifications</label>
-              <Textarea 
-                value={specifications} 
-                onChange={(e) => setSpecifications(e.target.value)} 
-                placeholder="E.g., High quality Italian leather, ergonomic lumbar support..." 
-                rows={3}
+              <RichTextEditor
+                value={specifications}
+                onChange={(val) => setSpecifications(val)}
+                placeholder="E.g., High quality Italian leather, ergonomic lumbar support..."
               />
             </div>
 

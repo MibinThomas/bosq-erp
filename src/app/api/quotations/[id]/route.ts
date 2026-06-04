@@ -36,7 +36,11 @@ export async function GET(
         client: true,
         items: {
           orderBy: { itemNo: "asc" },
-          include: { product: true }
+          include: { 
+            product: {
+              include: { category: true }
+            }
+          }
         },
         preparedBy: true,
       },
@@ -165,6 +169,9 @@ export async function PUT(
         deliveryCharge,
         notes,
         revisionNotes,
+        salesAgentId,
+        salesAgentName,
+        salesAgentContactNumber,
       } = body
 
       if (!items || items.length === 0) {
@@ -202,6 +209,7 @@ export async function PUT(
           productId: item.productId || null,
           description: item.description,
           specifications: item.specifications || "",
+          productNotes: item.productNotes || null,
           customImageUrl: item.customImageUrl || null,
           quantity: qty,
           basePrice: parseFloat(item.basePrice) || price,
@@ -211,6 +219,7 @@ export async function PUT(
           amount: amt,
           imageUrl: resolvedImage, // this will be used for PDF rendering
           categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
+          chairType: matchedProd?.chairType || null,
         }
       }))
 
@@ -234,13 +243,26 @@ export async function PUT(
       // Read both brand logos to base64
       let logoBase64 = ""
       try {
-        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq-orange-bg-reg.png")
+        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "BOSQ R LOGO.svg")
         if (fs.existsSync(logoPath)) {
           const fileBuffer = fs.readFileSync(logoPath)
-          logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
+          const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+          logoBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
         }
       } catch (logoErr) {
         console.error("Failed to read logo buffer in revision:", logoErr)
+      }
+
+      let watermarkBase64 = ""
+      try {
+        const watermarkPath = path.join(process.cwd(), "public", "assets", "logo", "Watermark.svg")
+        if (fs.existsSync(watermarkPath)) {
+          const fileBuffer = fs.readFileSync(watermarkPath)
+          const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+          watermarkBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
+        }
+      } catch (watermarkErr) {
+        console.error("Failed to generate watermark in revision:", watermarkErr)
       }
 
       let aynMuskLogoBase64 = ""
@@ -309,10 +331,12 @@ export async function PUT(
         grandTotal: calculatedGrandTotal,
         preparedBy: finalPreparedByUser.name || "Sales Rep",
         preparedByContact: finalPreparedByUser.phone || null,
+        salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
         termsConditions: termsArray,
         companyLogoUrl: logoBase64 || null,
         aynMuskLogoUrl: aynMuskLogoBase64 || null,
         barcodeBase64: barcodeBase64 || null,
+        watermarkUrl: watermarkBase64 || null,
         clientId: existingQuotation.client.clientId || null,
         items: quotationItemsToCreate,
       }
@@ -393,6 +417,9 @@ export async function PUT(
             grandTotal: calculatedGrandTotal,
             sharepointUrl,
             notes: notes || existingQuotation.notes || null,
+            salesAgentId: salesAgentId || existingQuotation.salesAgentId || null,
+            salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
+            salesAgentContactNumber: salesAgentContactNumber || existingQuotation.salesAgentContactNumber || null,
             parentId: rootId,
             items: {
               create: quotationItemsToCreate.map((item: any) => ({
@@ -400,6 +427,7 @@ export async function PUT(
                 productId: item.productId,
                 description: item.description,
                 specifications: item.specifications,
+                productNotes: item.productNotes,
                 customImageUrl: item.customImageUrl || item.imageUrl,
                 quantity: item.quantity,
                 basePrice: item.basePrice,
@@ -449,6 +477,9 @@ export async function PUT(
         notes,
         clientId,
         customerSegment,
+        salesAgentId,
+        salesAgentName,
+        salesAgentContactNumber,
       } = body
 
       if (!items || items.length === 0) {
@@ -485,6 +516,7 @@ export async function PUT(
           productId: item.productId || null,
           description: item.description,
           specifications: item.specifications || "",
+          productNotes: item.productNotes || null,
           customImageUrl: item.customImageUrl || null,
           quantity: qty,
           basePrice: parseFloat(item.basePrice) || price,
@@ -494,6 +526,7 @@ export async function PUT(
           amount: amt,
           imageUrl: resolvedImage,
           categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
+          chairType: matchedProd?.chairType || null,
         }
       }))
 
@@ -504,13 +537,26 @@ export async function PUT(
       // Read brand logo to base64 for SharePoint PDF generation
       let logoBase64 = ""
       try {
-        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq-orange-bg-reg.png")
+        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "BOSQ R LOGO.svg")
         if (fs.existsSync(logoPath)) {
           const fileBuffer = fs.readFileSync(logoPath)
-          logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
+          const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+          logoBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
         }
       } catch (logoErr) {
         console.error("Failed to read logo buffer in update:", logoErr)
+      }
+
+      let watermarkBase64 = ""
+      try {
+        const watermarkPath = path.join(process.cwd(), "public", "assets", "logo", "Watermark.svg")
+        if (fs.existsSync(watermarkPath)) {
+          const fileBuffer = fs.readFileSync(watermarkPath)
+          const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+          watermarkBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
+        }
+      } catch (watermarkErr) {
+        console.error("Failed to generate watermark in update:", watermarkErr)
       }
 
       let aynMuskLogoBase64 = ""
@@ -579,10 +625,12 @@ export async function PUT(
         grandTotal: calculatedGrandTotal,
         preparedBy: finalPreparedByUser.name || "Sales Rep",
         preparedByContact: finalPreparedByUser.phone || null,
+        salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
         termsConditions: termsArray,
         companyLogoUrl: logoBase64 || null,
         aynMuskLogoUrl: aynMuskLogoBase64 || null,
         barcodeBase64: barcodeBase64 || null,
+        watermarkUrl: watermarkBase64 || null,
         clientId: currentClient.clientId || null,
         items: quotationItemsToCreate,
       }
@@ -641,12 +689,16 @@ export async function PUT(
             grandTotal: calculatedGrandTotal,
             sharepointUrl,
             notes: notes || null,
+            salesAgentId: salesAgentId || existingQuotation.salesAgentId || null,
+            salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
+            salesAgentContactNumber: salesAgentContactNumber || existingQuotation.salesAgentContactNumber || null,
             items: {
               create: quotationItemsToCreate.map((item: any) => ({
                 itemNo: item.itemNo,
                 productId: item.productId,
                 description: item.description,
                 specifications: item.specifications,
+                productNotes: item.productNotes,
                 customImageUrl: item.customImageUrl || item.imageUrl,
                 quantity: item.quantity,
                 basePrice: item.basePrice,

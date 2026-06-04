@@ -18,16 +18,16 @@ export async function GET(
   try {
     const { id } = await params
 
-    // Read both brand logos to base64
     let logoBase64 = ""
     try {
-      const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq-orange-bg-reg.png")
+      const logoPath = path.join(process.cwd(), "public", "assets", "logo", "BOSQ R LOGO.svg")
       if (fs.existsSync(logoPath)) {
         const fileBuffer = fs.readFileSync(logoPath)
-        logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
+        const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+        logoBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
       }
     } catch (logoErr) {
-      console.error("Failed to read logo buffer:", logoErr)
+      console.error("Failed to convert logo SVG:", logoErr)
     }
 
     let aynMuskLogoBase64 = ""
@@ -39,6 +39,18 @@ export async function GET(
       }
     } catch (aynMuskErr) {
       console.error("Failed to read AYN Musk logo buffer:", aynMuskErr)
+    }
+
+    let watermarkBase64 = ""
+    try {
+      const watermarkPath = path.join(process.cwd(), "public", "assets", "logo", "Watermark.svg")
+      if (fs.existsSync(watermarkPath)) {
+        const fileBuffer = fs.readFileSync(watermarkPath)
+        const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+        watermarkBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
+      }
+    } catch (watermarkErr) {
+      console.error("Failed to convert watermark SVG:", watermarkErr)
     }
 
     // Fetch the quotation with all relations
@@ -119,13 +131,16 @@ export async function GET(
     const docItems = await Promise.all(quotation.items.map(async (item) => ({
       itemNo: item.itemNo,
       description: item.description,
+      shortDescription: item.product?.shortDescription,
       specifications: item.specifications,
+      productNotes: item.productNotes,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
       discount: item.discount,
       amount: item.amount,
       imageUrl: await resolveImageUrl(item.customImageUrl || item.product?.imageUrl),
       categoryName: item.product?.category?.name || "OFFICE FURNITURE",
+      chairType: item.product?.chairType || null,
     })))
 
     const companySettings = await getSettings([
@@ -157,10 +172,12 @@ export async function GET(
       grandTotal: quotation.grandTotal,
       preparedBy: quotation.preparedBy?.name || "Sales Executive",
       preparedByContact: quotation.preparedBy?.phone || null,
+      salesAgentName: quotation.salesAgentName || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,
       barcodeBase64: barcodeBase64 || null,
+      watermarkUrl: watermarkBase64 || null,
       clientId: quotation.client.clientId || null,
       items: docItems,
     }

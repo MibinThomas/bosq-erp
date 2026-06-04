@@ -83,8 +83,18 @@ model Product {
   categoryId      String
   category        ProductCategory @relation(fields: [categoryId], references: [id])
   description     String?
+  shortDescription String?
   specifications  String?
   imageUrl        String?
+  imageUrls       String[]  @default([])
+  
+  // Category-specific fields
+  chairType       String?
+  tableTopFinish  String?
+  legType         String?
+  storageOptions  String?
+  finishMaterial  String?
+  
   unitPrice       Float     @default(0.0)
   costPrice       Float     @default(0.0)
   interiorPrice   Float     @default(0.0)
@@ -130,6 +140,11 @@ model Quotation {
   termsConditions String?
   notes           String?
   sharepointUrl   String?
+  
+  salesAgentId             String?
+  salesAgentName           String?
+  salesAgentContactNumber  String?
+
   deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -154,6 +169,7 @@ model QuotationItem {
   itemNo          Int
   description     String
   specifications  String?
+  productNotes    String?
   customImageUrl  String?
   quantity        Int       @default(1)
   basePrice       Float     @default(0.0) // Locked segment price set by SALES_MANAGER/ADMIN

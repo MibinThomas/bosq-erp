@@ -30,6 +30,7 @@ interface ParsedProduct {
   productName: string
   categoryName: string
   description: string
+  shortDescription: string
   specifications: string
   unitPrice: number
   costPrice: number
@@ -38,8 +39,6 @@ interface ParsedProduct {
   directPrice: number
   onlinePrice: number
   warranty: string
-  availableColors: string
-  dimensions: string
   imageFilename: string
   localImageFile?: File
   previewUrl?: string
@@ -100,14 +99,13 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     }).filter(row => row.length > 0 && row.some(cell => cell !== ""))
   }
 
-  // Generate and download a clean CSV import template
   const downloadSampleCSV = (e: React.MouseEvent) => {
     e.stopPropagation()
-    const headers = ["Product Code", "Product Name", "CategoryName", "Base Price (AED)", "Dealer Price", "Interior Price", "Direct Price", "Online Price", "Dimensions", "Warranty", "Description", "Specifications", "Image Filename"]
+    const headers = ["Product Code", "Product Name", "CategoryName", "Base Price (AED)", "Dealer Price", "Interior Price", "Direct Price", "Online Price", "Warranty", "Description", "Short Description", "Specifications (HTML/Text)", "Image Filename"]
     const rows = [
-      ["CH-1001", "Aero Ergonomic Mesh Task Chair", "Chairs", "850.00", "", "", "", "", "650W x 600D x 1150H", "5 Years", "High-performance ergonomic mesh chair with adaptive lumbar support", "Material: Mesh, Base: Nylon", "aero_mesh_chair.jpg"],
-      ["CH-1002", "Ergo Pro Leather Executive Chair", "Chairs", "1250.00", "1437.50", "", "", "", "700W x 650D x 1200H", "5 Years", "Luxury bonded leather manager chair with pneumatic height tilt adjust", "Material: PU Leather, Base: Aluminum", "ergo_leather_chair.jpg"],
-      ["DK-2001", "Linear Triple Bench Workstation", "Desks", "2450.00", "", "", "", "", "2100W x 700D x 755H", "3 Years", "Premium steel frame corporate collaborative workspace table", "Material: MFC, Legs: Powder Coated Steel", "bench_workstation.jpg"]
+      ["CH-1001", "Aero Ergonomic Mesh Task Chair", "Chairs", "850.00", "", "", "", "", "5 Years", "High-performance ergonomic mesh chair with adaptive lumbar support", "High-performance ergonomic mesh chair with adaptive lumbar support, featuring a breathable backrest, adjustable armrests, and dynamic tilt mechanism.", "<ul><li>Material: Mesh</li><li>Base: Nylon</li><li>Color: Black</li><li>Dimensions: 650x650x1200</li></ul>", "aero_mesh_chair.jpg"],
+      ["CH-1002", "Ergo Pro Leather Executive Chair", "Chairs", "1250.00", "1437.50", "", "", "", "5 Years", "Luxury bonded leather manager chair with pneumatic height tilt adjust", "Luxury bonded leather manager chair with pneumatic height and tilt adjust, polished aluminum base, and premium padding for all-day executive comfort.", "Material: PU Leather<br>Base: Aluminum<br>Color: Brown", "ergo_leather_chair.jpg"],
+      ["DK-2001", "Linear Triple Bench Workstation", "Desks", "2450.00", "", "", "", "", "3 Years", "Premium steel frame corporate collaborative workspace table", "Premium steel frame corporate collaborative workspace table designed for modern open offices, featuring integrated cable management and privacy screens.", "Material: MFC, Legs: Powder Coated Steel", "bench_workstation.jpg"]
     ]
     
     const csvContent = [
@@ -171,8 +169,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         { key: "directPrice", synonyms: ["directprice", "direct"] },
         { key: "onlinePrice", synonyms: ["onlineprice", "online"] },
         { key: "description", synonyms: ["description", "details", "desc", "about"] },
-        { key: "specifications", synonyms: ["specifications", "specs", "specification"] },
-        { key: "dimensions", synonyms: ["dimensions", "size", "dimension", "width", "height"] },
+        { key: "shortDescription", synonyms: ["shortdescription", "short desc", "summary"] },
+        { key: "specifications", synonyms: ["specifications", "specs", "specification", "technical"] },
         { key: "warranty", synonyms: ["warranty", "guarantee", "period"] },
         { key: "imageFilename", synonyms: ["image", "photo", "filename", "imagename", "imagefilename", "picture"] }
       ]
@@ -245,7 +243,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
           const val = parseFloat(strVal.replace(/[^0-9.]/g, ""))
           if (!isNaN(val)) return val
         }
-        return basePrice + (basePrice * (pct / 100))
+        if (pct >= 100) return basePrice // fallback if margin is >= 100 (which is invalid)
+        return Number((basePrice / (1 - (pct / 100))).toFixed(2))
       }
 
       const dealerPrice = parseOptPrice("dealerPrice", pricingTiers.dealer)
@@ -258,6 +257,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         productName: getVal("productName"),
         categoryName: getVal("categoryName") || "Chairs",
         description: getVal("description"),
+        shortDescription: getVal("shortDescription"),
         specifications: getVal("specifications"),
         unitPrice: basePrice, // Fallback for standard tables
         costPrice: basePrice,
@@ -266,8 +266,6 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         directPrice,
         onlinePrice,
         warranty: getVal("warranty") || "5 Years",
-        availableColors: getVal("availableColors") || "Standard",
-        dimensions: getVal("dimensions") || "Standard",
         imageFilename: getVal("imageFilename"),
         status: "ACTIVE"
       }
@@ -366,7 +364,16 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         })
       }
 
-      // 2. Submit to bulk API
+      // 2. Validate shortDescription length
+      for (const prod of finalizedProducts) {
+        if (prod.shortDescription && (prod.shortDescription.length < 145 || prod.shortDescription.length > 260)) {
+          toast.error(`Invalid short description length for ${prod.productCode || prod.productName}. Must be 145-260 characters.`);
+          setUploading(false);
+          return;
+        }
+      }
+
+      // 3. Submit to bulk API
       const res = await fetch("/api/products/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -522,6 +529,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                   { key: "dimensions", label: "Dimensions", required: false },
                   { key: "warranty", label: "Warranty period", required: false },
                   { key: "description", label: "Description / About", required: false },
+                  { key: "shortDescription", label: "Short Description (145-260 chars)", required: false },
                   { key: "specifications", label: "Specifications / Details", required: false },
                   { key: "imageFilename", label: "Image Filename (e.g. chair1.jpg)", required: false }
                 ].map((field) => (
@@ -600,6 +608,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                       <th className="p-3 text-xs font-bold w-20 text-right">Direct</th>
                       <th className="p-3 text-xs font-bold w-20 text-right">Online</th>
                       <th className="p-3 text-xs font-bold w-24">Warranty</th>
+                      <th className="p-3 text-xs font-bold w-32">Short Description</th>
                       <th className="p-3 text-xs font-bold w-32">Specifications</th>
                     </tr>
                   </thead>

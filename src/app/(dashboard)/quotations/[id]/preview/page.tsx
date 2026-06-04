@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, Loader2, Download, ExternalLink, Check, X, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
+import parse from "html-react-parser"
 import { useSession } from "next-auth/react"
 
 interface QuotationItem {
@@ -19,9 +21,13 @@ interface QuotationItem {
   margin: number
   amount: number
   customImageUrl: string | null
+  productNotes?: string | null
   product?: {
     imageUrl: string | null
     sku: string
+    shortDescription?: string | null
+    category?: { name: string } | null
+    chairType?: string | null
   } | null
 }
 
@@ -48,6 +54,9 @@ interface Quotation {
   grandTotal: number
   notes: string | null
   sharepointUrl: string | null
+  salesAgentId?: string | null
+  salesAgentName?: string | null
+  salesAgentContactNumber?: string | null
   client: {
     companyName: string
     contactPerson: string | null
@@ -168,27 +177,107 @@ export default function QuotationHtmlPreviewPage({
     })
   }
 
-  const renderSpecificationsHtml = (specs: string | null | undefined) => {
-    if (!specs) return null
-    const lines = specs.split("\n").map((l) => l.trim()).filter((l) => l !== "")
+  const sanitizeHtmlToText = (html: string) => {
+    if (!html) return "";
+    let text = html;
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+    text = text.replace(/<\/p>/gi, '\n');
+    text = text.replace(/<\/div>/gi, '\n');
+    text = text.replace(/<li>/gi, '\n• ');
+    text = text.replace(/<[^>]+>/g, '');
+    text = text.replace(/&nbsp;/g, ' ');
+    text = text.replace(/&amp;/g, '&');
+    text = text.replace(/&lt;/g, '<');
+    text = text.replace(/&gt;/g, '>');
+    text = text.replace(/&quot;/g, '"');
+    text = text.replace(/&#39;/g, "'");
+    return text.trim();
+  }
+
+  const renderSpecificationsHtml = (specs: string | null | undefined, productNotes?: string | null) => {
+    if (!specs && !productNotes) return null;
+
+    const rawText = sanitizeHtmlToText(specs || "");
+    const lines = rawText.split("\n").map((l) => l.trim()).filter((l) => l !== "");
+    
+    let normalSpecs: React.ReactNode[] = [];
+    let productionTime: string | null = null;
+    let remarksLines: string[] = [];
+    let warranty: string | null = null;
+    
+    let currentContext = "normal";
+
+    lines.forEach((line, idx) => {
+      let isKeyLine = false;
+      let key = "";
+      let val = "";
+      
+      if (line.includes(":")) {
+        const colonIndex = line.indexOf(":");
+        key = line.substring(0, colonIndex).trim();
+        val = line.substring(colonIndex + 1).trim();
+        isKeyLine = true;
+      }
+      
+      if (isKeyLine && key.toLowerCase().includes("production time")) {
+        currentContext = "productionTime";
+        productionTime = val;
+      } else if (isKeyLine && key.toLowerCase().includes("remarks")) {
+        currentContext = "remarks";
+        if (val) remarksLines.push(val);
+      } else if (isKeyLine && key.toLowerCase().includes("warranty")) {
+        currentContext = "normal";
+        warranty = val;
+      } else if (isKeyLine) {
+        currentContext = "normal";
+        normalSpecs.push(
+          <div key={`spec-${idx}`} className="flex text-[8.5px] mb-[4px] leading-tight pl-0 ml-0">
+            <span className="font-bold text-slate-900 w-[95px] shrink-0">{key}:</span>
+            <span className="text-[#444444] flex-1">{val}</span>
+          </div>
+        );
+      } else {
+        if (currentContext === "remarks") {
+          remarksLines.push(line);
+        } else {
+          normalSpecs.push(<div key={`text-${idx}`} className="text-[#444444] mb-[4px] leading-tight text-[8.5px]">{line}</div>);
+        }
+      }
+    });
+
+    if (productNotes) {
+      remarksLines.push(productNotes);
+    }
+
     return (
-      <div className="mt-1 text-[10px] text-slate-500 space-y-0.5">
-        {lines.map((line, idx) => {
-          if (line.includes(":")) {
-            const colonIndex = line.indexOf(":")
-            const key = line.substring(0, colonIndex).trim()
-            const val = line.substring(colonIndex + 1).trim()
-            return (
-              <div key={idx} className="flex">
-                <span className="font-semibold text-slate-700 mr-1">{key}:</span>
-                <span>{val}</span>
-              </div>
-            )
-          }
-          return <div key={idx}>{line}</div>
-        })}
+      <div className="mt-2 space-y-[4px]">
+        {normalSpecs.length > 0 && <div className="mb-2">{normalSpecs}</div>}
+        
+        {productionTime && (
+          <div className="font-bold text-[#1e3a8a] text-[8.5px] mb-2 leading-tight">
+            Production Time: <span className="font-normal">{productionTime}</span>
+          </div>
+        )}
+
+        {warranty && (
+          <div className="flex text-[8.5px] mb-[4px] leading-tight">
+            <span className="font-bold text-slate-900 w-[95px] shrink-0">Warranty:</span>
+            <span className="text-[#444444] flex-1">{warranty}</span>
+          </div>
+        )}
+        
+        {remarksLines.length > 0 && (
+          <div className="text-[8.5px] leading-tight flex mt-2 pl-0 ml-0">
+            <span className="font-bold text-[#F17423] mr-1 shrink-0">Remarks:</span>
+            <span className="text-[#444444] flex-1">
+               {remarksLines.map((r, i) => (
+                 <div key={i}>{r}</div>
+               ))}
+            </span>
+          </div>
+        )}
       </div>
-    )
+    );
   }
 
   const formattedDate = new Date(quotation.date).toLocaleDateString("en-US", {
@@ -295,55 +384,40 @@ export default function QuotationHtmlPreviewPage({
       {/* Dedicated Scrollable Preview Area Workspace */}
       <div className="flex-1 overflow-auto p-4 sm:p-6 md:p-8 lg:p-10 w-full bg-slate-100 dark:bg-slate-900 print:relative print:p-0 print:overflow-visible print:h-auto">
         {/* Main A4 Document Sheet Wrapper */}
-        <div className="w-[210mm] min-w-[210mm] min-h-[297mm] mx-auto p-[10mm] sm:p-[15mm] bg-white text-slate-900 shadow-xl border border-slate-200 rounded-sm font-sans text-[11px] leading-relaxed relative print:my-0 print:border-none print:shadow-none print:p-0 print:max-w-none print:min-w-0 print:min-h-0 print:bg-white print:text-black">
+        <div className="w-[210mm] min-w-[210mm] min-h-[297mm] mx-auto p-[10mm] sm:p-[15mm] bg-white text-slate-900 shadow-xl border border-slate-200 rounded-sm font-sans text-[11px] leading-relaxed relative overflow-hidden print:my-0 print:border-none print:shadow-none print:p-0 print:max-w-none print:min-w-0 print:min-h-0 print:bg-white print:text-black">
+          
+          {/* Bottom Right Watermark Logo */}
+          <div className="absolute -bottom-[140px] -right-[312px] pointer-events-none z-0">
+            <img src="/assets/logo/Watermark.svg" className="w-[338px]" alt="Watermark" />
+          </div>
         
-        {/* Two-Column Header Section */}
-        <div className="flex justify-between items-start border-b border-slate-200 pb-5 mb-6">
-          {/* Left Column: Logo & Company details */}
-          <div className="w-[53%] space-y-4">
-            <div className="mb-3">
-              {/* BOSQ Logo - larger and flush left */}
+        {/* Two-Row Header Section for perfect alignment */}
+        <div className={`flex flex-col border-b border-slate-200 ${quotation.items.length === 1 ? 'pb-2 mb-3' : 'pb-5 mb-6'}`}>
+          
+          {/* Top Row: Logo & Quotation Heading */}
+          <div className="flex justify-between items-start w-full mb-6">
+            <div className="w-[53%]">
               <img
-                src="/assets/logo/bosq-orange-bg-reg.png"
+                src="/assets/logo/BOSQ R LOGO.svg"
                 alt="BOSQ"
                 className="w-44 h-14 object-contain object-left"
               />
             </div>
-            <div className="space-y-1">
-              <h2 className="font-bold text-slate-900 text-[12px] uppercase">
-                AYN MUSK FOR FURNITURE CO. L.L.C.
-              </h2>
-              <div className="flex">
-                <span className="font-bold text-slate-800 w-16">Address:</span>
-                <span className="text-slate-600 flex-1">
-                  Office No 133, KML Business Center, Al Quoz 1, Meydan Road, Dubai
-                </span>
-              </div>
-              <div className="flex">
-                <span className="font-bold text-slate-800 w-16">Emirate:</span>
-                <span className="text-slate-600 flex-1">Dubai</span>
-              </div>
-              <div className="flex">
-                <span className="font-bold text-slate-800 w-16">Email:</span>
-                <span className="text-slate-600 flex-1">accounts@bosq.ae</span>
-              </div>
-              <div className="flex">
-                <span className="font-bold text-slate-800 w-16">Contact:</span>
-                <span className="text-slate-600 flex-1">+9714 529 9697</span>
-              </div>
-              <div className="flex">
-                <span className="font-bold text-slate-800 w-16">TRN:</span>
-                <span className="text-slate-600 flex-1">100523736700003</span>
-              </div>
+            <div className="w-[44%] text-right">
+              <h1 className="text-2xl font-bold text-slate-900 uppercase tracking-tight mb-0 mt-[30px]">
+                Quotation
+              </h1>
             </div>
+          </div>
 
-            {/* Client Info Block */}
-            <div className="pt-2 space-y-1">
-              <h3 className="font-bold text-slate-900 border-b border-slate-100 pb-1 text-[11px] uppercase tracking-wide">
-                Client Information
-              </h3>
+          {/* Bottom Row: Client Info & Quotation Details */}
+          <div className="flex justify-between items-start w-full">
+            
+            {/* Left Column: Client Info Block */}
+            <div className="w-[53%] space-y-1 text-[9.9px]">
+              <h2 className="font-bold text-slate-900 text-[10.8px] uppercase mb-2">CLIENT INFORMATION</h2>
               <div className="flex">
-                <span className="font-bold text-slate-800 w-16">Company:</span>
+                <span className="font-bold text-slate-800 w-28">Quotation for:</span>
                 <span className="text-slate-600 flex-1 font-semibold">{quotation.client.companyName}</span>
               </div>
               <div className="flex">
@@ -351,139 +425,150 @@ export default function QuotationHtmlPreviewPage({
                 <span className="text-slate-600 flex-1">{quotation.client.address || "-"}</span>
               </div>
               <div className="flex">
-                <span className="font-bold text-slate-800 w-16">PO BOX:</span>
-                <span className="text-slate-600 flex-1">-</span>
+                <span className="font-bold text-slate-800 w-28">Phone:</span>
+                <span className="text-slate-600 flex-1">{quotation.client?.phone || "-"}</span>
               </div>
               <div className="flex">
-                <span className="font-bold text-slate-800 w-16">Phone:</span>
-                <span className="text-slate-600 flex-1">{quotation.client.phone || "-"}</span>
+                <span className="font-bold text-slate-800 w-28">Email:</span>
+                <span className="text-slate-600 flex-1">{quotation.client?.email || "-"}</span>
+              </div>
+              <div className="flex">
+                <span className="font-bold text-slate-800 w-28">TRN:</span>
+                <span className="text-slate-600 flex-1">{quotation.client?.trn || "-"}</span>
               </div>
             </div>
-          </div>
 
-          {/* Right Column: AYN Musk Logo, Quotation details & Barcode */}
-          <div className="w-[44%] flex flex-col items-end text-right space-y-4">
-            <div>
-              <img
-                src="/assets/logo/AYN Musk_PNG.png"
-                alt="AYN Musk"
-                className="w-32 h-9 object-contain"
-              />
-            </div>
-            
-            <div className="w-full space-y-1 text-slate-600">
-              <h1 className="text-2xl font-bold text-slate-900 uppercase tracking-tight mb-2">
-                Quotation
-              </h1>
-              
-              <div className="flex justify-end">
+            {/* Right Column: Quotation Meta Details */}
+            <div className="w-[44%] flex flex-col items-end text-right space-y-1 text-slate-600 text-[9.9px]">
+              <div className="flex justify-end w-full">
                 <span className="font-bold text-slate-800 mr-2">Date:</span>
                 <span>{formattedDate}</span>
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end w-full">
                 <span className="font-bold text-slate-800 mr-2">Quotation #:</span>
                 <span className="font-semibold text-slate-900">{quotation.quotationNumber}</span>
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end w-full">
                 <span className="font-bold text-slate-800 mr-2">TRNID:</span>
                 <span>{quotation.client.trn || "-"}</span>
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end w-full">
                 <span className="font-bold text-slate-800 mr-2">Customer ID:</span>
                 <span>{quotation.client.clientId || "-"}</span>
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end w-full">
                 <span className="font-bold text-slate-800 mr-2">Quotation Valid Until:</span>
                 <span>{formattedValidityDate}</span>
               </div>
-              <div className="flex justify-end">
-                <span className="font-bold text-slate-800 mr-2">Purchase Order:</span>
-                <span>-</span>
-              </div>
-              <div className="flex justify-end">
-                <span className="font-bold text-slate-800 mr-2">Sales Executive:</span>
-                <span>{quotation.preparedBy?.name || "Sales Executive"}</span>
-              </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end w-full">
                 <span className="font-bold text-slate-800 mr-2">Contact Number:</span>
-                <span>{quotation.preparedBy?.phone || "-"}</span>
+                <span>{quotation.salesAgentContactNumber || quotation.preparedBy?.phone || "-"}</span>
+              </div>
+
+              {/* Dynamic Barcode */}
+              <div className="pt-2 flex flex-col items-end w-full">
+                <img
+                  src={barcodeUrl}
+                  alt={quotation.quotationNumber}
+                  className="h-10 w-44 object-contain object-right"
+                />
+                <span className="text-[9px] text-slate-500 font-mono mt-1 uppercase tracking-widest text-right">
+                  {quotation.quotationNumber}
+                </span>
               </div>
             </div>
+          </div>
 
-            {/* Dynamic Barcode */}
-            <div className="pt-2 flex flex-col items-end">
-              <img
-                src={barcodeUrl}
-                alt={quotation.quotationNumber}
-                className="h-10 w-44 object-contain object-right"
-              />
-              <span className="text-[9px] text-slate-500 font-mono mt-1 uppercase tracking-widest text-right">
-                {quotation.quotationNumber}
-              </span>
+          {/* Bottom Row: Sales Executive & Project Name */}
+          <div className="flex justify-between w-full mt-6 text-[9.9px]">
+            <div>
+              <span className="font-bold mr-1" style={{ color: "#827f82" }}>Sales Executive:</span>
+              <span style={{ color: "#827f82" }}>{quotation.salesAgentName || quotation.preparedBy?.name || "Sales Executive"}</span>
             </div>
+            {quotation.projectName && (
+              <div>
+                <span className="font-bold mr-1" style={{ color: "#827f82" }}>Project:</span>
+                <span style={{ color: "#827f82" }}>{quotation.projectName}</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Project Name banner if set */}
-        {quotation.projectName && (
-          <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-sm mb-6 flex">
-            <span className="font-bold text-slate-800 mr-2">Project:</span>
-            <span className="text-slate-700 font-semibold">{quotation.projectName}</span>
-          </div>
-        )}
-
         {/* Products Table */}
-        <table className="w-full border-collapse mb-8 text-[10.5px]">
+        <table className={`w-full border-collapse text-[11px] ${quotation.items.length === 1 ? 'mb-[32px]' : 'mb-[40px]'}`}>
           <thead>
-            <tr className="bg-slate-900 text-white text-left font-semibold uppercase text-[9px] tracking-wider">
-              <th className="p-3 w-[48%] rounded-l-sm">Item Description</th>
-              <th className="p-3 w-[18%] text-center">Image</th>
-              <th className="p-3 w-[8%] text-center">QTY</th>
-              <th className="p-3 w-[12%] text-right">Price</th>
-              <th className="p-3 w-[14%] text-right rounded-r-sm">Total</th>
+            <tr className="text-slate-900 text-left font-bold border-y border-slate-900">
+              <th className="py-3 px-4 w-[48%]">Item Description</th>
+              <th className="py-3 px-4 w-[26%] text-center">Image</th>
+              <th className="py-3 px-4 w-[5%] text-center">QTY</th>
+              <th className="py-3 px-4 w-[10%] text-right">Price</th>
+              <th className="py-3 px-4 w-[11%] text-right">Total</th>
             </tr>
           </thead>
           <tbody>
             {quotation.items.map((item, idx) => (
               <tr
                 key={item.id}
-                className={`border-b border-slate-100 align-top ${
-                  idx % 2 === 1 ? "bg-slate-50/50" : ""
-                }`}
+                className="border-b border-[#fab48a] align-top"
               >
                 {/* Description and specifications */}
-                <td className="p-3">
-                  <div className="font-bold text-slate-800">{item.description}</div>
-                  {renderSpecificationsHtml(item.specifications)}
+                <td className="px-4 align-top pt-[12px] pb-[14px] w-[48%]">
+                  {/* 1. Product Name */}
+                  <div className="font-bold text-slate-900 text-[9.5px] leading-[1.1] mb-2">{item.description}</div>
+                  
+                  {/* 2. Product Type / Category */}
+                  {item.product?.category?.name && (
+                    <div className="text-[#383e42] text-[5.85px] font-bold uppercase mb-[2px] tracking-[0.08em]">
+                      {item.product.category.name}
+                    </div>
+                  )}
+
+                  {/* 2.5 Chair Type (if applicable) */}
+                  {(item.product?.category?.name?.toLowerCase() === "chair" || item.product?.category?.name?.toLowerCase() === "chairs") && item.product?.chairType && (
+                    <div className="text-[6.5px] mb-[2px] flex">
+                      <span className="font-bold text-slate-900 mr-1 shrink-0">Chair Type:</span>
+                      <span className="text-[#444444] flex-1">{item.product.chairType}</span>
+                    </div>
+                  )}
+
+                  {/* 3. Short Description */}
+                  {item.product?.shortDescription && (
+                    <div className="text-[#444444] text-[6.5px] mb-[4px] leading-[1.4] max-w-[95%] line-clamp-4">
+                      {item.product.shortDescription}
+                    </div>
+                  )}
+
+                  {/* 4, 5, 6. Specifications, Production Time, Remarks */}
+                  {renderSpecificationsHtml(item.specifications, item.productNotes)}
                 </td>
 
                 {/* Product Image */}
-                <td className="p-3 text-center">
+                <td className="px-4 text-center align-top pt-[12px] pb-[14px] w-[26%]">
                   {item.customImageUrl || item.product?.imageUrl ? (
                     <img
                       src={(item.customImageUrl || item.product?.imageUrl) ?? undefined}
                       alt={item.description}
-                      className="w-28 h-28 object-contain mx-auto"
+                      className="w-[175px] h-[175px] object-contain mx-auto"
                     />
                   ) : (
-                    <div className="w-16 h-12 border border-dashed border-slate-200 rounded-sm flex items-center justify-center text-[8px] text-slate-400 bg-slate-50 mx-auto">
+                    <div className="w-[175px] h-[175px] border border-dashed border-slate-200 rounded-sm flex items-center justify-center text-[8.5px] text-slate-400 bg-slate-50 mx-auto">
                       No Image
                     </div>
                   )}
                 </td>
 
                 {/* Qty */}
-                <td className="p-3 text-center font-medium text-slate-700">
+                <td className="px-4 text-center align-top pt-[12px] pb-[14px] w-[5%] font-medium text-slate-800">
                   {item.quantity}
                 </td>
 
                 {/* Price */}
-                <td className="p-3 text-right text-slate-700 font-mono">
+                <td className="px-4 text-right align-top pt-[12px] pb-[14px] w-[10%] text-slate-800 font-mono">
                   {formatCurrency(item.unitPrice)}
                 </td>
 
                 {/* Total */}
-                <td className="p-3 text-right font-bold text-slate-950 font-mono">
+                <td className="px-4 text-right align-top pt-[12px] pb-[14px] w-[11%] font-bold text-slate-950 font-mono">
                   {formatCurrency(item.amount)}
                 </td>
               </tr>
@@ -492,7 +577,7 @@ export default function QuotationHtmlPreviewPage({
         </table>
 
         {/* Financial Totals & Terms & Conditions side-by-side */}
-        <div className="flex justify-between items-start gap-8 mb-10 page-break-inside-avoid">
+        <div className={`flex justify-between items-start gap-8 page-break-inside-avoid ${quotation.items.length === 1 ? 'mb-4' : 'mb-10'}`}>
           {/* Left: Terms and conditions */}
           <div className="w-[50%] space-y-3">
             <h4 className="font-bold text-slate-900 border-b border-slate-100 pb-1 tracking-wide uppercase text-[10px]">
@@ -531,9 +616,9 @@ export default function QuotationHtmlPreviewPage({
         </div>
 
         {/* Signatures section */}
-        <div className="flex justify-between gap-12 pt-8 border-t border-slate-100 mt-12 page-break-inside-avoid">
+        <div className={`flex justify-between gap-12 border-t border-slate-100 page-break-inside-avoid ${quotation.items.length === 1 ? 'pt-4 mt-4' : 'pt-8 mt-12'}`}>
           <div className="w-[45%] text-left space-y-4">
-            <div className="border-b border-slate-300 h-10 w-full"></div>
+            <div className="border-b border-[#fab48a] h-10 w-full"></div>
             <div>
               <div className="font-bold text-slate-800">Prepared By</div>
               <div className="text-slate-500 text-[10px]">
@@ -543,7 +628,7 @@ export default function QuotationHtmlPreviewPage({
           </div>
 
           <div className="w-[45%] text-left space-y-4">
-            <div className="border-b border-slate-300 h-10 w-full"></div>
+            <div className="border-b border-[#fab48a] h-10 w-full"></div>
             <div>
               <div className="font-bold text-slate-800">Accepted & Approved By</div>
               <div className="text-slate-500 text-[10px]">Authorized Customer Signature</div>
@@ -552,12 +637,12 @@ export default function QuotationHtmlPreviewPage({
         </div>
 
         {/* Absolute-styled/bottom document footer */}
-        <div className="pt-12 mt-12 border-t border-slate-100 flex justify-between text-slate-500 text-[9px]">
+        <div className={`border-t border-slate-100 flex justify-between items-center text-slate-500 text-[9px] ${quotation.items.length === 1 ? 'pt-4 mt-4' : 'pt-12 mt-12'}`}>
           <div>
             <img
-              src="/assets/logo/bosq-orange-bg-reg.png"
-              alt="BOSQ"
-              className="w-14 h-4 object-contain"
+              src="/assets/logo/AYN Musk_PNG.png"
+              alt="AYN Musk"
+              className="w-24 h-6 object-contain object-left"
             />
           </div>
           <div className="text-center font-medium">

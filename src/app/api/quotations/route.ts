@@ -84,6 +84,9 @@ export async function POST(request: Request) {
       deliveryCharge,
       notes,
       status, // DRAFT, SENT, etc. — may be overridden below based on role
+      salesAgentId,
+      salesAgentName,
+      salesAgentContactNumber,
     } = body
 
     if (!clientId || !items || items.length === 0 || !paymentTerms) {
@@ -186,13 +189,26 @@ export async function POST(request: Request) {
     // Read both brand logos to base64
     let logoBase64 = ""
     try {
-      const logoPath = path.join(process.cwd(), "public", "assets", "logo", "bosq-orange-bg-reg.png")
+      const logoPath = path.join(process.cwd(), "public", "assets", "logo", "BOSQ R LOGO.svg")
       if (fs.existsSync(logoPath)) {
         const fileBuffer = fs.readFileSync(logoPath)
-        logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
+        const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+        logoBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
       }
     } catch (logoErr) {
       console.error("Failed to read logo buffer in create endpoint:", logoErr)
+    }
+
+    let watermarkBase64 = ""
+    try {
+      const watermarkPath = path.join(process.cwd(), "public", "assets", "logo", "Watermark.svg")
+      if (fs.existsSync(watermarkPath)) {
+        const fileBuffer = fs.readFileSync(watermarkPath)
+        const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+        watermarkBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
+      }
+    } catch (watermarkErr) {
+      console.error("Failed to generate watermark in create endpoint:", watermarkErr)
     }
 
     let aynMuskLogoBase64 = ""
@@ -246,6 +262,7 @@ export async function POST(request: Request) {
         productId: item.productId || null,
         description: item.description,
         specifications: item.specifications || "",
+        productNotes: item.productNotes || null,
         customImageUrl: item.customImageUrl || null,
         quantity: qty,
         basePrice: parseFloat(item.basePrice) || price, // locked segment base price
@@ -255,6 +272,7 @@ export async function POST(request: Request) {
         amount: amt,
         imageUrl: resolvedImage,
         categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
+        chairType: matchedProd?.chairType || null,
       }
     }))
 
@@ -304,10 +322,12 @@ export async function POST(request: Request) {
       grandTotal: calculatedGrandTotal,
       preparedBy: creatorUser.name,
       preparedByContact: creatorUser.phone,
+      salesAgentName: salesAgentName || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,
       barcodeBase64: barcodeBase64 || null,
+      watermarkUrl: watermarkBase64 || null,
       clientId: clientObj.clientId || null,
       items: quotationItemsToCreate,
     }
@@ -364,12 +384,16 @@ export async function POST(request: Request) {
         grandTotal: calculatedGrandTotal,
         sharepointUrl,
         notes: notes || null,
+        salesAgentId: salesAgentId || null,
+        salesAgentName: salesAgentName || null,
+        salesAgentContactNumber: salesAgentContactNumber || null,
         items: {
           create: quotationItemsToCreate.map((item: any) => ({
             itemNo: item.itemNo,
             productId: item.productId,
             description: item.description,
             specifications: item.specifications,
+            productNotes: item.productNotes,
             customImageUrl: item.imageUrl,
             quantity: item.quantity,
             basePrice: item.basePrice,

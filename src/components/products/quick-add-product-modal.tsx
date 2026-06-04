@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { ImageCropper } from "@/components/ui/image-cropper"
+import RichTextEditor from "@/components/ui/rich-text-editor"
 
 interface Product {
   id: string
@@ -33,7 +34,7 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
   const [categoryName, setCategoryName] = useState("Chairs")
   const [price, setPrice] = useState("")
   const [warranty, setWarranty] = useState("5 Years")
-  const [dimensions, setDimensions] = useState("")
+  const [shortDescription, setShortDescription] = useState("")
   const [specifications, setSpecifications] = useState("")
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [base64Image, setBase64Image] = useState<string | null>(null)
@@ -122,6 +123,11 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
       return
     }
 
+    if (shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260)) {
+      toast.error("Short description must be between 145 and 260 characters.")
+      return
+    }
+
     setLoading(true)
     try {
       if (isSalesExec) {
@@ -151,9 +157,9 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
             productCode: code || undefined,
             categoryName: categoryName || "General",
             unitPrice: parseFloat(price) || 0.0,
+            shortDescription: shortDescription || undefined,
             specifications: specifications || undefined,
             warranty,
-            dimensions: dimensions || "Standard",
             imageUrl: base64Image || undefined,
           }),
         })
@@ -185,7 +191,7 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
       setCategoryName("Chairs")
       setPrice("")
       setWarranty("5 Years")
-      setDimensions("")
+      setShortDescription("")
       setSpecifications("")
       setImagePreview(null)
       setBase64Image(null)
@@ -281,27 +287,37 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
               )}
             </div>
 
+            {/* Short Description field for all users */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold flex justify-between">
+                <span>Short Description</span>
+                <span className={`text-[10px] ${shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260) ? "text-destructive font-bold" : "text-muted-foreground"}`}>
+                  {shortDescription.length} / 260 (Min 145)
+                </span>
+              </label>
+              <textarea
+                className={`w-full border rounded-md px-3 py-2 text-sm bg-background resize-none min-h-[60px] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260) ? "border-destructive focus:ring-destructive" : ""}`}
+                value={shortDescription}
+                onChange={(e) => setShortDescription(e.target.value)}
+                placeholder={"Enter a brief product summary (145-260 characters)..."}
+              />
+              {shortDescription.length > 0 && shortDescription.length < 145 && (
+                <p className="text-[10px] text-destructive">Short description must be at least 145 characters.</p>
+              )}
+              {shortDescription.length > 260 && (
+                <p className="text-[10px] text-destructive">Short description cannot exceed 260 characters.</p>
+              )}
+            </div>
+
             {/* Specifications field for all users */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold">Specifications</label>
-              <textarea
-                className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+              <RichTextEditor
                 value={specifications}
-                onChange={(e) => setSpecifications(e.target.value)}
-                placeholder={"Material: Leather\nColor: Black\nDimensions: 680W x 620D x 1200H"}
+                onChange={(val) => setSpecifications(val)}
+                placeholder="Material: Leather\nColor: Black"
               />
             </div>
-
-            {!isSalesExec && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold">Dimensions</label>
-                <Input 
-                  value={dimensions} 
-                  onChange={(e) => setDimensions(e.target.value)} 
-                  placeholder="E.g., 680W x 620D x 1200H" 
-                />
-              </div>
-            )}
 
             {/* Image Selector */}
             <div className="space-y-2">

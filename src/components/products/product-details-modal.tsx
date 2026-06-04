@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { X, ShoppingCart, Plus, Minus, Package, BadgeCheck, ShieldAlert, Sparkles, HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import parse from "html-react-parser"
 
 interface Product {
   id: string
@@ -18,6 +19,7 @@ interface Product {
   availableColors: string | null
   dimensions: string | null
   specifications: string | null
+  shortDescription: string | null
   description?: string | null
   status: string
   imageUrl: string | null
@@ -153,13 +155,7 @@ export function ProductDetailsModal({
                 <div className="h-px bg-border/60" />
 
                 {/* Attributes Grid */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 border bg-muted/10 rounded-2xl">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Dimensions</span>
-                    <span className="text-xs font-semibold text-foreground block mt-1.5 truncate">
-                      {product.dimensions || "Standard dimensions"}
-                    </span>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-3 border bg-muted/10 rounded-2xl">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Warranty Period</span>
                     <span className="text-xs font-semibold text-foreground block mt-1.5 truncate">
@@ -175,13 +171,8 @@ export function ProductDetailsModal({
                       <BadgeCheck className="h-4 w-4 text-primary" />
                       Technical Specifications
                     </span>
-                    <div className="text-xs leading-relaxed text-foreground/80 space-y-1 mt-2">
-                      {product.specifications.split("\n").map((line, idx) => (
-                        <p key={idx} className="flex items-start gap-1.5">
-                          <span className="text-primary mt-1 shrink-0">•</span>
-                          <span>{line.replace(/^[•\-\*]\s*/, "")}</span>
-                        </p>
-                      ))}
+                    <div className="text-xs leading-relaxed text-foreground/80 space-y-2 mt-3 prose prose-sm prose-p:my-1 prose-ul:my-1 prose-li:my-0">
+                      {parse(product.specifications)}
                     </div>
                   </div>
                 )}

@@ -44,6 +44,8 @@ interface Product {
   availableColors: string | null
   dimensions: string | null
   specifications: string | null
+  shortDescription: string | null
+  description?: string | null
   status: string
   imageUrl: string | null
   category: {
@@ -723,6 +725,7 @@ export default function ProductsPage() {
           setEditingProduct(null)
         }}
         onSuccess={fetchProducts}
+        userRole={userRole}
       />
 
       {/* Quote Cart Drawer */}

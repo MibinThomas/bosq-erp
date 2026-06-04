@@ -57,7 +57,14 @@ export async function PUT(
       availableColors,
       dimensions,
       imageUrl,
+      imageUrls,
       status,
+      shortDescription,
+      chairType,
+      tableTopFinish,
+      legType,
+      storageOptions,
+      finishMaterial,
     } = body
 
     if (!productName || !categoryName) {
@@ -65,6 +72,15 @@ export async function PUT(
         { error: "Product name and category are required" },
         { status: 400 }
       )
+    }
+
+    if (shortDescription) {
+      if (shortDescription.length < 145 || shortDescription.length > 260) {
+        return NextResponse.json(
+          { error: "Short description must be between 145 and 260 characters." },
+          { status: 400 }
+        )
+      }
     }
 
     // 1. Get or create category
@@ -89,6 +105,7 @@ export async function PUT(
         productName: productName.trim(),
         categoryId: category.id,
         description: description || null,
+        shortDescription: shortDescription || null,
         specifications: specifications || null,
         unitPrice: parseFloat(unitPrice) || 0.0,
         costPrice: parseFloat(costPrice) || 0.0,
@@ -96,10 +113,16 @@ export async function PUT(
         dealerPrice: parseFloat(body.dealerPrice) !== undefined ? parseFloat(body.dealerPrice) : undefined,
         directPrice: parseFloat(body.directPrice) !== undefined ? parseFloat(body.directPrice) : undefined,
         onlinePrice: parseFloat(body.onlinePrice) !== undefined ? parseFloat(body.onlinePrice) : undefined,
-        warranty: warranty || "5 Years",
-        availableColors: availableColors || "Standard",
-        dimensions: dimensions || "Standard",
-        imageUrl: imageUrl || undefined,
+        warranty: warranty || null,
+        availableColors: availableColors || null,
+        dimensions: dimensions || null,
+        imageUrl: imageUrl !== undefined ? imageUrl : undefined,
+        imageUrls: imageUrls !== undefined ? imageUrls : undefined,
+        chairType: chairType !== undefined ? chairType : undefined,
+        tableTopFinish: tableTopFinish !== undefined ? tableTopFinish : undefined,
+        legType: legType !== undefined ? legType : undefined,
+        storageOptions: storageOptions !== undefined ? storageOptions : undefined,
+        finishMaterial: finishMaterial !== undefined ? finishMaterial : undefined,
         status: status || "ACTIVE",
       },
       include: {

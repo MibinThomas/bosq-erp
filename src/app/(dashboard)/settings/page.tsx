@@ -107,6 +107,7 @@ export default function SettingsPage() {
   const [directPct, setDirectPct] = useState(50)
   const [onlinePct, setOnlinePct] = useState(75)
   const [savingPricing, setSavingPricing] = useState(false)
+  const [recalculating, setRecalculating] = useState(false)
 
   // Fetch all system settings on load
   useEffect(() => {
@@ -442,6 +443,29 @@ export default function SettingsPage() {
     }
   }
 
+  const handleRecalculatePrices = async () => {
+    if (!confirm("Are you sure you want to recalculate ALL existing product prices using the current margins? This will overwrite any manual overrides on products. Quotations and BOQs will NOT be affected.")) return
+    
+    setRecalculating(true)
+    try {
+      const res = await fetch("/api/settings/pricing/recalculate", {
+        method: "POST"
+      })
+      if (res.ok) {
+        const data = await res.json()
+        toast.success(`Successfully updated ${data.updatedCount} products!`)
+      } else {
+        const errData = await res.json()
+        toast.error(errData.error || "Failed to recalculate prices")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("An error occurred while recalculating prices")
+    } finally {
+      setRecalculating(false)
+    }
+  }
+
   if (pageLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -470,7 +494,7 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger value="pricing" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
             <Tag className="h-4 w-4" />
-            Pricing Markup
+            Pricing Margins
           </TabsTrigger>
           <TabsTrigger value="users" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
             <Users className="h-4 w-4" />
@@ -554,23 +578,23 @@ export default function SettingsPage() {
           </form>
         </TabsContent>
 
-        {/* Tab: Pricing Markup */}
+        {/* Tab: Pricing Margins */}
         <TabsContent value="pricing" className="mt-6">
           <form onSubmit={handleSavePricing}>
             <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl">
               <CardHeader className="border-b border-slate-800/80 pb-4">
                 <CardTitle className="text-xl flex items-center gap-2">
                   <Tag className="text-orange-500 h-5 w-5" />
-                  Pricing Markup
+                  Pricing Margins
                 </CardTitle>
                 <CardDescription className="text-slate-400">
-                  Set the default markup percentages used to auto-calculate price tiers from the Base Price during bulk imports.
+                  Set the default margin percentages used to auto-calculate price tiers based on product Cost Price.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-6">
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-2">
-                    <Label className="text-slate-300">Dealer Markup (%)</Label>
+                    <Label className="text-slate-300">Dealer Margin (%)</Label>
                     <div className="relative">
                       <Input 
                         type="number" 
@@ -584,7 +608,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-slate-300">Interior Markup (%)</Label>
+                    <Label className="text-slate-300">Interior Margin (%)</Label>
                     <div className="relative">
                       <Input 
                         type="number" 
@@ -598,7 +622,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-slate-300">Direct Markup (%)</Label>
+                    <Label className="text-slate-300">Direct Margin (%)</Label>
                     <div className="relative">
                       <Input 
                         type="number" 
@@ -612,7 +636,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-slate-300">Online Markup (%)</Label>
+                    <Label className="text-slate-300">Online Margin (%)</Label>
                     <div className="relative">
                       <Input 
                         type="number" 
@@ -626,10 +650,14 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="pt-4 border-t border-slate-800 flex justify-end mt-4">
+                <div className="pt-4 border-t border-slate-800 flex justify-between mt-4">
+                  <Button type="button" onClick={handleRecalculatePrices} variant="outline" className="border-red-900 text-red-500 hover:bg-red-950 hover:text-red-400 font-semibold flex items-center gap-2" disabled={recalculating}>
+                    {recalculating && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Recalculate Existing Products
+                  </Button>
                   <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white font-semibold flex items-center gap-2" disabled={savingPricing}>
                     {savingPricing && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Save Pricing Markup
+                    Save Pricing Margins
                   </Button>
                 </div>
               </CardContent>

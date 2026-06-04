@@ -12,6 +12,7 @@ import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import RichTextEditor from "@/components/ui/rich-text-editor"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import {
   Form,
@@ -43,6 +44,9 @@ const quotationSchema = z.object({
   deliveryDate: z.string().optional(),
   paymentTerms: z.string().min(1, "Payment terms is required"),
   preparedById: z.string().optional(),
+  salesAgentId: z.string().optional(),
+  salesAgentName: z.string().optional(),
+  salesAgentContactNumber: z.string().optional(),
   deliveryCharge: z.number().min(0),
   notes: z.string().optional(),
   items: z.array(
@@ -50,6 +54,7 @@ const quotationSchema = z.object({
       productId: z.string().nullable().optional(),
       description: z.string().min(1, "Description is required"),
       specifications: z.string(),
+      productNotes: z.string().optional(),
       quantity: z.number().min(1, "Quantity must be at least 1"),
       basePrice: z.number().min(0),
       unitPrice: z.number().min(0, "Price must be at least 0"),
@@ -157,6 +162,9 @@ function NewQuotationForm() {
               projectName: activeData.projectName || "",
               customerSegment: activeData.customerSegment || "Direct",
               preparedById: activeData.preparedById || "",
+              salesAgentId: activeData.salesAgentId || activeData.preparedById || "",
+              salesAgentName: activeData.salesAgentName || "",
+              salesAgentContactNumber: activeData.salesAgentContactNumber || "",
               date: reviseId ? new Date().toISOString().split("T")[0] : activeData.date.split("T")[0],
               validityDate: reviseId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : activeData.validityDate.split("T")[0],
               deliveryDate: activeData.deliveryDate ? new Date(activeData.deliveryDate).toISOString().split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -168,6 +176,7 @@ function NewQuotationForm() {
                   productId: item.productId || "",
                   description: item.description,
                   specifications: item.specifications || "",
+                  productNotes: item.productNotes || "",
                   quantity: item.quantity,
                   basePrice: Number(basePriceVal.toFixed(2)),
                   unitPrice: item.unitPrice,
@@ -199,12 +208,15 @@ function NewQuotationForm() {
       try {
         const data = JSON.parse(cachedCart)
         localStorage.removeItem("quoteCartItems")
-        
+
         form.reset({
           clientId: data.clientId,
           customerSegment: data.customerSegment || "Direct",
           projectName: "",
           preparedById: (session?.user as any)?.id || "",
+          salesAgentId: (session?.user as any)?.id || "",
+          salesAgentName: (session?.user as any)?.name || "",
+          salesAgentContactNumber: (session?.user as any)?.phone || "",
           date: new Date().toISOString().split("T")[0],
           validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
           deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -213,6 +225,7 @@ function NewQuotationForm() {
             productId: item.productId || "",
             description: item.description,
             specifications: item.specifications || "",
+            productNotes: "",
             quantity: item.quantity,
             basePrice: item.basePrice,
             unitPrice: item.unitPrice,
@@ -223,7 +236,7 @@ function NewQuotationForm() {
           deliveryCharge: 0,
           notes: "",
         })
-        
+
         toast.success("Pre-filled quotation from Product Master Quote Cart!")
       } catch (err) {
         console.error("Failed to parse cached quoteCartItems:", err)
@@ -238,11 +251,14 @@ function NewQuotationForm() {
       projectName: "",
       customerSegment: "Direct",
       preparedById: (session?.user as any)?.id || "",
+      salesAgentId: (session?.user as any)?.id || "",
+      salesAgentName: (session?.user as any)?.name || "",
+      salesAgentContactNumber: (session?.user as any)?.phone || "",
       date: new Date().toISOString().split("T")[0],
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", description: "", specifications: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0 }],
+      items: [{ productId: "", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0 }],
       deliveryCharge: 0,
       notes: "",
     },
@@ -302,7 +318,7 @@ function NewQuotationForm() {
           else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
           else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
           else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
-          
+
           form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
           const margin = item.margin || 0
           const calculatedPrice = basePrice * (1 + margin / 100)
@@ -328,65 +344,65 @@ function NewQuotationForm() {
       form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.unitPrice`, basePrice, { shouldValidate: true, shouldDirty: true })
-      
+
       toast.info(`Populated ${matchedProduct.productName} for ${watchSegment} segment at base price AED ${basePrice}!`)
     }
   }
 
-    async function onSubmit(data: QuotationFormValues) {
-      // Check if selected client is approved
-      const selectedClient = clients.find((c) => c.id === data.clientId)
-      if (selectedClient && selectedClient.status !== "Approved") {
-        const errorMsg = selectedClient.status === "Pending Approval"
-          ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
-          : "This client has been rejected. Please contact Admin/Manager before creating quotation."
-        toast.error(errorMsg)
-        return
+  async function onSubmit(data: QuotationFormValues) {
+    // Check if selected client is approved
+    const selectedClient = clients.find((c) => c.id === data.clientId)
+    if (selectedClient && selectedClient.status !== "Approved") {
+      const errorMsg = selectedClient.status === "Pending Approval"
+        ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
+        : "This client has been rejected. Please contact Admin/Manager before creating quotation."
+      toast.error(errorMsg)
+      return
+    }
+
+    if (isRevision && !revisionNotes.trim()) {
+      toast.error("Revision notes are required to revise this quotation!")
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const url = (isRevision || isEdit) ? `/api/quotations/${existingQuote.id}` : "/api/quotations"
+      const method = (isRevision || isEdit) ? "PUT" : "POST"
+
+      const res = await fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          isRevision: isRevision,
+          isUpdate: isEdit,
+          revisionNotes: revisionNotes,
+          status: isManagerOrAdmin ? "APPROVED" : "PENDING_APPROVAL",
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to submit quotation")
       }
 
-      if (isRevision && !revisionNotes.trim()) {
-        toast.error("Revision notes are required to revise this quotation!")
-        return
-      }
-
-      setSubmitting(true)
-      try {
-        const url = (isRevision || isEdit) ? `/api/quotations/${existingQuote.id}` : "/api/quotations"
-        const method = (isRevision || isEdit) ? "PUT" : "POST"
-
-        const res = await fetch(url, {
-          method: method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...data,
-            isRevision: isRevision,
-            isUpdate: isEdit,
-            revisionNotes: revisionNotes,
-            status: isManagerOrAdmin ? "APPROVED" : "PENDING_APPROVAL",
-          }),
-        })
-
-        if (!res.ok) {
-          const err = await res.json()
-          throw new Error(err.error || "Failed to submit quotation")
-        }
-
-        const result = await res.json()
-        toast.success(
-          isRevision
-            ? `Quotation revised successfully to Revision #${result.revisionNumber}! PDF updated on SharePoint.`
-            : isEdit
+      const result = await res.json()
+      toast.success(
+        isRevision
+          ? `Quotation revised successfully to Revision #${result.revisionNumber}! PDF updated on SharePoint.`
+          : isEdit
             ? `Quotation ${result.quotationNumber} updated successfully! PDF updated on SharePoint.`
             : `Quotation ${result.quotationNumber} compiled & uploaded to SharePoint!`
-        )
-        router.push("/quotations")
-      } catch (error: any) {
-        console.error("Error submitting quotation:", error)
-        toast.error(error.message || "Failed to submit quotation. Please try again.")
-      } finally {
-        setSubmitting(false)
-      }
+      )
+      router.push("/quotations")
+    } catch (error: any) {
+      console.error("Error submitting quotation:", error)
+      toast.error(error.message || "Failed to submit quotation. Please try again.")
+    } finally {
+      setSubmitting(false)
     }
+  }
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -404,8 +420,8 @@ function NewQuotationForm() {
             {isRevision
               ? `Create a new revised version of Quotation ${existingQuote?.quotationNumber}`
               : isEdit
-              ? `Modify and update Quotation ${existingQuote?.quotationNumber}`
-              : "Select a client, add catalog products, and compile a PDF immediately."}
+                ? `Modify and update Quotation ${existingQuote?.quotationNumber}`
+                : "Select a client, add catalog products, and compile a PDF immediately."}
           </p>
         </div>
       </div>
@@ -469,7 +485,7 @@ function NewQuotationForm() {
                     Client Details
                   </CardTitle>
                 </CardHeader>
-                 <CardContent className="space-y-4">
+                <CardContent className="space-y-4">
                   {selectedClientObj && selectedClientObj.status !== "Approved" && (
                     <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3 text-destructive animate-in fade-in">
                       <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
@@ -515,9 +531,9 @@ function NewQuotationForm() {
                               <CommandInput placeholder="Search client name..." />
                               <CommandList>
                                 <CommandEmpty>No client found.</CommandEmpty>
-                                 <CommandGroup>
-                                   {clients.filter(c => c.status === "Approved").map((client) => (
-                                     <CommandItem
+                                <CommandGroup>
+                                  {clients.filter(c => c.status === "Approved").map((client) => (
+                                    <CommandItem
                                       value={client.companyName}
                                       key={client.id}
                                       onSelect={() => {
@@ -657,25 +673,35 @@ function NewQuotationForm() {
                     )}
                   />
 
-                  {isManagerOrAdmin && (
+                  {isManagerOrAdmin ? (
                     <FormField
                       control={form.control}
-                      name="preparedById"
+                      name="salesAgentId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Prepared By (Design Consultant)</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormLabel>Sales Agent <span className="text-red-500">*</span></FormLabel>
+                          <Select
+                            onValueChange={(val) => {
+                              field.onChange(val)
+                              const selectedUser = users.find((u) => u.id === val)
+                              if (selectedUser) {
+                                form.setValue("salesAgentName", selectedUser.name)
+                                form.setValue("salesAgentContactNumber", selectedUser.phone || "")
+                              }
+                            }}
+                            value={field.value || ""}
+                          >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select consultant">
-                                  {users.find(u => u.id === field.value)?.name || "Select consultant"}
+                                <SelectValue placeholder="Select sales agent">
+                                  {users.find(u => u.id === field.value)?.name || "Select sales agent"}
                                 </SelectValue>
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {users.map((u) => (
                                 <SelectItem key={u.id} value={u.id}>
-                                  {u.name}
+                                  {u.name} {u.role && `(${u.role})`}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -684,6 +710,11 @@ function NewQuotationForm() {
                         </FormItem>
                       )}
                     />
+                  ) : (
+                    <FormItem>
+                      <FormLabel>Sales Agent</FormLabel>
+                      <Input value={(session?.user as any)?.name || "Sales Rep"} disabled />
+                    </FormItem>
                   )}
                 </CardContent>
               </Card>
@@ -761,7 +792,7 @@ function NewQuotationForm() {
                                           else if (watchSegment === "Online") basePrice = product.onlinePrice ?? product.unitPrice
 
                                           const productLabel = `${product.productCode} - ${product.productName}`
-                                          
+
                                           return (
                                             <CommandItem
                                               value={`${productLabel} ${basePrice}`}
@@ -855,13 +886,30 @@ function NewQuotationForm() {
                               <FormItem>
                                 <FormLabel>Quotation Specifications</FormLabel>
                                 <FormControl>
-                                  <Textarea
+                                  <RichTextEditor
                                     placeholder="Spec details (e.g. Dimensions, colors, soft-close drawers...)"
-                                    rows={2}
-                                    {...field}
                                     value={field.value || ""}
+                                    onChange={(val) => field.onChange(val)}
                                   />
                                 </FormControl>
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.productNotes`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Product Notes</FormLabel>
+                                <FormControl>
+                                  <Textarea
+                                    placeholder="Special notes, customization, delivery remarks..."
+                                    {...field}
+                                    rows={2}
+                                  />
+                                </FormControl>
+                                <FormMessage />
                               </FormItem>
                             )}
                           />
@@ -934,7 +982,7 @@ function NewQuotationForm() {
                                   onChange={(e) => {
                                     const newMargin = parseFloat(e.target.value) || 0
                                     field.onChange(newMargin)
-                                    
+
                                     const itemId = watchItems[index]?.productId
                                     const matchedProduct = products.find((p) => p.id === itemId)
                                     let basePrice = 0
@@ -947,7 +995,7 @@ function NewQuotationForm() {
                                     } else {
                                       basePrice = watchItems[index]?.basePrice || 0
                                     }
-                                    
+
                                     if (basePrice > 0) {
                                       const newPrice = basePrice * (1 + newMargin / 100)
                                       form.setValue(`items.${index}.unitPrice`, Number(newPrice.toFixed(2)))
@@ -975,7 +1023,7 @@ function NewQuotationForm() {
                                   onChange={(e) => {
                                     const newPrice = parseFloat(e.target.value) || 0
                                     field.onChange(newPrice)
-                                    
+
                                     const itemId = watchItems[index]?.productId
                                     const matchedProduct = products.find((p) => p.id === itemId)
                                     let basePrice = 0
@@ -994,7 +1042,7 @@ function NewQuotationForm() {
                                         basePrice = watchItems[index]?.basePrice || 0
                                       }
                                     }
-                                    
+
                                     if (basePrice > 0) {
                                       const calculatedMargin = ((newPrice / basePrice) - 1) * 100
                                       form.setValue(`items.${index}.margin`, Number(calculatedMargin.toFixed(1)))
@@ -1097,9 +1145,9 @@ function NewQuotationForm() {
                   Cancel
                 </Button>
               </Link>
-              <Button 
-                type="submit" 
-                disabled={submitting || (selectedClientObj && selectedClientObj.status !== "Approved")} 
+              <Button
+                type="submit"
+                disabled={submitting || (selectedClientObj && selectedClientObj.status !== "Approved")}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
@@ -1132,7 +1180,7 @@ function NewQuotationForm() {
           if (!isTemp) {
             setProducts(prev => [...prev, newProduct])
           }
-          
+
           // Auto-populate the active line item
           if (activeLineIndex !== null) {
             let basePrice = newProduct.unitPrice

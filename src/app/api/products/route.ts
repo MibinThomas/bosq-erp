@@ -42,6 +42,13 @@ export async function POST(request: Request) {
       availableColors,
       dimensions,
       imageUrl,
+      imageUrls,
+      shortDescription,
+      chairType,
+      tableTopFinish,
+      legType,
+      storageOptions,
+      finishMaterial,
     } = body
 
     if (!productName || !categoryName) {
@@ -49,6 +56,15 @@ export async function POST(request: Request) {
         { error: "Product name and category are required" },
         { status: 400 }
       )
+    }
+
+    if (shortDescription) {
+      if (shortDescription.length < 145 || shortDescription.length > 260) {
+        return NextResponse.json(
+          { error: "Short description must be between 145 and 260 characters." },
+          { status: 400 }
+        )
+      }
     }
 
     // 1. Get or create category
@@ -91,6 +107,7 @@ export async function POST(request: Request) {
         productName,
         categoryId: category.id,
         description,
+        shortDescription,
         specifications,
         unitPrice: parseFloat(unitPrice) || 0.0,
         costPrice: parseFloat(costPrice) || 0.0,
@@ -98,10 +115,16 @@ export async function POST(request: Request) {
         dealerPrice: parseFloat(body.dealerPrice) || parseFloat(unitPrice) || 0.0,
         directPrice: parseFloat(body.directPrice) || parseFloat(unitPrice) || 0.0,
         onlinePrice: parseFloat(body.onlinePrice) || parseFloat(unitPrice) || 0.0,
-        warranty: warranty || "5 Years",
-        availableColors: availableColors || "Standard",
-        dimensions: dimensions || "Standard",
+        warranty: warranty || null,
+        availableColors: availableColors || null,
+        dimensions: dimensions || null,
         imageUrl: imageUrl || null,
+        imageUrls: imageUrls || [],
+        chairType: chairType || null,
+        tableTopFinish: tableTopFinish || null,
+        legType: legType || null,
+        storageOptions: storageOptions || null,
+        finishMaterial: finishMaterial || null,
         status: "ACTIVE",
       },
       include: {
