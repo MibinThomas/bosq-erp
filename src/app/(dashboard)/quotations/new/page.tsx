@@ -190,6 +190,39 @@ const ProductSearchSelect = React.memo(({
 })
 ProductSearchSelect.displayName = "ProductSearchSelect"
 
+interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "onChange" | "value"> {
+  value: string | number
+  onChange: (value: string) => void
+}
+
+const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
+  ({ value, onChange, onBlur, ...props }, ref) => {
+    const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
+
+    React.useEffect(() => {
+      setLocalVal(String(value ?? ""))
+    }, [value])
+
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      onChange(localVal)
+      if (onBlur) {
+        onBlur(e)
+      }
+    }
+
+    return (
+      <Input
+        ref={ref}
+        value={localVal}
+        onChange={(e) => setLocalVal(e.target.value)}
+        onBlur={handleBlur}
+        {...props}
+      />
+    )
+  }
+)
+NumericInput.displayName = "NumericInput"
+
 function NewQuotationForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -989,14 +1022,13 @@ function NewQuotationForm() {
                                 {!isManagerOrAdmin && <Lock className="h-3 w-3 text-muted-foreground" />}
                               </FormLabel>
                               <FormControl>
-                                <Input
+                                <NumericInput
                                   type="number"
                                   min="0"
                                   step="0.01"
                                   disabled={!isManagerOrAdmin}
-                                  {...field}
-                                  onChange={(e) => {
-                                    const val = e.target.value
+                                  value={field.value}
+                                  onChange={(val) => {
                                     field.onChange(val === "" ? "" : (parseFloat(val) || 0))
                                     const newBase = val === "" ? 0 : (parseFloat(val) || 0)
                                     const currentMargin = parseFloat(watchItems[index]?.margin as any) || 0
@@ -1017,12 +1049,11 @@ function NewQuotationForm() {
                             <FormItem>
                               <FormLabel>Qty</FormLabel>
                               <FormControl>
-                                <Input
+                                <NumericInput
                                   type="number"
                                   min="1"
-                                  {...field}
-                                  onChange={(e) => {
-                                    const val = e.target.value
+                                  value={field.value}
+                                  onChange={(val) => {
                                     field.onChange(val === "" ? "" : (parseInt(val) || 0))
                                   }}
                                 />
@@ -1039,13 +1070,12 @@ function NewQuotationForm() {
                             <FormItem>
                               <FormLabel>Margin (%)</FormLabel>
                               <FormControl>
-                                <Input
+                                <NumericInput
                                   type="number"
                                   min="-100"
                                   step="0.1"
-                                  {...field}
-                                  onChange={(e) => {
-                                    const val = e.target.value
+                                  value={field.value}
+                                  onChange={(val) => {
                                     const newMargin = val === "" ? 0 : (parseFloat(val) || 0)
                                     field.onChange(val === "" ? "" : newMargin)
 
@@ -1081,13 +1111,12 @@ function NewQuotationForm() {
                             <FormItem>
                               <FormLabel>Unit Price (AED)</FormLabel>
                               <FormControl>
-                                <Input
+                                <NumericInput
                                   type="number"
                                   min="0"
                                   step="0.01"
-                                  {...field}
-                                  onChange={(e) => {
-                                    const val = e.target.value
+                                  value={field.value}
+                                  onChange={(val) => {
                                     const newPrice = val === "" ? 0 : (parseFloat(val) || 0)
                                     field.onChange(val === "" ? "" : newPrice)
 
@@ -1133,13 +1162,12 @@ function NewQuotationForm() {
                             <FormItem>
                               <FormLabel>Discount (AED)</FormLabel>
                               <FormControl>
-                                <Input
+                                <NumericInput
                                   type="number"
                                   min="0"
                                   step="0.01"
-                                  {...field}
-                                  onChange={(e) => {
-                                    const val = e.target.value
+                                  value={field.value}
+                                  onChange={(val) => {
                                     field.onChange(val === "" ? "" : (parseFloat(val) || 0))
                                   }}
                                 />
@@ -1192,13 +1220,12 @@ function NewQuotationForm() {
                         name="deliveryCharge"
                         render={({ field }) => (
                           <FormControl>
-                            <Input
+                            <NumericInput
                               type="number"
                               className="h-8 text-right font-mono"
                               min="0"
-                              {...field}
-                              onChange={(e) => {
-                                const val = e.target.value
+                              value={field.value}
+                              onChange={(val) => {
                                 field.onChange(val === "" ? "" : (parseFloat(val) || 0))
                               }}
                             />
