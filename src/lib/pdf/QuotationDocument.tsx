@@ -165,11 +165,12 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     alignItems: "flex-start", // Align columns to top
   },
-  colDesc: { width: "48%", paddingRight: 20 },
+  colDesc: { width: "44%", paddingRight: 20 },
   colImage: { width: "26%", alignItems: "center", justifyContent: "center", paddingRight: 10 },
-  colQty: { width: "5%", textAlign: "center" },
-  colPrice: { width: "10%", textAlign: "right" },
-  colAmount: { width: "11%", textAlign: "right" },
+  colRight: { width: "30%", flexDirection: "row", alignItems: "flex-start" },
+  colQty: { width: "20%", textAlign: "center" },
+  colPrice: { width: "40%", textAlign: "right" },
+  colAmount: { width: "40%", textAlign: "right" },
 
   itemTitle: {
     fontSize: 9.5,
@@ -668,9 +669,11 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         <View style={[styles.tableHeader, items.length === 1 ? { paddingVertical: 6 } : {}]}>
           <Text style={styles.colDesc}>Item Description</Text>
           <Text style={[styles.colImage, { textAlign: "center" }]}>Image</Text>
-          <Text style={styles.colQty}>QTY</Text>
-          <Text style={styles.colPrice}>Price</Text>
-          <Text style={styles.colAmount}>Total</Text>
+          <View style={styles.colRight}>
+            <Text style={styles.colQty}>QTY</Text>
+            <Text style={styles.colPrice}>Price</Text>
+            <Text style={styles.colAmount}>Total</Text>
+          </View>
         </View>
 
         {/* Item Rows */}
@@ -714,14 +717,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               )}
             </View>
 
-            {/* Qty */}
-            <Text style={styles.colQty}>{item.quantity}</Text>
-
-            {/* Price (AED) */}
-            <Text style={styles.colPrice}>{formatCurrency(item.unitPrice)}</Text>
-
-            {/* Total Amount (AED) */}
-            <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
+            {/* Qty, Price, Total Grouped into 30% Column */}
+            <View style={styles.colRight}>
+              <Text style={styles.colQty}>{item.quantity}</Text>
+              <Text style={styles.colPrice}>{formatCurrency(item.unitPrice)}</Text>
+              <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
+            </View>
           </View>
         ))}
 
