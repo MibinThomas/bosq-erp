@@ -690,7 +690,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
               {/* 2.5 Chair Type (if applicable) */}
               {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
-                <View style={{ flexDirection: "row", marginBottom: 6, fontSize: 6.5 }}>
+                <View style={{ flexDirection: "row", marginTop: -2, marginBottom: 4, fontSize: 6.5 }}>
                   <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
                   <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
                 </View>

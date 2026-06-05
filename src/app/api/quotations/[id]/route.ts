@@ -220,6 +220,7 @@ export async function PUT(
           imageUrl: resolvedImage, // this will be used for PDF rendering
           categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
           chairType: matchedProd?.chairType || null,
+          shortDescription: matchedProd?.shortDescription || null,
         }
       }))
 
@@ -527,6 +528,7 @@ export async function PUT(
           imageUrl: resolvedImage,
           categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
           chairType: matchedProd?.chairType || null,
+          shortDescription: matchedProd?.shortDescription || null,
         }
       }))
 
