@@ -165,60 +165,59 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     alignItems: "flex-start", // Align columns to top
   },
-  colDesc: { width: "44%", paddingRight: 20 },
-  colImage: { width: "26%", alignItems: "center", justifyContent: "center", paddingRight: 10 },
-  colRight: { width: "30%", flexDirection: "row", alignItems: "flex-start" },
-  colQty: { width: "20%", textAlign: "center" },
-  colPrice: { width: "40%", textAlign: "right" },
-  colAmount: { width: "40%", textAlign: "right" },
+  colDesc: { width: "55%", paddingRight: 15 },
+  colImage: { width: "20%", alignItems: "center", justifyContent: "flex-start", paddingRight: 10 },
+  colRight: { width: "25%", flexDirection: "row", alignItems: "flex-start" },
+  colQty: { width: "28%", textAlign: "center" },
+  colPrice: { width: "36%", textAlign: "right" },
+  colAmount: { width: "36%", textAlign: "right" },
 
   itemTitle: {
-    fontSize: 9.5,
+    fontSize: 11,
     fontWeight: "bold",
     color: colors.primary,
-    marginBottom: 8,
-    lineHeight: 1.1,
+    marginBottom: 5,
+    lineHeight: 1.2,
     maxLines: 2,
   },
   itemCategory: {
-    fontSize: 5.85,
+    fontSize: 8,
     fontWeight: "bold",
-    color: "#383e42",
+    color: "#1E3A8A", // BOSQ Blue
     textTransform: "uppercase",
-    marginBottom: 2,
+    marginBottom: 4,
     letterSpacing: 0.8,
   },
   itemDescText: {
-    fontSize: 6.5,
+    fontSize: 8.5,
     color: "#444444",
-    marginBottom: 4,
+    marginBottom: 6,
     lineHeight: 1.4,
     width: "95%",
-    maxLines: 4,
   },
   
   // Dynamic attribute specification styles
   specRow: {
     flexDirection: "row",
-    fontSize: 6,
+    fontSize: 9,
     color: colors.primary,
-    marginBottom: 2, // Row gap 2px
+    marginBottom: 3,
     lineHeight: 1.3,
   },
   specKey: {
     fontWeight: "bold",
-    width: 70,
-    fontSize: 6,
+    width: 85,
+    fontSize: 9,
   },
   specValue: {
     flex: 1,
     color: "#444444",
-    fontSize: 6,
+    fontSize: 9,
   },
 
   productImage: {
-    width: 175,
-    height: 175,
+    width: 90,
+    height: 120, // 3:4 portrait ratio
     objectFit: "contain",
   },
 
@@ -524,10 +523,10 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         
         {remarksLines.length > 0 && (
           <View style={{ marginTop: 2, flexDirection: "row", paddingLeft: 0, marginLeft: 0 }}>
-            <Text style={{ fontWeight: "bold", fontSize: 6, color: colors.accent, marginRight: 4, paddingLeft: 0, marginLeft: 0 }}>Remarks:</Text>
+            <Text style={{ fontWeight: "bold", fontSize: 8, color: colors.accent, marginRight: 4, paddingLeft: 0, marginLeft: 0 }}>Remarks:</Text>
             <View style={{ flex: 1 }}>
               {remarksLines.map((r, i) => (
-                <Text key={i} style={{ fontSize: 6, color: colors.secondary, marginBottom: 1 }}>{r}</Text>
+                <Text key={i} style={{ fontSize: 8, color: colors.secondary, marginBottom: 1 }}>{r}</Text>
               ))}
             </View>
           </View>
@@ -709,9 +708,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             {/* Product Image */}
             <View style={styles.colImage}>
               {item.imageUrl ? (
-                <PdfImage src={item.imageUrl} style={[styles.productImage, items.length === 1 ? { height: 135 } : {}]} />
+                <PdfImage src={item.imageUrl} style={[styles.productImage, items.length === 1 ? { width: 100, height: 133 } : {}]} />
               ) : (
-                <View style={[styles.productImage, items.length === 1 ? { height: 135 } : {}, { alignItems: "center", justifyContent: "center" }]}>
+                <View style={[styles.productImage, items.length === 1 ? { width: 100, height: 133 } : {}, { alignItems: "center", justifyContent: "center", border: "1px dashed #e6e7e8", borderRadius: 4 }]}>
                   <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                 </View>
               )}
