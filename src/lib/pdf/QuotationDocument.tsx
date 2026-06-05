@@ -166,11 +166,11 @@ const styles = StyleSheet.create({
     alignItems: "flex-start", // Align columns to top
   },
   colDesc: { width: "45%", paddingRight: 20 },
-  colImage: { width: "25%", alignItems: "flex-start", justifyContent: "flex-start", paddingRight: 10 },
+  colImage: { width: "25%", alignItems: "flex-start", justifyContent: "flex-start", paddingRight: 10, overflow: "hidden" },
   colRight: { width: "30%", flexDirection: "row", alignItems: "flex-start" },
-  colQty: { width: "20%", textAlign: "center" },
-  colPrice: { width: "40%", textAlign: "right" },
-  colAmount: { width: "40%", textAlign: "right" },
+  colQty: { width: "25%", textAlign: "center" },
+  colPrice: { width: "37.5%", textAlign: "right" },
+  colAmount: { width: "37.5%", textAlign: "right" },
 
   itemTitle: {
     fontSize: 9.5,
@@ -216,8 +216,8 @@ const styles = StyleSheet.create({
   },
 
   productImage: {
-    width: 145,
-    height: 145,
+    width: "100%",
+    height: 120,
     objectFit: "contain",
   },
 

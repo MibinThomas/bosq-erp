@@ -495,16 +495,16 @@ export default function QuotationHtmlPreviewPage({
         </div>
 
         {/* Products Table */}
-        <table className={`w-full border-collapse text-[11px] ${quotation.items.length === 1 ? 'mb-[32px]' : 'mb-[40px]'}`}>
+        <table className={`w-full table-fixed border-collapse text-[11px] ${quotation.items.length === 1 ? 'mb-[32px]' : 'mb-[40px]'}`}>
           <thead>
             <tr className="text-slate-900 text-left font-bold border-y border-slate-900">
-              <th className="py-3 px-4 w-[44%]">Item Description</th>
-              <th className="py-3 px-4 w-[26%] text-center">Image</th>
+              <th className="py-3 px-4 w-[45%]">Item Description</th>
+              <th className="py-3 px-4 w-[25%] text-center">Image</th>
               <th className="py-3 px-4 w-[30%]">
                 <div className="flex w-full">
-                  <span className="w-[20%] text-center">QTY</span>
-                  <span className="w-[40%] text-right">Price</span>
-                  <span className="w-[40%] text-right">Total</span>
+                  <span className="w-[25%] text-center">QTY</span>
+                  <span className="w-[37.5%] text-right">Price</span>
+                  <span className="w-[37.5%] text-right">Total</span>
                 </div>
               </th>
             </tr>
@@ -516,7 +516,7 @@ export default function QuotationHtmlPreviewPage({
                 className="border-b border-[#fab48a] align-top"
               >
                 {/* Description and specifications */}
-                <td className="px-4 align-top pt-[12px] pb-[14px] w-[44%] break-words whitespace-normal max-w-full shrink overflow-hidden">
+                <td className="px-4 align-top pt-[12px] pb-[14px] w-[45%] break-words whitespace-normal max-w-full shrink overflow-hidden">
                   {/* 1. Product Name */}
                   <div className="font-bold text-slate-900 text-[9.5px] leading-[1.1] mb-2 break-words whitespace-normal max-w-full shrink overflow-hidden">{item.description}</div>
                   
@@ -547,15 +547,15 @@ export default function QuotationHtmlPreviewPage({
                 </td>
 
                 {/* Product Image */}
-                <td className="px-4 text-center align-top pt-[12px] pb-[14px] w-[26%]">
+                <td className="px-4 text-center align-top pt-[12px] pb-[14px] w-[25%] overflow-hidden">
                   {item.customImageUrl || item.product?.imageUrl ? (
                     <img
                       src={(item.customImageUrl || item.product?.imageUrl) ?? undefined}
                       alt={item.description}
-                      className="w-[175px] h-[175px] object-contain mx-auto"
+                      className="w-full max-w-[150px] h-[150px] object-contain mx-auto"
                     />
                   ) : (
-                    <div className="w-[175px] h-[175px] border border-dashed border-slate-200 rounded-sm flex items-center justify-center text-[8.5px] text-slate-400 bg-slate-50 mx-auto">
+                    <div className="w-full max-w-[150px] h-[150px] border border-dashed border-slate-200 rounded-sm flex items-center justify-center text-[8.5px] text-slate-400 bg-slate-50 mx-auto">
                       No Image
                     </div>
                   )}
@@ -564,9 +564,9 @@ export default function QuotationHtmlPreviewPage({
                 {/* Qty, Price, Total Grouped into 30% Column */}
                 <td className="px-4 align-top pt-[12px] pb-[14px] w-[30%]">
                   <div className="flex w-full">
-                    <div className="w-[20%] text-center font-medium text-slate-800">{item.quantity}</div>
-                    <div className="w-[40%] text-right text-slate-800 font-mono">{formatCurrency(item.unitPrice)}</div>
-                    <div className="w-[40%] text-right font-bold text-slate-950 font-mono">{formatCurrency(item.amount)}</div>
+                    <div className="w-[25%] text-center font-medium text-slate-800">{item.quantity}</div>
+                    <div className="w-[37.5%] text-right text-slate-800 font-mono">{formatCurrency(item.unitPrice)}</div>
+                    <div className="w-[37.5%] text-right font-bold text-slate-950 font-mono">{formatCurrency(item.amount)}</div>
                   </div>
                 </td>
               </tr>

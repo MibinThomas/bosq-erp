@@ -50,6 +50,12 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
     } else if (aspectRatio === "16:9") {
       w = 320
       h = 180
+    } else if (aspectRatio === "3:4") {
+      w = 210
+      h = 280
+    } else if (aspectRatio === "4:5") {
+      w = 200
+      h = 250
     } else if (aspectRatio === "free") {
       w = 300
       h = 200
@@ -292,8 +298,8 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
             {/* Aspect Ratio Presets */}
             <div className="space-y-2">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Aspect Ratio</span>
-              <div className="grid grid-cols-4 gap-1 bg-muted p-1 rounded-xl border border-border/40">
-                {(["1:1", "4:3", "16:9", "free"] as const).map((ratio) => (
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-1 bg-muted p-1 rounded-xl border border-border/40">
+                {(["1:1", "4:3", "3:4", "4:5", "16:9", "free"] as const).map((ratio) => (
                   <button
                     key={ratio}
                     type="button"
