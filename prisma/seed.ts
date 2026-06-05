@@ -12,11 +12,229 @@ const prisma = new PrismaClient({ adapter })
 async function main() {
   console.log("Seeding database...")
 
-  // 1. Create Default Users
+  // 1. Create Default Roles and Permissions
+  const defaultRoles = [
+    {
+      name: "SUPER_ADMIN",
+      description: "Super Admin with unrestricted access to every module, feature, setting, and action.",
+      isSystem: true,
+      permissions: [
+        { module: "DASHBOARD", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "CLIENTS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "PRODUCTS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "QUOTATIONS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "BOQS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "PURCHASE_ORDERS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "REPORTS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "USER_MANAGEMENT", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "SETTINGS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "PRICING_MARKUP", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "ACCESS_CONTROL", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "NOTIFICATIONS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "SHAREPOINT", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "SYSTEM_CONFIGURATION", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true }
+      ]
+    },
+    {
+      name: "ADMIN",
+      description: "Admin user with full access to modules except Access Control.",
+      isSystem: true,
+      permissions: [
+        { module: "DASHBOARD", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "CLIENTS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "PRODUCTS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "QUOTATIONS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "BOQS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "PURCHASE_ORDERS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "REPORTS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "USER_MANAGEMENT", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "SETTINGS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "PRICING_MARKUP", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "ACCESS_CONTROL", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "NOTIFICATIONS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "SHAREPOINT", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "SYSTEM_CONFIGURATION", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true }
+      ]
+    },
+    {
+      name: "MANAGER",
+      description: "Sales Manager / Department Manager with approval authority.",
+      isSystem: true,
+      permissions: [
+        { module: "DASHBOARD", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "DEPARTMENT", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "CLIENTS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "DEPARTMENT", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "PRODUCTS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "QUOTATIONS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "DEPARTMENT", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "BOQS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "DEPARTMENT", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "PURCHASE_ORDERS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "DEPARTMENT", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "REPORTS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "DEPARTMENT", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "USER_MANAGEMENT", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SETTINGS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRICING_MARKUP", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "ACCESS_CONTROL", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "NOTIFICATIONS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "DEPARTMENT", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "SHAREPOINT", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "DEPARTMENT", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "SYSTEM_CONFIGURATION", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false }
+      ]
+    },
+    {
+      name: "SALES_EXECUTIVE",
+      description: "Sales Executive responsible for creating quotations and BOQs.",
+      isSystem: true,
+      permissions: [
+        { module: "DASHBOARD", view: true, create: true, edit: true, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: false, ownership: "OWN", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "CLIENTS", view: true, create: true, edit: true, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: false, ownership: "OWN", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRODUCTS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "QUOTATIONS", view: true, create: true, edit: true, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: false, ownership: "OWN", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "BOQS", view: true, create: true, edit: true, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: false, ownership: "OWN", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PURCHASE_ORDERS", view: true, create: true, edit: true, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: false, ownership: "OWN", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "REPORTS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "USER_MANAGEMENT", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SETTINGS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRICING_MARKUP", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "ACCESS_CONTROL", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "NOTIFICATIONS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "OWN", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SHAREPOINT", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "OWN", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SYSTEM_CONFIGURATION", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false }
+      ]
+    },
+    {
+      name: "DESIGN_CONSULTANT",
+      description: "Design Consultant focused on BOQs and product selections.",
+      isSystem: true,
+      permissions: [
+        { module: "DASHBOARD", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "CLIENTS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRODUCTS", view: true, create: true, edit: true, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "QUOTATIONS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "BOQS", view: true, create: true, edit: true, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PURCHASE_ORDERS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "REPORTS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "USER_MANAGEMENT", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SETTINGS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRICING_MARKUP", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "ACCESS_CONTROL", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "NOTIFICATIONS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SHAREPOINT", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SYSTEM_CONFIGURATION", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false }
+      ]
+    },
+    {
+      name: "ACCOUNTS",
+      description: "Finance and Accounts user with view/export access and payment approvals.",
+      isSystem: true,
+      permissions: [
+        { module: "DASHBOARD", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "CLIENTS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: true, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRODUCTS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "QUOTATIONS", view: true, create: false, edit: false, delete: false, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: false, manage: false, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "BOQS", view: true, create: false, edit: false, delete: false, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: false, manage: false, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "PURCHASE_ORDERS", view: true, create: false, edit: false, delete: false, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: false, manage: false, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "REPORTS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "USER_MANAGEMENT", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SETTINGS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRICING_MARKUP", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "ACCESS_CONTROL", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "NOTIFICATIONS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "SHAREPOINT", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true },
+        { module: "SYSTEM_CONFIGURATION", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false }
+      ]
+    },
+    {
+      name: "PROCUREMENT",
+      description: "Procurement user focused on Purchase Orders and Product costing.",
+      isSystem: true,
+      permissions: [
+        { module: "DASHBOARD", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "CLIENTS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRODUCTS", view: true, create: true, edit: true, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: false, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "QUOTATIONS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "BOQS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PURCHASE_ORDERS", view: true, create: true, edit: true, delete: false, approve: false, reject: false, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: false, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "REPORTS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "USER_MANAGEMENT", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SETTINGS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRICING_MARKUP", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "ACCESS_CONTROL", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "NOTIFICATIONS", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SHAREPOINT", view: true, create: true, edit: true, delete: true, approve: true, reject: true, export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true, ownership: "ALL", costPriceVisible: true, dealerPriceVisible: true, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SYSTEM_CONFIGURATION", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false }
+      ]
+    },
+    {
+      name: "VIEWER",
+      description: "Read-only viewer with restricted pricing/margin visibility.",
+      isSystem: true,
+      permissions: [
+        { module: "DASHBOARD", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "CLIENTS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRODUCTS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "QUOTATIONS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "BOQS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PURCHASE_ORDERS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: true, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "REPORTS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "USER_MANAGEMENT", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SETTINGS", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "PRICING_MARKUP", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "ACCESS_CONTROL", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "NOTIFICATIONS", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SHAREPOINT", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },
+        { module: "SYSTEM_CONFIGURATION", view: false, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "NONE", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false }
+      ]
+    }
+  ]
+
+  for (const roleDef of defaultRoles) {
+    const role = await prisma.role.upsert({
+      where: { name: roleDef.name },
+      update: {
+        description: roleDef.description,
+        isSystem: roleDef.isSystem,
+      },
+      create: {
+        name: roleDef.name,
+        description: roleDef.description,
+        isSystem: roleDef.isSystem,
+      },
+    })
+
+    // Delete existing permissions for this role to avoid duplicates or orphans
+    await prisma.rolePermission.deleteMany({
+      where: { roleId: role.id }
+    })
+
+    // Bulk insert default permissions for this role
+    for (const perm of roleDef.permissions) {
+      await prisma.rolePermission.create({
+        data: {
+          roleId: role.id,
+          ...perm,
+        }
+      })
+    }
+  }
+  console.log("Roles and permissions seeded successfully.")
+
+  // 2. Create Default Users (including SUPER_ADMIN)
+  const superAdminUser = await prisma.user.upsert({
+    where: { email: "superadmin@bosq.ae" },
+    update: {
+      password: hashPassword("SuperAdminPassword123"),
+      role: "SUPER_ADMIN",
+    },
+    create: {
+      name: "Super Admin User",
+      email: "superadmin@bosq.ae",
+      password: hashPassword("SuperAdminPassword123"),
+      role: "SUPER_ADMIN",
+    },
+  })
+
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@bosq.ae" },
     update: {
       password: hashPassword("AdminPassword123"),
+      role: "ADMIN",
     },
     create: {
       name: "Admin User",
@@ -30,6 +248,7 @@ async function main() {
     where: { email: "sales@bosq.ae" },
     update: {
       password: hashPassword("SalesPassword123"),
+      role: "SALES_EXECUTIVE",
     },
     create: {
       name: "John Doe",
@@ -41,7 +260,7 @@ async function main() {
 
   console.log("Users seeded successfully.")
 
-  // 2. Create Default Payment Terms
+  // 3. Create Default Payment Terms
   const paymentTerms = [
     { name: "50% Advance, 50% on Delivery", description: "50% advance payment with purchase order, balance 50% on delivery", isDefault: true },
     { name: "100% Advance", description: "100% advance payment with purchase order", isDefault: false },
@@ -58,7 +277,7 @@ async function main() {
 
   console.log("Payment terms seeded successfully.")
 
-  // 3. Create Default Terms & Conditions
+  // 4. Create Default Terms & Conditions
   const termsConditions = [
     { title: "Delivery Time", content: "Delivery will be within 4-6 weeks from receipt of advance payment and approved drawing.", isDefault: true },
     { title: "Validity", content: "This quotation is valid for 30 days from the date of issue.", isDefault: true },
@@ -76,7 +295,7 @@ async function main() {
 
   console.log("Terms & Conditions seeded successfully.")
 
-  // 4. Create Default Clients
+  // 5. Create Default Clients
   const clients = [
     {
       clientId: "C-1001",
@@ -123,7 +342,7 @@ async function main() {
 
   console.log("Clients seeded successfully.")
 
-  // 5. Create Product Categories and Products
+  // 6. Create Product Categories and Products
   const categories = [
     { name: "Workstations", description: "Office workstations and desks systems" },
     { name: "Executive desks", description: "Premium executive wood and steel desks" },
@@ -205,7 +424,7 @@ async function main() {
 
   console.log("Products and Categories seeded successfully.")
 
-  // 6. Create a Demo Quotation
+  // 7. Create a Demo Quotation
   const dbClient = await prisma.client.findFirst({ where: { clientId: "C-1001" } })
   const dbProduct = await prisma.product.findFirst({ where: { productCode: "WS-01" } })
 

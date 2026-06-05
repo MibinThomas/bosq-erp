@@ -2,39 +2,42 @@ import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 
 export default withAuth(
-  function middleware(req) {
+  async function middleware(req) {
     const token = req.nextauth.token
     const path = req.nextUrl.pathname
     const role = token?.role as string
+    const userId = token?.id as string
 
     // Super Admin bypasses all access control checks
     if (role === "SUPER_ADMIN") {
       return NextResponse.next()
     }
 
-    // 1. Settings Routes Protection
-    if (path.startsWith("/settings") || path.startsWith("/api/settings")) {
-      if (path.startsWith("/settings/users") || path.startsWith("/api/settings/users")) {
-        if (role !== "ADMIN") {
-          return new NextResponse("Forbidden: Administrator access required", { status: 403 })
-        }
-      } else {
-        if (role !== "ADMIN" && role !== "SALES_MANAGER") {
-          return new NextResponse("Forbidden: Manager access required", { status: 403 })
-        }
-      }
+    // Bypass check route to prevent infinite loop
+    if (path.startsWith("/api/settings/access-control/check")) {
+      return NextResponse.next()
     }
 
-    // 2. Report Protection
-    if (path.startsWith("/reports") && role !== "ADMIN" && role !== "SALES_MANAGER") {
-      return new NextResponse("Forbidden: Manager access required", { status: 403 })
-    }
-
-    // 3. Estimator Role Protection
-    if (role === "ESTIMATOR") {
-      if (path.startsWith("/clients") || path.startsWith("/reports")) {
-        return new NextResponse("Forbidden: Estimators cannot access this section", { status: 403 })
+    try {
+      const host = req.headers.get("host") || "localhost:3000"
+      const protocol = req.nextUrl.protocol || "http:"
+      const checkUrl = `${protocol}//${host}/api/settings/access-control/check?userId=${userId}&path=${encodeURIComponent(path)}`
+      
+      const checkRes = await fetch(checkUrl)
+      if (checkRes.ok) {
+        const { authorized } = await checkRes.json()
+        if (!authorized) {
+          if (path.startsWith("/api/")) {
+            return new NextResponse(
+              JSON.stringify({ error: "Forbidden: You do not have permission to access this resource." }),
+              { status: 403, headers: { "Content-Type": "application/json" } }
+            )
+          }
+          return NextResponse.redirect(new URL("/403", req.url))
+        }
       }
+    } catch (err) {
+      console.error("Middleware permission check failed:", err)
     }
 
     return NextResponse.next()

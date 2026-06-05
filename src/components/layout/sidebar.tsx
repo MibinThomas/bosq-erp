@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
@@ -33,20 +34,60 @@ const navItems = [
 export function Sidebar({ className, onNavClick }: { className?: string, onNavClick?: () => void }) {
   const pathname = usePathname()
   const { data: session } = useSession()
+  const [profile, setProfile] = useState<any>(null)
+
+  useEffect(() => {
+    if (session?.user) {
+      fetch("/api/settings/access-control/profile")
+        .then(res => {
+          if (res.ok) return res.json()
+          throw new Error("Failed to load profile")
+        })
+        .then(data => {
+          if (data && data.permissions) {
+            setProfile(data)
+          }
+        })
+        .catch(err => console.error("Error loading permissions profile:", err))
+    }
+  }, [session])
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const userName = session?.user?.name || "IDC Consultant"
   const userEmail = session?.user?.email || "consultant@bosq.ae"
 
-  // Filter items dynamically based on roles
+  // Filter items dynamically based on roles/profile permissions
   const filteredItems = navItems.filter((item) => {
-    if (userRole === "SUPER_ADMIN") return true
-    if (item.name === "Settings" && userRole !== "ADMIN") {
-      return false
+    if (!profile) {
+      // Fallback while loading
+      if (userRole === "SUPER_ADMIN") return true
+      if (item.name === "Settings" && userRole !== "ADMIN") {
+        return false
+      }
+      if (item.name === "Reports" && userRole !== "ADMIN" && userRole !== "SALES_MANAGER") {
+        return false
+      }
+      return true
     }
-    if (item.name === "Reports" && userRole !== "ADMIN" && userRole !== "SALES_MANAGER") {
-      return false
+
+    if (profile.isSuperAdmin) return true
+
+    // Map nav item name to system module name
+    const permMap: Record<string, string> = {
+      "Dashboard": "DASHBOARD",
+      "Clients": "CLIENTS",
+      "Products": "PRODUCTS",
+      "BOQs": "BOQS",
+      "Quotations": "QUOTATIONS",
+      "Reports": "REPORTS",
+      "Settings": "SETTINGS",
     }
+
+    const moduleName = permMap[item.name]
+    if (moduleName) {
+      return profile.permissions[moduleName]?.view === true
+    }
+
     return true
   })
 

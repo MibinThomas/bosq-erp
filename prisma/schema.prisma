@@ -31,6 +31,9 @@ model User {
   boqs          Boq[]
   estimatedBoqs Boq[]     @relation("EstimatorBoqs")
   notifications Notification[]
+  permissionOverrides UserPermissionOverride[]
+  accessLogs           AccessControlLog[]         @relation("OperatorLogs")
+  targetAccessLogs     AccessControlLog[]         @relation("TargetUserLogs")
 }
 
 model Notification {
@@ -314,4 +317,66 @@ model BoqItem {
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  permissions RolePermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model RolePermission {
+  id                 String   @id @default(cuid())
+  roleId             String
+  role               Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module             String   // e.g. "DASHBOARD", "QUOTATIONS", "PRODUCTS"
+  view               Boolean  @default(false)
+  create             Boolean  @default(false)
+  edit               Boolean  @default(false)
+  delete             Boolean  @default(false)
+  approve            Boolean  @default(false)
+  reject             Boolean  @default(false)
+  export             Boolean  @default(false)
+  downloadPdf        Boolean  @default(false)
+  uploadFiles        Boolean  @default(false)
+  share              Boolean  @default(false)
+  manage             Boolean  @default(false)
+  ownership          String   @default("ALL") // "OWN", "DEPARTMENT", "ASSIGNED", "ALL"
+  approvalLimit      Float?   // AED limit
+  costPriceVisible   Boolean  @default(false)
+  dealerPriceVisible  Boolean  @default(false)
+  marginVisible      Boolean  @default(false)
+  profitVisible      Boolean  @default(false)
+  markupVisible      Boolean  @default(false)
+}
+
+model UserPermissionOverride {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module        String
+  action        String   // "view", "create", "edit", "delete", "approve", "costPriceVisible", etc.
+  value         Boolean  // true = force grant, false = force deny
+  ownership     String?
+  approvalLimit Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, module, action])
+}
+
+model AccessControlLog {
+  id           String   @id @default(cuid())
+  userId       String   // Operator
+  user         User     @relation("OperatorLogs", fields: [userId], references: [id])
+  targetUserId String?  // Target User (if applicable)
+  targetUser   User?    @relation("TargetUserLogs", fields: [targetUserId], references: [id])
+  targetRoleId String?  // Target Role (if applicable)
+  action       String   // E.g., "UPDATE_ROLE_PERMISSION"
+  details      String
+  createdAt    DateTime @default(now())
 }

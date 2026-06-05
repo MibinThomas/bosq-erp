@@ -3,13 +3,62 @@ import prisma from "@/lib/prisma"
 import { createClientFolder } from "@/lib/sharepoint"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    
+    if (!session || !session.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const dbSessionUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: { permissionOverrides: { where: { module: "CLIENTS" } } }
+    })
+
+    if (!dbSessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check view permission dynamically
+    const canView = await hasPermission(dbSessionUser.id, "CLIENTS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view clients" }, { status: 403 })
+    }
+
+    // Resolve ownership rule
+    let ownershipRule = "ALL"
+    if (dbSessionUser.role !== "SUPER_ADMIN") {
+      const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
+      if (override?.ownership) {
+        ownershipRule = override.ownership
+      } else {
+        const roleObj = await prisma.role.findFirst({
+          where: { name: dbSessionUser.role },
+          include: { permissions: { where: { module: "CLIENTS" } } }
+        })
+        const rolePerm = roleObj?.permissions[0]
+        if (rolePerm?.ownership) {
+          ownershipRule = rolePerm.ownership
+        }
+      }
+    }
+
     let whereClause: any = { deletedAt: null }
-    // We allow fetching all active clients to ensure dropdowns work correctly across roles
+
+    if (ownershipRule === "OWN") {
+      whereClause.salespersonId = dbSessionUser.id
+    } else if (ownershipRule === "DEPARTMENT") {
+      const deptUsers = await prisma.user.findMany({
+        where: { department: dbSessionUser.department || "N/A" },
+        select: { id: true }
+      })
+      const deptUserIds = deptUsers.map(u => u.id)
+      whereClause.salespersonId = { in: deptUserIds }
+    } else if (ownershipRule === "NONE") {
+      return NextResponse.json([])
+    }
 
     const clients = await prisma.client.findMany({
       where: whereClause,
@@ -88,21 +137,30 @@ export async function POST(request: Request) {
 
     // 3. Save to database
     const session = await getServerSession(authOptions)
-    let creatorUserId: string | null = null
-    let userRole = "SALES_EXECUTIVE"
-    
-    if (session?.user) {
-      creatorUserId = (session.user as any).id
-      userRole = (session.user as any).role || "SALES_EXECUTIVE"
-    } else {
-      const defaultUser = await prisma.user.findFirst({
-        where: { role: "SALES_EXECUTIVE" },
-      })
-      creatorUserId = defaultUser?.id || null
+    if (!session || !session.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const isApprovedImmediately = ["ADMIN", "SALES_MANAGER"].includes(userRole)
-    const initialStatus = isApprovedImmediately ? "Approved" : "Pending Approval"
+    const dbSessionUser = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    })
+
+    if (!dbSessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Verify create client permission
+    const canCreate = await hasPermission(dbSessionUser.id, "CLIENTS", "create")
+    if (!canCreate) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to create clients" }, { status: 403 })
+    }
+
+    const creatorUserId = dbSessionUser.id
+    const userRole = dbSessionUser.role
+
+    // Check if user has permission to approve immediately, else needs approval
+    const canApprove = await hasPermission(dbSessionUser.id, "CLIENTS", "approve")
+    const initialStatus = canApprove ? "Approved" : "Pending Approval"
 
     const newClient = await prisma.client.create({
       data: {

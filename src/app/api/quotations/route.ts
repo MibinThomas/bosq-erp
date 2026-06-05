@@ -11,17 +11,69 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { getSettings } from "@/lib/settings"
 import sharp from "sharp"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    
+    if (!session || !session.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const dbSessionUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: { permissionOverrides: { where: { module: "QUOTATIONS" } } }
+    })
+
+    if (!dbSessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check view permission dynamically
+    const canView = await hasPermission(dbSessionUser.id, "QUOTATIONS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view quotations" }, { status: 403 })
+    }
+
+    // Resolve ownership rule
+    let ownershipRule = "ALL"
+    if (dbSessionUser.role !== "SUPER_ADMIN") {
+      const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
+      if (override?.ownership) {
+        ownershipRule = override.ownership
+      } else {
+        const roleObj = await prisma.role.findFirst({
+          where: { name: dbSessionUser.role },
+          include: { permissions: { where: { module: "QUOTATIONS" } } }
+        })
+        const rolePerm = roleObj?.permissions[0]
+        if (rolePerm?.ownership) {
+          ownershipRule = rolePerm.ownership
+        }
+      }
+    }
+
     let whereClause: any = {
       status: { not: "REVISED" },
       deletedAt: null
     }
-    if (session?.user && (session.user as any).role === "SALES_EXECUTIVE") {
-      whereClause.preparedById = (session.user as any).id
+
+    if (ownershipRule === "OWN") {
+      whereClause.preparedById = dbSessionUser.id
+    } else if (ownershipRule === "DEPARTMENT") {
+      const deptUsers = await prisma.user.findMany({
+        where: { department: dbSessionUser.department || "N/A" },
+        select: { id: true }
+      })
+      const deptUserIds = deptUsers.map(u => u.id)
+      whereClause.preparedById = { in: deptUserIds }
+    } else if (ownershipRule === "ASSIGNED") {
+      whereClause.OR = [
+        { preparedById: dbSessionUser.id },
+        { salesAgentId: dbSessionUser.id }
+      ]
+    } else if (ownershipRule === "NONE") {
+      return NextResponse.json({ data: [], totalCount: 0, totalPages: 0, currentPage: 1 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -106,9 +158,26 @@ export async function POST(request: Request) {
     }
 
     const session = await getServerSession(authOptions)
+    if (!session || !session.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const dbSessionUser = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    })
+
+    if (!dbSessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const canCreate = await hasPermission(dbSessionUser.id, "QUOTATIONS", "create")
+    if (!canCreate) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to create quotations" }, { status: 403 })
+    }
+
     let creatorUser = { id: "", name: "Sales Rep", role: "SALES_EXECUTIVE", phone: null as string | null }
 
-    if (session?.user) {
+    if (session.user) {
       const userRole = (session.user as any).role || "SALES_EXECUTIVE"
       let finalId = (session.user as any).id
       
@@ -135,27 +204,11 @@ export async function POST(request: Request) {
           phone: null
         }
       }
-    } else {
-      const defaultUser = await prisma.user.findFirst({
-        where: { role: "SALES_EXECUTIVE" },
-      })
-      if (!defaultUser) {
-        return NextResponse.json(
-          { error: "No system user found. Please seed the database first." },
-          { status: 500 }
-        )
-      }
-      creatorUser = {
-        id: defaultUser.id,
-        name: defaultUser.name || "Sales Manager",
-        role: defaultUser.role,
-        phone: defaultUser.phone
-      }
     }
 
-    // IDCs (SALES_EXECUTIVE) must go through approval for all items before PDF is downloadable
-    const isIDC = creatorUser.role === "SALES_EXECUTIVE"
-    const resolvedStatus = isIDC ? "PENDING_APPROVAL" : "APPROVED"
+    // Determine resolved status dynamically based on approve permission
+    const canApprove = await hasPermission(creatorUser.id, "QUOTATIONS", "approve")
+    const resolvedStatus = canApprove ? "APPROVED" : "PENDING_APPROVAL"
 
     // 2. Generate quotation number (e.g. I2223-1)
     let nextQuoteNo = body.quotationNumber
