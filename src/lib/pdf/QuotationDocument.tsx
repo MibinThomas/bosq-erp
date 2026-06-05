@@ -539,6 +539,13 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     <Document>
       <Page size="A4" style={[styles.page, items.length === 1 ? { paddingBottom: 55 } : {}]}>
         
+        {/* Top Margin Line for Page 2+ */}
+        <View fixed render={({ pageNumber }) => (
+          pageNumber > 1 ? (
+            <View style={{ position: "absolute", top: 25, left: 45, right: 45, borderTopWidth: 1, borderTopColor: colors.primary, zIndex: 10 }} />
+          ) : null
+        )} />
+
         {/* Bottom Right Watermark Logo (Repeats on every page) */}
         {watermarkUrl && (
           <View fixed style={{ position: "absolute", bottom: -130, right: -310, zIndex: -1 }}>
