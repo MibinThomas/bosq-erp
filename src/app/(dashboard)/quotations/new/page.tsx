@@ -679,13 +679,8 @@ function NewQuotationForm() {
   }
 
   async function onSubmit(data: QuotationFormValues) {
-    // Check if selected client is approved (only for new/edit quotations, not revisions)
-    const selectedClient = clients.find((c) => c.id === data.clientId)
-    if (selectedClient && selectedClient.status !== "Approved" && !isRevision) {
-      const errorMsg = selectedClient.status === "Pending Approval"
-        ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
-        : "This client has been rejected. Please contact Admin/Manager before creating quotation."
-      toast.error(errorMsg)
+    if (isRevision && !revisionNotes.trim()) {
+      toast.error("Revision notes are required to revise this quotation!")
       return
     }
 
@@ -888,7 +883,6 @@ function NewQuotationForm() {
                     value={revisionNotes}
                     onChange={(e) => setRevisionNotes(e.target.value)}
                     className="min-h-[80px]"
-                    required
                   />
                 </CardContent>
               </Card>
@@ -2066,7 +2060,7 @@ function NewQuotationForm() {
               </Link>
               <Button
                 type="submit"
-                disabled={submitting || (selectedClientObj && selectedClientObj.status !== "Approved" && !isRevision)}
+                disabled={submitting}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
