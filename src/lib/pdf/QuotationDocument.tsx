@@ -23,7 +23,6 @@ const colors = {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 45,
     paddingBottom: 75, // Room for fixed absolute footer
     paddingHorizontal: 45,
     fontFamily: "Helvetica",
@@ -539,6 +538,13 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     <Document>
       <Page size="A4" style={[styles.page, items.length === 1 ? { paddingBottom: 55 } : {}]}>
         
+        {/* Dynamic Top Margin & Padding (Replaces page paddingTop) */}
+        <View fixed render={({ pageNumber }) => (
+          <View style={{ paddingTop: 45, paddingBottom: pageNumber > 1 ? 16 : 0, width: "100%" }}>
+            {pageNumber > 1 && <View style={{ borderTopWidth: 1, borderTopColor: colors.lineColor }} />}
+          </View>
+        )} />
+
         {/* Bottom Right Watermark Logo (Repeats on every page) */}
         {watermarkUrl && (
           <View fixed style={{ position: "absolute", bottom: -130, right: -310, zIndex: -1 }}>
@@ -783,11 +789,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Absolute Bottom Page Footer */}
         <View style={styles.footer} fixed>
-          {/* Top Margin Line for Page 2+ (Rendered from footer to avoid root render bug) */}
-          <Text render={({ pageNumber }) => (
-            pageNumber > 1 ? " " : ""
-          )} style={{ position: "absolute", bottom: 765, left: 0, right: 0, borderTopWidth: 1, borderTopColor: colors.lineColor }} />
-
           <View style={styles.footerColLeft}>
             {aynMuskLogoUrl ? (
               <PdfImage src={aynMuskLogoUrl} style={{ width: 80, height: 20, objectFit: "contain", objectPositionX: "left" }} />
