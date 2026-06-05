@@ -490,7 +490,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           remarksLines.push(line);
         } else {
           normalSpecs.push(
-            <Text key={`text-${idx}`} style={[styles.specValue, { marginBottom: 2.5, lineHeight: 1.3 }]}>
+            <Text key={`text-${idx}`} style={{ color: "#444444", fontSize: 6.5, marginBottom: 2.5, lineHeight: 1.3 }}>
               {line}
             </Text>
           );
