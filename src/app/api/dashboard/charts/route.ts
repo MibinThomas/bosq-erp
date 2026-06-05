@@ -19,6 +19,10 @@ export async function GET(request: Request) {
     const clientTypeFilter = url.searchParams.get("clientType")
     const statusFilter = url.searchParams.get("status")
 
+    const projectNameFilter = url.searchParams.get("projectName")
+    const minVal = url.searchParams.get("minVal")
+    const maxVal = url.searchParams.get("maxVal")
+
     const userRole = (session.user as any).role || "SALES_EXECUTIVE"
     const currentUserId = (session.user as any).id
 
@@ -52,6 +56,16 @@ export async function GET(request: Request) {
     
     if (clientTypeFilter && clientTypeFilter !== "all") {
       whereClause.client = { clientType: clientTypeFilter }
+    }
+
+    if (projectNameFilter) {
+      whereClause.projectName = { contains: projectNameFilter, mode: "insensitive" }
+    }
+
+    if (minVal || maxVal) {
+      whereClause.subtotal = {}
+      if (minVal) whereClause.subtotal.gte = parseFloat(minVal)
+      if (maxVal) whereClause.subtotal.lte = parseFloat(maxVal)
     }
 
     const quotations = await prisma.quotation.findMany({

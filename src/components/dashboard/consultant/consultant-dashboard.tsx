@@ -8,6 +8,7 @@ import { ConsultantClients } from "./consultant-clients"
 import { ConsultantCharts } from "./consultant-charts"
 import { ConsultantFollowUps } from "./consultant-followups"
 import { Loader2 } from "lucide-react"
+import { DashboardFilters, DashboardFilterState } from "../dashboard-filters"
 
 export function ConsultantDashboard() {
   const { data: session } = useSession()
@@ -18,20 +19,47 @@ export function ConsultantDashboard() {
   const [chartData, setChartData] = useState<any>(null)
   const [activityData, setActivityData] = useState<any>(null)
 
+  const [filters, setFilters] = useState<DashboardFilterState>({
+    timeFrame: "last_month",
+    startDate: (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0] })(),
+    endDate: new Date().toISOString().split("T")[0],
+    userId: "all",
+    clientId: "all",
+    clientType: "all",
+    status: "all",
+    projectName: "",
+    minVal: "",
+    maxVal: ""
+  })
+
+  const buildQueryString = () => {
+    const params = new URLSearchParams()
+    if (filters.startDate) params.append("startDate", filters.startDate)
+    if (filters.endDate) params.append("endDate", filters.endDate)
+    if (filters.clientId && filters.clientId !== "all") params.append("clientId", filters.clientId)
+    if (filters.clientType && filters.clientType !== "all") params.append("clientType", filters.clientType)
+    if (filters.status && filters.status !== "all") params.append("status", filters.status)
+    if (filters.projectName) params.append("projectName", filters.projectName)
+    if (filters.minVal) params.append("minVal", filters.minVal)
+    if (filters.maxVal) params.append("maxVal", filters.maxVal)
+    return params.toString()
+  }
+
   useEffect(() => {
     if (session) {
       fetchConsultantData()
     }
-  }, [session])
+  }, [filters, session])
 
   async function fetchConsultantData() {
     setLoading(true)
+    const qs = buildQueryString()
     try {
       const [summaryRes, overviewRes, chartsRes, activityRes] = await Promise.all([
-        fetch("/api/dashboard/consultant/summary"),
-        fetch("/api/dashboard/consultant/overview"),
-        fetch("/api/dashboard/consultant/charts"),
-        fetch("/api/dashboard/consultant/activity")
+        fetch(`/api/dashboard/consultant/summary?${qs}`),
+        fetch(`/api/dashboard/consultant/overview?${qs}`),
+        fetch(`/api/dashboard/consultant/charts?${qs}`),
+        fetch(`/api/dashboard/consultant/activity?${qs}`)
       ])
 
       if (summaryRes.ok) setSummaryData(await summaryRes.json())
@@ -65,6 +93,8 @@ export function ConsultantDashboard() {
           </p>
         </div>
       </div>
+
+      <DashboardFilters filters={filters} setFilters={setFilters} />
 
       <ConsultantKPICards data={summaryData} />
 

@@ -25,12 +25,16 @@ export default function DashboardPage() {
   const [timelineData, setTimelineData] = useState<any>({ activities: [], followUps: [] })
 
   const [filters, setFilters] = useState<DashboardFilterState>({
+    timeFrame: "last_month",
     startDate: (() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0] })(),
     endDate: new Date().toISOString().split("T")[0],
     userId: "all",
     clientId: "all",
     clientType: "all",
-    status: "all"
+    status: "all",
+    projectName: "",
+    minVal: "",
+    maxVal: ""
   })
 
   const buildQueryString = () => {
@@ -41,6 +45,9 @@ export default function DashboardPage() {
     if (filters.clientId && filters.clientId !== "all") params.append("clientId", filters.clientId)
     if (filters.clientType && filters.clientType !== "all") params.append("clientType", filters.clientType)
     if (filters.status && filters.status !== "all") params.append("status", filters.status)
+    if (filters.projectName) params.append("projectName", filters.projectName)
+    if (filters.minVal) params.append("minVal", filters.minVal)
+    if (filters.maxVal) params.append("maxVal", filters.maxVal)
     return params.toString()
   }
 

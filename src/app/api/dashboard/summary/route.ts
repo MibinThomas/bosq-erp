@@ -20,6 +20,8 @@ export async function GET(request: Request) {
     const minVal = url.searchParams.get("minVal")
     const maxVal = url.searchParams.get("maxVal")
 
+    const projectNameFilter = url.searchParams.get("projectName")
+
     const userRole = (session.user as any).role || "SALES_EXECUTIVE"
     const currentUserId = (session.user as any).id
 
@@ -48,6 +50,10 @@ export async function GET(request: Request) {
     
     if (clientTypeFilter && clientTypeFilter !== "all") {
       whereClause.client = { clientType: clientTypeFilter }
+    }
+
+    if (projectNameFilter) {
+      whereClause.projectName = { contains: projectNameFilter, mode: "insensitive" }
     }
 
     if (minVal || maxVal) {

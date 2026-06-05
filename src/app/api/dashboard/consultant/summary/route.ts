@@ -26,7 +26,11 @@ export async function GET(request: Request) {
     const startDate = url.searchParams.get("startDate")
     const endDate = url.searchParams.get("endDate")
     const clientIdFilter = url.searchParams.get("clientId")
+    const clientTypeFilter = url.searchParams.get("clientType")
     const statusFilter = url.searchParams.get("status")
+    const projectNameFilter = url.searchParams.get("projectName")
+    const minVal = url.searchParams.get("minVal")
+    const maxVal = url.searchParams.get("maxVal")
 
     let qWhere: any = {}
     let cWhere: any = {}
@@ -36,11 +40,9 @@ export async function GET(request: Request) {
       qWhere.preparedById = userId
       cWhere.salespersonId = userId
     } else if (ownershipRule === "ASSIGNED") {
-      // In this basic version, OWN and ASSIGNED are mostly the same for a consultant 
-      // unless we check assigned teams. We'll fallback to preparedById = userId.
       qWhere.OR = [
         { preparedById: userId },
-        { salesAgentId: userId } // assuming salesAgentId field exists
+        { salesAgentId: userId }
       ]
       cWhere.salespersonId = userId
     } else if (ownershipRule === "DEPARTMENT") {
@@ -53,7 +55,6 @@ export async function GET(request: Request) {
         cWhere.salespersonId = userId
       }
     }
-    // "ALL" leaves it open.
 
     // Apply Filters
     if (startDate || endDate) {
@@ -77,6 +78,21 @@ export async function GET(request: Request) {
 
     if (statusFilter && statusFilter !== "all") {
       qWhere.status = statusFilter
+    }
+
+    if (clientTypeFilter && clientTypeFilter !== "all") {
+      qWhere.client = { clientType: clientTypeFilter }
+      cWhere.clientType = clientTypeFilter
+    }
+
+    if (projectNameFilter) {
+      qWhere.projectName = { contains: projectNameFilter, mode: "insensitive" }
+    }
+
+    if (minVal || maxVal) {
+      qWhere.subtotal = {}
+      if (minVal) qWhere.subtotal.gte = parseFloat(minVal)
+      if (maxVal) qWhere.subtotal.lte = parseFloat(maxVal)
     }
 
     // Fetch Quotations Data
