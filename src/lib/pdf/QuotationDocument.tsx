@@ -165,25 +165,25 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     alignItems: "flex-start", // Align columns to top
   },
-  colDesc: { width: "55%", paddingRight: 15 },
-  colImage: { width: "20%", alignItems: "center", justifyContent: "flex-start", paddingRight: 10 },
-  colRight: { width: "25%", flexDirection: "row", alignItems: "flex-start" },
-  colQty: { width: "28%", textAlign: "center" },
-  colPrice: { width: "36%", textAlign: "right" },
-  colAmount: { width: "36%", textAlign: "right" },
+  colDesc: { width: "45%", paddingRight: 20 },
+  colImage: { width: "25%", alignItems: "flex-start", justifyContent: "flex-start", paddingRight: 10 },
+  colRight: { width: "30%", flexDirection: "row", alignItems: "flex-start" },
+  colQty: { width: "20%", textAlign: "center" },
+  colPrice: { width: "40%", textAlign: "right" },
+  colAmount: { width: "40%", textAlign: "right" },
 
   itemTitle: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: "bold",
     color: colors.primary,
-    marginBottom: 5,
+    marginBottom: 4,
     lineHeight: 1.2,
     maxLines: 2,
   },
   itemCategory: {
     fontSize: 8,
     fontWeight: "bold",
-    color: "#1E3A8A", // BOSQ Blue
+    color: "#0f4c81",
     textTransform: "uppercase",
     marginBottom: 4,
     letterSpacing: 0.8,
@@ -192,32 +192,32 @@ const styles = StyleSheet.create({
     fontSize: 8.5,
     color: "#444444",
     marginBottom: 6,
-    lineHeight: 1.4,
-    width: "95%",
+    lineHeight: 1.35,
+    width: "100%",
   },
   
   // Dynamic attribute specification styles
   specRow: {
     flexDirection: "row",
-    fontSize: 9,
+    fontSize: 8.5,
     color: colors.primary,
-    marginBottom: 3,
-    lineHeight: 1.3,
+    marginBottom: 2.5,
+    lineHeight: 1.35,
   },
   specKey: {
     fontWeight: "bold",
-    width: 85,
-    fontSize: 9,
+    width: 80,
+    fontSize: 8.5,
   },
   specValue: {
     flex: 1,
     color: "#444444",
-    fontSize: 9,
+    fontSize: 8.5,
   },
 
   productImage: {
-    width: 90,
-    height: 120, // 3:4 portrait ratio
+    width: 145,
+    height: 145,
     objectFit: "contain",
   },
 
@@ -522,11 +522,11 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         )}
         
         {remarksLines.length > 0 && (
-          <View style={{ marginTop: 2, flexDirection: "row", paddingLeft: 0, marginLeft: 0 }}>
-            <Text style={{ fontWeight: "bold", fontSize: 8, color: colors.accent, marginRight: 4, paddingLeft: 0, marginLeft: 0 }}>Remarks:</Text>
+          <View style={{ marginTop: 3, flexDirection: "row", paddingLeft: 0, marginLeft: 0 }}>
+            <Text style={{ fontWeight: "bold", fontSize: 8.5, color: colors.accent, marginRight: 4, paddingLeft: 0, marginLeft: 0 }}>Remarks:</Text>
             <View style={{ flex: 1 }}>
               {remarksLines.map((r, i) => (
-                <Text key={i} style={{ fontSize: 8, color: colors.secondary, marginBottom: 1 }}>{r}</Text>
+                <Text key={i} style={{ fontSize: 8.5, color: colors.secondary, marginBottom: 2 }}>{r}</Text>
               ))}
             </View>
           </View>
@@ -708,10 +708,10 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             {/* Product Image */}
             <View style={styles.colImage}>
               {item.imageUrl ? (
-                <PdfImage src={item.imageUrl} style={[styles.productImage, items.length === 1 ? { width: 100, height: 133 } : {}]} />
+                <PdfImage src={item.imageUrl} style={styles.productImage} />
               ) : (
-                <View style={[styles.productImage, items.length === 1 ? { width: 100, height: 133 } : {}, { alignItems: "center", justifyContent: "center", border: "1px dashed #e6e7e8", borderRadius: 4 }]}>
-                  <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
+                <View style={[styles.productImage, { alignItems: "center", justifyContent: "center", border: "1px solid #E6E7E8" }]}>
+                  <Text style={{ fontSize: 8.5, color: colors.lightText }}>No Image Available</Text>
                 </View>
               )}
             </View>
