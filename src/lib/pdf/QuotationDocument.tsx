@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   colAmount: { width: "40%", textAlign: "right" },
 
   itemTitle: {
-    fontSize: 14,
+    fontSize: 9.5,
     fontWeight: "bold",
     color: colors.primary,
     marginBottom: 4,
@@ -181,17 +181,17 @@ const styles = StyleSheet.create({
     maxLines: 2,
   },
   itemCategory: {
-    fontSize: 8,
+    fontSize: 6,
     fontWeight: "bold",
     color: "#0f4c81",
     textTransform: "uppercase",
-    marginBottom: 4,
+    marginBottom: 3,
     letterSpacing: 0.8,
   },
   itemDescText: {
-    fontSize: 8.5,
+    fontSize: 6.5,
     color: "#444444",
-    marginBottom: 6,
+    marginBottom: 4,
     lineHeight: 1.35,
     width: "100%",
   },
@@ -199,20 +199,20 @@ const styles = StyleSheet.create({
   // Dynamic attribute specification styles
   specRow: {
     flexDirection: "row",
-    fontSize: 8.5,
+    fontSize: 6.5,
     color: colors.primary,
     marginBottom: 2.5,
     lineHeight: 1.35,
   },
   specKey: {
     fontWeight: "bold",
-    width: 80,
-    fontSize: 8.5,
+    width: 90,
+    fontSize: 6.5,
   },
   specValue: {
     flex: 1,
     color: "#444444",
-    fontSize: 8.5,
+    fontSize: 6.5,
   },
 
   productImage: {
@@ -522,11 +522,11 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         )}
         
         {remarksLines.length > 0 && (
-          <View style={{ marginTop: 3, flexDirection: "row", paddingLeft: 0, marginLeft: 0 }}>
-            <Text style={{ fontWeight: "bold", fontSize: 8.5, color: colors.accent, marginRight: 4, paddingLeft: 0, marginLeft: 0 }}>Remarks:</Text>
+          <View style={{ marginTop: 2, flexDirection: "row", paddingLeft: 0, marginLeft: 0 }}>
+            <Text style={{ fontWeight: "bold", fontSize: 6.5, color: colors.accent, marginRight: 4, paddingLeft: 0, marginLeft: 0 }}>Remarks:</Text>
             <View style={{ flex: 1 }}>
               {remarksLines.map((r, i) => (
-                <Text key={i} style={{ fontSize: 8.5, color: colors.secondary, marginBottom: 2 }}>{r}</Text>
+                <Text key={i} style={{ fontSize: 6.5, color: colors.secondary, marginBottom: 1 }}>{r}</Text>
               ))}
             </View>
           </View>
