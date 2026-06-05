@@ -60,7 +60,7 @@ export default function ProductsPage() {
   const router = useRouter()
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER"
 
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
