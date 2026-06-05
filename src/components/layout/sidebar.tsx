@@ -14,7 +14,8 @@ import {
   Settings,
   LogOut,
   User as UserIcon,
-  Calculator
+  Calculator,
+  Shield
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -28,6 +29,7 @@ const navItems = [
   { name: "Quotations", href: "/quotations", icon: FileText },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "My Profile", href: "/profile", icon: UserIcon },
+  { name: "Access Control", href: "/settings/access-control", icon: Shield },
   { name: "Settings", href: "/settings", icon: Settings },
 ]
 
@@ -80,6 +82,7 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
       "BOQs": "BOQS",
       "Quotations": "QUOTATIONS",
       "Reports": "REPORTS",
+      "Access Control": "ACCESS_CONTROL",
       "Settings": "SETTINGS",
     }
 

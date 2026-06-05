@@ -111,6 +111,7 @@ export default function SettingsPage() {
   const [onlinePct, setOnlinePct] = useState(75)
   const [savingPricing, setSavingPricing] = useState(false)
   const [recalculating, setRecalculating] = useState(false)
+  const [dbRoles, setDbRoles] = useState<any[]>([])
 
   // Fetch all system settings on load
   useEffect(() => {
@@ -118,7 +119,20 @@ export default function SettingsPage() {
     fetchUsers()
     fetchTerms()
     fetchPricing()
+    fetchDbRoles()
   }, [])
+
+  const fetchDbRoles = async () => {
+    try {
+      const res = await fetch("/api/settings/access-control")
+      if (res.ok) {
+        const data = await res.json()
+        setDbRoles(data.roles || [])
+      }
+    } catch (err) {
+      console.error("Failed to fetch roles:", err)
+    }
+  }
 
   const fetchPricing = async () => {
     try {
@@ -1023,13 +1037,27 @@ export default function SettingsPage() {
                     onChange={(e) => setNewUserRole(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600"
                   >
-                    <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
-                    <option value="ESTIMATOR">Estimator</option>
-                    {userRole === "SUPER_ADMIN" && (
+                    {dbRoles.length > 0 ? (
+                      dbRoles.map((r: any) => {
+                        const isProtected = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(r.name)
+                        if (isProtected && userRole !== "SUPER_ADMIN") return null
+                        return (
+                          <option key={r.id} value={r.name}>
+                            {r.name.replace(/_/g, " ")}
+                          </option>
+                        )
+                      })
+                    ) : (
                       <>
-                        <option value="SALES_MANAGER">Sales Manager</option>
-                        <option value="ADMIN">Administrator</option>
-                        <option value="SUPER_ADMIN">Super Administrator</option>
+                        <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
+                        <option value="ESTIMATOR">Estimator</option>
+                        {userRole === "SUPER_ADMIN" && (
+                          <>
+                            <option value="SALES_MANAGER">Sales Manager</option>
+                            <option value="ADMIN">Administrator</option>
+                            <option value="SUPER_ADMIN">Super Administrator</option>
+                          </>
+                        )}
                       </>
                     )}
                   </select>
@@ -1146,16 +1174,31 @@ export default function SettingsPage() {
                     onChange={(e) => setEditUserData({...editUserData, role: e.target.value})}
                     className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
-                    <option value="ESTIMATOR">Estimator</option>
-                    {(userRole === "SUPER_ADMIN" || editUserData.role === "SALES_MANAGER") && (
-                      <option value="SALES_MANAGER">Sales Manager</option>
-                    )}
-                    {(userRole === "SUPER_ADMIN" || editUserData.role === "ADMIN") && (
-                      <option value="ADMIN">Administrator</option>
-                    )}
-                    {(userRole === "SUPER_ADMIN" || editUserData.role === "SUPER_ADMIN") && (
-                      <option value="SUPER_ADMIN">Super Administrator</option>
+                    {dbRoles.length > 0 ? (
+                      dbRoles.map((r: any) => {
+                        const isProtected = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(r.name)
+                        // Allow if current user is Super Admin OR the target user already has this role (to avoid locking them out of options)
+                        if (isProtected && userRole !== "SUPER_ADMIN" && editUserData.role !== r.name) return null
+                        return (
+                          <option key={r.id} value={r.name}>
+                            {r.name.replace(/_/g, " ")}
+                          </option>
+                        )
+                      })
+                    ) : (
+                      <>
+                        <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
+                        <option value="ESTIMATOR">Estimator</option>
+                        {(userRole === "SUPER_ADMIN" || editUserData.role === "SALES_MANAGER") && (
+                          <option value="SALES_MANAGER">Sales Manager</option>
+                        )}
+                        {(userRole === "SUPER_ADMIN" || editUserData.role === "ADMIN") && (
+                          <option value="ADMIN">Administrator</option>
+                        )}
+                        {(userRole === "SUPER_ADMIN" || editUserData.role === "SUPER_ADMIN") && (
+                          <option value="SUPER_ADMIN">Super Administrator</option>
+                        )}
+                      </>
                     )}
                   </select>
                 </div>
