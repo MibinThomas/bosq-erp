@@ -29,6 +29,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Check, ChevronsUpDown } from "lucide-react"
 
 interface Product {
   id: string
@@ -80,6 +83,7 @@ export default function ProductsPage() {
   const [clients, setClients] = useState<any[]>([])
   const [selectedClientId, setSelectedClientId] = useState("")
   const [isCreatingClient, setIsCreatingClient] = useState(false)
+  const [isClientComboboxOpen, setIsClientComboboxOpen] = useState(false)
   
   // New Client Form inputs
   const [newClientName, setNewClientName] = useState("")
@@ -957,18 +961,65 @@ export default function ProductsPage() {
                     </form>
                   ) : (
                     <div className="space-y-2">
-                      <select
-                        className="w-full h-10 rounded-xl border bg-background px-3 py-1 text-xs shadow-sm cursor-pointer hover:bg-muted/40 transition-colors"
-                        value={selectedClientId}
-                        onChange={(e) => setSelectedClientId(e.target.value)}
-                      >
-                        <option value="">-- Choose Assigned Client --</option>
-                        {clients.map(c => (
-                          <option key={c.id} value={c.id} disabled={c.status && c.status !== "Approved"}>
-                            {c.companyName} ({c.clientType || "Direct"}){c.status && c.status !== "Approved" ? ` [${c.status}]` : ""}
-                          </option>
-                        ))}
-                      </select>
+                      <Popover open={isClientComboboxOpen} onOpenChange={setIsClientComboboxOpen}>
+                        <PopoverTrigger 
+                          className="flex items-center w-full h-10 rounded-xl border border-input bg-background px-3 py-1 text-xs shadow-sm justify-between font-normal hover:bg-muted/40 transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
+                          aria-expanded={isClientComboboxOpen}
+                        >
+                          {selectedClientId
+                            ? (() => {
+                                const c = clients.find((client) => client.id === selectedClientId)
+                                return c ? `${c.companyName} (${c.clientType || "Direct"})` : "-- Choose Assigned Client --"
+                              })()
+                            : "-- Choose Assigned Client --"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[350px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search clients..." className="h-9 text-xs" />
+                            <CommandList className="max-h-[200px] overflow-y-auto">
+                              <CommandEmpty>
+                                <div className="p-4 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+                                  <p>No clients found.</p>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="text-xs h-8"
+                                    onClick={() => {
+                                      setIsClientComboboxOpen(false)
+                                      setIsCreatingClient(true)
+                                    }}
+                                  >
+                                    + Create New Client
+                                  </Button>
+                                </div>
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {clients.map((c) => (
+                                  <CommandItem
+                                    key={c.id}
+                                    value={`${c.companyName} ${c.clientType} ${c.status}`}
+                                    onSelect={() => {
+                                      if (c.status && c.status !== "Approved") return;
+                                      setSelectedClientId(c.id === selectedClientId ? "" : c.id)
+                                      setIsClientComboboxOpen(false)
+                                    }}
+                                    disabled={c.status && c.status !== "Approved"}
+                                    className={`text-xs ${c.status && c.status !== "Approved" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                                  >
+                                    <Check
+                                      className={`mr-2 h-3.5 w-3.5 ${
+                                        selectedClientId === c.id ? "opacity-100" : "opacity-0"
+                                      }`}
+                                    />
+                                    {c.companyName} ({c.clientType || "Direct"}){c.status && c.status !== "Approved" ? ` [${c.status}]` : ""}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
 
                       {selectedClientId && (() => {
                         const sel = clients.find(c => c.id === selectedClientId)
