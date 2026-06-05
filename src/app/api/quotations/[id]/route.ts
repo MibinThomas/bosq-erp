@@ -125,7 +125,7 @@ export async function PUT(
 
     // Determine the actual PreparedBy user (could be changed by admin/manager)
     let finalPreparedById = existingQuotation.preparedById
-    if ((logUserRole === "ADMIN" || logUserRole === "SALES_MANAGER") && body.preparedById) {
+    if ((logUserRole === "ADMIN" || logUserRole === "SALES_MANAGER" || logUserRole === "SUPER_ADMIN") && body.preparedById) {
       finalPreparedById = body.preparedById
     }
     const finalPreparedByUser = await prisma.user.findUnique({
@@ -134,7 +134,7 @@ export async function PUT(
 
     // CASE 0: MANAGER APPROVES A PENDING_APPROVAL QUOTATION
     if (body.action === "APPROVE") {
-      if (logUserRole !== "ADMIN" && logUserRole !== "SALES_MANAGER") {
+      if (logUserRole !== "ADMIN" && logUserRole !== "SALES_MANAGER" && logUserRole !== "SUPER_ADMIN") {
         return NextResponse.json({ error: "Unauthorized to approve quotations" }, { status: 403 })
       }
       const approvedQuotation = await prisma.quotation.update({
@@ -738,7 +738,7 @@ export async function PUT(
     if (logUserRole === "SALES_EXECUTIVE" && existingQuotation.preparedById !== logUserId) {
       return NextResponse.json({ error: "Unauthorized: You can only update your own quotations" }, { status: 403 })
     }
-    if (status === "APPROVED" && logUserRole !== "ADMIN" && logUserRole !== "SALES_MANAGER") {
+    if (status === "APPROVED" && logUserRole !== "ADMIN" && logUserRole !== "SALES_MANAGER" && logUserRole !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Unauthorized: Only managers or admins can approve quotations" }, { status: 403 })
     }
     const updateData: any = {}

@@ -17,7 +17,7 @@ export async function PUT(
 
     const currentUserId = (session?.user as any)?.id
     const userRole = (session?.user as any)?.role
-    const isAdmin = userRole === "ADMIN"
+    const isAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN"
 
     // Only Admin can edit other users. Normal users can only edit themselves.
     if (!isAdmin && currentUserId !== id) {
@@ -94,7 +94,7 @@ export async function GET(
     const currentUserId = (session?.user as any)?.id
     const userRole = (session?.user as any)?.role
 
-    if (userRole !== "ADMIN" && currentUserId !== id) {
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN" && currentUserId !== id) {
       return NextResponse.json({ error: "Forbidden: Cannot view other users" }, { status: 403 })
     }
 

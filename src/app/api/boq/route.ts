@@ -65,7 +65,7 @@ export async function DELETE(request: Request) {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
 
-    if (userRole !== "ADMIN") {
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
     }
 

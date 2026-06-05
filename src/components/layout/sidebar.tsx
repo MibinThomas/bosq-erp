@@ -40,6 +40,7 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
 
   // Filter items dynamically based on roles
   const filteredItems = navItems.filter((item) => {
+    if (userRole === "SUPER_ADMIN") return true
     if (item.name === "Settings" && userRole !== "ADMIN") {
       return false
     }
@@ -52,6 +53,8 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
   // Dynamic role mapping display matching company nomenclature
   const getRoleLabel = (role: string) => {
     switch (role) {
+      case "SUPER_ADMIN":
+        return "Super Administrator"
       case "ADMIN":
         return "Administrator"
       case "SALES_MANAGER":

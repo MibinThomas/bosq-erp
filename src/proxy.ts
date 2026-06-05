@@ -7,6 +7,11 @@ export default withAuth(
     const path = req.nextUrl.pathname
     const role = token?.role as string
 
+    // Super Admin bypasses all access control checks
+    if (role === "SUPER_ADMIN") {
+      return NextResponse.next()
+    }
+
     // 1. Settings Routes Protection
     if (path.startsWith("/settings") || path.startsWith("/api/settings")) {
       if (path.startsWith("/settings/users") || path.startsWith("/api/settings/users")) {

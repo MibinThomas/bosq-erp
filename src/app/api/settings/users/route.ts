@@ -34,12 +34,17 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
+    const creatorRole = (session?.user as any)?.role
+    if (!session || (creatorRole !== "ADMIN" && creatorRole !== "SUPER_ADMIN")) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
 
     const body = await request.json()
     const { name, email, password, role, phone, department } = body
+
+    if ((role === "SUPER_ADMIN" || role === "ADMIN" || role === "SALES_MANAGER") && creatorRole !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Only Super Admin can assign Super Admin, Admin, or Manager roles" }, { status: 403 })
+    }
 
     if (!name || !email || !password || !role || !phone) {
       return NextResponse.json({ error: "Name, email, password, role, and contact number are required" }, { status: 400 })
@@ -92,7 +97,8 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
+    const deleterRole = (session?.user as any)?.role
+    if (!session || (deleterRole !== "ADMIN" && deleterRole !== "SUPER_ADMIN")) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
 
@@ -113,6 +119,10 @@ export async function DELETE(request: Request) {
     })
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    if ((user.role === "SUPER_ADMIN" || user.role === "ADMIN" || user.role === "SALES_MANAGER") && deleterRole !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Only Super Admin can delete admin or manager accounts" }, { status: 403 })
     }
 
     await prisma.user.update({

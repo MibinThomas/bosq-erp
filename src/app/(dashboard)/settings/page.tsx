@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -54,6 +55,8 @@ interface TermsCondition {
 }
 
 export default function SettingsPage() {
+  const { data: session } = useSession()
+  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const [activeTab, setActiveTab] = useState("company")
   const [loading, setLoading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
@@ -719,36 +722,41 @@ export default function SettingsPage() {
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            usr.role === "SUPER_ADMIN" ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" :
                             usr.role === "ADMIN" ? "bg-red-500/10 text-red-400 border border-red-500/20" :
                             usr.role === "SALES_MANAGER" ? "bg-orange-500/10 text-orange-400 border border-orange-500/20" :
                             "bg-slate-500/15 text-slate-300 border border-slate-500/10"
                           }`}>
-                            {usr.role === "SALES_EXECUTIVE" ? "Interior Design Consultant (IDC)" : usr.role}
+                            {usr.role === "SUPER_ADMIN" ? "Super Admin" : usr.role === "SALES_EXECUTIVE" ? "Interior Design Consultant (IDC)" : usr.role}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-slate-400">
                           {new Date(usr.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-blue-500 hover:text-blue-400 hover:bg-blue-950/30 mr-2"
-                            onClick={() => {
-                              setEditUserData({ ...usr })
-                              setShowEditUserModal(true)
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-red-500 hover:text-red-400 hover:bg-red-950/30"
-                            onClick={() => handleDeleteUser(usr.id, usr.name)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {(userRole === "SUPER_ADMIN" || (usr.role !== "SUPER_ADMIN" && usr.role !== "ADMIN" && usr.role !== "SALES_MANAGER")) && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-blue-500 hover:text-blue-400 hover:bg-blue-950/30 mr-2"
+                              onClick={() => {
+                                setEditUserData({ ...usr })
+                                setShowEditUserModal(true)
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {(userRole === "SUPER_ADMIN" || (usr.role !== "SUPER_ADMIN" && usr.role !== "ADMIN" && usr.role !== "SALES_MANAGER")) && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-red-500 hover:text-red-400 hover:bg-red-950/30"
+                              onClick={() => handleDeleteUser(usr.id, usr.name)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1016,9 +1024,14 @@ export default function SettingsPage() {
                     className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600"
                   >
                     <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
-                    <option value="SALES_MANAGER">Sales Manager</option>
                     <option value="ESTIMATOR">Estimator</option>
-                    <option value="ADMIN">Administrator</option>
+                    {userRole === "SUPER_ADMIN" && (
+                      <>
+                        <option value="SALES_MANAGER">Sales Manager</option>
+                        <option value="ADMIN">Administrator</option>
+                        <option value="SUPER_ADMIN">Super Administrator</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </CardContent>
@@ -1072,10 +1085,11 @@ export default function SettingsPage() {
                   <Input 
                     id="editPass"
                     type="password"
-                    placeholder="Leave blank to keep current password"
+                    disabled={userRole !== "SUPER_ADMIN"}
+                    placeholder={userRole !== "SUPER_ADMIN" ? "Only Super Admin can reset password" : "Leave blank to keep current password"}
                     value={editUserData.password || ""}
                     onChange={(e) => setEditUserData({...editUserData, password: e.target.value})}
-                    className="bg-slate-900 border-slate-800"
+                    className="bg-slate-900 border-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div className="space-y-2">
@@ -1116,9 +1130,10 @@ export default function SettingsPage() {
                   <input 
                     id="editIsActive"
                     type="checkbox"
+                    disabled={userRole !== "SUPER_ADMIN"}
                     checked={editUserData.isActive !== false}
                     onChange={(e) => setEditUserData({...editUserData, isActive: e.target.checked})}
-                    className="rounded border-slate-850 text-orange-600 focus:ring-orange-600 bg-slate-900 h-4 w-4"
+                    className="rounded border-slate-850 text-orange-600 focus:ring-orange-600 bg-slate-900 h-4 w-4 disabled:opacity-50"
                   />
                   <Label htmlFor="editIsActive" className="text-slate-300 cursor-pointer select-none">Account is Active</Label>
                 </div>
@@ -1127,13 +1142,21 @@ export default function SettingsPage() {
                   <select 
                     id="editRole"
                     value={editUserData.role}
+                    disabled={userRole !== "SUPER_ADMIN" && (editUserData.role === "SUPER_ADMIN" || editUserData.role === "ADMIN" || editUserData.role === "SALES_MANAGER")}
                     onChange={(e) => setEditUserData({...editUserData, role: e.target.value})}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
-                    <option value="SALES_MANAGER">Sales Manager</option>
                     <option value="ESTIMATOR">Estimator</option>
-                    <option value="ADMIN">Administrator</option>
+                    {(userRole === "SUPER_ADMIN" || editUserData.role === "SALES_MANAGER") && (
+                      <option value="SALES_MANAGER">Sales Manager</option>
+                    )}
+                    {(userRole === "SUPER_ADMIN" || editUserData.role === "ADMIN") && (
+                      <option value="ADMIN">Administrator</option>
+                    )}
+                    {(userRole === "SUPER_ADMIN" || editUserData.role === "SUPER_ADMIN") && (
+                      <option value="SUPER_ADMIN">Super Administrator</option>
+                    )}
                   </select>
                 </div>
               </CardContent>

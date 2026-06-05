@@ -11,7 +11,7 @@ export async function GET() {
     }
 
     const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-    if (userRole !== "ADMIN" && userRole !== "SALES_MANAGER") {
+    if (userRole !== "ADMIN" && userRole !== "SALES_MANAGER" && userRole !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden: Admin or Sales Manager access required" }, { status: 403 })
     }
 

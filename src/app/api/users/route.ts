@@ -12,8 +12,8 @@ export async function GET(request: Request) {
 
     const userRole = (session?.user as any)?.role
 
-    // Only Admin can fetch the full list of users, unless fetching self
-    if (userRole !== "ADMIN") {
+    // Only Admin/Super Admin can fetch the full list of users, unless fetching self
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
     }
 
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role
 
-    if (userRole !== "ADMIN") {
+    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
     }
 

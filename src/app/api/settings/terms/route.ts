@@ -6,7 +6,8 @@ import { NextResponse } from "next/server"
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
+    const role = (session?.user as any)?.role
+    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
 
@@ -25,7 +26,8 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
+    const role = (session?.user as any)?.role
+    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
 
@@ -83,7 +85,8 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || (session.user as any).role !== "ADMIN") {
+    const role = (session?.user as any)?.role
+    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
 

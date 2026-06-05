@@ -6,7 +6,8 @@ import { authOptions } from "../../../auth/[...nextauth]/route"
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || ((session.user as any).role !== "ADMIN" && (session.user as any).role !== "SALES_MANAGER")) {
+    const role = (session?.user as any)?.role
+    if (!session || (role !== "ADMIN" && role !== "SALES_MANAGER" && role !== "SUPER_ADMIN")) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
 

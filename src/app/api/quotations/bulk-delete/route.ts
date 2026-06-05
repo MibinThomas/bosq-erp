@@ -7,8 +7,8 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     
-    // Only ADMIN can delete quotations
-    if (!session || (session.user as any).role !== "ADMIN") {
+    const role = (session?.user as any)?.role
+    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
       return NextResponse.json({ error: "Unauthorized. Only admins can delete quotations." }, { status: 401 })
     }
 
