@@ -372,8 +372,7 @@ export async function PUT(
         )}/Quotations/${filenameBase}.pdf`
       }
 
-      const isIDC = logUserRole === "SALES_EXECUTIVE"
-      const resolvedStatus = isIDC ? "PENDING_APPROVAL" : "APPROVED"
+      const resolvedStatus = "APPROVED"
 
       // Execute atomic transaction for revision (create a new quotation record, keep the old one)
       const updatedQuotation = await prisma.$transaction(async (tx) => {
@@ -671,8 +670,7 @@ export async function PUT(
           where: { quotationId: existingQuotation.id }
         })
 
-        const isIDC = logUserRole === "SALES_EXECUTIVE"
-        const resolvedStatus = isIDC ? "PENDING_APPROVAL" : (body.status || "APPROVED")
+        const resolvedStatus = body.status || existingQuotation.status
 
         // 2. Update parent quotation
         return await tx.quotation.update({
@@ -740,9 +738,7 @@ export async function PUT(
     if (logUserRole === "SALES_EXECUTIVE" && existingQuotation.preparedById !== logUserId) {
       return NextResponse.json({ error: "Unauthorized: You can only update your own quotations" }, { status: 403 })
     }
-    if (status === "APPROVED" && logUserRole !== "ADMIN" && logUserRole !== "SALES_MANAGER" && logUserRole !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Unauthorized: Only managers or admins can approve quotations" }, { status: 403 })
-    }
+    // Everyone can update the status of their own quotations without role limitations.
     const updateData: any = {}
     if (status) updateData.status = status
     if (poStatus) updateData.poStatus = poStatus

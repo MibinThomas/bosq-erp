@@ -121,21 +121,19 @@ export default function QuotationsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "APPROVED":
-        return <Badge className="bg-green-600 hover:bg-green-700 text-white font-medium">Approved</Badge>
-      case "PENDING_APPROVAL":
-        return (
-          <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium flex items-center gap-1 w-fit">
-            <Lock className="h-3 w-3" /> Pending Approval
-          </Badge>
-        )
+        return <Badge className="bg-green-600 hover:bg-green-700 text-white font-medium">Client Approved</Badge>
       case "SENT":
-        return <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-medium">Sent</Badge>
+        return <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-medium">Sent to Client</Badge>
       case "DRAFT":
-        return <Badge variant="outline" className="text-gray-500 font-medium">Draft</Badge>
+        return <Badge variant="outline" className="text-gray-500 font-medium border-gray-300">Quote Created</Badge>
       case "REJECTED":
         return <Badge variant="destructive" className="font-medium">Rejected</Badge>
       case "REVISED":
-        return <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-medium">Revised</Badge>
+        return <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-medium">Quote Revised</Badge>
+      case "PO_RECEIVED":
+        return <Badge className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium">PO Received</Badge>
+      case "UNDER_PRODUCTION":
+        return <Badge className="bg-orange-600 hover:bg-orange-700 text-white font-medium">Under Production</Badge>
       default:
         return <Badge className="font-medium">{status}</Badge>
     }
@@ -473,27 +471,28 @@ export default function QuotationsPage() {
                           
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "APPROVED", "status")} className="cursor-pointer">
-                            Mark Approved
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "DRAFT", "status")} className="cursor-pointer">
+                            Mark Quote Created
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "REVISED", "status")} className="cursor-pointer">
+                            Mark Quote Revised
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "SENT", "status")} className="cursor-pointer">
-                            Mark Sent
+                            Mark Sent to Client
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "FOLLOW_UP", "status")} className="cursor-pointer">
-                            Mark Follow-up
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "APPROVED", "status")} className="cursor-pointer">
+                            Mark Client Approved
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuLabel>PO Tracking</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "RECEIVED", "poStatus")} className="cursor-pointer">
-                            PO Received
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "PO_RECEIVED", "status")} className="cursor-pointer">
+                            Mark PO Received
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "PENDING", "poStatus")} className="cursor-pointer">
-                            PO Pending
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "UNDER_PRODUCTION", "status")} className="cursor-pointer">
+                            Mark Under Production
                           </DropdownMenuItem>
                           
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          {quote.status === "PENDING_APPROVAL" ? (
+                          {quote.status === "DRAFT" || quote.status === "PENDING_APPROVAL" ? (
                             <Link href={`/quotations/new?editId=${quote.id}`}>
                               <DropdownMenuItem className="flex items-center text-amber-600 focus:text-amber-600 focus:bg-amber-50 cursor-pointer">
                                 <Edit className="mr-2 h-4 w-4 text-amber-600" />

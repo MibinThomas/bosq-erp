@@ -679,9 +679,9 @@ function NewQuotationForm() {
   }
 
   async function onSubmit(data: QuotationFormValues) {
-    // Check if selected client is approved
+    // Check if selected client is approved (only for new/edit quotations, not revisions)
     const selectedClient = clients.find((c) => c.id === data.clientId)
-    if (selectedClient && selectedClient.status !== "Approved") {
+    if (selectedClient && selectedClient.status !== "Approved" && !isRevision) {
       const errorMsg = selectedClient.status === "Pending Approval"
         ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
         : "This client has been rejected. Please contact Admin/Manager before creating quotation."
@@ -764,7 +764,7 @@ function NewQuotationForm() {
           isRevision: isRevision,
           isUpdate: isEdit,
           revisionNotes: revisionNotes,
-          status: isManagerOrAdmin ? "APPROVED" : "PENDING_APPROVAL",
+          status: isRevision ? "REVISED" : "DRAFT",
         }),
       })
 
@@ -903,11 +903,11 @@ function NewQuotationForm() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {selectedClientObj && selectedClientObj.status !== "Approved" && (
+                  {selectedClientObj && selectedClientObj.status !== "Approved" && !isRevision && (
                     <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3 text-destructive animate-in fade-in">
                       <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
                       <div>
-                        <h3 className="font-semibold text-sm">Quotation Creation Blocked</h3>
+                        <h3 className="font-semibold text-sm">Quotation Revision Blocked</h3>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {selectedClientObj.status === "Pending Approval"
                             ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
@@ -2066,7 +2066,7 @@ function NewQuotationForm() {
               </Link>
               <Button
                 type="submit"
-                disabled={submitting || (selectedClientObj && selectedClientObj.status !== "Approved")}
+                disabled={submitting || (selectedClientObj && selectedClientObj.status !== "Approved" && !isRevision)}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (

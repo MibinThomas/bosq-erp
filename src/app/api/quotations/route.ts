@@ -212,9 +212,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Determine resolved status dynamically based on approve permission
-    const canApprove = await hasPermission(creatorUser.id, "QUOTATIONS", "approve")
-    const resolvedStatus = canApprove ? "APPROVED" : "PENDING_APPROVAL"
+    // All quotations are immediately set to DRAFT (Quote Created) status.
+    const resolvedStatus = status || "DRAFT"
 
     // 2. Generate quotation number (e.g. I2223-1)
     let nextQuoteNo = body.quotationNumber
@@ -494,7 +493,7 @@ export async function POST(request: Request) {
       await prisma.notification.createMany({
         data: managers.map(mgr => ({
           userId: mgr.id,
-          title: resolvedStatus === "PENDING_APPROVAL" ? "Quotation Pending Approval" : "New Quotation Created",
+          title: "New Quotation Created",
           message: `Quotation ${nextQuoteNo} for ${clientObj.companyName} was created by ${creatorUser.name || 'a user'}.`,
           type: "QUOTATION_UPDATE",
           link: `/quotations` // Could link to specific quotation if there's a view page
