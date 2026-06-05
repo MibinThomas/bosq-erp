@@ -16,10 +16,6 @@ export default function DashboardPage() {
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
 
-  if (userRole === "SALES_EXECUTIVE") {
-    return <ConsultantDashboard />
-  }
-
   const [loadingKPIs, setLoadingKPIs] = useState(true)
   const [loadingCharts, setLoadingCharts] = useState(true)
   const [loadingTimeline, setLoadingTimeline] = useState(true)
@@ -105,6 +101,10 @@ export default function DashboardPage() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  if (userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT") {
+    return <ConsultantDashboard />
   }
 
   return (
