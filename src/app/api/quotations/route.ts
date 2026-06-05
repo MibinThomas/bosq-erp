@@ -329,9 +329,9 @@ export async function POST(request: Request) {
         margin: marginVal,
         amount: amt,
         imageUrl: resolvedImage,
-        categoryName: matchedProd?.category?.name || "OFFICE FURNITURE",
-        chairType: matchedProd?.chairType || null,
-        shortDescription: matchedProd?.shortDescription || null,
+        categoryName: item.categoryName || matchedProd?.category?.name || "OFFICE FURNITURE",
+        chairType: item.chairType || matchedProd?.chairType || null,
+        shortDescription: item.shortDescription || matchedProd?.shortDescription || null,
       }
     }))
 
