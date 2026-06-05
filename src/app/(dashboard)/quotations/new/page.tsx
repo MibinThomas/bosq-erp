@@ -526,7 +526,7 @@ function NewQuotationForm() {
     }
   }, [initialClientId, clients])
 
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove, update, insert } = useFieldArray({
     name: "items",
     control: form.control,
   })
@@ -1202,16 +1202,6 @@ function NewQuotationForm() {
                 <CardTitle className="text-lg flex items-center gap-2">
                   Line Items Catalog
                 </CardTitle>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  onClick={() => append({ productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", shortDescription: "", categoryName: "Chairs", chairType: "" })}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Custom Item
-                </Button>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 {fields.map((field, index) => {
@@ -1648,25 +1638,37 @@ function NewQuotationForm() {
                                   </div>
                                 </div>
 
-                                {/* Math Helper Text + Remove Line */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2.5 py-1 rounded">
-                                    <Info className="h-3.5 w-3.5 text-muted-foreground/75 shrink-0" />
-                                    <span>Formula: Base Price ÷ (1 - Margin %)</span>
-                                  </div>
+                                {/* Math Helper Text + Remove Line + Add Custom Item */}
+                                <div className="flex flex-col items-end gap-2 pt-2">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2.5 py-1 rounded self-start">
+                                      <Info className="h-3.5 w-3.5 text-muted-foreground/75 shrink-0" />
+                                      <span>Formula: Base Price ÷ (1 - Margin %)</span>
+                                    </div>
 
-                                  {fields.length > 1 && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => remove(index)}
-                                      className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs py-1 h-7 rounded px-2.5 ml-auto flex items-center gap-1"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                      Remove Line
-                                    </Button>
-                                  )}
+                                    {fields.length > 1 && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => remove(index)}
+                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs py-1 h-7 rounded px-2.5 ml-auto flex items-center gap-1"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Remove Line
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full sm:w-auto mt-1 flex items-center gap-1.5"
+                                    onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", shortDescription: "", categoryName: "Chairs", chairType: "" })}
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                    Add Custom Item
+                                  </Button>
                                 </div>
                               </div>
                             </div>
@@ -1964,29 +1966,41 @@ function NewQuotationForm() {
                                   </div>
                                 </div>
 
-                                {/* Visual Helper + Delete Row */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                                  {/* Math Helper Text */}
-                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2.5 py-1 rounded">
-                                    <Info className="h-3.5 w-3.5 text-muted-foreground/75 shrink-0" />
-                                    <span>
-                                      Formula: Base Price ÷ (1 - Margin %)
-                                    </span>
-                                  </div>
+                                {/* Visual Helper + Delete Row + Add Custom Item */}
+                                <div className="flex flex-col items-end gap-2 pt-2">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+                                    {/* Math Helper Text */}
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2.5 py-1 rounded self-start">
+                                      <Info className="h-3.5 w-3.5 text-muted-foreground/75 shrink-0" />
+                                      <span>
+                                        Formula: Base Price ÷ (1 - Margin %)
+                                      </span>
+                                    </div>
 
-                                  {/* Delete Row button */}
-                                  {fields.length > 1 && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => remove(index)}
-                                      className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs py-1 h-7 rounded px-2.5 ml-auto flex items-center gap-1"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                      Remove Line
-                                    </Button>
-                                  )}
+                                    {/* Delete Row button */}
+                                    {fields.length > 1 && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => remove(index)}
+                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs py-1 h-7 rounded px-2.5 ml-auto flex items-center gap-1"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                        Remove Line
+                                      </Button>
+                                    )}
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full sm:w-auto mt-1 flex items-center gap-1.5"
+                                    onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", shortDescription: "", categoryName: "Chairs", chairType: "" })}
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                    Add Custom Item
+                                  </Button>
                                 </div>
                               </div>
                             </div>
