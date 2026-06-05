@@ -87,7 +87,7 @@ export function ProductDetailsModal({
   else if (segment === "Direct") applicablePrice = product.directPrice ?? product.unitPrice
   else if (segment === "Online") applicablePrice = product.onlinePrice ?? product.unitPrice
 
-  const hasQuoteAccess = userRole === "SALES_EXECUTIVE" || userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const hasQuoteAccess = userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || userRole === "ADMIN" || userRole === "SALES_MANAGER"
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">

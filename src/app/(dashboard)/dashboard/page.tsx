@@ -9,11 +9,16 @@ import { DashboardSegmentChart } from "@/components/dashboard/segment-pie-chart"
 import { DashboardTimeline } from "@/components/dashboard/activity-timeline"
 import { Download } from "lucide-react"
 import { PendingClientApprovals } from "@/components/dashboard/pending-approvals"
+import { ConsultantDashboard } from "@/components/dashboard/consultant/consultant-dashboard"
 
 export default function DashboardPage() {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+
+  if (userRole === "SALES_EXECUTIVE") {
+    return <ConsultantDashboard />
+  }
 
   const [loadingKPIs, setLoadingKPIs] = useState(true)
   const [loadingCharts, setLoadingCharts] = useState(true)

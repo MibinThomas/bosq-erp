@@ -104,7 +104,7 @@ export default function ProductsPage() {
         console.error("Failed to load clients:", err)
       }
     }
-    if (userRole === "SALES_EXECUTIVE" || isManagerOrAdmin) {
+    if (userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || isManagerOrAdmin) {
       loadClients()
     }
   }, [userRole, isManagerOrAdmin])
@@ -364,7 +364,7 @@ export default function ProductsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Quote Cart Button */}
-          {(userRole === "SALES_EXECUTIVE" || isManagerOrAdmin) && (
+          {(userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || isManagerOrAdmin) && (
             <Button
               variant="outline"
               onClick={() => setIsCartOpen(true)}
@@ -574,7 +574,7 @@ export default function ProductsPage() {
                       )}
                       
                       {/* Add to Quote Button */}
-                      {(userRole === "SALES_EXECUTIVE" || isManagerOrAdmin) && (
+                      {(userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || isManagerOrAdmin) && (
                         <Button 
                           variant="default" 
                           size="sm" 
@@ -667,7 +667,7 @@ export default function ProductsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right flex items-center justify-end gap-2">
-                      {(userRole === "SALES_EXECUTIVE" || isManagerOrAdmin) && (
+                      {(userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || isManagerOrAdmin) && (
                         <Button
                           variant="ghost"
                           size="icon"
