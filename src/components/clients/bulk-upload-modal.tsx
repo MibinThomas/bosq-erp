@@ -12,7 +12,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { read, utils } from "xlsx"
+import { read, write, utils } from "xlsx"
 
 interface BulkUploadModalProps {
   isOpen: boolean
@@ -45,29 +45,46 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
   if (!isOpen) return null
 
-  // Generate and download a clean CSV import template
-  const downloadSampleCSV = (e: React.MouseEvent) => {
+  // Generate and download a formatted Excel import template
+  const downloadSampleExcel = (e: React.MouseEvent) => {
     e.stopPropagation()
     const headers = ["Client ID", "Company Name", "Contact Person", "Phone", "Email", "Address", "TRN", "Client Type", "Notes"]
     const rows = [
-      ["C-1001", "Acme Corporation", "John Doe", "+123456789", "john@acme.com", "123 Business Rd", "123456789012345", "Direct", "Important client"],
-      ["C-1002", "Tech Innovators", "Jane Smith", "+987654321", "jane@tech.com", "456 Tech Park", "987654321098765", "Dealer", "Bulk purchaser"],
+      ["C-1001", "Acme Corporation", "John Doe", "+971 50 123 4567", "john@acme.com", "Office 402, Downtown Dubai, UAE", "100123456789012", "Direct", "Important VIP client"],
+      ["C-1002", "Tech Innovators", "Jane Smith", "+971 4 987 6543", "jane@tech.com", "Dubai Silicon Oasis, UAE", "100987654321098", "Dealer", "Bulk purchaser"],
     ]
     
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(r => r.map(cell => `"${cell.replace(/"/g, '""')}"`).join(","))
-    ].join("\n")
+    // Create worksheet
+    const worksheet = utils.aoa_to_sheet([headers, ...rows])
+    
+    // Set column widths for better UX
+    worksheet["!cols"] = [
+      { wch: 12 }, // Client ID
+      { wch: 30 }, // Company Name
+      { wch: 20 }, // Contact Person
+      { wch: 18 }, // Phone
+      { wch: 25 }, // Email
+      { wch: 40 }, // Address
+      { wch: 18 }, // TRN
+      { wch: 15 }, // Client Type
+      { wch: 35 }, // Notes
+    ]
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    // Create workbook and append sheet
+    const workbook = utils.book_new()
+    utils.book_append_sheet(workbook, worksheet, "Client Import Template")
+    
+    // Generate buffer and trigger download
+    const excelBuffer = write(workbook, { bookType: "xlsx", type: "array" })
+    const blob = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.setAttribute("href", url)
-    link.setAttribute("download", "bosq_client_import_template.csv")
+    link.setAttribute("download", "BOSQ_Client_Import_Template.xlsx")
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    toast.success("Import template downloaded!")
+    toast.success("Excel import template downloaded!")
   }
 
   const handleSpreadsheetFile = (file: File) => {
@@ -304,16 +321,16 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-2xl border">
                 <div>
                   <h4 className="font-semibold text-sm">Need an import template?</h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">Download a sample CSV file pre-configured with the ideal headers and sample clients.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Download a sample Excel file pre-configured with the correct columns.</p>
                 </div>
                 <Button 
                   type="button"
                   variant="outline" 
-                  onClick={downloadSampleCSV}
+                  onClick={downloadSampleExcel}
                   className="border-primary/20 hover:bg-primary/5 hover:border-primary/45 text-primary text-xs shrink-0 cursor-pointer"
                 >
                   <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Download Sample CSV
+                  Download Excel Template
                 </Button>
               </div>
 
