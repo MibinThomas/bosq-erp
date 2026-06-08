@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Loader2, Save, Building2, User, Mail, Phone, MapPin, FileText, Hash } from "lucide-react"
+import { ArrowLeft, Loader2, Save, Building2, User, Mail, Phone, MapPin, FileText, Hash, UploadCloud, X, FileIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 
 function ClientFormContent() {
@@ -34,6 +35,9 @@ function ClientFormContent() {
     address: "",
     notes: "",
   })
+  
+  const [documents, setDocuments] = useState<{ file: File; title: string; documentType: string }[]>([])
+  const [docUploadProgress, setDocUploadProgress] = useState<{ current: number; total: number } | null>(null)
 
   useEffect(() => {
     if (editId) {
@@ -97,14 +101,54 @@ function ClientFormContent() {
       }
 
       const savedClient = await res.json()
+      
+      // Upload documents if any
+      if (documents.length > 0) {
+        setDocUploadProgress({ current: 0, total: documents.length })
+        for (let i = 0; i < documents.length; i++) {
+          const doc = documents[i]
+          const formData = new FormData()
+          formData.append("file", doc.file)
+          formData.append("title", doc.title)
+          formData.append("documentType", doc.documentType)
+          
+          try {
+            const docRes = await fetch(`/api/clients/${savedClient.id}/documents`, {
+              method: "POST",
+              body: formData
+            })
+            if (!docRes.ok) throw new Error("Document upload failed")
+          } catch (err) {
+            console.error("Failed to upload document", doc.title, err)
+            toast.error(`Failed to upload ${doc.title}`)
+          }
+          setDocUploadProgress({ current: i + 1, total: documents.length })
+        }
+      }
+
       toast.success(`Client ${savedClient.companyName} ${editId ? "updated" : "created"} successfully!`)
-      router.push("/clients")
+      router.push(`/clients/${savedClient.id}`)
     } catch (error: any) {
       console.error(`Error ${editId ? "updating" : "creating"} client:`, error)
       toast.error(error.message || `Failed to ${editId ? "update" : "create"} client. Please try again.`)
     } finally {
       setSaving(false)
+      setDocUploadProgress(null)
     }
+  }
+
+  const handleAddDocument = (e: React.ChangeEvent<HTMLInputElement>, documentType: string, defaultTitle: string) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0]
+      const title = documentType === "CUSTOM" ? prompt("Enter custom document name:") || file.name : defaultTitle
+      setDocuments(prev => [...prev, { file, title, documentType }])
+    }
+    // reset input
+    e.target.value = ""
+  }
+
+  const removeDocument = (index: number) => {
+    setDocuments(prev => prev.filter((_, i) => i !== index))
   }
 
   if (loading) {
@@ -251,6 +295,107 @@ function ClientFormContent() {
           </div>
         </div>
 
+        <div className="border rounded-2xl p-6 bg-card text-card-foreground shadow-sm space-y-6">
+          <div className="flex items-center justify-between border-b pb-2">
+            <div>
+              <h2 className="text-lg font-semibold">Company Documents</h2>
+              <p className="text-sm text-muted-foreground">Optional: Upload legal and business documents. Files will be synced to SharePoint.</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { type: "VAT_CERTIFICATE", label: "VAT Certificate" },
+              { type: "TRADE_LICENSE", label: "Trade License" },
+              { type: "COMPANY_PROFILE", label: "Company Profile" },
+              { type: "AGREEMENT", label: "Signed Agreement" },
+            ].map(docTemplate => {
+              const existing = documents.find(d => d.documentType === docTemplate.type)
+              return (
+                <div key={docTemplate.type} className="border rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden bg-muted/20">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold text-sm">{docTemplate.label}</h3>
+                      <p className="text-[10px] text-muted-foreground uppercase">{docTemplate.type.replace(/_/g, ' ')}</p>
+                    </div>
+                    {existing && (
+                      <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-[10px] h-5">Selected</Badge>
+                    )}
+                  </div>
+                  
+                  {existing ? (
+                    <div className="flex items-center justify-between bg-background border rounded-lg p-2 mt-auto">
+                      <div className="flex items-center gap-2 truncate">
+                        <FileIcon className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-xs truncate" title={existing.file.name}>{existing.file.name}</span>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive shrink-0" onClick={() => removeDocument(documents.indexOf(existing))}>
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-auto">
+                      <Input 
+                        type="file" 
+                        id={`upload-${docTemplate.type}`} 
+                        className="hidden" 
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                        onChange={(e) => handleAddDocument(e, docTemplate.type, docTemplate.label)}
+                      />
+                      <label htmlFor={`upload-${docTemplate.type}`}>
+                        <div className="flex items-center justify-center gap-2 border border-dashed border-primary/30 rounded-lg p-2 text-xs font-medium text-primary hover:bg-primary/5 cursor-pointer transition-colors">
+                          <UploadCloud className="h-4 w-4" />
+                          Upload File
+                        </div>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            
+            {/* Custom Documents List */}
+            {documents.filter(d => d.documentType === "CUSTOM").map((doc, idx) => (
+              <div key={`custom-${idx}`} className="border rounded-xl p-4 flex flex-col gap-3 relative overflow-hidden bg-muted/20">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-semibold text-sm truncate" title={doc.title}>{doc.title}</h3>
+                    <p className="text-[10px] text-muted-foreground uppercase">CUSTOM</p>
+                  </div>
+                  <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 text-[10px] h-5">Selected</Badge>
+                </div>
+                <div className="flex items-center justify-between bg-background border rounded-lg p-2 mt-auto">
+                  <div className="flex items-center gap-2 truncate">
+                    <FileIcon className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-xs truncate" title={doc.file.name}>{doc.file.name}</span>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive shrink-0" onClick={() => removeDocument(documents.indexOf(doc))}>
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            
+            {/* Add Custom Document Button */}
+            <div className="border border-dashed rounded-xl p-4 flex flex-col items-center justify-center gap-2 bg-transparent min-h-[120px]">
+              <Input 
+                type="file" 
+                id="upload-CUSTOM" 
+                className="hidden" 
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
+                onChange={(e) => handleAddDocument(e, "CUSTOM", "Custom Document")}
+              />
+              <label htmlFor="upload-CUSTOM" className="flex flex-col items-center cursor-pointer text-muted-foreground hover:text-primary transition-colors">
+                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center mb-1">
+                  <UploadCloud className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-semibold">Add Custom Document</span>
+                <span className="text-[10px]">PDF, DOC, XLS, IMG</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-center justify-end space-x-4">
           <Link href="/clients">
             <Button type="button" variant="outline">
@@ -261,7 +406,9 @@ function ClientFormContent() {
             {saving ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {editId ? "Updating..." : "Saving..."}
+                {docUploadProgress 
+                  ? `Uploading (${docUploadProgress.current}/${docUploadProgress.total})...` 
+                  : editId ? "Updating..." : "Saving..."}
               </>
             ) : (
               <>

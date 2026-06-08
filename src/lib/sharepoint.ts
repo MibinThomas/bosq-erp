@@ -352,6 +352,115 @@ export async function migrateClientFolderToClientsDir(companyName: string) {
   }
 }
 
+export async function ensureClientDocumentsFolder(
+  client: any, 
+  siteId: string, 
+  driveId: string, 
+  companyName: string
+) {
+  const sanitizedCompany = sanitizeClientName(companyName)
+  const folders = [
+    "Clients", 
+    `Clients/${sanitizedCompany}`, 
+    `Clients/${sanitizedCompany}/Documents`
+  ]
+  
+  for (const folderPath of folders) {
+    try {
+      await client
+        .api(`/sites/${siteId}/drives/${driveId}/root:/${folderPath}`)
+        .get()
+    } catch (err: any) {
+      if (err.statusCode === 404) {
+        const pathParts = folderPath.split("/")
+        const folderName = pathParts.pop()
+        const parentPath = pathParts.join("/")
+        
+        const endpoint = parentPath 
+          ? `/sites/${siteId}/drives/${driveId}/root:/${parentPath}:/children`
+          : `/sites/${siteId}/drives/${driveId}/root/children`
+          
+        await client.api(endpoint).post({
+          name: folderName,
+          folder: {},
+          "@microsoft.graph.conflictBehavior": "fail"
+        })
+      } else {
+        throw err
+      }
+    }
+  }
+}
+
+export async function uploadClientDocument(companyName: string, filename: string, fileBuffer: Buffer) {
+  const { config, hasCreds } = await getSharePointConfig()
+  const sanitizedCompany = sanitizeClientName(companyName)
+
+  const fallbackPath = `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(sanitizedCompany)}/Documents/${encodeURIComponent(filename)}`
+
+  if (!hasCreds) {
+    console.warn("SharePoint credentials are not configured. Mocking document upload.")
+    return {
+      webUrl: fallbackPath,
+      id: "mock-id-" + Math.random().toString(36).substring(7)
+    }
+  }
+
+  try {
+    const client = await getGraphClient(
+      config.sharepoint_tenant_id,
+      config.sharepoint_client_id,
+      config.sharepoint_client_secret
+    )
+    
+    await ensureClientDocumentsFolder(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName)
+    
+    const cleanFilename = filename.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+    const path = `/Clients/${sanitizedCompany}/Documents/${cleanFilename}`
+    
+    const result = await client
+      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:${path}:/content`)
+      .put(fileBuffer)
+
+    return {
+      webUrl: result.webUrl,
+      id: result.id
+    }
+  } catch (error) {
+    console.error("Error uploading client document to SharePoint:", error)
+    throw error
+  }
+}
+
+export async function deleteClientDocument(itemId: string) {
+  const { config, hasCreds } = await getSharePointConfig()
+  
+  if (!hasCreds) {
+    console.warn("SharePoint credentials are not configured. Mocking document deletion.")
+    return true
+  }
+
+  if (itemId.startsWith("mock-id-")) return true
+
+  try {
+    const client = await getGraphClient(
+      config.sharepoint_tenant_id,
+      config.sharepoint_client_id,
+      config.sharepoint_client_secret
+    )
+    
+    await client
+      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/items/${itemId}`)
+      .delete()
+
+    return true
+  } catch (error: any) {
+    if (error.statusCode === 404) return true
+    console.error("Error deleting client document from SharePoint:", error)
+    throw error
+  }
+}
+
 export async function migrateQuotationToGroupFolder(companyName: string, fileNameWithExtension: string, groupFolder: string) {
   const { config, hasCreds } = await getSharePointConfig()
   if (!hasCreds) return { success: false, reason: "No credentials" }
