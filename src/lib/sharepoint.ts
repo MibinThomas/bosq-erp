@@ -57,17 +57,17 @@ export async function createClientFolder(companyName: string) {
       config.sharepoint_client_secret
     )
     
-    const folder = {
-      name: companyName,
-      folder: {},
-      "@microsoft.graph.conflictBehavior": "rename"
-    }
+    // Use ensureFolderStructure to create Clients folder and the client subfolder safely
+    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName)
+    
+    const sanitizedCompany = sanitizeClientName(companyName)
+    
+    // Fetch the folder to get its ID
+    const folderResult = await client
+      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${sanitizedCompany}`)
+      .get()
 
-    const result = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root/children`)
-      .post(folder)
-
-    return result.id
+    return folderResult.id
   } catch (error) {
     console.error("Error creating SharePoint folder:", error)
     throw error
@@ -271,3 +271,84 @@ export async function renameClientFolder(oldCompanyName: string, newCompanyName:
     throw error
   }
 }
+
+export async function migrateClientFolderToClientsDir(companyName: string) {
+  const { config, hasCreds } = await getSharePointConfig()
+  if (!hasCreds) return { success: false, reason: "No credentials" }
+
+  const sanitizedCompany = sanitizeClientName(companyName)
+
+  try {
+    const client = await getGraphClient(
+      config.sharepoint_tenant_id,
+      config.sharepoint_client_id,
+      config.sharepoint_client_secret
+    )
+
+    // 1. Check if the folder exists at the root
+    let rootFolderId = null
+    try {
+      const rootFolder = await client
+        .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/${sanitizedCompany}`)
+        .get()
+      rootFolderId = rootFolder.id
+    } catch (err: any) {
+      if (err.statusCode === 404) {
+        return { success: false, reason: "Folder not found at root" }
+      }
+      throw err
+    }
+
+    // 2. Ensure "Clients" folder exists
+    try {
+      await client
+        .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients`)
+        .get()
+    } catch (err: any) {
+      if (err.statusCode === 404) {
+        await client
+          .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root/children`)
+          .post({
+            name: "Clients",
+            folder: {},
+            "@microsoft.graph.conflictBehavior": "fail"
+          })
+      } else {
+        throw err
+      }
+    }
+
+    // Get Clients folder ID
+    const clientsFolder = await client
+      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients`)
+      .get()
+
+    // 3. Check if folder already exists in Clients/
+    try {
+      await client
+        .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${sanitizedCompany}`)
+        .get()
+      // Exists in destination! We cannot move it because of conflict.
+      return { success: false, reason: "Folder already exists in Clients directory" }
+    } catch (err: any) {
+      if (err.statusCode !== 404) {
+        throw err
+      }
+    }
+
+    // 4. Move folder to Clients/
+    await client
+      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/items/${rootFolderId}`)
+      .patch({
+        parentReference: {
+          id: clientsFolder.id
+        }
+      })
+
+    return { success: true, moved: true }
+  } catch (error) {
+    console.error(`Error migrating folder for ${companyName}:`, error)
+    return { success: false, error }
+  }
+}
+

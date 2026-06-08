@@ -190,6 +190,18 @@ export async function POST(request: Request) {
           details: `Created client ${companyName} (${nextClientId})`,
         },
       })
+
+      if (sharepointFolderId && !sharepointFolderId.startsWith("mock-")) {
+        await prisma.activityLog.create({
+          data: {
+            userId: creatorUserId,
+            action: "CREATED_SHAREPOINT_FOLDER",
+            entityType: "CLIENT",
+            entityId: newClient.id,
+            details: `Client SharePoint folder created: Clients/${companyName}`,
+          },
+        })
+      }
     }
 
     // Create notifications for Admin/Managers if pending approval
