@@ -93,7 +93,7 @@ export async function GET(request: Request) {
       const record = timeSeriesMap.get(dateStr)!
       const value = q.subtotal || 0
       
-      const isConverted = q.poStatus === "RECEIVED" || q.status === "PO_RECEIVED" || q.status === "APPROVED"
+      const isConverted = q.poStatus === "RECEIVED" || q.status === "PO_RECEIVED" || q.status === "CLIENT_CONFIRMED" || q.status === "UNDER_PRODUCTION"
       
       if (isConverted) {
         record.convertedValue += value

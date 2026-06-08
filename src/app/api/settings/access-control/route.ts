@@ -151,7 +151,8 @@ export async function POST(request: Request) {
             dealerPriceVisible: basePerm ? basePerm.dealerPriceVisible : false,
             marginVisible: basePerm ? basePerm.marginVisible : false,
             profitVisible: basePerm ? basePerm.profitVisible : false,
-            markupVisible: basePerm ? basePerm.markupVisible : false
+            markupVisible: basePerm ? basePerm.markupVisible : false,
+            canConfirmQuotation: basePerm ? basePerm.canConfirmQuotation : false
           }
         })
       }
@@ -224,6 +225,7 @@ export async function PUT(request: Request) {
           marginVisible: p.marginVisible ?? false,
           profitVisible: p.profitVisible ?? false,
           markupVisible: p.markupVisible ?? false,
+          canConfirmQuotation: p.canConfirmQuotation ?? false,
         }
 
         if (existing) {

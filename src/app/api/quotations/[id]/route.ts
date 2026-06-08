@@ -66,9 +66,25 @@ export async function GET(
       orderBy: { revisionNumber: "desc" }
     })
 
+    const seriesQuotations = await prisma.quotation.findMany({
+      where: {
+        OR: [
+          { id: rootId },
+          { parentId: rootId }
+        ]
+      },
+      orderBy: { revisionNumber: "asc" },
+      include: {
+        preparedBy: {
+          select: { name: true }
+        }
+      }
+    })
+
     return NextResponse.json({
       ...quotation,
-      revisions
+      revisions,
+      seriesQuotations
     })
   } catch (error) {
     console.error("Failed to fetch quotation:", error)
@@ -173,6 +189,72 @@ export async function PUT(
         })
       }
       return NextResponse.json(approvedQuotation)
+    }
+
+    // CASE 4: CLIENT CONFIRMS QUOTATION
+    if (body.action === "CLIENT_CONFIRM") {
+      const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(logUserRole)
+      const isSalesExecutiveWithPermission = logUserRole === "SALES_EXECUTIVE" && (
+        dbSessionUser?.permissionOverrides.find(o => o.action === "canConfirmQuotation")?.value ?? rolePerm?.canConfirmQuotation ?? false
+      )
+      const isAuthorized = isManagerOrAdmin || isSalesExecutiveWithPermission
+      
+      if (!isAuthorized) {
+        return NextResponse.json({ error: "Unauthorized: You do not have permission to confirm quotations" }, { status: 403 })
+      }
+
+      const rootId = existingQuotation.parentId || existingQuotation.id
+      const forceReplace = body.forceReplace === true
+
+      // Find if there is already a confirmed quotation in this series
+      const alreadyConfirmed = await prisma.quotation.findFirst({
+        where: {
+          OR: [
+            { id: rootId },
+            { parentId: rootId }
+          ],
+          status: "CLIENT_CONFIRMED",
+          id: { not: existingQuotation.id }
+        }
+      })
+
+      if (alreadyConfirmed && !forceReplace) {
+        return NextResponse.json({
+          error: "ALREADY_CONFIRMED",
+          confirmedQuotationNumber: alreadyConfirmed.quotationNumber
+        }, { status: 400 })
+      }
+
+      const confirmedQuotation = await prisma.$transaction(async (tx) => {
+        let previousConfirmedNo = ""
+        if (alreadyConfirmed) {
+          previousConfirmedNo = alreadyConfirmed.quotationNumber
+          await tx.quotation.update({
+            where: { id: alreadyConfirmed.id },
+            data: { status: "REVISED" }
+          })
+        }
+
+        const updated = await tx.quotation.update({
+          where: { id: existingQuotation.id },
+          data: { status: "CLIENT_CONFIRMED" },
+          include: { client: true, items: true, revisions: true }
+        })
+
+        await tx.activityLog.create({
+          data: {
+            userId: logUserId,
+            action: "CLIENT_CONFIRMED_QUOTATION",
+            entityType: "QUOTATION",
+            entityId: updated.id,
+            details: `Marked quotation revision ${updated.quotationNumber} as Client Confirmed. Client: ${updated.client.companyName}${previousConfirmedNo ? ` (Replaced previous confirmed revision ${previousConfirmedNo})` : ""}`,
+          }
+        })
+
+        return updated
+      })
+
+      return NextResponse.json(confirmedQuotation)
     }
 
     // CASE 1: FULL REVISION REQUEST
@@ -882,6 +964,18 @@ export async function PUT(
     if (logUserRole === "SALES_EXECUTIVE" && existingQuotation.preparedById !== logUserId) {
       return NextResponse.json({ error: "Unauthorized: You can only update your own quotations" }, { status: 403 })
     }
+
+    // Block forward transition to PO/Production if not client confirmed
+    const targetStatuses = ["PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "PRODUCTION", "INVOICE", "INVOICED"]
+    const isMovingForward = (status && targetStatuses.includes(status)) || poStatus === "RECEIVED"
+    
+    if (isMovingForward && existingQuotation.status !== "CLIENT_CONFIRMED") {
+      return NextResponse.json({
+        error: "FORBIDDEN_WORKFLOW",
+        message: "Only the Client Confirmed quotation can be transitioned to PO, Production, or Billing workflows. Please mark this revision as Client Confirmed first."
+      }, { status: 400 })
+    }
+
     // Everyone can update the status of their own quotations without role limitations.
     const updateData: any = {}
     if (status) updateData.status = status

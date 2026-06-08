@@ -74,7 +74,7 @@ export async function GET(request: Request) {
     
     const totalValue = quotations.reduce((acc, q) => acc + (q.subtotal || 0), 0)
     
-    const convertedQuotes = quotations.filter(q => q.poStatus === "RECEIVED" || q.status === "PO_RECEIVED" || q.status === "APPROVED")
+    const convertedQuotes = quotations.filter(q => q.poStatus === "RECEIVED" || q.status === "PO_RECEIVED" || q.status === "CLIENT_CONFIRMED" || q.status === "UNDER_PRODUCTION")
     const convertedCount = convertedQuotes.length
     const convertedValue = convertedQuotes.reduce((acc, q) => acc + (q.subtotal || 0), 0)
 

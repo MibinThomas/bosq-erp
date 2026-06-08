@@ -179,7 +179,7 @@ export async function getPermissionsProfile(userId: string) {
         export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true,
         ownership: "ALL", approvalLimit: null,
         costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true,
-        maxDiscountPercent: 100, canOverrideVat: true, canAddCustomCharges: true
+        maxDiscountPercent: 100, canOverrideVat: true, canAddCustomCharges: true, canConfirmQuotation: true
       }
     }
     return {
@@ -204,7 +204,7 @@ export async function getPermissionsProfile(userId: string) {
       export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false,
       ownership: "NONE", approvalLimit: null,
       costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false,
-      maxDiscountPercent: 0, canOverrideVat: false, canAddCustomCharges: false
+      maxDiscountPercent: 0, canOverrideVat: false, canAddCustomCharges: false, canConfirmQuotation: false
     }
   }
 
@@ -231,7 +231,8 @@ export async function getPermissionsProfile(userId: string) {
         markupVisible: perm.markupVisible,
         maxDiscountPercent: perm.maxDiscountPercent,
         canOverrideVat: perm.canOverrideVat,
-        canAddCustomCharges: perm.canAddCustomCharges
+        canAddCustomCharges: perm.canAddCustomCharges,
+        canConfirmQuotation: perm.canConfirmQuotation
       }
     }
   }
@@ -248,9 +249,11 @@ export async function getPermissionsProfile(userId: string) {
     } else if (action === "maxDiscountPercent") {
       profile[override.module].maxDiscountPercent = override.maxDiscountPercent ?? profile[override.module].maxDiscountPercent
     } else if (action === "canOverrideVat") {
-      profile[override.module].canOverrideVat = override.canOverrideVat ?? profile[override.module].canOverrideVat
+      profile[override.module].canOverrideVat = override.value
     } else if (action === "canAddCustomCharges") {
-      profile[override.module].canAddCustomCharges = override.canAddCustomCharges ?? profile[override.module].canAddCustomCharges
+      profile[override.module].canAddCustomCharges = override.value
+    } else if (action === "canConfirmQuotation") {
+      profile[override.module].canConfirmQuotation = override.value
     } else {
       profile[override.module][action] = override.value
     }

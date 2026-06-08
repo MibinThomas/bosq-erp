@@ -183,6 +183,7 @@ export async function GET(
       specialDiscountReason: quotation.specialDiscountReason || null,
       discount: quotation.discount || 0,
       additionalCharges: (quotation.additionalCharges as any) || [],
+      status: quotation.status,
     }
 
     // Compile PDF
@@ -191,7 +192,9 @@ export async function GET(
     )
 
     const sanitizedClientName = quotation.client.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
-    const filename = `${quotation.quotationNumber}_${sanitizedClientName}.pdf`
+    const filename = quotation.status === "CLIENT_CONFIRMED"
+      ? `${quotation.quotationNumber}_ClientConfirmed_${sanitizedClientName}.pdf`
+      : `${quotation.quotationNumber}_${sanitizedClientName}.pdf`
 
     // Return PDF Stream
     return new Response(pdfBuffer as any, {

@@ -33,6 +33,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import { QuotationJourneyModal } from "@/components/quotations/QuotationJourneyModal"
 
@@ -80,10 +81,92 @@ export default function QuotationsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const limit = 20
   
-  const [historyQuote, setHistoryQuote] = useState<Quotation | null>(null)
+  const [historyQuote, setHistoryQuote] = useState<any | null>(null)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [journeyQuoteId, setJourneyQuoteId] = useState<string | null>(null)
   const [isJourneyOpen, setIsJourneyOpen] = useState(false)
+
+  const [userPermissions, setUserPermissions] = useState<any>(null)
+  const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false)
+  const [conflictingQuoteNo, setConflictingQuoteNo] = useState("")
+  const [targetQuoteToConfirm, setTargetQuoteToConfirm] = useState<any | null>(null)
+
+  useEffect(() => {
+    fetch("/api/users/me/permissions")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.permissions) {
+          setUserPermissions(data.permissions.QUOTATIONS || {})
+        }
+      })
+      .catch(err => console.error("Failed to load permissions", err))
+  }, [])
+
+  const isSuperAdmin = userRole === "SUPER_ADMIN"
+  const isAuthorizedToConfirm = isSuperAdmin || isManagerOrAdmin || (userPermissions?.canConfirmQuotation === true)
+
+  const handleConfirmQuote = async (quoteId: string, forceReplace: boolean = false) => {
+    try {
+      const res = await fetch(`/api/quotations/${quoteId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "CLIENT_CONFIRM", forceReplace })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (data.error === "ALREADY_CONFIRMED") {
+          const conflictingQuote = quotations.find(q => q.id === quoteId) || (historyQuote?.seriesQuotations?.find((q: any) => q.id === quoteId))
+          if (conflictingQuote) {
+            setTargetQuoteToConfirm(conflictingQuote)
+          }
+          setConflictingQuoteNo(data.confirmedQuotationNumber)
+          setIsReplaceDialogOpen(true)
+          return
+        }
+        throw new Error(data.error || "Failed to confirm quotation")
+      }
+
+      // Update local state in lists
+      setQuotations((prev) =>
+        prev.map((q) => (q.id === quoteId ? { ...q, ...data } : q))
+      )
+
+      if (historyQuote && (historyQuote.id === quoteId || historyQuote.parentId === data.parentId || historyQuote.id === data.parentId)) {
+        // Re-fetch details to sync the revisions modal state
+        const hRes = await fetch(`/api/quotations/${historyQuote.id}`)
+        if (hRes.ok) {
+          const hData = await hRes.json()
+          setHistoryQuote(hData)
+        }
+      }
+
+      setIsReplaceDialogOpen(false)
+      setTargetQuoteToConfirm(null)
+      toast.success("Quotation marked as Client Confirmed successfully!")
+    } catch (error: any) {
+      toast.error(error.message || "Failed to confirm quotation.")
+    }
+  }
+
+  // Effect to load full details including seriesQuotations when revision modal opens
+  useEffect(() => {
+    if (isHistoryOpen && historyQuote) {
+      const loadHistoryDetails = async () => {
+        try {
+          const res = await fetch(`/api/quotations/${historyQuote.id}`)
+          if (res.ok) {
+            const data = await res.json()
+            setHistoryQuote(data)
+          }
+        } catch (err) {
+          console.error("Failed to load full quotation history:", err)
+        }
+      }
+      loadHistoryDetails()
+    }
+  }, [isHistoryOpen])
 
   useEffect(() => {
     async function fetchQuotations() {
@@ -120,8 +203,10 @@ export default function QuotationsPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case "CLIENT_CONFIRMED":
+        return <Badge className="bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center gap-1 shrink-0"><Check size={11} />Client Confirmed Quote</Badge>
       case "APPROVED":
-        return <Badge className="bg-green-600 hover:bg-green-700 text-white font-medium">Client Approved</Badge>
+        return <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium">Client Approved</Badge>
       case "SENT":
         return <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-medium">Sent to Client</Badge>
       case "DRAFT":
@@ -480,15 +565,22 @@ export default function QuotationsPage() {
                           <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "SENT", "status")} className="cursor-pointer">
                             Mark Sent to Client
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "APPROVED", "status")} className="cursor-pointer">
-                            Mark Client Approved
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "PO_RECEIVED", "status")} className="cursor-pointer">
-                            Mark PO Received
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "UNDER_PRODUCTION", "status")} className="cursor-pointer">
-                            Mark Under Production
-                          </DropdownMenuItem>
+                          {isAuthorizedToConfirm && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quote.status) && (
+                            <DropdownMenuItem onClick={() => handleConfirmQuote(quote.id, false)} className="cursor-pointer font-semibold text-green-700 focus:text-green-700 focus:bg-green-50">
+                              <Check className="mr-2 h-4 w-4 text-green-600" />
+                              Mark as Client Confirmed
+                            </DropdownMenuItem>
+                          )}
+                          {quote.status === "CLIENT_CONFIRMED" && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "PO_RECEIVED", "status")} className="cursor-pointer">
+                              Mark PO Received
+                            </DropdownMenuItem>
+                          )}
+                          {(quote.status === "CLIENT_CONFIRMED" || quote.status === "PO_RECEIVED") && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "UNDER_PRODUCTION", "status")} className="cursor-pointer">
+                              Mark Under Production
+                            </DropdownMenuItem>
+                          )}
                           
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
@@ -559,14 +651,14 @@ export default function QuotationsPage() {
 
       {/* Revision History Modal */}
       <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <DialogContent className="max-w-md rounded-xl">
+        <DialogContent className="max-w-2xl rounded-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
               <History className="h-5 w-5 text-purple-600" />
               Quotation Revision History
             </DialogTitle>
             <DialogDescription className="text-sm">
-              Full audit log and revision timeline for **{historyQuote?.quotationNumber}**
+              Full revisions and confirmation status for Quotation Series: **{historyQuote?.quotationNumber?.split("-")[0]}**
             </DialogDescription>
           </DialogHeader>
 
@@ -575,64 +667,146 @@ export default function QuotationsPage() {
               <div className="bg-muted/30 border rounded-lg p-3 text-xs space-y-1">
                 <div className="flex justify-between font-medium">
                   <span className="text-muted-foreground">Client:</span>
-                  <span>{historyQuote.client.companyName}</span>
+                  <span>{historyQuote.client?.companyName}</span>
                 </div>
                 <div className="flex justify-between font-medium">
                   <span className="text-muted-foreground">Active Version:</span>
-                  <span>Revision #{historyQuote.revisionNumber}</span>
+                  <span>Revision #{historyQuote.revisionNumber} ({historyQuote.quotationNumber})</span>
                 </div>
                 <div className="flex justify-between font-medium">
                   <span className="text-muted-foreground">Current Total:</span>
-                  <span className="font-mono">AED {historyQuote.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="font-mono">AED {historyQuote.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
-              {!historyQuote.revisions || historyQuote.revisions.length === 0 ? (
+              {!historyQuote.seriesQuotations || historyQuote.seriesQuotations.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground text-sm space-y-1">
-                  <p className="font-semibold">No revisions yet</p>
-                  <p className="text-xs">This is the original quotation version (Revision #0).</p>
+                  <p className="font-semibold animate-pulse">Loading revisions...</p>
                 </div>
               ) : (
-                <div className="relative border-l pl-4 ml-2 space-y-5">
-                  {/* Current Active Version Indicator */}
-                  <div className="relative">
-                    <div className="absolute -left-[21px] mt-1 h-3 w-3 rounded-full bg-green-500 ring-4 ring-background" />
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-green-600">Active (Revision #{historyQuote.revisionNumber})</span>
-                        <span className="text-muted-foreground">Current</span>
-                      </div>
-                      <p className="text-sm font-semibold">Active Finalized Quotation</p>
-                    </div>
-                  </div>
+                <div className="overflow-x-auto border rounded-lg">
+                  <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
+                    <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold">
+                      <tr>
+                        <th className="p-3">Revision</th>
+                        <th className="p-3">Date</th>
+                        <th className="p-3 text-right">Value</th>
+                        <th className="p-3 text-center">Status</th>
+                        <th className="p-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                      {historyQuote.seriesQuotations.map((item: any) => {
+                        let displayStatus = item.status
+                        if (item.status === "CLIENT_CONFIRMED") displayStatus = "Client Confirmed"
+                        else if (item.status === "PO_RECEIVED") displayStatus = "PO Received"
+                        else if (item.status === "UNDER_PRODUCTION") displayStatus = "Under Production"
+                        else if (item.status === "REVISED") displayStatus = "Revised"
+                        else if (item.status === "APPROVED") displayStatus = "Approved"
+                        else if (item.status === "REJECTED") displayStatus = "Rejected"
+                        else if (item.status === "CANCELLED") displayStatus = "Cancelled"
+                        else if (item.status === "DRAFT") displayStatus = "Draft"
 
-                  {/* Map revisions */}
-                  {historyQuote.revisions.map((rev) => (
-                    <div key={rev.id} className="relative">
-                      <div className="absolute -left-[21px] mt-1 h-3 w-3 rounded-full bg-purple-600 ring-4 ring-background" />
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-purple-700">Revision #{rev.revisionNumber}</span>
-                          <span className="text-muted-foreground font-mono">
-                            {new Date(rev.revisionDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                          </span>
-                        </div>
-                        <div className="text-xs font-medium text-muted-foreground bg-purple-50 dark:bg-purple-950/20 p-2.5 rounded border border-purple-100 dark:border-purple-900/50 mt-1 italic">
-                          &ldquo;{rev.notes || "Revised quotation details"}&rdquo;
-                        </div>
-                        <div className="flex justify-between text-xs pt-1 font-mono">
-                          <span className="text-muted-foreground">Amount Shifted:</span>
-                          <span>
-                            AED {rev.previousTotal.toLocaleString()} &rarr; AED {rev.newTotal.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                        // Show Not Selected if another quote is confirmed
+                        const hasConfirmedInSeries = historyQuote.seriesQuotations.some((q: any) =>
+                          ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(q.status)
+                        )
+                        if (hasConfirmedInSeries && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)) {
+                          displayStatus = "Not Selected"
+                        }
+
+                        return (
+                          <tr key={item.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
+                            <td className="p-3 font-semibold">{item.quotationNumber}</td>
+                            <td className="p-3 whitespace-nowrap">
+                              {new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </td>
+                            <td className="p-3 text-right font-mono font-medium">
+                              AED {item.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td className="p-3 text-center">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                item.status === "CLIENT_CONFIRMED" 
+                                  ? "bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400 border border-green-200" 
+                                  : item.status === "PO_RECEIVED" || item.status === "UNDER_PRODUCTION"
+                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200"
+                                  : displayStatus === "Not Selected"
+                                  ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200"
+                                  : "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200"
+                              }`}>
+                                {displayStatus}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-[10px] text-blue-600 hover:text-blue-700"
+                                onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
+                              >
+                                View
+                              </Button>
+
+                              {isAuthorizedToConfirm && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-[10px] text-green-600 hover:text-green-700 font-semibold"
+                                  onClick={() => handleConfirmQuote(item.id, false)}
+                                >
+                                  Confirm
+                                </Button>
+                              )}
+
+                              {item.status === "CLIENT_CONFIRMED" && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-[10px] text-indigo-600 hover:text-indigo-700 font-semibold"
+                                  onClick={() => handleUpdateStatus(item.id, "PO_RECEIVED", "status")}
+                                >
+                                  Convert to PO
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Replace Confirmation Modal */}
+      <Dialog open={isReplaceDialogOpen} onOpenChange={setIsReplaceDialogOpen}>
+        <DialogContent className="max-w-md rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              Confirm Replacement
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              A quotation revision (<strong>{conflictingQuoteNo}</strong>) is already marked as Client Confirmed. Do you want to replace the confirmed quotation?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => {
+              setIsReplaceDialogOpen(false)
+              setTargetQuoteToConfirm(null)
+            }}>
+              Cancel
+            </Button>
+            <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => {
+              if (targetQuoteToConfirm) {
+                handleConfirmQuote(targetQuoteToConfirm.id, true)
+              }
+            }}>
+              Replace Confirmed Quote
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

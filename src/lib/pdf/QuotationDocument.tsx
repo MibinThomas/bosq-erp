@@ -432,6 +432,7 @@ export interface QuotationPdfProps {
   specialDiscountReason?: string | null
   discount?: number | null
   additionalCharges?: AdditionalCharge[] | null
+  status?: string | null
 }
 
 export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationPdfItem[] }> = ({
@@ -470,6 +471,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   specialDiscountReason = null,
   discount = 0,
   additionalCharges = [],
+  status = null,
 }) => {
   const formatCurrency = (val: number) => {
     return val.toLocaleString("en-AE", {
@@ -620,7 +622,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             </View>
             
             {/* Quotation Title */}
-            <Text style={[styles.quotationHeading, { marginBottom: 0, marginTop: 30 }]}>Quotation</Text>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={[styles.quotationHeading, { marginBottom: 0, marginTop: 30 }]}>Quotation</Text>
+              {status === "CLIENT_CONFIRMED" && (
+                <Text style={{ fontSize: 9, fontWeight: "bold", color: "#16a34a", marginTop: 2 }}>Client Confirmed</Text>
+              )}
+            </View>
           </View>
 
           {/* Bottom Row: Client Info & Meta Details */}

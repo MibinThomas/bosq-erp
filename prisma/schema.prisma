@@ -361,6 +361,7 @@ model RolePermission {
   maxDiscountPercent  Float?   @default(0.0)
   canOverrideVat      Boolean  @default(false)
   canAddCustomCharges Boolean  @default(false)
+  canConfirmQuotation Boolean  @default(false)
 }
 
 model UserPermissionOverride {
@@ -376,6 +377,8 @@ model UserPermissionOverride {
   maxDiscountPercent  Float?   @default(0.0)
   canOverrideVat      Boolean  @default(false)
   canAddCustomCharges Boolean  @default(false)
+  canConfirmQuotation Boolean  @default(false)
+
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

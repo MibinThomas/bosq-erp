@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import parse from "html-react-parser"
 import { useSession } from "next-auth/react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
 interface QuotationItem {
   id: string
@@ -93,6 +94,52 @@ export default function QuotationHtmlPreviewPage({
   const isPending = quotation?.status === "PENDING_APPROVAL"
   const isSalesPerson = userRole === "SALES_EXECUTIVE"
   const disableDownload = isSalesPerson && isPending
+
+  const [userPermissions, setUserPermissions] = useState<any>(null)
+  const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false)
+  const [conflictingQuoteNo, setConflictingQuoteNo] = useState("")
+
+  useEffect(() => {
+    fetch("/api/users/me/permissions")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.permissions) {
+          setUserPermissions(data.permissions.QUOTATIONS || {})
+        }
+      })
+      .catch(err => console.error("Failed to load permissions", err))
+  }, [])
+
+  const isSuperAdmin = userRole === "SUPER_ADMIN"
+  const isAuthorizedToConfirm = isSuperAdmin || isManagerOrAdmin || (userPermissions?.canConfirmQuotation === true)
+
+  const handleConfirmQuote = async (forceReplace: boolean = false) => {
+    if (!quotation) return
+    try {
+      const res = await fetch(`/api/quotations/${quotation.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "CLIENT_CONFIRM", forceReplace })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (data.error === "ALREADY_CONFIRMED") {
+          setConflictingQuoteNo(data.confirmedQuotationNumber)
+          setIsReplaceDialogOpen(true)
+          return
+        }
+        throw new Error(data.error || "Failed to confirm quotation")
+      }
+
+      setQuotation(data)
+      setIsReplaceDialogOpen(false)
+      toast.success("Quotation marked as Client Confirmed successfully!")
+    } catch (error: any) {
+      toast.error(error.message || "Failed to confirm quotation.")
+    }
+  }
 
   useEffect(() => {
     async function loadQuotation() {
@@ -320,9 +367,17 @@ export default function QuotationHtmlPreviewPage({
             </Button>
           </Link>
           <div>
-            <h1 className="text-lg font-bold tracking-tight">
-              Quotation Preview ({quotation.quotationNumber})
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold tracking-tight">
+                Quotation Preview ({quotation.quotationNumber})
+              </h1>
+              {quotation.status === "CLIENT_CONFIRMED" && (
+                <Badge className="bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center gap-1 shrink-0">
+                  <Check className="h-3 w-3" />
+                  Client Confirmed Quote
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               Verify the exact layout & values before approval.
             </p>
@@ -384,6 +439,16 @@ export default function QuotationHtmlPreviewPage({
           >
             <Download className="mr-2 h-4 w-4" /> Download PDF
           </Button>
+          {isAuthorizedToConfirm && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quotation.status) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-green-600 text-green-700 hover:bg-green-50 font-semibold"
+              onClick={() => handleConfirmQuote(false)}
+            >
+              <Check className="mr-2 h-4 w-4" /> Mark as Client Confirmed
+            </Button>
+          )}
         </div>
       </div>
 
@@ -701,6 +766,27 @@ export default function QuotationHtmlPreviewPage({
           <div className="text-right">TRN: 100523736700003</div>
         </div>
       </div>
+      
+      <Dialog open={isReplaceDialogOpen} onOpenChange={setIsReplaceDialogOpen}>
+        <DialogContent className="max-w-md rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              Confirm Replacement
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              A quotation revision (<strong>{conflictingQuoteNo}</strong>) is already marked as Client Confirmed. Do you want to replace the confirmed quotation?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setIsReplaceDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => handleConfirmQuote(true)}>
+              Replace Confirmed Quote
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   </div>
   )

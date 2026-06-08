@@ -103,16 +103,16 @@ export async function GET(request: Request) {
     const totalQuotes = quotations.length
     const totalValue = quotations.reduce((acc, q) => acc + (q.subtotal || 0), 0)
 
-    const approvedQuotes = quotations.filter(q => q.status === "APPROVED")
+    const approvedQuotes = quotations.filter(q => q.status === "CLIENT_CONFIRMED")
     const approvedCount = approvedQuotes.length
 
-    const pendingQuotes = quotations.filter(q => q.status === "SENT" || q.status === "PENDING_APPROVAL" || q.status === "REVISED")
+    const pendingQuotes = quotations.filter(q => q.status === "SENT" || q.status === "PENDING_APPROVAL" || q.status === "REVISED" || q.status === "APPROVED")
     const pendingCount = pendingQuotes.length
 
     const rejectedQuotes = quotations.filter(q => q.status === "REJECTED")
     const rejectedCount = rejectedQuotes.length
 
-    const convertedQuotes = quotations.filter(q => q.status === "PO_RECEIVED" || q.poStatus === "RECEIVED")
+    const convertedQuotes = quotations.filter(q => q.status === "PO_RECEIVED" || q.status === "CLIENT_CONFIRMED" || q.poStatus === "RECEIVED" || q.status === "UNDER_PRODUCTION")
     const convertedCount = convertedQuotes.length
 
     const followUpsCount = quotations.filter(q => q.status === "FOLLOW_UP").length

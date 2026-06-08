@@ -34,6 +34,7 @@ const actions = [
   { id: "uploadFiles", label: "Upload" },
   { id: "share", label: "Share" },
   { id: "manage", label: "Manage" },
+  { id: "canConfirmQuotation", label: "Confirm Quote" },
 ]
 
 const pricingVisibilities = [
@@ -140,6 +141,7 @@ export default function AccessControlPage() {
         marginVisible: perm?.marginVisible ?? false,
         profitVisible: perm?.profitVisible ?? false,
         markupVisible: perm?.markupVisible ?? false,
+        canConfirmQuotation: perm?.canConfirmQuotation ?? false,
       }
     })
     setEditingPermissions(matrix)
@@ -522,17 +524,22 @@ export default function AccessControlPage() {
                         return (
                           <tr key={m.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
                             <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-200 border-r">{m.name}</td>
-                            {actions.map((a) => (
-                              <td key={a.id} className="p-3 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={rowPerm[a.id] ?? false}
-                                  disabled={selectedRole.name === "SUPER_ADMIN"}
-                                  onChange={(e) => handleRolePermChange(m.id, a.id, e.target.checked)}
-                                  className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-zinc-900 focus:ring-zinc-900 dark:bg-zinc-800"
-                                />
-                              </td>
-                            ))}
+                            {actions.map((a) => {
+                              const isConfirmAndNotQuote = a.id === "canConfirmQuotation" && m.id !== "QUOTATIONS"
+                              return (
+                                <td key={a.id} className="p-3 text-center">
+                                  {!isConfirmAndNotQuote && (
+                                    <input
+                                      type="checkbox"
+                                      checked={rowPerm[a.id] ?? false}
+                                      disabled={selectedRole.name === "SUPER_ADMIN"}
+                                      onChange={(e) => handleRolePermChange(m.id, a.id, e.target.checked)}
+                                      className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-zinc-900 focus:ring-zinc-900 dark:bg-zinc-800"
+                                    />
+                                  )}
+                                </td>
+                              )
+                            })}
                             <td className="p-3 text-center border-l">
                               <select
                                 value={rowPerm.ownership || "ALL"}
@@ -661,7 +668,9 @@ export default function AccessControlPage() {
                           <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                             {modules.flatMap((m) => {
                               const moduleActions = [
-                                ...actions.map(a => ({ id: a.id, label: a.label, type: "boolean" as const })),
+                                ...actions
+                                  .filter(a => a.id !== "canConfirmQuotation" || m.id === "QUOTATIONS")
+                                  .map(a => ({ id: a.id, label: a.label, type: "boolean" as const })),
                                 ...pricingVisibilities.map(pv => ({ id: pv.id, label: `Pricing: ${pv.label}`, type: "boolean" as const })),
                                 { id: "ownership", label: "Ownership Constraint Override", type: "ownership" as const },
                                 { id: "approvalLimit", label: "Approval limit Override (AED)", type: "limit" as const }
