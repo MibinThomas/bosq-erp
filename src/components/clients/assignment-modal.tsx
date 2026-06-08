@@ -52,7 +52,7 @@ export function AssignmentModal({ open, onOpenChange, clientId, clientName, quot
       ])
 
       const usersData = await usersRes.json()
-      setUsers(usersData.data || [])
+      setUsers(Array.isArray(usersData) ? usersData : [])
 
       const assignmentsData = await assignmentsRes.json()
       const primary = assignmentsData.assignments?.find((a: any) => a.isPrimary)
