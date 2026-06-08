@@ -663,6 +663,20 @@ export default function ClientDetailPage() {
           )}
         </div>
       )}
+
+      {client && (
+        <AssignmentModal
+          open={showAssignmentModal}
+          onOpenChange={setShowAssignmentModal}
+          clientId={client.id}
+          clientName={client.companyName}
+          quotations={client.quotations || []}
+          onSuccess={() => {
+            toast.success("Client team assignments updated!")
+            fetchClient()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -723,20 +737,6 @@ function QuotationFolderGroup({ rootQuote }: { rootQuote: Quotation }) {
             </div>
           ))}
         </div>
-      )}
-
-      {client && (
-        <AssignmentModal
-          open={showAssignmentModal}
-          onOpenChange={setShowAssignmentModal}
-          clientId={client.id}
-          clientName={client.companyName}
-          quotations={client.quotations || []}
-          onSuccess={() => {
-            toast.success("Client team assignments updated!")
-            fetchClient()
-          }}
-        />
       )}
     </div>
   )

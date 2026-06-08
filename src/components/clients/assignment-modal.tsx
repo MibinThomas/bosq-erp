@@ -158,7 +158,7 @@ export function AssignmentModal({ open, onOpenChange, clientId, clientName, quot
                 <span className="text-primary">👤</span> Primary Assigned Consultant
               </Label>
               <p className="text-xs text-muted-foreground mb-2">The primary owner has full access to this client and all related documents.</p>
-              <Select value={primaryUserId} onValueChange={setPrimaryUserId}>
+              <Select value={primaryUserId} onValueChange={(val) => setPrimaryUserId(val || "")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select primary consultant" />
                 </SelectTrigger>
@@ -200,7 +200,7 @@ export function AssignmentModal({ open, onOpenChange, clientId, clientName, quot
 
                       <div className="pr-10">
                         <Label className="text-xs font-semibold mb-1 block">Select User</Label>
-                        <Select value={sec.userId} onValueChange={(val) => handleSecondaryChange(index, "userId", val)}>
+                        <Select value={sec.userId} onValueChange={(val) => handleSecondaryChange(index, "userId", val || "")}>
                           <SelectTrigger className="h-9 text-sm">
                             <SelectValue placeholder="Select secondary user" />
                           </SelectTrigger>

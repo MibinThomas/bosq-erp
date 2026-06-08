@@ -233,7 +233,7 @@ export default function ClientsPage() {
         
         {isManagerOrAdmin && (
           <div className="w-full sm:w-auto">
-            <Select value={consultantFilter} onValueChange={setConsultantFilter}>
+            <Select value={consultantFilter} onValueChange={(val) => setConsultantFilter(val || "All")}>
               <SelectTrigger className="w-full sm:w-[220px]">
                 <SelectValue placeholder="Filter by Consultant" />
               </SelectTrigger>
