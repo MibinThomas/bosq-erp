@@ -144,6 +144,12 @@ model Quotation {
   notes           String?
   sharepointUrl   String?
   
+  specialDiscountType   String?   // "PERCENTAGE" | "FIXED"
+  specialDiscountValue  Float?    @default(0.0)
+  specialDiscountReason String?
+  vatMode               String    @default("EXCLUDING") // "EXCLUDING" | "INCLUDING"
+  additionalCharges     Json?     // array of { name: string, amount: number }
+  
   salesAgentId             String?
   salesAgentName           String?
   salesAgentContactNumber  String?
@@ -352,6 +358,9 @@ model RolePermission {
   marginVisible      Boolean  @default(false)
   profitVisible      Boolean  @default(false)
   markupVisible      Boolean  @default(false)
+  maxDiscountPercent  Float?   @default(0.0)
+  canOverrideVat      Boolean  @default(false)
+  canAddCustomCharges Boolean  @default(false)
 }
 
 model UserPermissionOverride {
@@ -363,6 +372,11 @@ model UserPermissionOverride {
   value         Boolean  // true = force grant, false = force deny
   ownership     String?
   approvalLimit Float?
+  
+  maxDiscountPercent  Float?   @default(0.0)
+  canOverrideVat      Boolean  @default(false)
+  canAddCustomCharges Boolean  @default(false)
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

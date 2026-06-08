@@ -139,12 +139,16 @@ export async function POST(request: Request) {
       deliveryDate,
       paymentTerms,
       items,
-      deliveryCharge,
       notes,
       status, // DRAFT, SENT, etc. — may be overridden below based on role
       salesAgentId,
       salesAgentName,
       salesAgentContactNumber,
+      specialDiscountType,
+      specialDiscountValue,
+      specialDiscountReason,
+      vatMode,
+      additionalCharges,
     } = body
 
     if (!clientId || !items || items.length === 0 || !paymentTerms) {
@@ -169,7 +173,8 @@ export async function POST(request: Request) {
     }
 
     const dbSessionUser = await prisma.user.findUnique({
-      where: { email: session.user.email }
+      where: { email: session.user.email },
+      include: { permissionOverrides: { where: { module: "QUOTATIONS" } } }
     })
 
     if (!dbSessionUser) {
@@ -179,6 +184,32 @@ export async function POST(request: Request) {
     const canCreate = await hasPermission(dbSessionUser.id, "QUOTATIONS", "create")
     if (!canCreate) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to create quotations" }, { status: 403 })
+    }
+
+    // RBAC validation checks for new pricing controls
+    const isSuperAdmin = dbSessionUser.role === "SUPER_ADMIN"
+    const discountOverride = dbSessionUser.permissionOverrides.find(o => o.action === "maxDiscountPercent")
+    const roleObj = await prisma.role.findFirst({
+      where: { name: dbSessionUser.role },
+      include: { permissions: { where: { module: "QUOTATIONS" } } }
+    })
+    const rolePerm = roleObj?.permissions[0]
+
+    const allowedMaxDiscount = isSuperAdmin ? 100 : (discountOverride?.maxDiscountPercent ?? rolePerm?.maxDiscountPercent ?? 0)
+    const allowedCanOverrideVat = isSuperAdmin ? true : (dbSessionUser.permissionOverrides.find(o => o.action === "canOverrideVat")?.value ?? rolePerm?.canOverrideVat ?? false)
+    const allowedCanAddCustomCharges = isSuperAdmin ? true : (dbSessionUser.permissionOverrides.find(o => o.action === "canAddCustomCharges")?.value ?? rolePerm?.canAddCustomCharges ?? false)
+
+    // Validate VAT Mode Override
+    const resolvedVatMode = vatMode || "EXCLUDING"
+    if (resolvedVatMode === "INCLUDING" && !allowedCanOverrideVat) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to override VAT mode to Inclusive" }, { status: 403 })
+    }
+
+    // Validate Additional Costs
+    const parsedAdditionalCharges = Array.isArray(additionalCharges) ? additionalCharges : []
+    const hasCustomCharges = parsedAdditionalCharges.some(c => (parseFloat(c.amount) || 0) > 0)
+    if (hasCustomCharges && !allowedCanAddCustomCharges) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to add additional costs" }, { status: 403 })
     }
 
     let creatorUser = { id: "", name: "Sales Rep", role: "SALES_EXECUTIVE", phone: null as string | null }
@@ -300,15 +331,15 @@ export async function POST(request: Request) {
       include: { category: true }
     })
 
-    // 3. Calculate financial totals
-    let calculatedSubtotal = 0
+    // 3. Calculate financial totals using strict order
+    let subtotal = 0
     const quotationItemsToCreate = await Promise.all(items.map(async (item: any, idx: number) => {
       const qty = parseInt(item.quantity) || 1
       const price = parseFloat(item.unitPrice) || 0
       const disc = parseFloat(item.discount) || 0
       const marginVal = parseFloat(item.margin) || 0.0
       const amt = (price - disc) * qty
-      calculatedSubtotal += amt
+      subtotal += amt
 
       const matchedProd = dbProducts.find((p) => p.id === item.productId)
       
@@ -335,9 +366,43 @@ export async function POST(request: Request) {
       }
     }))
 
-    const calculatedVat = calculatedSubtotal * 0.05
-    const charge = parseFloat(deliveryCharge) || 0
-    const calculatedGrandTotal = calculatedSubtotal + calculatedVat + charge
+    // Calculate total additional cost
+    let totalAdditionalCost = 0
+    parsedAdditionalCharges.forEach((c: any) => {
+      totalAdditionalCost += parseFloat(c.amount) || 0
+    })
+
+    // Validate Special Discount Limit
+    const discountVal = parseFloat(specialDiscountValue) || 0
+    let discountAmt = 0
+    let appliedDiscountPercent = 0
+    if (discountVal > 0) {
+      if (specialDiscountType === "PERCENTAGE") {
+        appliedDiscountPercent = discountVal
+        discountAmt = (subtotal + totalAdditionalCost) * (discountVal / 100)
+      } else if (specialDiscountType === "FIXED") {
+        const baseForDiscount = subtotal + totalAdditionalCost
+        appliedDiscountPercent = baseForDiscount > 0 ? (discountVal / baseForDiscount) * 100 : 0
+        discountAmt = discountVal
+      }
+    }
+
+    if (appliedDiscountPercent > allowedMaxDiscount) {
+      return NextResponse.json({ error: `Forbidden: Applied discount of ${appliedDiscountPercent.toFixed(2)}% exceeds your role limit of ${allowedMaxDiscount}%` }, { status: 403 })
+    }
+
+    // Calculate Taxable Amount, VAT, and Grand Total
+    const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - discountAmt)
+    let vatAmount = 0
+    let grandTotal = 0
+
+    if (resolvedVatMode === "INCLUDING") {
+      vatAmount = taxableAmount - (taxableAmount / 1.05)
+      grandTotal = taxableAmount
+    } else {
+      vatAmount = taxableAmount * 0.05
+      grandTotal = taxableAmount + vatAmount
+    }
 
     // 4. Get Default Terms & Conditions for the PDF
     const dbTerms = await prisma.termsCondition.findMany({
@@ -375,10 +440,10 @@ export async function POST(request: Request) {
       projectName: projectName || "Office Furnishing Project",
       paymentTerms,
       deliveryDate: deliveryDate || "TBD",
-      subtotal: calculatedSubtotal,
-      vatAmount: calculatedVat,
-      deliveryCharge: charge,
-      grandTotal: calculatedGrandTotal,
+      subtotal: subtotal,
+      vatAmount: vatAmount,
+      deliveryCharge: totalAdditionalCost,
+      grandTotal: grandTotal,
       preparedBy: creatorUser.name,
       preparedByContact: creatorUser.phone,
       salesAgentName: salesAgentName || null,
@@ -389,6 +454,12 @@ export async function POST(request: Request) {
       watermarkUrl: watermarkBase64 || null,
       clientId: clientObj.clientId || null,
       items: quotationItemsToCreate,
+      vatMode: resolvedVatMode,
+      specialDiscountType: specialDiscountType || null,
+      specialDiscountValue: discountVal,
+      specialDiscountReason: specialDiscountReason || null,
+      discount: discountAmt,
+      additionalCharges: parsedAdditionalCharges,
     }
 
     let pdfBuffer: Buffer
@@ -436,11 +507,16 @@ export async function POST(request: Request) {
         paymentTerms,
         status: resolvedStatus,
         revisionNumber: 1,
-        subtotal: calculatedSubtotal,
-        discount: 0.0,
-        deliveryCharge: charge,
-        vatAmount: calculatedVat,
-        grandTotal: calculatedGrandTotal,
+        subtotal: subtotal,
+        discount: discountAmt,
+        deliveryCharge: totalAdditionalCost,
+        vatAmount: vatAmount,
+        grandTotal: grandTotal,
+        specialDiscountType: specialDiscountType || null,
+        specialDiscountValue: discountVal,
+        specialDiscountReason: specialDiscountReason || null,
+        vatMode: resolvedVatMode,
+        additionalCharges: parsedAdditionalCharges as any,
         sharepointUrl,
         notes: notes || null,
         salesAgentId: salesAgentId || null,
@@ -476,7 +552,7 @@ export async function POST(request: Request) {
         action: "CREATED_QUOTATION",
         entityType: "QUOTATION",
         entityId: newQuotation.id,
-        details: `Created quotation ${nextQuoteNo} for client ${clientObj.companyName} with amount AED ${calculatedGrandTotal.toFixed(2)}`,
+        details: `Created quotation ${nextQuoteNo} for client ${clientObj.companyName} with amount AED ${grandTotal.toFixed(2)}`,
       },
     })
 

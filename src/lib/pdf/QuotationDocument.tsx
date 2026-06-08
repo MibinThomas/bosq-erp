@@ -262,6 +262,42 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 8.5,
   },
+  bulletRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingLeft: 8,
+    marginBottom: 3,
+  },
+  bulletLabel: {
+    color: colors.secondary,
+    fontSize: 7.5,
+    fontStyle: "italic",
+    maxWidth: "70%",
+  },
+  bulletValue: {
+    color: colors.secondary,
+    fontSize: 7.5,
+    fontStyle: "italic",
+  },
+  taxableRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: colors.lineColor,
+    borderStyle: "dashed",
+    paddingTop: 4,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  taxableLabel: {
+    fontWeight: "bold",
+    color: colors.secondary,
+    fontSize: 8.5,
+  },
+  taxableValue: {
+    fontWeight: "bold",
+    fontSize: 8.5,
+  },
   grandTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -356,6 +392,11 @@ export interface QuotationPdfItem {
   chairType?: string | null
 }
 
+export interface AdditionalCharge {
+  name: string
+  amount: number
+}
+
 export interface QuotationPdfProps {
   quotationNumber: string
   date: string
@@ -385,6 +426,12 @@ export interface QuotationPdfProps {
   barcodeBase64?: string | null
   watermarkUrl?: string | null
   clientId?: string | null
+  vatMode?: "EXCLUDING" | "INCLUDING"
+  specialDiscountType?: "PERCENTAGE" | "FIXED" | null
+  specialDiscountValue?: number | null
+  specialDiscountReason?: string | null
+  discount?: number | null
+  additionalCharges?: AdditionalCharge[] | null
 }
 
 export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationPdfItem[] }> = ({
@@ -417,6 +464,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   watermarkUrl,
   clientId,
   items,
+  vatMode = "EXCLUDING",
+  specialDiscountType = null,
+  specialDiscountValue = 0,
+  specialDiscountReason = null,
+  discount = 0,
+  additionalCharges = [],
 }) => {
   const formatCurrency = (val: number) => {
     return val.toLocaleString("en-AE", {
@@ -751,20 +804,69 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
             {/* Right Sum Box */}
             <View style={styles.totalsBox}>
+              {/* 1. Subtotal (Products) */}
               <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>Subtotal</Text>
+                <Text style={styles.totalsLabel}>Subtotal (Products)</Text>
                 <Text style={styles.totalsValue}>{formatCurrency(subtotal)}</Text>
               </View>
-              <View style={styles.totalsRow}>
-                <Text style={styles.totalsLabel}>VAT (5%)</Text>
-                <Text style={styles.totalsValue}>{formatCurrency(vatAmount)}</Text>
-              </View>
-              {deliveryCharge > 0 && (
+
+              {/* 2. Additional Cost Items */}
+              {(Array.isArray(additionalCharges) ? additionalCharges : []).filter((c: any) => c.name && (Number(c.amount) > 0)).map((charge: any, idx: number) => (
+                <View key={`charge-${idx}`} style={styles.bulletRow}>
+                  <Text style={styles.bulletLabel}>• {charge.name}</Text>
+                  <Text style={styles.bulletValue}>{formatCurrency(Number(charge.amount))}</Text>
+                </View>
+              ))}
+
+              {/* Total Additional Cost */}
+              {Number(deliveryCharge) > 0 && (
                 <View style={styles.totalsRow}>
-                  <Text style={styles.totalsLabel}>Delivery & Install</Text>
-                  <Text style={styles.totalsValue}>{formatCurrency(deliveryCharge)}</Text>
+                  <Text style={styles.totalsLabel}>Total Additional Cost</Text>
+                  <Text style={styles.totalsValue}>{formatCurrency(Number(deliveryCharge))}</Text>
                 </View>
               )}
+
+              {/* 3. Special Discount */}
+              {(Number(discount) > 0) && (
+                <View style={styles.totalsRow}>
+                  <View style={{ flexDirection: "column" }}>
+                    <Text style={[styles.totalsLabel, { color: "#dc2626" }]}>
+                      Special Discount
+                      {specialDiscountType === "PERCENTAGE" && ` (${specialDiscountValue}%)`}
+                    </Text>
+                    {specialDiscountReason && (
+                      <Text style={{ fontSize: 6.5, color: colors.lightText, fontStyle: "italic", marginTop: 1, maxWidth: 100 }}>
+                        Reason: {specialDiscountReason}
+                      </Text>
+                    )}
+                  </View>
+                  <Text style={[styles.totalsValue, { color: "#dc2626" }]}>
+                    -{formatCurrency(Number(discount))}
+                  </Text>
+                </View>
+              )}
+
+              {/* 4. Taxable Subtotal */}
+              {(Number(deliveryCharge) > 0 || Number(discount) > 0) && (
+                <View style={styles.taxableRow}>
+                  <Text style={styles.taxableLabel}>Taxable Subtotal</Text>
+                  <Text style={styles.taxableValue}>
+                    {formatCurrency(Math.max(0, subtotal + Number(deliveryCharge) - Number(discount)))}
+                  </Text>
+                </View>
+              )}
+
+              {/* 5. VAT (5%) */}
+              <View style={styles.totalsRow}>
+                <Text style={styles.totalsLabel}>
+                  VAT (5%){vatMode === "INCLUDING" ? " (Inclusive)" : ""}
+                </Text>
+                <Text style={styles.totalsValue}>
+                  {formatCurrency(vatAmount)}
+                </Text>
+              </View>
+
+              {/* 6. Grand Total */}
               <View style={styles.grandTotalRow}>
                 <Text style={styles.grandTotalLabel}>Grand Total</Text>
                 <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>

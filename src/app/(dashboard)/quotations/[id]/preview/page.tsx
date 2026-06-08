@@ -57,6 +57,12 @@ interface Quotation {
   salesAgentId?: string | null
   salesAgentName?: string | null
   salesAgentContactNumber?: string | null
+  vatMode?: string
+  specialDiscountType?: string | null
+  specialDiscountValue?: number | null
+  specialDiscountReason?: string | null
+  discount?: number | null
+  additionalCharges?: any
   client: {
     companyName: string
     contactPerson: string | null
@@ -589,21 +595,67 @@ export default function QuotationHtmlPreviewPage({
           </div>
 
           {/* Right: Sum totals */}
-          <div className="w-[44%] border border-slate-100 bg-slate-50/50 rounded-sm p-4 space-y-2 font-medium">
+          <div className="w-[44%] border border-slate-100 bg-slate-50/50 rounded-sm p-4 space-y-2 font-medium text-[11px]">
+            {/* 1. Subtotal (Products) */}
             <div className="flex justify-between text-slate-600 border-b border-slate-100 pb-1.5">
-              <span>Subtotal</span>
+              <span>Subtotal (Products)</span>
               <span className="font-mono">{formatCurrency(quotation.subtotal)}</span>
             </div>
-            <div className="flex justify-between text-slate-600 border-b border-slate-100 pb-1.5">
-              <span>VAT (5%)</span>
-              <span className="font-mono">{formatCurrency(quotation.vatAmount)}</span>
-            </div>
+
+            {/* 2. Additional Cost Items */}
+            {Array.isArray(quotation.additionalCharges) && quotation.additionalCharges.filter((c: any) => c.name && (Number(c.amount) > 0)).map((charge: any, idx: number) => (
+              <div key={`charge-${idx}`} className="flex justify-between text-slate-500 pl-3 italic text-[10px] pb-1">
+                <span>• {charge.name}</span>
+                <span className="font-mono">{formatCurrency(Number(charge.amount))}</span>
+              </div>
+            ))}
+
+            {/* Total Additional Cost */}
             {quotation.deliveryCharge > 0 && (
               <div className="flex justify-between text-slate-600 border-b border-slate-100 pb-1.5">
-                <span>Delivery & Install</span>
+                <span>Total Additional Cost</span>
                 <span className="font-mono">{formatCurrency(quotation.deliveryCharge)}</span>
               </div>
             )}
+
+            {/* 3. Special Discount */}
+            {quotation.discount && quotation.discount > 0 ? (
+              <div className="flex justify-between text-red-600 border-b border-slate-100 pb-1.5">
+                <div className="flex flex-col">
+                  <span>
+                    Special Discount
+                    {quotation.specialDiscountType === "PERCENTAGE" && ` (${quotation.specialDiscountValue}%)`}
+                  </span>
+                  {quotation.specialDiscountReason && (
+                    <span className="text-[9px] text-slate-500 italic">
+                      Reason: {quotation.specialDiscountReason}
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono">- {formatCurrency(quotation.discount)}</span>
+              </div>
+            ) : null}
+
+            {/* 4. Taxable Subtotal */}
+            {(quotation.deliveryCharge > 0 || (quotation.discount && quotation.discount > 0)) && (
+              <div className="flex justify-between text-slate-800 font-bold border-b border-slate-200 border-dashed pb-1.5">
+                <span>Taxable Subtotal</span>
+                <span className="font-mono">
+                  {formatCurrency(Math.max(0, quotation.subtotal + quotation.deliveryCharge - (quotation.discount || 0)))}
+                </span>
+              </div>
+            )}
+
+            {/* 5. VAT (5%) */}
+            <div className="flex justify-between text-slate-600 border-b border-slate-100 pb-1.5">
+              <span>
+                VAT (5%)
+                {quotation.vatMode === "INCLUDING" && " (Inclusive)"}
+              </span>
+              <span className="font-mono">{formatCurrency(quotation.vatAmount)}</span>
+            </div>
+
+            {/* 6. Grand Total */}
             <div className="flex justify-between text-slate-900 font-bold text-[12px] pt-1">
               <span>Grand Total</span>
               <span className="font-mono text-slate-950">

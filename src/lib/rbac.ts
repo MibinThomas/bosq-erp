@@ -178,7 +178,8 @@ export async function getPermissionsProfile(userId: string) {
         view: true, create: true, edit: true, delete: true, approve: true, reject: true,
         export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true,
         ownership: "ALL", approvalLimit: null,
-        costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true
+        costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true,
+        maxDiscountPercent: 100, canOverrideVat: true, canAddCustomCharges: true
       }
     }
     return {
@@ -202,7 +203,8 @@ export async function getPermissionsProfile(userId: string) {
       view: false, create: false, edit: false, delete: false, approve: false, reject: false,
       export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false,
       ownership: "NONE", approvalLimit: null,
-      costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false
+      costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false,
+      maxDiscountPercent: 0, canOverrideVat: false, canAddCustomCharges: false
     }
   }
 
@@ -226,7 +228,10 @@ export async function getPermissionsProfile(userId: string) {
         dealerPriceVisible: perm.dealerPriceVisible,
         marginVisible: perm.marginVisible,
         profitVisible: perm.profitVisible,
-        markupVisible: perm.markupVisible
+        markupVisible: perm.markupVisible,
+        maxDiscountPercent: perm.maxDiscountPercent,
+        canOverrideVat: perm.canOverrideVat,
+        canAddCustomCharges: perm.canAddCustomCharges
       }
     }
   }
@@ -240,6 +245,12 @@ export async function getPermissionsProfile(userId: string) {
       profile[override.module].ownership = override.ownership ?? profile[override.module].ownership
     } else if (action === "approvalLimit") {
       profile[override.module].approvalLimit = override.approvalLimit ?? profile[override.module].approvalLimit
+    } else if (action === "maxDiscountPercent") {
+      profile[override.module].maxDiscountPercent = override.maxDiscountPercent ?? profile[override.module].maxDiscountPercent
+    } else if (action === "canOverrideVat") {
+      profile[override.module].canOverrideVat = override.canOverrideVat ?? profile[override.module].canOverrideVat
+    } else if (action === "canAddCustomCharges") {
+      profile[override.module].canAddCustomCharges = override.canAddCustomCharges ?? profile[override.module].canAddCustomCharges
     } else {
       profile[override.module][action] = override.value
     }

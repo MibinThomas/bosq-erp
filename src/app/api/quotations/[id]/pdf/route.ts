@@ -177,6 +177,12 @@ export async function GET(
       watermarkUrl: watermarkBase64 || null,
       clientId: quotation.client.clientId || null,
       items: docItems,
+      vatMode: (quotation.vatMode === "INCLUDING" ? "INCLUDING" : "EXCLUDING") as "EXCLUDING" | "INCLUDING",
+      specialDiscountType: (quotation.specialDiscountType === "PERCENTAGE" ? "PERCENTAGE" : quotation.specialDiscountType === "FIXED" ? "FIXED" : null) as "PERCENTAGE" | "FIXED" | null,
+      specialDiscountValue: quotation.specialDiscountValue || 0,
+      specialDiscountReason: quotation.specialDiscountReason || null,
+      discount: quotation.discount || 0,
+      additionalCharges: (quotation.additionalCharges as any) || [],
     }
 
     // Compile PDF
