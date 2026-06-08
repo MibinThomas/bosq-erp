@@ -386,10 +386,8 @@ function SeriesCard({
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </Button>
+                          <DropdownMenuTrigger className="h-7 w-7 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52">
                             <DropdownMenuLabel className="text-xs">Revision Actions</DropdownMenuLabel>
