@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   ChevronDown,
   ChevronRight,
@@ -257,6 +258,7 @@ function SeriesCard({
   onConfirm: (id: string, force?: boolean) => Promise<void>
   onStatusUpdate: (id: string, status: string, field: "status" | "poStatus") => Promise<void>
 }) {
+  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
 
   // Build the full list for this series: root + revisions sorted by revisionNumber ASC
@@ -404,10 +406,11 @@ function SeriesCard({
                               <FileDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" /> Download PDF
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild>
-                              <Link href={`/quotations/new?reviseId=${v.id}`} className="cursor-pointer text-xs flex items-center">
-                                <RefreshCw className="mr-2 h-3.5 w-3.5 text-purple-600" /> Create Revision
-                              </Link>
+                            <DropdownMenuItem
+                              className="cursor-pointer text-xs"
+                              onClick={() => router.push(`/quotations/new?reviseId=${v.id}`)}
+                            >
+                              <RefreshCw className="mr-2 h-3.5 w-3.5 text-purple-600" /> Create Revision
                             </DropdownMenuItem>
                             {isAuthorizedToConfirm &&
                               !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CANCELLED"].includes(v.status) && (
