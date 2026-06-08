@@ -71,7 +71,8 @@ interface Quotation {
 export default function QuotationsPage() {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN"
+  const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN"
 
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [loading, setLoading] = useState(true)
@@ -325,7 +326,7 @@ export default function QuotationsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          {userRole === "ADMIN" && selectedIds.length > 0 && (
+          {isAdminOrSuperAdmin && selectedIds.length > 0 && (
             <Button 
               variant="destructive" 
               onClick={handleDeleteSelected}
@@ -360,7 +361,7 @@ export default function QuotationsPage() {
               <Table className="min-w-[1000px]">
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    {userRole === "ADMIN" && (
+                    {isAdminOrSuperAdmin && (
                       <TableHead className="w-12">
                         <Checkbox 
                           checked={selectedIds.length > 0 && selectedIds.length === filteredQuotations.length}
@@ -382,7 +383,7 @@ export default function QuotationsPage() {
                 <TableBody>
                   {filteredQuotations.map((quote) => (
                     <TableRow key={quote.id} className="hover:bg-muted/30 transition-colors">
-                      {userRole === "ADMIN" && (
+                      {isAdminOrSuperAdmin && (
                         <TableCell>
                           <Checkbox 
                             checked={selectedIds.includes(quote.id)}
@@ -392,7 +393,7 @@ export default function QuotationsPage() {
                         </TableCell>
                       )}
                   <TableCell className="font-mono font-medium text-primary">
-                    {userRole === "ADMIN" ? (
+                    {isAdminOrSuperAdmin ? (
                       <span 
                         className="cursor-pointer hover:underline text-blue-600"
                         onClick={() => {
@@ -541,7 +542,7 @@ export default function QuotationsPage() {
                             Revision History
                           </DropdownMenuItem>
                           
-                          {userRole === "ADMIN" && (
+                          {isAdminOrSuperAdmin && (
                             <DropdownMenuItem 
                               onClick={() => {
                                 setJourneyQuoteId(quote.id)

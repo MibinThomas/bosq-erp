@@ -50,7 +50,7 @@ export default function ClientsPage() {
   const router = useRouter()
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN"
 
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
