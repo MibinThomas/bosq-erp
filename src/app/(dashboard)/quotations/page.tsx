@@ -651,8 +651,8 @@ export default function QuotationsPage() {
 
       {/* Revision History Modal */}
       <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <DialogContent className="max-w-2xl rounded-xl">
-          <DialogHeader>
+        <DialogContent className="w-[90vw] sm:max-w-[720px] md:max-w-[800px] lg:max-w-[850px] rounded-xl overflow-hidden flex flex-col max-h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-2">
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
               <History className="h-5 w-5 text-purple-600" />
               Quotation Revision History
@@ -663,118 +663,257 @@ export default function QuotationsPage() {
           </DialogHeader>
 
           {historyQuote && (
-            <div className="space-y-4 py-2">
-              <div className="bg-muted/30 border rounded-lg p-3 text-xs space-y-1">
-                <div className="flex justify-between font-medium">
-                  <span className="text-muted-foreground">Client:</span>
-                  <span>{historyQuote.client?.companyName}</span>
+            <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-muted/40 border border-zinc-150 dark:border-zinc-800 rounded-xl p-4 text-sm">
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client</span>
+                  <div className="font-bold text-foreground truncate">{historyQuote.client?.companyName}</div>
                 </div>
-                <div className="flex justify-between font-medium">
-                  <span className="text-muted-foreground">Active Version:</span>
-                  <span>Revision #{historyQuote.revisionNumber} ({historyQuote.quotationNumber})</span>
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Version</span>
+                  <div className="font-bold text-foreground">
+                    Revision #{historyQuote.revisionNumber}{" "}
+                    <span className="text-xs font-normal text-muted-foreground">({historyQuote.quotationNumber})</span>
+                  </div>
                 </div>
-                <div className="flex justify-between font-medium">
-                  <span className="text-muted-foreground">Current Total:</span>
-                  <span className="font-mono">AED {historyQuote.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <div className="space-y-1">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current Total</span>
+                  <div className="font-mono font-bold text-primary text-base">
+                    AED {historyQuote.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
                 </div>
               </div>
 
               {!historyQuote.seriesQuotations || historyQuote.seriesQuotations.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground text-sm space-y-1">
-                  <p className="font-semibold animate-pulse">Loading revisions...</p>
+                <div className="text-center py-12 text-muted-foreground text-sm space-y-2">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
+                  <p className="font-semibold text-zinc-500 animate-pulse">Loading revisions...</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto border rounded-lg">
-                  <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
-                    <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold">
-                      <tr>
-                        <th className="p-3">Revision</th>
-                        <th className="p-3">Date</th>
-                        <th className="p-3 text-right">Value</th>
-                        <th className="p-3 text-center">Status</th>
-                        <th className="p-3 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                      {historyQuote.seriesQuotations.map((item: any) => {
-                        let displayStatus = item.status
-                        if (item.status === "CLIENT_CONFIRMED") displayStatus = "Client Confirmed"
-                        else if (item.status === "PO_RECEIVED") displayStatus = "PO Received"
-                        else if (item.status === "UNDER_PRODUCTION") displayStatus = "Under Production"
-                        else if (item.status === "REVISED") displayStatus = "Revised"
-                        else if (item.status === "APPROVED") displayStatus = "Approved"
-                        else if (item.status === "REJECTED") displayStatus = "Rejected"
-                        else if (item.status === "CANCELLED") displayStatus = "Cancelled"
-                        else if (item.status === "DRAFT") displayStatus = "Draft"
+                <>
+                  {/* Desktop view: Table */}
+                  <div className="hidden md:block border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-card">
+                    <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs table-fixed">
+                      <thead className="bg-muted/50 text-muted-foreground font-semibold">
+                        <tr>
+                          <th className="p-3 w-[22%]">Revision</th>
+                          <th className="p-3 w-[18%]">Date</th>
+                          <th className="p-3 w-[22%] text-right">Value</th>
+                          <th className="p-3 w-[22%] text-center">Status</th>
+                          <th className="p-3 w-[16%] text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                        {historyQuote.seriesQuotations.map((item: any) => {
+                          const isConfirmed = item.status === "CLIENT_CONFIRMED"
+                          const isProgressed = ["PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)
 
-                        // Show Not Selected if another quote is confirmed
-                        const hasConfirmedInSeries = historyQuote.seriesQuotations.some((q: any) =>
-                          ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(q.status)
-                        )
-                        if (hasConfirmedInSeries && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)) {
-                          displayStatus = "Not Selected"
-                        }
+                          let displayStatus = item.status
+                          if (item.status === "CLIENT_CONFIRMED") displayStatus = "Client Confirmed"
+                          else if (item.status === "PO_RECEIVED") displayStatus = "PO Received"
+                          else if (item.status === "UNDER_PRODUCTION") displayStatus = "Under Production"
+                          else if (item.status === "REVISED") displayStatus = "Revised"
+                          else if (item.status === "APPROVED") displayStatus = "Approved"
+                          else if (item.status === "REJECTED") displayStatus = "Rejected"
+                          else if (item.status === "CANCELLED") displayStatus = "Cancelled"
+                          else if (item.status === "DRAFT") displayStatus = "Draft"
 
-                        return (
-                          <tr key={item.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                            <td className="p-3 font-semibold">{item.quotationNumber}</td>
-                            <td className="p-3 whitespace-nowrap">
-                              {new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                            </td>
-                            <td className="p-3 text-right font-mono font-medium">
-                              AED {item.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </td>
-                            <td className="p-3 text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                item.status === "CLIENT_CONFIRMED" 
-                                  ? "bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400 border border-green-200" 
-                                  : item.status === "PO_RECEIVED" || item.status === "UNDER_PRODUCTION"
-                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200"
+                          // Show Not Selected if another quote is confirmed
+                          const hasConfirmedInSeries = historyQuote.seriesQuotations.some((q: any) =>
+                            ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(q.status)
+                          )
+                          if (hasConfirmedInSeries && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)) {
+                            displayStatus = "Not Selected"
+                          }
+
+                          return (
+                            <tr
+                              key={item.id}
+                              className={`transition-colors duration-150 ${
+                                isConfirmed
+                                  ? "bg-green-50/40 dark:bg-green-950/15 hover:bg-green-50/60 dark:hover:bg-green-950/25 font-semibold text-green-900 dark:text-green-300"
+                                  : isProgressed
+                                  ? "bg-blue-50/20 dark:bg-blue-950/10 hover:bg-blue-50/40 dark:hover:bg-blue-950/20"
                                   : displayStatus === "Not Selected"
-                                  ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200"
-                                  : "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200"
-                              }`}>
-                                {displayStatus}
-                              </span>
-                            </td>
-                            <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                                  ? "opacity-80 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-muted-foreground"
+                                  : "hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10"
+                              }`}
+                            >
+                              <td className="p-3 font-semibold font-mono truncate">{item.quotationNumber}</td>
+                              <td className="p-3 whitespace-nowrap">
+                                {new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                              </td>
+                              <td className="p-3 text-right font-mono font-medium">
+                                AED {item.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-center">
+                                {isConfirmed ? (
+                                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30 shadow-xs">
+                                    <Check className="h-3 w-3 shrink-0" /> Client Confirmed
+                                  </span>
+                                ) : displayStatus === "Not Selected" ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500 border border-zinc-200/50 dark:border-zinc-700/50">
+                                    Not Selected
+                                  </span>
+                                ) : (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                    isProgressed
+                                      ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200"
+                                      : "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200"
+                                  }`}>
+                                    {displayStatus}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right">
+                                <div className="flex flex-col items-end gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-1.5 text-[10px] font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20 w-fit"
+                                    onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
+                                  >
+                                    View
+                                  </Button>
+
+                                  {isAuthorizedToConfirm && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-1.5 text-[10px] font-bold text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/20 w-fit"
+                                      onClick={() => handleConfirmQuote(item.id, false)}
+                                    >
+                                      Confirm
+                                    </Button>
+                                  )}
+
+                                  {item.status === "CLIENT_CONFIRMED" && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-1.5 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 w-fit"
+                                      onClick={() => handleUpdateStatus(item.id, "PO_RECEIVED", "status")}
+                                    >
+                                      Convert to PO
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile/Tablet view: Stacked Cards */}
+                  <div className="md:hidden space-y-3">
+                    {historyQuote.seriesQuotations.map((item: any) => {
+                      const isConfirmed = item.status === "CLIENT_CONFIRMED"
+                      const isProgressed = ["PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)
+
+                      let displayStatus = item.status
+                      if (item.status === "CLIENT_CONFIRMED") displayStatus = "Client Confirmed"
+                      else if (item.status === "PO_RECEIVED") displayStatus = "PO Received"
+                      else if (item.status === "UNDER_PRODUCTION") displayStatus = "Under Production"
+                      else if (item.status === "REVISED") displayStatus = "Revised"
+                      else if (item.status === "APPROVED") displayStatus = "Approved"
+                      else if (item.status === "REJECTED") displayStatus = "Rejected"
+                      else if (item.status === "CANCELLED") displayStatus = "Cancelled"
+                      else if (item.status === "DRAFT") displayStatus = "Draft"
+
+                      const hasConfirmedInSeries = historyQuote.seriesQuotations.some((q: any) =>
+                        ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(q.status)
+                      )
+                      if (hasConfirmedInSeries && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)) {
+                        displayStatus = "Not Selected"
+                      }
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`p-4 border rounded-xl space-y-3 transition-colors duration-150 ${
+                            isConfirmed
+                              ? "bg-green-50/40 dark:bg-green-950/15 border-green-300 dark:border-green-800"
+                              : isProgressed
+                              ? "bg-blue-50/10 dark:bg-blue-950/10 border-blue-200 dark:border-blue-900"
+                              : displayStatus === "Not Selected"
+                              ? "bg-zinc-50/50 dark:bg-zinc-900/50 opacity-90 border-zinc-200 dark:border-zinc-850 text-muted-foreground"
+                              : "bg-card text-card-foreground border-zinc-200 dark:border-zinc-800"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="font-bold text-sm font-mono text-foreground">{item.quotationNumber}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              </div>
+                            </div>
+                            <div>
+                              {isConfirmed ? (
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30 shadow-xs">
+                                  <Check className="h-3 w-3" /> Client Confirmed
+                                </span>
+                              ) : displayStatus === "Not Selected" ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500 border border-zinc-200/50 dark:border-zinc-700/50">
+                                  Not Selected
+                                </span>
+                              ) : (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                  isProgressed
+                                    ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200"
+                                    : "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200"
+                                }`}>
+                                  {displayStatus}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-baseline pt-1">
+                            <span className="text-xs text-muted-foreground">Total Value:</span>
+                            <span className="font-mono font-bold text-sm text-foreground">
+                              AED {item.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-3 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                              onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
+                            >
+                              View
+                            </Button>
+
+                            {isAuthorizedToConfirm && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
                               <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                className="h-7 px-2 text-[10px] text-blue-600 hover:text-blue-700"
-                                onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
+                                className="h-8 px-3 text-xs text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/20 font-semibold"
+                                onClick={() => handleConfirmQuote(item.id, false)}
                               >
-                                View
+                                Confirm
                               </Button>
+                            )}
 
-                              {isAuthorizedToConfirm && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-[10px] text-green-600 hover:text-green-700 font-semibold"
-                                  onClick={() => handleConfirmQuote(item.id, false)}
-                                >
-                                  Confirm
-                                </Button>
-                              )}
-
-                              {item.status === "CLIENT_CONFIRMED" && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 px-2 text-[10px] text-indigo-600 hover:text-indigo-700 font-semibold"
-                                  onClick={() => handleUpdateStatus(item.id, "PO_RECEIVED", "status")}
-                                >
-                                  Convert to PO
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                            {item.status === "CLIENT_CONFIRMED" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-3 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 font-semibold"
+                                onClick={() => handleUpdateStatus(item.id, "PO_RECEIVED", "status")}
+                              >
+                                Convert to PO
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
               )}
             </div>
           )}
