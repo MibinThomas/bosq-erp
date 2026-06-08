@@ -96,7 +96,7 @@ export default function ClientDetailPage() {
 
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN"
 
   const [client, setClient] = useState<ClientDetail | null>(null)
   const [loading, setLoading] = useState(true)

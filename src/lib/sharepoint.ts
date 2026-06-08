@@ -220,3 +220,54 @@ export async function uploadBoqExcel(companyName: string, filenameBase: string, 
     throw error
   }
 }
+
+export async function renameClientFolder(oldCompanyName: string, newCompanyName: string) {
+  const { config, hasCreds } = await getSharePointConfig()
+  
+  if (!hasCreds) {
+    console.warn("SharePoint credentials are not configured. Mocking rename.")
+    return true
+  }
+
+  const oldSanitized = sanitizeClientName(oldCompanyName)
+  const newSanitized = sanitizeClientName(newCompanyName)
+
+  if (oldSanitized === newSanitized) {
+    return true // No actual change in sanitized name
+  }
+
+  try {
+    const client = await getGraphClient(
+      config.sharepoint_tenant_id,
+      config.sharepoint_client_id,
+      config.sharepoint_client_secret
+    )
+    
+    // Check if the old folder exists
+    try {
+      await client.api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${oldSanitized}`).get()
+    } catch (err: any) {
+      if (err.statusCode === 404) {
+        // Old folder doesn't exist, nothing to rename
+        return true
+      }
+      throw err
+    }
+
+    // Attempt to rename
+    await client
+      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${oldSanitized}`)
+      .patch({
+        name: newSanitized,
+        "@microsoft.graph.conflictBehavior": "fail"
+      })
+
+    return true
+  } catch (error: any) {
+    console.error("Error renaming SharePoint folder:", error)
+    if (error.statusCode === 409 || error.code === 'nameAlreadyExists') {
+        throw new Error("SHAREPOINT_FOLDER_EXISTS")
+    }
+    throw error
+  }
+}

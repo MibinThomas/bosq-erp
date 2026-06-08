@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { renameClientFolder } from "@/lib/sharepoint"
 
 export async function GET(
   request: Request,
@@ -71,8 +72,8 @@ export async function PUT(
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role || ""
 
-    // Only ADMIN/SALES_MANAGER can edit clients
-    if (!["ADMIN", "SALES_MANAGER"].includes(userRole)) {
+    // Only ADMIN/SALES_MANAGER/SUPER_ADMIN can edit clients
+    if (!["ADMIN", "SALES_MANAGER", "SUPER_ADMIN"].includes(userRole)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
@@ -98,6 +99,31 @@ export async function PUT(
         { error: `A client with the company name "${existingClient.companyName}" already exists.` },
         { status: 409 }
       )
+    }
+
+    const currentClient = await prisma.client.findUnique({ where: { id } })
+    if (!currentClient) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 })
+    }
+
+    const oldCompanyName = currentClient.companyName
+    const newCompanyName = companyName.trim()
+    let sharepointRenamed = false
+
+    if (oldCompanyName !== newCompanyName) {
+      try {
+        await renameClientFolder(oldCompanyName, newCompanyName)
+        sharepointRenamed = true
+      } catch (error: any) {
+        if (error.message === "SHAREPOINT_FOLDER_EXISTS") {
+          return NextResponse.json(
+            { error: `A folder named "${newCompanyName}" already exists in SharePoint. Please use a different name or resolve it in SharePoint first.` },
+            { status: 409 }
+          )
+        }
+        console.error("Failed to rename SharePoint folder:", error)
+        return NextResponse.json({ error: "Failed to rename client folder in SharePoint." }, { status: 500 })
+      }
     }
 
     const updated = await prisma.client.update({
@@ -135,6 +161,18 @@ export async function PUT(
         details,
       },
     })
+
+    if (sharepointRenamed) {
+      await prisma.activityLog.create({
+        data: {
+          userId: (session?.user as any)?.id || "SYSTEM",
+          action: "UPDATED_CLIENT",
+          entityType: "CLIENT",
+          entityId: id,
+          details: `Client folder renamed in SharePoint from "${oldCompanyName}" to "${newCompanyName}"`,
+        },
+      })
+    }
 
     // Notify the salesperson if status changed
     if ((status === "Approved" || status === "Rejected") && updated.salespersonId) {
