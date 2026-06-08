@@ -352,3 +352,58 @@ export async function migrateClientFolderToClientsDir(companyName: string) {
   }
 }
 
+export async function migrateQuotationToGroupFolder(companyName: string, fileNameWithExtension: string, groupFolder: string) {
+  const { config, hasCreds } = await getSharePointConfig()
+  if (!hasCreds) return { success: false, reason: "No credentials" }
+
+  const sanitizedCompany = sanitizeClientName(companyName)
+  const cleanGroupFolder = getBaseQuotationFolder(groupFolder)
+
+  if (!cleanGroupFolder) return { success: false, reason: "Invalid group folder" }
+
+  try {
+    const client = await getGraphClient(
+      config.sharepoint_tenant_id,
+      config.sharepoint_client_id,
+      config.sharepoint_client_secret
+    )
+
+    // Ensure the target group folder exists
+    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName, cleanGroupFolder)
+
+    // Get the target folder ID
+    const targetFolder = await client
+      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${sanitizedCompany}/Quotations/${cleanGroupFolder}`)
+      .get()
+
+    // Find the file in the parent Quotations folder (where it might be scattered)
+    let fileItem = null
+    try {
+      fileItem = await client
+        .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${sanitizedCompany}/Quotations/${fileNameWithExtension}`)
+        .get()
+    } catch (err: any) {
+      if (err.statusCode === 404) {
+        // Might already be in the right folder or somewhere else
+        return { success: false, reason: "File not found in root Quotations folder" }
+      }
+      throw err
+    }
+
+    // Move the file into the group folder
+    const result = await client
+      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/items/${fileItem.id}`)
+      .patch({
+        parentReference: {
+          id: targetFolder.id
+        }
+      })
+
+    return { success: true, newUrl: result.webUrl }
+  } catch (error) {
+    console.error(`Error moving ${fileNameWithExtension} to ${groupFolder}:`, error)
+    return { success: false, error }
+  }
+}
+
+

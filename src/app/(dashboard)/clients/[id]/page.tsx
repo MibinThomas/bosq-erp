@@ -24,6 +24,8 @@ import {
   Activity,
   LayoutList,
   ClipboardList,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -552,30 +554,9 @@ export default function ClientDetailPage() {
           {client.quotations && client.quotations.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Quotation PDFs</h3>
-              <div className="space-y-2">
-                {client.quotations.flatMap((q) => [q, ...q.revisionsList]).slice(0, 20).map((q) => (
-                  <div
-                    key={q.id}
-                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/20 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-red-500 shrink-0" />
-                      <div>
-                        <p className="text-sm font-semibold font-mono">{q.quotationNumber}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(q.date).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => window.open(`/api/quotations/${q.id}/pdf`, "_blank")}
-                    >
-                      Download PDF
-                    </Button>
-                  </div>
+              <div className="space-y-3">
+                {client.quotations.map((rootQuote) => (
+                  <QuotationFolderGroup key={rootQuote.id} rootQuote={rootQuote} />
                 ))}
               </div>
             </div>
@@ -634,3 +615,65 @@ export default function ClientDetailPage() {
     </div>
   )
 }
+
+function QuotationFolderGroup({ rootQuote }: { rootQuote: Quotation }) {
+  const [expanded, setExpanded] = useState(false)
+  const allVersions = [rootQuote, ...rootQuote.revisionsList].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  )
+
+  const rootQuotationNumber = rootQuote.quotationNumber.split('-')[0]
+
+  return (
+    <div className="border rounded-xl bg-card shadow-sm overflow-hidden transition-all duration-200">
+      <div 
+        className="p-3 bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer flex items-center gap-3 select-none"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="text-muted-foreground shrink-0 transition-transform">
+          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </span>
+        <Folder className="h-4 w-4 text-yellow-500 fill-yellow-400 shrink-0" />
+        <span className="font-bold font-mono text-sm">{rootQuotationNumber}</span>
+        <span className="text-xs text-muted-foreground ml-auto bg-background border px-2 py-0.5 rounded-full">
+          {allVersions.length} {allVersions.length === 1 ? 'file' : 'files'}
+        </span>
+      </div>
+
+      {expanded && (
+        <div className="divide-y divide-border border-t bg-background/50">
+          {allVersions.map((v) => (
+            <div key={v.id} className="flex items-center justify-between p-3 pl-10 hover:bg-muted/30 transition-colors group">
+              <div className="flex items-center gap-3">
+                <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold font-mono group-hover:text-primary transition-colors">{v.quotationNumber}.pdf</p>
+                  {v.status === "CLIENT_CONFIRMED" && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30">
+                      <Check className="h-2.5 w-2.5" /> Client Confirmed
+                    </span>
+                  )}
+                  <p className="text-xs text-muted-foreground ml-1">
+                    {new Date(v.date).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  window.open(`/api/quotations/${v.id}/pdf`, "_blank")
+                }}
+              >
+                Download
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
