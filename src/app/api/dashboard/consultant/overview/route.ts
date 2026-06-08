@@ -37,22 +37,48 @@ export async function GET(request: Request) {
 
     // Enforce Ownership Rules
     if (ownershipRule === "OWN") {
-      qWhere.preparedById = userId
-      cWhere.salespersonId = userId
+      qWhere.OR = [
+        { preparedById: userId },
+        { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
+        { assignments: { some: { userId: userId } } }
+      ]
+      cWhere.OR = [
+        { salespersonId: userId },
+        { assignments: { some: { userId: userId } } }
+      ]
     } else if (ownershipRule === "ASSIGNED") {
       qWhere.OR = [
         { preparedById: userId },
-        { salesAgentId: userId }
+        { salesAgentId: userId },
+        { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
+        { assignments: { some: { userId: userId } } }
       ]
-      cWhere.salespersonId = userId
+      cWhere.OR = [
+        { salespersonId: userId },
+        { assignments: { some: { userId: userId } } }
+      ]
     } else if (ownershipRule === "DEPARTMENT") {
       const user = await prisma.user.findUnique({ where: { id: userId } })
       if (user?.department) {
-        qWhere.preparedBy = { department: user.department }
-        cWhere.salesperson = { department: user.department }
+        qWhere.OR = [
+          { preparedBy: { department: user.department } },
+          { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
+          { assignments: { some: { user: { department: user.department } } } }
+        ]
+        cWhere.OR = [
+          { salesperson: { department: user.department } },
+          { assignments: { some: { user: { department: user.department } } } }
+        ]
       } else {
-        qWhere.preparedById = userId
-        cWhere.salespersonId = userId
+        qWhere.OR = [
+          { preparedById: userId },
+          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: userId } } }
+        ]
+        cWhere.OR = [
+          { salespersonId: userId },
+          { assignments: { some: { userId: userId } } }
+        ]
       }
     }
 

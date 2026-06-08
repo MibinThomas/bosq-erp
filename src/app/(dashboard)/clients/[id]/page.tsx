@@ -32,6 +32,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { ClientQuotationTimeline } from "@/components/clients/client-quotation-timeline"
+import { AssignmentModal } from "@/components/clients/assignment-modal"
+import { Users } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,6 +78,10 @@ interface ClientDetail {
   sharepointFolder: string | null
   status: string
   quotations: Quotation[]
+  assignments?: {
+    isPrimary: boolean
+    user: { id: string; name: string | null; role: string }
+  }[]
 }
 
 interface Boq {
@@ -152,6 +158,7 @@ export default function ClientDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>("quotations")
   const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false)
 
   // Lazy-loaded tab data
   const [boqs, setBoqs] = useState<Boq[]>([])
@@ -452,6 +459,50 @@ export default function ClientDetailPage() {
               </CardContent>
             </Card>
 
+            {/* Assigned Team */}
+            <Card className="rounded-2xl shadow-sm border bg-muted/10">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" /> Assigned Team
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Primary Consultant</span>
+                  <div className="flex items-center gap-2 p-2.5 border bg-background rounded-lg shadow-sm">
+                    <User className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-sm font-semibold">
+                      {client.assignments?.find(a => a.isPrimary)?.user.name || "Not Assigned"}
+                    </span>
+                  </div>
+                </div>
+
+                {client.assignments && client.assignments.filter(a => !a.isPrimary).length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Additional Access</span>
+                    <div className="space-y-1.5">
+                      {client.assignments.filter(a => !a.isPrimary).map(sec => (
+                        <div key={sec.user.id} className="flex items-center gap-2 p-2 border bg-background/50 rounded-lg text-sm">
+                          <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span>{sec.user.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(userRole === "SUPER_ADMIN" || userRole === "ADMIN") && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full text-xs font-semibold mt-2" 
+                    onClick={() => setShowAssignmentModal(true)}
+                  >
+                    Assign / Change Client
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
             {client.notes && (
               <Card className="rounded-2xl shadow-sm border">
                 <CardHeader>
@@ -672,6 +723,20 @@ function QuotationFolderGroup({ rootQuote }: { rootQuote: Quotation }) {
             </div>
           ))}
         </div>
+      )}
+
+      {client && (
+        <AssignmentModal
+          open={showAssignmentModal}
+          onOpenChange={setShowAssignmentModal}
+          clientId={client.id}
+          clientName={client.companyName}
+          quotations={client.quotations || []}
+          onSuccess={() => {
+            toast.success("Client team assignments updated!")
+            fetchClient()
+          }}
+        />
       )}
     </div>
   )

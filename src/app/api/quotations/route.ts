@@ -61,21 +61,35 @@ export async function GET(request: Request) {
     }
 
     if (!isExcludedFromOwnershipLimit) {
-      whereClause.preparedById = dbSessionUser.id
-    } else {
+      whereClause.OR = [
+        { preparedById: dbSessionUser.id },
+        { client: { assignments: { some: { userId: dbSessionUser.id, allowAllQuotations: true } } } },
+        { assignments: { some: { userId: dbSessionUser.id } } }
+      ]
+    } else if (ownershipRule !== "ALL") {
       if (ownershipRule === "OWN") {
-        whereClause.preparedById = dbSessionUser.id
+        whereClause.OR = [
+          { preparedById: dbSessionUser.id },
+          { client: { assignments: { some: { userId: dbSessionUser.id, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: dbSessionUser.id } } }
+        ]
       } else if (ownershipRule === "DEPARTMENT") {
         const deptUsers = await prisma.user.findMany({
           where: { department: dbSessionUser.department || "N/A" },
           select: { id: true }
         })
         const deptUserIds = deptUsers.map(u => u.id)
-        whereClause.preparedById = { in: deptUserIds }
+        whereClause.OR = [
+          { preparedById: { in: deptUserIds } },
+          { client: { assignments: { some: { userId: { in: deptUserIds }, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: { in: deptUserIds } } } }
+        ]
       } else if (ownershipRule === "ASSIGNED") {
         whereClause.OR = [
           { preparedById: dbSessionUser.id },
-          { salesAgentId: dbSessionUser.id }
+          { salesAgentId: dbSessionUser.id },
+          { client: { assignments: { some: { userId: dbSessionUser.id, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: dbSessionUser.id } } }
         ]
       } else if (ownershipRule === "NONE") {
         return NextResponse.json({ data: [], totalCount: 0, totalPages: 0, currentPage: 1 })

@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 
@@ -42,6 +43,10 @@ interface Client {
   sharepointFolder: string | null
   notes: string | null
   status: string
+  assignments?: {
+    isPrimary: boolean
+    user: { name: string | null }
+  }[]
 }
 
 import { useSession } from "next-auth/react"
@@ -61,6 +66,7 @@ export default function ClientsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [deleting, setDeleting] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>("All")
+  const [consultantFilter, setConsultantFilter] = useState<string>("All")
 
   async function fetchClients() {
     try {
@@ -156,6 +162,13 @@ export default function ClientsPage() {
       return false
     }
 
+    if (consultantFilter !== "All") {
+      const primaryAssignment = client.assignments?.find(a => a.isPrimary)
+      if (primaryAssignment?.user.name !== consultantFilter) {
+        return false
+      }
+    }
+
     const term = searchTerm.toLowerCase()
     return (
       client.companyName.toLowerCase().includes(term) ||
@@ -164,6 +177,8 @@ export default function ClientsPage() {
       (client.email && client.email.toLowerCase().includes(term))
     )
   })
+
+  const uniqueConsultants = Array.from(new Set(clients.flatMap(c => c.assignments?.filter(a => a.isPrimary).map(a => a.user.name) || []))).filter(Boolean) as string[]
 
   return (
     <div className="space-y-6">
@@ -205,8 +220,8 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div className="relative flex items-center w-full max-w-sm">
+      <div className="flex flex-col sm:flex-row items-center gap-4 justify-between">
+        <div className="relative flex items-center w-full sm:max-w-sm">
           <Search className="h-4 w-4 text-muted-foreground absolute left-3" />
           <Input
             placeholder="Search clients by name, ID, or email..."
@@ -215,6 +230,22 @@ export default function ClientsPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        
+        {isManagerOrAdmin && (
+          <div className="w-full sm:w-auto">
+            <Select value={consultantFilter} onValueChange={setConsultantFilter}>
+              <SelectTrigger className="w-full sm:w-[220px]">
+                <SelectValue placeholder="Filter by Consultant" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Consultants</SelectItem>
+                {uniqueConsultants.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {isManagerOrAdmin && (
@@ -274,6 +305,7 @@ export default function ClientsPage() {
                 )}
                 <TableHead>Client ID</TableHead>
                 <TableHead>Company Name</TableHead>
+                {isManagerOrAdmin && <TableHead>Assigned Consultant</TableHead>}
                 <TableHead>Contact Person</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
@@ -307,6 +339,13 @@ export default function ClientsPage() {
                       {client.companyName}
                     </Link>
                   </TableCell>
+                  {isManagerOrAdmin && (
+                    <TableCell>
+                      <Badge variant="outline" className="font-normal bg-muted/50">
+                        {client.assignments?.find(a => a.isPrimary)?.user.name || "Unassigned"}
+                      </Badge>
+                    </TableCell>
+                  )}
                   <TableCell>{client.contactPerson || "-"}</TableCell>
                   <TableCell>{client.email || "-"}</TableCell>
                   <TableCell>{client.phone || "-"}</TableCell>

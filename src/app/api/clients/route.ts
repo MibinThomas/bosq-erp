@@ -45,19 +45,41 @@ export async function GET() {
       }
     }
 
-    let whereClause: any = { deletedAt: null }
+    const isExcludedFromOwnershipLimit = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(dbSessionUser.role)
 
-    if (ownershipRule === "OWN") {
-      whereClause.salespersonId = dbSessionUser.id
-    } else if (ownershipRule === "DEPARTMENT") {
-      const deptUsers = await prisma.user.findMany({
-        where: { department: dbSessionUser.department || "N/A" },
-        select: { id: true }
-      })
-      const deptUserIds = deptUsers.map(u => u.id)
-      whereClause.salespersonId = { in: deptUserIds }
-    } else if (ownershipRule === "NONE") {
-      return NextResponse.json([])
+    let whereClause: any = {
+      deletedAt: null
+    }
+
+    if (!isExcludedFromOwnershipLimit) {
+      whereClause.OR = [
+        { salespersonId: dbSessionUser.id },
+        { assignments: { some: { userId: dbSessionUser.id } } }
+      ]
+    } else if (ownershipRule !== "ALL") {
+      if (ownershipRule === "OWN") {
+        whereClause.OR = [
+          { salespersonId: dbSessionUser.id },
+          { assignments: { some: { userId: dbSessionUser.id } } }
+        ]
+      } else if (ownershipRule === "DEPARTMENT") {
+        const deptUsers = await prisma.user.findMany({
+          where: { department: dbSessionUser.department || "N/A" },
+          select: { id: true }
+        })
+        const deptUserIds = deptUsers.map(u => u.id)
+        whereClause.OR = [
+          { salespersonId: { in: deptUserIds } },
+          { assignments: { some: { userId: { in: deptUserIds } } } }
+        ]
+      } else if (ownershipRule === "ASSIGNED") {
+        whereClause.OR = [
+          { salespersonId: dbSessionUser.id },
+          { assignments: { some: { userId: dbSessionUser.id } } }
+        ]
+      } else if (ownershipRule === "NONE") {
+        whereClause.id = "none"
+      }
     }
 
     const clients = await prisma.client.findMany({
