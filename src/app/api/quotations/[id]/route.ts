@@ -529,8 +529,7 @@ export async function PUT(
           existingQuotation.client.companyName
         )}/Quotations/${filenameBase}.pdf`
       }
-
-      const resolvedStatus = "APPROVED"
+      const resolvedStatus = "REVISED"
 
       // Execute atomic transaction for revision (create a new quotation record, keep the old one)
       const updatedQuotation = await prisma.$transaction(async (tx) => {
