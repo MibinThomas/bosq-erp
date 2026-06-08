@@ -37,11 +37,16 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { dealer, interior, direct, online } = body
 
+    const dealerVal = Math.min(Number(dealer), 99.99)
+    const interiorVal = Math.min(Number(interior), 99.99)
+    const directVal = Math.min(Number(direct), 99.99)
+    const onlineVal = Math.min(Number(online), 99.99)
+
     const valueStr = JSON.stringify({
-      dealer: Number(dealer),
-      interior: Number(interior),
-      direct: Number(direct),
-      online: Number(online)
+      dealer: dealerVal,
+      interior: interiorVal,
+      direct: directVal,
+      online: onlineVal
     })
 
     const setting = await prisma.systemSetting.upsert({

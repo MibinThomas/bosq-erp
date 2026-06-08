@@ -62,24 +62,44 @@ export async function GET(request: Request) {
       if (maxVal) whereClause.subtotal.lte = parseFloat(maxVal)
     }
 
-    // Base query
-    const quotations = await prisma.quotation.findMany({
-      where: whereClause,
-      include: {
-        client: true
-      }
-    })
+    // Optimized Aggregation Queries
+    const [
+      totalStats,
+      convertedStats,
+      pendingApprovalsCount,
+      pendingFollowUpsCount
+    ] = await Promise.all([
+      prisma.quotation.aggregate({
+        where: whereClause,
+        _count: true,
+        _sum: { subtotal: true }
+      }),
+      prisma.quotation.aggregate({
+        where: {
+          ...whereClause,
+          OR: [
+            { poStatus: "RECEIVED" },
+            { status: "PO_RECEIVED" },
+            { status: "CLIENT_CONFIRMED" },
+            { status: "UNDER_PRODUCTION" }
+          ]
+        },
+        _count: true,
+        _sum: { subtotal: true }
+      }),
+      prisma.quotation.count({
+        where: { ...whereClause, status: "SENT" }
+      }),
+      prisma.quotation.count({
+        where: { ...whereClause, status: "FOLLOW_UP" }
+      })
+    ])
 
-    const totalQuotes = quotations.length
+    const totalQuotes = totalStats._count || 0
+    const totalValue = totalStats._sum.subtotal || 0
     
-    const totalValue = quotations.reduce((acc, q) => acc + (q.subtotal || 0), 0)
-    
-    const convertedQuotes = quotations.filter(q => q.poStatus === "RECEIVED" || q.status === "PO_RECEIVED" || q.status === "CLIENT_CONFIRMED" || q.status === "UNDER_PRODUCTION")
-    const convertedCount = convertedQuotes.length
-    const convertedValue = convertedQuotes.reduce((acc, q) => acc + (q.subtotal || 0), 0)
-
-    const pendingApprovalsCount = quotations.filter(q => q.status === "SENT").length // Treating SENT as pending approval from client
-    const pendingFollowUpsCount = quotations.filter(q => q.status === "FOLLOW_UP").length
+    const convertedCount = convertedStats._count || 0
+    const convertedValue = convertedStats._sum.subtotal || 0
 
     return NextResponse.json({
       totalQuotes,

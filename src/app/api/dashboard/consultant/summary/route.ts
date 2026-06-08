@@ -121,35 +121,47 @@ export async function GET(request: Request) {
       if (maxVal) qWhere.subtotal.lte = parseFloat(maxVal)
     }
 
-    // Fetch Quotations Data
-    const quotations = await prisma.quotation.findMany({
-      where: qWhere,
-    })
+    // Optimized Aggregation Queries
+    const [
+      totalStats,
+      approvedCount,
+      pendingCount,
+      rejectedCount,
+      convertedCount,
+      followUpsCount,
+      activeClientsCount,
+      pendingClientApprovalsCount
+    ] = await Promise.all([
+      prisma.quotation.aggregate({
+        where: qWhere,
+        _count: true,
+        _sum: { subtotal: true }
+      }),
+      prisma.quotation.count({
+        where: { ...qWhere, status: "CLIENT_CONFIRMED" }
+      }),
+      prisma.quotation.count({
+        where: { ...qWhere, status: { in: ["SENT", "PENDING_APPROVAL", "REVISED", "APPROVED"] } }
+      }),
+      prisma.quotation.count({
+        where: { ...qWhere, status: "REJECTED" }
+      }),
+      prisma.quotation.count({
+        where: { ...qWhere, OR: [{ status: "PO_RECEIVED" }, { status: "CLIENT_CONFIRMED" }, { poStatus: "RECEIVED" }, { status: "UNDER_PRODUCTION" }] }
+      }),
+      prisma.quotation.count({
+        where: { ...qWhere, status: "FOLLOW_UP" }
+      }),
+      prisma.client.count({
+        where: cWhere
+      }),
+      prisma.client.count({
+        where: { ...cWhere, status: "Pending Approval" }
+      })
+    ])
 
-    const totalQuotes = quotations.length
-    const totalValue = quotations.reduce((acc, q) => acc + (q.subtotal || 0), 0)
-
-    const approvedQuotes = quotations.filter(q => q.status === "CLIENT_CONFIRMED")
-    const approvedCount = approvedQuotes.length
-
-    const pendingQuotes = quotations.filter(q => q.status === "SENT" || q.status === "PENDING_APPROVAL" || q.status === "REVISED" || q.status === "APPROVED")
-    const pendingCount = pendingQuotes.length
-
-    const rejectedQuotes = quotations.filter(q => q.status === "REJECTED")
-    const rejectedCount = rejectedQuotes.length
-
-    const convertedQuotes = quotations.filter(q => q.status === "PO_RECEIVED" || q.status === "CLIENT_CONFIRMED" || q.poStatus === "RECEIVED" || q.status === "UNDER_PRODUCTION")
-    const convertedCount = convertedQuotes.length
-
-    const followUpsCount = quotations.filter(q => q.status === "FOLLOW_UP").length
-
-    // Fetch Clients Data
-    const clients = await prisma.client.findMany({
-      where: cWhere,
-    })
-
-    const activeClientsCount = clients.length
-    const pendingClientApprovalsCount = clients.filter(c => c.status === "Pending Approval").length
+    const totalQuotes = totalStats._count || 0
+    const totalValue = totalStats._sum.subtotal || 0
 
     return NextResponse.json({
       totalQuotes,

@@ -63,7 +63,7 @@ const quotationSchema = z.object({
       basePrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Base price must be at least 0"),
       unitPrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Price must be at least 0"),
       discount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Discount must be at least 0"),
-      margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= -100, "Margin must be at least -100"),
+      margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= -100, "Margin must be at least -100").refine(val => (val === "" ? 0 : Number(val)) < 100, "Margin must be less than 100%"),
       manualMargin: z.union([z.number(), z.string()]).optional(),
       customImageUrl: z.string().nullable().optional(),
       shortDescription: z.string().optional(),
@@ -694,14 +694,14 @@ function NewQuotationForm() {
 
     // Set the changed field itself in react-hook-form state so it persists
     if (fieldChanged === "basePrice") {
-      form.setValue(`items.${index}.basePrice`, newValue, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.basePrice`, newValue, { shouldValidate: false, shouldDirty: true })
     } else if (fieldChanged === "margin") {
-      form.setValue(`items.${index}.margin`, newValue, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.manualMargin`, newValue, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.margin`, newValue, { shouldValidate: false, shouldDirty: true })
+      form.setValue(`items.${index}.manualMargin`, newValue, { shouldValidate: false, shouldDirty: true })
     } else if (fieldChanged === "unitPrice") {
-      form.setValue(`items.${index}.unitPrice`, newValue, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.unitPrice`, newValue, { shouldValidate: false, shouldDirty: true })
     } else if (fieldChanged === "priceSource") {
-      form.setValue(`items.${index}.priceSource`, newValue, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.priceSource`, newValue, { shouldValidate: false, shouldDirty: true })
     }
 
     // 1. Resolve standard catalog base price if priceSource is standard
@@ -715,7 +715,7 @@ function NewQuotationForm() {
         else if (watchSegment === "Online") segmentPrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
         
         basePrice = segmentPrice
-        form.setValue(`items.${index}.basePrice`, segmentPrice, { shouldValidate: true, shouldDirty: true })
+        form.setValue(`items.${index}.basePrice`, segmentPrice, { shouldValidate: false, shouldDirty: true })
       }
     }
 
@@ -723,28 +723,27 @@ function NewQuotationForm() {
     if (fieldChanged === "unitPrice") {
       if (newValue === "") {
         margin = 0
-        form.setValue(`items.${index}.margin`, "", { shouldValidate: true, shouldDirty: true })
-        form.setValue(`items.${index}.manualMargin`, "", { shouldValidate: true, shouldDirty: true })
+        form.setValue(`items.${index}.margin`, "", { shouldValidate: false, shouldDirty: true })
+        form.setValue(`items.${index}.manualMargin`, "", { shouldValidate: false, shouldDirty: true })
       } else if (unitPrice > 0) {
         // Unit Price = Base Price / (1 - Margin % / 100) => Margin % = (1 - (Base Price / Unit Price)) * 100
         margin = (1 - (basePrice / unitPrice)) * 100
         const roundedMargin = Number(margin.toFixed(2))
-        form.setValue(`items.${index}.margin`, roundedMargin, { shouldValidate: true, shouldDirty: true })
-        form.setValue(`items.${index}.manualMargin`, roundedMargin, { shouldValidate: true, shouldDirty: true })
+        form.setValue(`items.${index}.margin`, roundedMargin, { shouldValidate: false, shouldDirty: true })
+        form.setValue(`items.${index}.manualMargin`, roundedMargin, { shouldValidate: false, shouldDirty: true })
       } else {
         margin = 0
-        form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
-        form.setValue(`items.${index}.manualMargin`, 0, { shouldValidate: true, shouldDirty: true })
+        form.setValue(`items.${index}.margin`, 0, { shouldValidate: false, shouldDirty: true })
+        form.setValue(`items.${index}.manualMargin`, 0, { shouldValidate: false, shouldDirty: true })
       }
     } else {
-      const marginDecimal = margin / 100
+      let marginDecimal = margin / 100
       if (marginDecimal >= 1) {
-        unitPrice = basePrice
-      } else {
-        unitPrice = basePrice / (1 - marginDecimal)
+        marginDecimal = 0.9999 // Prevent division by zero
       }
+      unitPrice = basePrice / (1 - marginDecimal)
       const finalPrice = (newValue === "" && fieldChanged === "margin") || (fieldChanged === "basePrice" && newValue === "") ? "" : Number(unitPrice.toFixed(2))
-      form.setValue(`items.${index}.unitPrice`, finalPrice, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.unitPrice`, finalPrice, { shouldValidate: false, shouldDirty: true })
     }
   }
 

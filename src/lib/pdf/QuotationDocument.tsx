@@ -743,7 +743,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Item Rows */}
         {items.map((item, index) => (
-          <View key={index} style={[styles.tableRow, items.length === 1 ? { paddingVertical: 10 } : {}]} wrap={false}>
+          <View key={index} style={[styles.tableRow, items.length === 1 ? { paddingVertical: 10 } : {}]}>
             {/* Description */}
             <View style={styles.colDesc}>
               {/* 1. Product Name */}

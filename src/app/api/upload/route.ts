@@ -5,6 +5,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import path from "path"
 import { writeFile, mkdir } from "fs/promises"
 import fs from "fs"
+import crypto from "crypto"
 
 export async function POST(request: Request) {
   try {
@@ -26,8 +27,14 @@ export async function POST(request: Request) {
     }
     console.log("[UPLOAD API] File found:", file.name, file.type, file.size);
 
-    // Generate unique filename
-    const filename = file.name ? `upload-${Date.now()}-${file.name}` : `upload-${Date.now()}.jpg`;
+    const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"]
+    if (!allowedMimeTypes.includes(file.type)) {
+      return NextResponse.json({ error: "Invalid file type. Only images are allowed." }, { status: 400 })
+    }
+
+    const ext = file.name ? path.extname(file.name).toLowerCase() : ".jpg"
+    const randomId = crypto.randomBytes(16).toString("hex")
+    const filename = `upload-${Date.now()}-${randomId}${ext}`
 
     // If no Vercel Blob token, check if we are on Vercel
     if (!process.env.BLOB_READ_WRITE_TOKEN) {

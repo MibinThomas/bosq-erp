@@ -47,7 +47,7 @@ export function AssignmentModal({ open, onOpenChange, clientId, clientName, quot
     setLoading(true)
     try {
       const [usersRes, assignmentsRes] = await Promise.all([
-        fetch("/api/users"),
+        fetch("/api/settings/users"),
         fetch(`/api/clients/${clientId}/assignments`)
       ])
 

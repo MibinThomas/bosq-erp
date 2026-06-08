@@ -620,6 +620,8 @@ export default function SettingsPage() {
                         className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
                         required
                         min="0"
+                        max="99.99"
+                        step="0.01"
                       />
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
                     </div>
@@ -634,6 +636,8 @@ export default function SettingsPage() {
                         className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
                         required
                         min="0"
+                        max="99.99"
+                        step="0.01"
                       />
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
                     </div>
@@ -648,6 +652,8 @@ export default function SettingsPage() {
                         className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
                         required
                         min="0"
+                        max="99.99"
+                        step="0.01"
                       />
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
                     </div>
@@ -662,6 +668,8 @@ export default function SettingsPage() {
                         className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
                         required
                         min="0"
+                        max="99.99"
+                        step="0.01"
                       />
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
                     </div>
