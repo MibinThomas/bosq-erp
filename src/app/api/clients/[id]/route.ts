@@ -21,7 +21,7 @@ export async function GET(
 
     // Fetch all quotations for this client (including revised ones so history is complete)
     const quotations = await prisma.quotation.findMany({
-      where: { clientId: id },
+      where: { clientId: id, parentId: null }, // only root quotations; revisions are nested
       include: {
         items: { orderBy: { itemNo: "asc" } },
         preparedBy: { select: { id: true, name: true, role: true } },
@@ -30,7 +30,7 @@ export async function GET(
             items: { orderBy: { itemNo: "asc" } },
             preparedBy: { select: { id: true, name: true, role: true } },
           },
-          orderBy: { revisionNumber: "desc" },
+          orderBy: { revisionNumber: "asc" }, // ASC for chronological display
         },
       },
       orderBy: { createdAt: "desc" },

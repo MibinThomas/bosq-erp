@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, use } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -13,64 +13,51 @@ import {
   MapPin,
   FileText,
   Hash,
-  History,
-  FileDown,
-  Lock,
   Loader2,
   Folder,
-  ChevronRight,
-  TrendingUp,
-  TrendingDown,
   Plus,
   Edit,
   Check,
   X,
-  AlertCircle
+  AlertCircle,
+  FileQuestion,
+  Activity,
+  LayoutList,
+  ClipboardList,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { ClientQuotationTimeline } from "@/components/clients/client-quotation-timeline"
 
-interface RevisionLog {
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PreparedBy {
   id: string
-  revisionNumber: number
-  revisionDate: string
-  previousTotal: number
-  newTotal: number
-  notes: string | null
+  name: string | null
+  role: string | null
 }
 
-interface QuotationItem {
-  id: string
-  itemNo: number
-  description: string
-  specifications: string | null
-  quantity: number
-  basePrice: number
-  unitPrice: number
-  discount: number
-  margin: number
-  amount: number
-}
-
-interface Quotation {
+interface QuotationRevision {
   id: string
   quotationNumber: string
   projectName: string | null
   date: string
   status: string
   poStatus: string | null
-  paymentStatus: string | null
   grandTotal: number
-  sharepointUrl: string | null
+  subtotal: number
   revisionNumber: number
-  items: QuotationItem[]
-  preparedBy: {
-    name: string | null
-    role: string | null
-  }
-  revisionLogs: RevisionLog[]
+  sharepointUrl: string | null
+  preparedBy: PreparedBy
+  createdAt: string
+}
+
+interface Quotation extends QuotationRevision {
+  paymentStatus: string | null
+  notes: string | null
+  revisionsList: QuotationRevision[]
 }
 
 interface ClientDetail {
@@ -89,6 +76,64 @@ interface ClientDetail {
   quotations: Quotation[]
 }
 
+interface Boq {
+  id: string
+  boqNumber: string
+  projectName: string | null
+  status: string
+  createdAt: string
+  preparedBy: { name: string | null }
+}
+
+interface ActivityEntry {
+  id: string
+  action: string
+  entityType: string
+  entityId: string
+  details: string | null
+  createdAt: string
+  user: { name: string | null; role: string | null }
+}
+
+type Tab = "details" | "quotations" | "boqs" | "files" | "activity"
+
+// ─── Status badge helpers ──────────────────────────────────────────────────────
+
+function boqStatusBadge(status: string) {
+  const map: Record<string, string> = {
+    DRAFT: "bg-zinc-100 text-zinc-600 border-zinc-200",
+    SENT_TO_ESTIMATOR: "bg-amber-100 text-amber-700 border-amber-200",
+    COSTING_COMPLETED: "bg-green-100 text-green-700 border-green-200",
+    REJECTED: "bg-red-100 text-red-700 border-red-200",
+    CONVERTED: "bg-blue-100 text-blue-700 border-blue-200",
+  }
+  const labels: Record<string, string> = {
+    DRAFT: "Draft",
+    SENT_TO_ESTIMATOR: "Sent to Estimator",
+    COSTING_COMPLETED: "Costing Completed",
+    REJECTED: "Rejected",
+    CONVERTED: "Converted",
+  }
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${map[status] || "bg-muted text-muted-foreground border-border"}`}>
+      {labels[status] || status}
+    </span>
+  )
+}
+
+function activityIcon(action: string) {
+  if (action.includes("CREATED")) return "🟢"
+  if (action.includes("APPROVED")) return "✅"
+  if (action.includes("REJECTED")) return "❌"
+  if (action.includes("UPDATED") || action.includes("RENAMED")) return "✏️"
+  if (action.includes("DELETED")) return "🗑️"
+  if (action.includes("CONFIRMED")) return "🏆"
+  if (action.includes("PO")) return "📦"
+  return "📋"
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export default function ClientDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -96,70 +141,106 @@ export default function ClientDetailPage() {
 
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN"
+  const userId = (session?.user as any)?.id || ""
+  const isManagerOrAdmin = ["ADMIN", "SALES_MANAGER", "SUPER_ADMIN"].includes(userRole)
+  const isAuthorizedToConfirm =
+    ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(userRole)
 
   const [client, setClient] = useState<ClientDetail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"overview" | "history">("overview")
+  const [activeTab, setActiveTab] = useState<Tab>("quotations")
   const [updatingStatus, setUpdatingStatus] = useState(false)
 
+  // Lazy-loaded tab data
+  const [boqs, setBoqs] = useState<Boq[]>([])
+  const [boqsLoaded, setBoqsLoaded] = useState(false)
+  const [boqsLoading, setBoqsLoading] = useState(false)
+
+  const [activityLogs, setActivityLogs] = useState<ActivityEntry[]>([])
+  const [activityLoaded, setActivityLoaded] = useState(false)
+  const [activityLoading, setActivityLoading] = useState(false)
+
+  // ── Fetch client details ───────────────────────────────────────────────────
+  const fetchClient = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}`)
+      if (!res.ok) {
+        if (res.status === 404) {
+          toast.error("Client not found")
+          router.push("/clients")
+          return
+        }
+        throw new Error("Failed to fetch client details")
+      }
+      const data = await res.json()
+      setClient(data)
+    } catch (error) {
+      console.error("Error fetching client details:", error)
+      toast.error("Failed to load client profile details.")
+    } finally {
+      setLoading(false)
+    }
+  }, [clientId, router])
+
+  useEffect(() => {
+    if (clientId) fetchClient()
+  }, [clientId, fetchClient])
+
+  // ── Lazy load BOQs when tab selected ──────────────────────────────────────
+  useEffect(() => {
+    if (activeTab === "boqs" && !boqsLoaded) {
+      setBoqsLoading(true)
+      fetch(`/api/boq?clientId=${clientId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setBoqs(Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [])
+          setBoqsLoaded(true)
+        })
+        .catch(() => toast.error("Failed to load BOQs."))
+        .finally(() => setBoqsLoading(false))
+    }
+  }, [activeTab, boqsLoaded, clientId])
+
+  // ── Lazy load Activity when tab selected ──────────────────────────────────
+  useEffect(() => {
+    if (activeTab === "activity" && !activityLoaded) {
+      setActivityLoading(true)
+      fetch(`/api/clients/${clientId}/activity`)
+        .then((r) => r.json())
+        .then((data) => {
+          setActivityLogs(Array.isArray(data) ? data : [])
+          setActivityLoaded(true)
+        })
+        .catch(() => toast.error("Failed to load activity logs."))
+        .finally(() => setActivityLoading(false))
+    }
+  }, [activeTab, activityLoaded, clientId])
+
+  // ── Status update handler ──────────────────────────────────────────────────
   async function handleStatusUpdate(newStatus: "Approved" | "Rejected") {
     try {
       setUpdatingStatus(true)
       const res = await fetch(`/api/clients/${clientId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyName: client?.companyName || "",
-          status: newStatus,
-        })
+        body: JSON.stringify({ companyName: client?.companyName || "", status: newStatus }),
       })
-
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to update client status")
-
       toast.success(
         newStatus === "Approved"
-          ? `Successfully approved client "${client?.companyName}"!`
-          : `Client "${client?.companyName}" has been rejected.`
+          ? `Client "${client?.companyName}" approved!`
+          : `Client "${client?.companyName}" rejected.`
       )
-      
-      // Update state instantly
-      setClient(prev => prev ? { ...prev, status: newStatus } : null)
+      setClient((prev) => (prev ? { ...prev, status: newStatus } : null))
     } catch (error: any) {
-      console.error(error)
       toast.error(error.message || "An error occurred while updating status.")
     } finally {
       setUpdatingStatus(false)
     }
   }
 
-  useEffect(() => {
-    async function fetchClientDetails() {
-      try {
-        const res = await fetch(`/api/clients/${clientId}`)
-        if (!res.ok) {
-          if (res.status === 404) {
-            toast.error("Client not found")
-            router.push("/clients")
-            return
-          }
-          throw new Error("Failed to fetch client details")
-        }
-        const data = await res.json()
-        setClient(data)
-      } catch (error) {
-        console.error("Error fetching client details:", error)
-        toast.error("Failed to load client profile details.")
-      } finally {
-        setLoading(false)
-      }
-    }
-    if (clientId) {
-      fetchClientDetails()
-    }
-  }, [clientId, router])
-
+  // ── Loading / empty states ─────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-40 gap-3">
@@ -168,121 +249,135 @@ export default function ClientDetailPage() {
       </div>
     )
   }
-
   if (!client) return null
 
+  const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
+    { key: "quotations", label: "Quotations & Revisions", icon: <LayoutList className="h-3.5 w-3.5" /> },
+    { key: "details", label: "Client Details", icon: <User className="h-3.5 w-3.5" /> },
+    { key: "boqs", label: "BOQs", icon: <ClipboardList className="h-3.5 w-3.5" /> },
+    { key: "files", label: "Files / Documents", icon: <Folder className="h-3.5 w-3.5" /> },
+    { key: "activity", label: "Activity Timeline", icon: <Activity className="h-3.5 w-3.5" /> },
+  ]
+
   return (
-    <div className="space-y-8">
-      {/* Header and Back navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center space-x-4">
+    <div className="space-y-6">
+      {/* ── Page Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
           <Link href="/clients">
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button variant="ghost" size="icon" className="rounded-full shrink-0">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{client.companyName}</h1>
-              <Badge variant="outline" className="font-mono text-xs">
-                {client.clientId}
-              </Badge>
-              <Badge 
-                variant="outline" 
-                className={`font-semibold border text-xs px-2.5 py-0.5 rounded-full ${
-                  client.status === "Approved" ? "bg-green-500/10 text-green-500 border-green-500/20" :
-                  client.status === "Pending Approval" ? "bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse" :
-                  "bg-red-500/10 text-red-500 border-red-500/20"
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{client.companyName}</h1>
+              <Badge variant="outline" className="font-mono text-xs shrink-0">{client.clientId}</Badge>
+              <Badge
+                variant="outline"
+                className={`font-semibold border text-xs px-2.5 py-0.5 rounded-full shrink-0 ${
+                  client.status === "Approved"
+                    ? "bg-green-500/10 text-green-500 border-green-500/20"
+                    : client.status === "Pending Approval"
+                    ? "bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse"
+                    : "bg-red-500/10 text-red-500 border-red-500/20"
                 }`}
               >
                 {client.status || "Approved"}
               </Badge>
             </div>
-            <p className="text-muted-foreground mt-1">
-              Client profile overview and comprehensive quotation audit trail.
+            <p className="text-muted-foreground mt-1 text-sm">
+              Client profile · {client.clientType || "Corporate"} · {client.quotations?.length || 0} quotation series
             </p>
           </div>
         </div>
 
+        {/* Header actions */}
         <div className="flex flex-wrap items-center gap-2">
           {isManagerOrAdmin && client.status !== "Approved" && (
-            <Button 
-              onClick={() => handleStatusUpdate("Approved")} 
+            <Button
+              onClick={() => handleStatusUpdate("Approved")}
               disabled={updatingStatus}
-              className="bg-green-600 hover:bg-green-700 text-white cursor-pointer font-semibold"
+              className="bg-green-600 hover:bg-green-700 text-white font-semibold"
             >
               {updatingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="mr-2 h-4 w-4" />}
               Approve Client
             </Button>
           )}
           {isManagerOrAdmin && client.status === "Pending Approval" && (
-            <Button 
-              onClick={() => handleStatusUpdate("Rejected")} 
+            <Button
+              onClick={() => handleStatusUpdate("Rejected")}
               disabled={updatingStatus}
               variant="destructive"
-              className="cursor-pointer font-semibold"
             >
               {updatingStatus ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <X className="mr-2 h-4 w-4" />}
-              Reject Client
+              Reject
             </Button>
           )}
-          
           {isManagerOrAdmin && (
             <Link href={`/clients/new?editId=${client.id}`}>
-              <Button variant="outline" className="border-primary/20 text-primary hover:bg-primary/5 cursor-pointer">
-                <Edit className="mr-2 h-4 w-4" />
-                Update Client
+              <Button variant="outline" className="border-primary/20 text-primary hover:bg-primary/5">
+                <Edit className="mr-2 h-4 w-4" /> Update Client
               </Button>
             </Link>
           )}
-          
           {client.status === "Approved" ? (
             <Link href={`/quotations/new?clientId=${client.id}`}>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Quotation
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Plus className="mr-2 h-4 w-4" /> Create Quotation
               </Button>
             </Link>
           ) : (
-            <Button 
-              disabled 
-              className="bg-muted text-muted-foreground border cursor-not-allowed opacity-50"
-            >
-              <Lock className="mr-2 h-4 w-4" />
+            <Button disabled className="opacity-50">
               Quotation Locked
             </Button>
           )}
         </div>
       </div>
 
-      {/* Tabs Switcher */}
-      <div className="flex border-b border-muted">
-        <button
-          onClick={() => setActiveTab("overview")}
-          className={`px-5 py-3 text-sm font-semibold transition-colors relative ${
-            activeTab === "overview"
-              ? "text-primary border-b-2 border-primary"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Overview
-        </button>
-        <button
-          onClick={() => setActiveTab("history")}
-          className={`px-5 py-3 text-sm font-semibold transition-colors relative ${
-            activeTab === "history"
-              ? "text-primary border-b-2 border-primary"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Quotation History ({client.quotations?.length || 0})
-        </button>
+      {/* ── Tab Navigation ── */}
+      <div className="border-b border-border -mb-0">
+        <nav className="flex gap-0 overflow-x-auto">
+          {tabs.map(({ key, label, icon }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`inline-flex items-center gap-1.5 px-4 py-3 text-sm font-semibold border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+                activeTab === key
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30"
+              }`}
+            >
+              {icon}
+              {label}
+              {key === "quotations" && client.quotations?.length > 0 && (
+                <span className="ml-1 text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-mono">
+                  {client.quotations.length}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Tab Panels */}
-      {activeTab === "overview" ? (
+      {/* ── Tab Content ── */}
+
+      {/* Quotations & Revisions */}
+      {activeTab === "quotations" && (
+        <ClientQuotationTimeline
+          quotations={client.quotations || []}
+          clientId={client.id}
+          userRole={userRole}
+          userId={userId}
+          isAuthorizedToConfirm={isAuthorizedToConfirm}
+          onStatusUpdate={fetchClient}
+        />
+      )}
+
+      {/* Client Details */}
+      {activeTab === "details" && (
         <div className="grid gap-6 md:grid-cols-3">
-          {/* Main Info Card */}
+          {/* Main Info */}
           <Card className="md:col-span-2 rounded-2xl shadow-sm border">
             <CardHeader>
               <CardTitle className="text-lg">Contact Information</CardTitle>
@@ -295,36 +390,28 @@ export default function ClientDetailPage() {
                 </span>
                 <p className="font-medium text-foreground">{client.contactPerson || "Not Provided"}</p>
               </div>
-
               <div className="space-y-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Mail className="h-3.5 w-3.5 text-primary" /> Email Address
                 </span>
                 <p className="font-medium text-foreground">
                   {client.email ? (
-                    <a href={`mailto:${client.email}`} className="hover:underline text-primary">
-                      {client.email}
-                    </a>
-                  ) : (
-                    "Not Provided"
-                  )}
+                    <a href={`mailto:${client.email}`} className="hover:underline text-primary">{client.email}</a>
+                  ) : "Not Provided"}
                 </p>
               </div>
-
               <div className="space-y-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Phone className="h-3.5 w-3.5 text-primary" /> Phone Number
                 </span>
                 <p className="font-medium text-foreground">{client.phone || "Not Provided"}</p>
               </div>
-
               <div className="space-y-1">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <Hash className="h-3.5 w-3.5 text-primary" /> Tax Registration (TRN)
                 </span>
                 <p className="font-mono font-medium text-foreground">{client.trn || "Not Registered"}</p>
               </div>
-
               <div className="space-y-1 sm:col-span-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5 text-primary" /> Physical Address
@@ -334,7 +421,7 @@ export default function ClientDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Meta Info Sidebar Card */}
+          {/* Sidebar */}
           <div className="space-y-6">
             <Card className="rounded-2xl shadow-sm border bg-muted/10">
               <CardHeader>
@@ -349,21 +436,16 @@ export default function ClientDetailPage() {
                     </Badge>
                   </div>
                 </div>
-
                 <div className="space-y-1.5">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">SharePoint Connection</span>
-                  <div>
-                    {client.sharepointFolder ? (
-                      <div className="flex items-center gap-2 p-2 border rounded-lg bg-yellow-50/50 dark:bg-yellow-950/10 border-yellow-200/50">
-                        <Folder className="h-4 w-4 text-yellow-600 fill-yellow-600 shrink-0" />
-                        <span className="text-xs font-medium text-yellow-900 dark:text-yellow-400 truncate">
-                          Folder Connected
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">None Created</span>
-                    )}
-                  </div>
+                  {client.sharepointFolder ? (
+                    <div className="flex items-center gap-2 p-2 border rounded-lg bg-yellow-50/50 dark:bg-yellow-950/10 border-yellow-200/50">
+                      <Folder className="h-4 w-4 text-yellow-600 fill-yellow-600 shrink-0" />
+                      <span className="text-xs font-medium text-yellow-900 dark:text-yellow-400">Folder Connected</span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">None Created</span>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -380,190 +462,171 @@ export default function ClientDetailPage() {
             )}
           </div>
         </div>
-      ) : (
-        /* Quotation History Panel */
-        <div className="space-y-6">
-          {(!client.quotations || client.quotations.length === 0) ? (
-            <Card className="rounded-2xl border p-12 text-center">
-              <CardContent className="space-y-3 pt-6">
-                <p className="text-lg font-medium text-foreground">No quotation history</p>
-                <p className="text-sm text-muted-foreground">
-                  This client does not have any quotations or revisions logged in the system yet.
-                </p>
-                <Link href={`/quotations/new?clientId=${client.id}`}>
-                  <Button className="mt-2 bg-primary hover:bg-primary/90 text-primary-foreground">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create First Quotation
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+      )}
+
+      {/* BOQs */}
+      {activeTab === "boqs" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">Bills of Quantities</h2>
+            <Link href={`/boq?clientId=${clientId}`}>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Plus className="h-3.5 w-3.5" /> New BOQ
+              </Button>
+            </Link>
+          </div>
+
+          {boqsLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : boqs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+              <ClipboardList className="h-12 w-12 text-muted-foreground/40" />
+              <p className="text-base font-semibold">No BOQs found</p>
+              <p className="text-sm text-muted-foreground">No bills of quantities have been created for this client yet.</p>
+            </div>
           ) : (
-            <div className="space-y-6">
-              {client.quotations.map((quote) => {
-                const isPending = quote.status === "PENDING_APPROVAL"
-                const isLockedForIDC = isPending && userRole === "SALES_EXECUTIVE"
+            <div className="border rounded-xl overflow-hidden">
+              <table className="min-w-full text-sm divide-y divide-zinc-200 dark:divide-zinc-800">
+                <thead className="bg-muted/50 text-muted-foreground text-xs font-semibold">
+                  <tr>
+                    <th className="px-4 py-3 text-left">BOQ Number</th>
+                    <th className="px-4 py-3 text-left">Project</th>
+                    <th className="px-4 py-3 text-left">Prepared By</th>
+                    <th className="px-4 py-3 text-center">Status</th>
+                    <th className="px-4 py-3 text-left">Created</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                  {boqs.map((boq) => (
+                    <tr key={boq.id} className="hover:bg-muted/20 transition-colors">
+                      <td className="px-4 py-3 font-mono font-semibold text-primary">{boq.boqNumber}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{boq.projectName || "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{boq.preparedBy?.name || "—"}</td>
+                      <td className="px-4 py-3 text-center">{boqStatusBadge(boq.status)}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">
+                        {new Date(boq.createdAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link href={`/boq/${boq.id}`}>
+                          <Button variant="outline" size="sm" className="h-7 text-xs">View</Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
-                return (
-                  <Card key={quote.id} className="rounded-2xl border shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader className="bg-muted/5 border-b pb-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-lg font-bold font-mono text-primary">
-                              {quote.quotationNumber}
-                            </span>
-                            <Badge variant={quote.status === "APPROVED" ? "default" : "secondary"}>
-                              {quote.status}
-                            </Badge>
-                            {isPending && (
-                              <Badge className="bg-amber-500 text-white font-medium flex items-center gap-1">
-                                <Lock className="h-3 w-3" /> Needs Approval
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Prepared by <span className="font-semibold text-foreground">{quote.preparedBy?.name || "Sales Rep"}</span> ({quote.preparedBy?.role || "IDC"}) on {new Date(quote.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            title={isLockedForIDC ? "Pending Approval (Locked)" : "Download PDF"}
-                            disabled={isLockedForIDC}
-                            onClick={() => window.open(`/api/quotations/${quote.id}/pdf`, "_blank")}
-                            className="h-9 gap-2"
-                          >
-                            {isLockedForIDC ? (
-                              <>
-                                <Lock className="h-4 w-4 text-muted-foreground/60" />
-                                Locked
-                              </>
-                            ) : (
-                              <>
-                                <FileDown className="h-4 w-4" />
-                                Download PDF
-                              </>
-                            )}
-                          </Button>
-                        </div>
+      {/* Files / Documents */}
+      {activeTab === "files" && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold">Files & Documents</h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {client.sharepointFolder ? (
+              <Card className="rounded-xl border hover:shadow-md transition-shadow cursor-pointer" onClick={() => {}}>
+                <CardContent className="flex items-center gap-4 p-5">
+                  <div className="h-12 w-12 rounded-xl bg-yellow-50 dark:bg-yellow-950/20 flex items-center justify-center">
+                    <Folder className="h-6 w-6 text-yellow-600 fill-yellow-500" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">SharePoint Folder</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Client document storage</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 gap-3 border rounded-xl text-center sm:col-span-2">
+                <Folder className="h-12 w-12 text-muted-foreground/40" />
+                <p className="font-semibold text-muted-foreground">No SharePoint folder connected</p>
+                <p className="text-xs text-muted-foreground">A folder is created automatically when the client is added.</p>
+              </div>
+            )}
+          </div>
+          {/* Quotation PDFs list */}
+          {client.quotations && client.quotations.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Quotation PDFs</h3>
+              <div className="space-y-2">
+                {client.quotations.flatMap((q) => [q, ...q.revisionsList]).slice(0, 20).map((q) => (
+                  <div
+                    key={q.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/20 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-red-500 shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold font-mono">{q.quotationNumber}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(q.date).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
                       </div>
-                    </CardHeader>
-                    <CardContent className="pt-6 space-y-6">
-                      {/* Items List inside Quotation */}
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Quotation Items</h4>
-                        <div className="border rounded-xl overflow-x-auto">
-                          <table className="w-full text-sm text-left min-w-[600px]">
-                            <thead className="bg-muted/30 text-muted-foreground text-xs uppercase tracking-wider font-semibold border-b">
-                              <tr>
-                                <th className="p-3">#</th>
-                                <th className="p-3">Product Name</th>
-                                <th className="p-3 text-right">Base Price</th>
-                                <th className="p-3 text-right">Margin (%)</th>
-                                <th className="p-3 text-right">Unit Price</th>
-                                <th className="p-3 text-right">Qty</th>
-                                <th className="p-3 text-right">Amount</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                              {quote.items.map((item) => (
-                                <tr key={item.id} className="hover:bg-muted/10">
-                                  <td className="p-3 font-mono text-muted-foreground">{item.itemNo}</td>
-                                  <td className="p-3">
-                                    <div className="font-medium text-foreground">{item.description}</div>
-                                    {item.specifications && (
-                                      <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                                        {item.specifications}
-                                      </div>
-                                    )}
-                                  </td>
-                                  <td className="p-3 text-right font-mono">
-                                    AED {item.basePrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="p-3 text-right font-mono text-primary font-medium">
-                                    {item.margin}%
-                                  </td>
-                                  <td className="p-3 text-right font-mono">
-                                    AED {item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                  </td>
-                                  <td className="p-3 text-right font-mono">{item.quantity}</td>
-                                  <td className="p-3 text-right font-mono font-semibold">
-                                    AED {item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1"
+                      onClick={() => window.open(`/api/quotations/${q.id}/pdf`, "_blank")}
+                    >
+                      Download PDF
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Activity Timeline */}
+      {activeTab === "activity" && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold">Activity Timeline</h2>
+          {activityLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : activityLogs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+              <Activity className="h-12 w-12 text-muted-foreground/40" />
+              <p className="text-base font-semibold">No activity recorded</p>
+              <p className="text-sm text-muted-foreground">Activity logs will appear here once actions are taken on this client.</p>
+            </div>
+          ) : (
+            <div className="relative border-l-2 border-primary/20 ml-4 space-y-4 py-2">
+              {activityLogs.map((log) => (
+                <div key={log.id} className="relative pl-7">
+                  <span className="absolute -left-[9px] top-2 h-4 w-4 rounded-full bg-muted border-2 border-background shadow-sm flex items-center justify-center text-[10px]">
+                    {activityIcon(log.action)}
+                  </span>
+                  <div className="bg-card border rounded-xl p-3.5 shadow-xs hover:shadow-sm transition-shadow space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-foreground">{log.user?.name || "System"}</span>
+                        <span className="text-xs text-muted-foreground">·</span>
+                        <span className="text-xs text-muted-foreground font-mono">{log.action.replace(/_/g, " ")}</span>
                       </div>
-
-                      {/* Totals Summary */}
-                      <div className="flex justify-between items-center bg-muted/10 p-4 rounded-xl border border-dashed">
-                        <span className="text-sm font-medium text-muted-foreground">Total Quotation Value:</span>
-                        <span className="text-xl font-bold font-mono text-primary">
-                          AED {quote.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-
-                      {/* Revision Logs under Quotation */}
-                      {quote.revisionLogs && quote.revisionLogs.length > 0 && (
-                        <div className="space-y-4 pt-4 border-t">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                            <History className="h-3.5 w-3.5 text-purple-600" /> Revision Audit History
-                          </h4>
-                          <div className="relative border-l border-muted pl-4 ml-2 space-y-4">
-                            {quote.revisionLogs.map((rev) => {
-                              const amountDiff = rev.newTotal - rev.previousTotal
-                              const isIncrease = amountDiff > 0
-
-                              return (
-                                <div key={rev.id} className="relative group">
-                                  {/* Dot */}
-                                  <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border bg-background group-hover:bg-purple-600 transition-colors" />
-                                  
-                                  <div className="bg-muted/5 hover:bg-muted/20 border border-muted/50 p-3 rounded-lg space-y-1 transition-colors">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                      <span className="text-xs font-bold text-purple-700 dark:text-purple-400">
-                                        Revision #{rev.revisionNumber}
-                                      </span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {new Date(rev.revisionDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                                      </span>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-0.5">
-                                      {rev.notes || "Revised quotation details"}
-                                    </p>
-                                    <div className="flex items-center gap-3 pt-2 text-xs font-mono">
-                                      <span className="text-muted-foreground">
-                                        Previous: AED {rev.previousTotal.toLocaleString()}
-                                      </span>
-                                      <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                                      <span className="font-semibold text-foreground">
-                                        New: AED {rev.newTotal.toLocaleString()}
-                                      </span>
-                                      
-                                      {amountDiff !== 0 && (
-                                        <span className={`inline-flex items-center gap-0.5 font-bold ${isIncrease ? "text-green-600" : "text-red-500"}`}>
-                                          {isIncrease ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                                          {isIncrease ? "+" : ""}
-                                          {amountDiff.toLocaleString()}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )
-              })}
+                      <span className="text-[11px] text-muted-foreground">
+                        {new Date(log.createdAt).toLocaleDateString("en-US", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    {log.details && (
+                      <p className="text-xs text-muted-foreground">{log.details}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
