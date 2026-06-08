@@ -579,8 +579,49 @@ export default function ClientDetailPage() {
 
       {/* Documents */}
       {activeTab === "documents" && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <ClientDocuments clientId={client.id} />
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
+          
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold">Files & Documents</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {client.sharepointFolder ? (
+                <Card className="rounded-xl border hover:shadow-md transition-shadow cursor-pointer" onClick={() => {}}>
+                  <CardContent className="flex items-center gap-4 p-5">
+                    <div className="h-12 w-12 rounded-xl bg-yellow-50 dark:bg-yellow-950/20 flex items-center justify-center">
+                      <Folder className="h-6 w-6 text-yellow-600 fill-yellow-500" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">SharePoint Folder</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Client document storage</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 gap-3 border rounded-xl text-center sm:col-span-2">
+                  <Folder className="h-12 w-12 text-muted-foreground/40" />
+                  <p className="font-semibold text-muted-foreground">No SharePoint folder connected</p>
+                  <p className="text-xs text-muted-foreground">A folder is created automatically when the client is added.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t">
+            <ClientDocuments clientId={client.id} />
+          </div>
+
+          {/* Quotation PDFs list */}
+          {client.quotations && client.quotations.length > 0 && (
+            <div className="pt-4 border-t">
+              <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Quotation PDFs</h3>
+              <div className="space-y-3">
+                {client.quotations.map((rootQuote) => (
+                  <QuotationFolderGroup key={rootQuote.id} rootQuote={rootQuote} />
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
