@@ -9,7 +9,7 @@ export async function POST() {
     const session = await getServerSession(authOptions)
     
     // Ensure only super admin can trigger this
-    if (session?.user?.role !== "SUPER_ADMIN") {
+    if ((session?.user as any)?.role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
