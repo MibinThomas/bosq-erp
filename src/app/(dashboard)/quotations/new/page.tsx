@@ -2259,7 +2259,8 @@ function NewQuotationForm() {
                           <h4 className="text-sm font-semibold text-foreground">Additional Cost</h4>
                           {(() => {
                             const isSuperAdmin = userRole === "SUPER_ADMIN"
-                            const allowedAddCustomCharges = isSuperAdmin ? true : (userPermissions?.canAddCustomCharges ?? false)
+                            const isCreator = initialData?.preparedById === (session?.user as any)?.id
+                            const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (userPermissions?.canAddCustomCharges ?? false)
                             return !allowedAddCustomCharges && <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
                           })()}
                         </div>
@@ -2270,7 +2271,8 @@ function NewQuotationForm() {
                       <div className="space-y-3">
                         {additionalFields.map((field, index) => {
                           const isSuperAdmin = userRole === "SUPER_ADMIN"
-                          const allowedAddCustomCharges = isSuperAdmin ? true : (userPermissions?.canAddCustomCharges ?? false)
+                          const isCreator = initialData?.preparedById === (session?.user as any)?.id
+                          const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (userPermissions?.canAddCustomCharges ?? false)
                           
                           return (
                             <div key={field.id} className="flex items-center gap-3 animate-in fade-in duration-200">
@@ -2340,7 +2342,9 @@ function NewQuotationForm() {
 
                         {(() => {
                           const isSuperAdmin = userRole === "SUPER_ADMIN"
-                          const allowedAddCustomCharges = isSuperAdmin ? true : (userPermissions?.canAddCustomCharges ?? false)
+                          const isCreator = initialData?.preparedById === (session?.user as any)?.id
+                          const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (userPermissions?.canAddCustomCharges ?? false)
+                          
                           if (allowedAddCustomCharges) {
                             return (
                               <Button

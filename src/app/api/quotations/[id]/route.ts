@@ -156,7 +156,9 @@ export async function PUT(
 
     const allowedMaxDiscount = isSuperAdmin ? 100 : (discountOverride?.maxDiscountPercent ?? rolePerm?.maxDiscountPercent ?? 0)
     const allowedCanOverrideVat = isSuperAdmin ? true : (dbSessionUser?.permissionOverrides.find(o => o.action === "canOverrideVat")?.value ?? rolePerm?.canOverrideVat ?? false)
-    const allowedCanAddCustomCharges = isSuperAdmin ? true : (dbSessionUser?.permissionOverrides.find(o => o.action === "canAddCustomCharges")?.value ?? rolePerm?.canAddCustomCharges ?? false)
+    const isCreator = existingQuotation.preparedById === logUserId
+    const isRevision = body.isRevision === true || body.action === "REVISE"
+    const allowedCanAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (dbSessionUser?.permissionOverrides.find(o => o.action === "canAddCustomCharges")?.value ?? rolePerm?.canAddCustomCharges ?? false)
 
     // Determine the actual PreparedBy user (could be changed by admin/manager)
     let finalPreparedById = existingQuotation.preparedById
