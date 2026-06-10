@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import SessionProvider from "@/components/providers/SessionProvider";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "BOSQ ERP - Quotation Management",
@@ -21,6 +22,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <SessionProvider>
           {children}
+          <Toaster position="top-right" richColors />
         </SessionProvider>
       </body>
     </html>
