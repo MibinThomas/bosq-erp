@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -929,7 +929,7 @@ function NewQuotationForm() {
       ) : (
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit((data) => onSubmit(data, isRevision ? "REVISED" : "QUOTE_CREATED"))}
+            onSubmit={form.handleSubmit((data) => onSubmit(data, "QUOTE_CREATED"))}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const target = e.target as HTMLElement
@@ -2459,7 +2459,7 @@ function NewQuotationForm() {
               )}
               <Button
                 type="button"
-                onClick={() => form.handleSubmit((data) => onSubmit(data, isRevision ? "REVISED" : "QUOTE_CREATED"))()}
+                onClick={() => form.handleSubmit((data) => onSubmit(data, "QUOTE_CREATED"))()}
                 disabled={submitting}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
