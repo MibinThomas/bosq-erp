@@ -37,7 +37,10 @@ export function ConsultantQuotations({ quotations }: { quotations: any[] }) {
     }
   }
   
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, revisionNumber?: number) => {
+    if (status === "DRAFT" && revisionNumber && revisionNumber > 1) {
+      return <Badge variant="outline" className="bg-purple-100 text-purple-700">Revised</Badge>
+    }
     switch (status) {
       case "DRAFT": return <Badge variant="outline" className="bg-slate-100 text-slate-700">Draft</Badge>
       case "QUOTE_CREATED": return <Badge variant="outline" className="bg-blue-100 text-blue-700">Quote Created</Badge>
@@ -90,7 +93,7 @@ export function ConsultantQuotations({ quotations }: { quotations: any[] }) {
                     <td className="px-4 py-3 truncate max-w-[150px]" title={q.projectName}>{q.projectName || "-"}</td>
                     <td className="px-4 py-3">{new Date(q.createdAt).toLocaleDateString()}</td>
                     <td className="px-4 py-3 text-right font-mono">{formatCurrency(q.subtotal || 0)}</td>
-                    <td className="px-4 py-3">{getStatusBadge(q.status)}</td>
+                    <td className="px-4 py-3">{getStatusBadge(q.status, q.revisionNumber)}</td>
                     <td className="px-4 py-3 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">

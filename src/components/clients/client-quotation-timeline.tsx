@@ -104,11 +104,18 @@ const STATUS_LABELS: Record<string, string> = {
   COMPLETED: "Completed",
 }
 
-function getStatusBadge(status: string, isNotSelected = false) {
+function getStatusBadge(status: string, isNotSelected = false, isRevision = false) {
   if (isNotSelected) {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
         Not Selected
+      </span>
+    )
+  }
+  if (status === "DRAFT" && isRevision) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-400 border border-purple-200">
+        Revised
       </span>
     )
   }
@@ -236,7 +243,7 @@ function TimelineView({ series }: { series: QuotationSeries[] }) {
                 <span className="font-bold font-mono text-sm text-primary">{ev.quotationNumber}</span>
                 {ev.project && <span className="text-xs text-muted-foreground truncate max-w-[200px]">· {ev.project}</span>}
               </div>
-              {getStatusBadge(ev.status)}
+              {getStatusBadge(ev.status, false, ev.isRevision)}
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
@@ -342,7 +349,7 @@ function SeriesCard({
         </div>
 
         <div className="flex items-center gap-3 shrink-0 pl-4">
-          {getStatusBadge(latestStatus)}
+          {getStatusBadge(latestStatus, false, totalRevisions > 1)}
           <span className="font-mono font-bold text-sm text-foreground">
             AED {(allVersions[allVersions.length - 1]?.grandTotal ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
@@ -393,7 +400,7 @@ function SeriesCard({
                         {v.grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-4 py-2.5 text-center">
-                        {getStatusBadge(v.status, isNotSelected)}
+                        {getStatusBadge(v.status, isNotSelected, v.revisionNumber > 1)}
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground truncate max-w-[120px]">
                         {v.preparedBy?.name || "—"}
@@ -491,7 +498,7 @@ function SeriesCard({
                         {new Date(v.date).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })} · {v.preparedBy?.name || "—"}
                       </div>
                     </div>
-                    {getStatusBadge(v.status, isNotSelected)}
+                    {getStatusBadge(v.status, isNotSelected, v.revisionNumber > 1)}
                   </div>
                   <div className="flex items-baseline justify-between">
                     <span className="text-xs text-muted-foreground">Total Value:</span>

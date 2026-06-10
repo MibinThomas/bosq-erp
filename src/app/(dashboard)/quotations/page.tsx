@@ -202,7 +202,10 @@ export default function QuotationsPage() {
     )
   })
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, revisionNumber?: number) => {
+    if (status === "DRAFT" && revisionNumber && revisionNumber > 1) {
+      return <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-medium">Revised</Badge>
+    }
     switch (status) {
       case "CLIENT_APPROVED":
       case "CLIENT_CONFIRMED":
@@ -424,7 +427,7 @@ export default function QuotationsPage() {
                       maximumFractionDigits: 2,
                     })}
                   </TableCell>
-                  <TableCell>{getStatusBadge(quote.status)}</TableCell>
+                  <TableCell>{getStatusBadge(quote.status, quote.revisionNumber)}</TableCell>
                   <TableCell>
                     {quote.poStatus === "RECEIVED" ? (
                       <Badge variant="outline" className="border-green-600 text-green-600 font-medium">
