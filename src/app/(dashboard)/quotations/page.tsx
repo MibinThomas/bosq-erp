@@ -565,15 +565,7 @@ export default function QuotationsPage() {
                           
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "DRAFT", "status")} className="cursor-pointer">
-                            Mark Draft
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "QUOTE_CREATED", "status")} className="cursor-pointer">
-                            Mark Quote Created
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "REVISED", "status")} className="cursor-pointer">
-                            Mark Revised
-                          </DropdownMenuItem>
+
                           {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quote.status) && (
                             <DropdownMenuItem onClick={() => handleConfirmQuote(quote.id, false)} className="cursor-pointer font-semibold text-green-700 focus:text-green-700 focus:bg-green-50">
                               <Check className="mr-2 h-4 w-4 text-green-600" />

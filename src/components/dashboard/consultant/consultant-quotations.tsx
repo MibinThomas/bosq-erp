@@ -101,15 +101,7 @@ export function ConsultantQuotations({ quotations }: { quotations: any[] }) {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "DRAFT")} className="cursor-pointer">
-                            Mark Draft
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "QUOTE_CREATED")} className="cursor-pointer">
-                            Mark Quote Created
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "REVISED")} className="cursor-pointer">
-                            Mark Revised
-                          </DropdownMenuItem>
+
                           {!["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(q.status) && (
                             <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "CLIENT_APPROVED")} className="cursor-pointer font-semibold text-green-700 focus:text-green-700 focus:bg-green-50">
                               Mark Client Approved
