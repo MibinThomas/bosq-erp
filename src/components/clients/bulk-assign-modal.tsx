@@ -102,7 +102,7 @@ export function BulkAssignModal({ isOpen, onClose, selectedIds, onSuccess }: Bul
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading users...
               </div>
             ) : (
-              <Select value={targetUserId} onValueChange={setTargetUserId}>
+              <Select value={targetUserId} onValueChange={(val) => setTargetUserId(val || "")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a user" />
                 </SelectTrigger>
