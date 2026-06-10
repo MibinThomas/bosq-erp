@@ -62,6 +62,7 @@ interface Quotation {
   client: {
     companyName: string
   }
+  preparedById: string
   preparedBy: {
     name: string | null
   }
@@ -105,6 +106,10 @@ export default function QuotationsPage() {
 
   const isSuperAdmin = userRole === "SUPER_ADMIN"
   const isAuthorizedToConfirm = isSuperAdmin || isManagerOrAdmin || (userPermissions?.canConfirmQuotation === true)
+
+  const canConfirmQuoteItem = (preparedById: string) => {
+    return isAuthorizedToConfirm || preparedById === (session?.user as any)?.id
+  }
 
   const handleConfirmQuote = async (quoteId: string, forceReplace: boolean = false) => {
     try {
@@ -566,7 +571,7 @@ export default function QuotationsPage() {
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
 
-                          {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quote.status) && (
+                          {canConfirmQuoteItem(quote.preparedById) && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quote.status) && (
                             <DropdownMenuItem onClick={() => handleConfirmQuote(quote.id, false)} className="cursor-pointer font-semibold text-green-700 focus:text-green-700 focus:bg-green-50">
                               <Check className="mr-2 h-4 w-4 text-green-600" />
                               Mark as Client Approved
@@ -784,7 +789,7 @@ export default function QuotationsPage() {
                                     View
                                   </Button>
 
-                                  {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
+                                  {canConfirmQuoteItem(item.preparedById) && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -896,7 +901,7 @@ export default function QuotationsPage() {
                               View
                             </Button>
 
-                             {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
+                             {canConfirmQuoteItem(item.preparedById) && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
                                <Button
                                  variant="outline"
                                  size="sm"

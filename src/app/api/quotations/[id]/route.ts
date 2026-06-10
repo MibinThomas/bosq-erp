@@ -173,7 +173,8 @@ export async function PUT(
       const isSalesExecutiveWithPermission = logUserRole === "SALES_EXECUTIVE" && (
         dbSessionUser?.permissionOverrides.find(o => o.action === "canConfirmQuotation")?.value ?? rolePerm?.canConfirmQuotation ?? false
       )
-      const isAuthorized = isManagerOrAdmin || isSalesExecutiveWithPermission
+      const isCreator = existingQuotation.preparedById === logUserId
+      const isAuthorized = isManagerOrAdmin || isSalesExecutiveWithPermission || isCreator
       
       if (!isAuthorized) {
         return NextResponse.json({ error: "Unauthorized: You do not have permission to approve quotations" }, { status: 403 })
