@@ -262,6 +262,19 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 8.5,
   },
+  leaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginBottom: 4,
+  },
+  leaderDots: {
+    flexGrow: 1,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lineColor,
+    borderStyle: "dotted",
+    marginHorizontal: 4,
+    marginBottom: 2,
+  },
   bulletRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -300,7 +313,7 @@ const styles = StyleSheet.create({
   },
   grandTotalRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "flex-end",
     borderTopWidth: 1,
     borderTopColor: colors.primary,
     paddingTop: 6,
@@ -479,6 +492,14 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       maximumFractionDigits: 2,
     })
   }
+
+  const hasAdditionalCost = Number(deliveryCharge) > 0
+  const hasDiscount = Number(discount) > 0
+  const hasTaxableSubtotal = hasAdditionalCost || hasDiscount
+
+  const subtotalAfterAdditional = subtotal + Number(deliveryCharge)
+  const discountAmount = Number(discount) || 0
+  const taxableSubtotal = Math.max(0, subtotalAfterAdditional - discountAmount)
 
   const sanitizeHtmlToText = (html: string) => {
     if (!html) return "";
@@ -812,30 +833,39 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             {/* Right Sum Box */}
             <View style={styles.totalsBox}>
               {/* 1. Subtotal (Products) */}
-              <View style={styles.totalsRow}>
+              <View style={styles.leaderRow}>
                 <Text style={styles.totalsLabel}>Subtotal (Products)</Text>
-                <Text style={styles.totalsValue}>{formatCurrency(subtotal)}</Text>
+                <View style={styles.leaderDots} />
+                <Text style={styles.totalsValue}>AED {formatCurrency(subtotal)}</Text>
               </View>
 
               {/* 2. Additional Cost Items */}
-              {(Array.isArray(additionalCharges) ? additionalCharges : []).filter((c: any) => c.name && (Number(c.amount) > 0)).map((charge: any, idx: number) => (
-                <View key={`charge-${idx}`} style={styles.bulletRow}>
-                  <Text style={styles.bulletLabel}>• {charge.name}</Text>
-                  <Text style={styles.bulletValue}>{formatCurrency(Number(charge.amount))}</Text>
-                </View>
-              ))}
+              {(Array.isArray(additionalCharges) ? additionalCharges : [])
+                .filter((c: any) => c.name && Number(c.amount) > 0)
+                .map((charge: any, idx: number) => (
+                  <View key={`charge-${idx}`} style={styles.leaderRow}>
+                    <Text style={styles.totalsLabel}>{charge.name}</Text>
+                    <View style={styles.leaderDots} />
+                    <Text style={styles.totalsValue}>AED {formatCurrency(Number(charge.amount))}</Text>
+                  </View>
+                ))}
 
-              {/* Total Additional Cost */}
-              {Number(deliveryCharge) > 0 && (
-                <View style={styles.totalsRow}>
-                  <Text style={styles.totalsLabel}>Total Additional Cost</Text>
-                  <Text style={styles.totalsValue}>{formatCurrency(Number(deliveryCharge))}</Text>
+              {/* 3. Subtotal After Additional Cost */}
+              {hasAdditionalCost && (
+                <View style={styles.leaderRow}>
+                  <Text style={[styles.totalsLabel, { fontWeight: "bold", color: colors.primary }]}>
+                    Subtotal After Additional Cost
+                  </Text>
+                  <View style={styles.leaderDots} />
+                  <Text style={[styles.totalsValue, { fontWeight: "bold" }]}>
+                    AED {formatCurrency(subtotalAfterAdditional)}
+                  </Text>
                 </View>
               )}
 
-              {/* 3. Special Discount */}
-              {(Number(discount) > 0) && (
-                <View style={styles.totalsRow}>
+              {/* 4. Special Discount */}
+              {hasDiscount && (
+                <View style={styles.leaderRow}>
                   <View style={{ flexDirection: "column" }}>
                     <Text style={[styles.totalsLabel, { color: "#dc2626" }]}>
                       Special Discount
@@ -847,35 +877,39 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                       </Text>
                     )}
                   </View>
+                  <View style={[styles.leaderDots, { borderBottomColor: "#fca5a5" }]} />
                   <Text style={[styles.totalsValue, { color: "#dc2626" }]}>
-                    -{formatCurrency(Number(discount))}
+                    AED ({formatCurrency(discountAmount)})
                   </Text>
                 </View>
               )}
 
-              {/* 4. Taxable Subtotal */}
-              {(Number(deliveryCharge) > 0 || Number(discount) > 0) && (
-                <View style={styles.taxableRow}>
-                  <Text style={styles.taxableLabel}>Taxable Subtotal</Text>
-                  <Text style={styles.taxableValue}>
-                    {formatCurrency(Math.max(0, subtotal + Number(deliveryCharge) - Number(discount)))}
+              {/* 5. Taxable Subtotal */}
+              {hasTaxableSubtotal && (
+                <View style={styles.leaderRow}>
+                  <Text style={[styles.totalsLabel, { fontWeight: "bold", color: colors.primary }]}>
+                    Taxable Subtotal
+                  </Text>
+                  <View style={styles.leaderDots} />
+                  <Text style={[styles.totalsValue, { fontWeight: "bold" }]}>
+                    AED {formatCurrency(taxableSubtotal)}
                   </Text>
                 </View>
               )}
 
-              {/* 5. VAT (5%) */}
-              <View style={styles.totalsRow}>
+              {/* 6. VAT */}
+              <View style={styles.leaderRow}>
                 <Text style={styles.totalsLabel}>
-                  VAT (5%){vatMode === "INCLUDING" ? " (Inclusive)" : ""}
+                  VAT (5%){vatMode === "INCLUDING" ? " Inclusive" : ""}
                 </Text>
-                <Text style={styles.totalsValue}>
-                  {formatCurrency(vatAmount)}
-                </Text>
+                <View style={styles.leaderDots} />
+                <Text style={styles.totalsValue}>AED {formatCurrency(vatAmount)}</Text>
               </View>
 
-              {/* 6. Grand Total */}
+              {/* 7. Grand Total */}
               <View style={styles.grandTotalRow}>
                 <Text style={styles.grandTotalLabel}>Grand Total</Text>
+                <View style={[styles.leaderDots, { borderBottomColor: colors.primary }]} />
                 <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
               </View>
             </View>
