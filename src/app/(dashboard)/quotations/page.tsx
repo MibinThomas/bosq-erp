@@ -312,12 +312,12 @@ export default function QuotationsPage() {
             Generate and track sales quotations, PDF archives, and SharePoint storage.
           </p>
         </div>
-        <Link href="/quotations/new">
+        <a href="/quotations/new">
           <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
             <Plus className="mr-2 h-4 w-4" />
             Create Quotation
           </Button>
-        </Link>
+        </a>
       </div>
 
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
