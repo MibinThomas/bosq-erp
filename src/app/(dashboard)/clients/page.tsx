@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { BulkUploadModal } from "@/components/clients/bulk-upload-modal"
 import { EditClientModal } from "@/components/clients/edit-client-modal"
+import { BulkAssignModal } from "@/components/clients/bulk-assign-modal"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
@@ -61,6 +62,7 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isBulkOpen, setIsBulkOpen] = useState(false)
+  const [isBulkAssignOpen, setIsBulkAssignOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Client | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -203,6 +205,16 @@ export default function ClientsPage() {
                 <Trash2 className="mr-2 h-4 w-4" />
               )}
               Delete Selected ({selectedIds.length})
+            </Button>
+          )}
+          {selectedIds.length > 0 && isManagerOrAdmin && (
+            <Button 
+              variant="outline" 
+              onClick={() => setIsBulkAssignOpen(true)} 
+              className="animate-in fade-in border-primary/20 text-primary hover:bg-primary/5"
+            >
+              <Check className="mr-2 h-4 w-4" />
+              Assign Selected ({selectedIds.length})
             </Button>
           )}
           {isManagerOrAdmin && (
@@ -396,6 +408,16 @@ export default function ClientsPage() {
         isOpen={isBulkOpen}
         onClose={() => setIsBulkOpen(false)}
         onSuccess={() => fetchClients()}
+      />
+
+      <BulkAssignModal
+        isOpen={isBulkAssignOpen}
+        onClose={() => setIsBulkAssignOpen(false)}
+        selectedIds={selectedIds}
+        onSuccess={() => {
+          setSelectedIds([])
+          fetchClients()
+        }}
       />
 
       <EditClientModal

@@ -28,8 +28,15 @@ export async function GET(request: Request) {
     let whereClause: any = {}
 
     // Role-based filtering
-    if (userRole === "SALES_EXECUTIVE") {
-      whereClause.preparedById = currentUserId
+    const isExcludedFromOwnershipLimit = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(userRole)
+    
+    if (!isExcludedFromOwnershipLimit) {
+      whereClause.OR = [
+        { preparedById: currentUserId },
+        { salesAgentId: currentUserId },
+        { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
+        { assignments: { some: { userId: currentUserId } } }
+      ]
     } else if (userIdFilter && userIdFilter !== "all") {
       whereClause.preparedById = userIdFilter
     }
