@@ -109,7 +109,7 @@ export function BulkAssignModal({ isOpen, onClose, selectedIds, onSuccess }: Bul
                 <SelectContent className="max-h-[200px]">
                   {users.map(u => (
                     <SelectItem key={u.id} value={u.id}>
-                      {u.name || u.email} <span className="text-muted-foreground text-xs ml-2">({u.role})</span>
+                      {u.name || u.email} ({u.role.replace(/_/g, " ")})
                     </SelectItem>
                   ))}
                 </SelectContent>
