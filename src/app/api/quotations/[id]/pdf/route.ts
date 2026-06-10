@@ -192,8 +192,8 @@ export async function GET(
     )
 
     const sanitizedClientName = quotation.client.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
-    const filename = quotation.status === "CLIENT_CONFIRMED"
-      ? `${quotation.quotationNumber}_ClientConfirmed_${sanitizedClientName}.pdf`
+    const filename = quotation.status === "CLIENT_APPROVED"
+      ? `${quotation.quotationNumber}_ClientApproved_${sanitizedClientName}.pdf`
       : `${quotation.quotationNumber}_${sanitizedClientName}.pdf`
 
     // Return PDF Stream

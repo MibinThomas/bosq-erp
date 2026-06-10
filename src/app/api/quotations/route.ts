@@ -476,35 +476,37 @@ export async function POST(request: Request) {
       additionalCharges: parsedAdditionalCharges,
     }
 
-    let pdfBuffer: Buffer
-    try {
-      pdfBuffer = await renderToBuffer(
-        React.createElement(QuotationDocument, pdfProps) as any
-      )
-    } catch (pdfError) {
-      console.error("Failed to compile React PDF Document:", pdfError)
-      return NextResponse.json(
-        { error: "Failed to generate quotation PDF" },
-        { status: 500 }
-      )
-    }
-
-    // 6. Upload PDF to SharePoint folder
-    const sanitizedClientNameForFile = clientObj.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
-    const filenameBase = `${nextQuoteNo}_${sanitizedClientNameForFile}`
     let sharepointUrl = ""
-    try {
-      sharepointUrl = await uploadQuotationPdf(
-        clientObj.companyName,
-        filenameBase,
-        pdfBuffer
-      )
-    } catch (spError) {
-      console.error("Failed to upload PDF to SharePoint:", spError)
-      // Fallback url
-      sharepointUrl = `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(
-        clientObj.companyName
-      )}/Quotations/${filenameBase}.pdf`
+    if (resolvedStatus !== "DRAFT") {
+      let pdfBuffer: Buffer
+      try {
+        pdfBuffer = await renderToBuffer(
+          React.createElement(QuotationDocument, pdfProps) as any
+        )
+      } catch (pdfError) {
+        console.error("Failed to compile React PDF Document:", pdfError)
+        return NextResponse.json(
+          { error: "Failed to generate quotation PDF" },
+          { status: 500 }
+        )
+      }
+
+      // 6. Upload PDF to SharePoint folder
+      const sanitizedClientNameForFile = clientObj.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+      const filenameBase = `${nextQuoteNo}_${sanitizedClientNameForFile}`
+      try {
+        sharepointUrl = await uploadQuotationPdf(
+          clientObj.companyName,
+          filenameBase,
+          pdfBuffer
+        )
+      } catch (spError) {
+        console.error("Failed to upload PDF to SharePoint:", spError)
+        // Fallback url
+        sharepointUrl = `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(
+          clientObj.companyName
+        )}/Quotations/${filenameBase}.pdf`
+      }
     }
 
     // 7. Save Quotation and Items in Database

@@ -24,11 +24,12 @@ export function ConsultantQuotations({ quotations }: { quotations: any[] }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus, action: "UPDATE_STATUS" })
       })
+      const data = await res.json()
       if (res.ok) {
         toast.success(`Quotation status updated successfully`)
         window.location.reload()
       } else {
-        toast.error("Failed to update status")
+        toast.error(data.error || "Failed to update status")
       }
     } catch (error) {
       console.error(error)
@@ -39,11 +40,16 @@ export function ConsultantQuotations({ quotations }: { quotations: any[] }) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "DRAFT": return <Badge variant="outline" className="bg-slate-100 text-slate-700">Draft</Badge>
+      case "QUOTE_CREATED": return <Badge variant="outline" className="bg-blue-100 text-blue-700">Quote Created</Badge>
       case "SENT": return <Badge variant="outline" className="bg-blue-100 text-blue-700">Sent to Client</Badge>
+      case "CLIENT_APPROVED":
+      case "CLIENT_CONFIRMED":
       case "APPROVED": return <Badge variant="outline" className="bg-emerald-100 text-emerald-700">Client Approved</Badge>
       case "REJECTED": return <Badge variant="outline" className="bg-red-100 text-red-700">Rejected</Badge>
+      case "CANCELLED": return <Badge variant="outline" className="bg-red-100 text-red-700">Cancelled</Badge>
       case "REVISED": return <Badge variant="outline" className="bg-purple-100 text-purple-700">Revised</Badge>
-      case "PO_RECEIVED": return <Badge variant="outline" className="bg-indigo-100 text-indigo-700">PO Received</Badge>
+      case "PO_CONVERTED":
+      case "PO_RECEIVED": return <Badge variant="outline" className="bg-indigo-100 text-indigo-700">Converted to PO</Badge>
       case "UNDER_PRODUCTION": return <Badge variant="outline" className="bg-orange-100 text-orange-700">Under Production</Badge>
       default: return <Badge variant="outline">{status}</Badge>
     }
@@ -93,22 +99,34 @@ export function ConsultantQuotations({ quotations }: { quotations: any[] }) {
                         <DropdownMenuContent align="end" className="w-56">
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "DRAFT")} className="cursor-pointer">
+                            Mark Draft
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "QUOTE_CREATED")} className="cursor-pointer">
                             Mark Quote Created
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "REVISED")} className="cursor-pointer">
-                            Mark Quote Revised
+                            Mark Revised
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "SENT")} className="cursor-pointer">
-                            Mark Sent to Client
+                          {!["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(q.status) && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "CLIENT_APPROVED")} className="cursor-pointer font-semibold text-green-700 focus:text-green-700 focus:bg-green-50">
+                              Mark Client Approved
+                            </DropdownMenuItem>
+                          )}
+                          {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(q.status) && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "PO_CONVERTED")} className="cursor-pointer">
+                              Convert to PO
+                            </DropdownMenuItem>
+                          )}
+                          {["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED"].includes(q.status) && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "UNDER_PRODUCTION")} className="cursor-pointer">
+                              Mark Under Production
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "REJECTED")} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50">
+                            Mark Rejected
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "APPROVED")} className="cursor-pointer">
-                            Mark Client Approved
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "PO_RECEIVED")} className="cursor-pointer">
-                            Mark PO Received
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "UNDER_PRODUCTION")} className="cursor-pointer">
-                            Mark Under Production
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(q.id, "CANCELLED")} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50">
+                            Mark Cancelled
                           </DropdownMenuItem>
                           
                           <DropdownMenuSeparator />

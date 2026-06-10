@@ -747,16 +747,13 @@ function NewQuotationForm() {
     }
   }
 
-  async function onSubmit(data: QuotationFormValues) {
+  async function onSubmit(data: QuotationFormValues, targetStatus?: "DRAFT" | "QUOTE_CREATED") {
     if (isRevision && !revisionNotes.trim()) {
       toast.error("Revision notes are required to revise this quotation!")
       return
     }
 
-    if (isRevision && !revisionNotes.trim()) {
-      toast.error("Revision notes are required to revise this quotation!")
-      return
-    }
+    const resolvedStatus = isRevision ? "REVISED" : (targetStatus || "DRAFT")
 
     setSubmitting(true)
     try {
@@ -833,7 +830,7 @@ function NewQuotationForm() {
           isRevision: isRevision,
           isUpdate: isEdit,
           revisionNotes: revisionNotes,
-          status: isRevision ? "REVISED" : "DRAFT",
+          status: resolvedStatus,
         }),
       })
 
@@ -847,8 +844,12 @@ function NewQuotationForm() {
         isRevision
           ? `Quotation revised successfully to Revision #${result.revisionNumber}! PDF updated on SharePoint.`
           : isEdit
-            ? `Quotation ${result.quotationNumber} updated successfully! PDF updated on SharePoint.`
-            : `Quotation ${result.quotationNumber} compiled & uploaded to SharePoint!`
+            ? (resolvedStatus === "DRAFT"
+                ? `Quotation draft updated successfully!`
+                : `Quotation ${result.quotationNumber} updated and compiled successfully! PDF updated on SharePoint.`)
+            : (resolvedStatus === "DRAFT"
+                ? `Quotation draft saved successfully!`
+                : `Quotation ${result.quotationNumber} compiled & uploaded to SharePoint!`)
       )
       router.push("/quotations")
     } catch (error: any) {
@@ -928,7 +929,7 @@ function NewQuotationForm() {
       ) : (
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
+            onSubmit={form.handleSubmit((data) => onSubmit(data, isRevision ? "REVISED" : "QUOTE_CREATED"))}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const target = e.target as HTMLElement
@@ -2435,20 +2436,42 @@ function NewQuotationForm() {
                   Cancel
                 </Button>
               </Link>
+              {!isRevision && (
+                <Button
+                  type="button"
+                  onClick={() => form.handleSubmit((data) => onSubmit(data, "DRAFT"))()}
+                  disabled={submitting}
+                  variant="secondary"
+                  className="disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving Draft...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Save as Draft
+                    </>
+                  )}
+                </Button>
+              )}
               <Button
-                type="submit"
+                type="button"
+                onClick={() => form.handleSubmit((data) => onSubmit(data, isRevision ? "REVISED" : "QUOTE_CREATED"))()}
                 disabled={submitting}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {submitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating PDF & Saving...
+                    {isRevision ? "Saving Revision..." : "Generating PDF & Saving..."}
                   </>
                 ) : (
                   <>
-                    <Send className="mr-2 h-4 w-4" />
-                    Compile & finalize PDF
+                    {isRevision ? <RefreshCw className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
+                    {isRevision ? "Compile & Save Revision" : "Compile & finalize PDF"}
                   </>
                 )}
               </Button>

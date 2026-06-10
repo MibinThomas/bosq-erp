@@ -379,10 +379,10 @@ export default function QuotationHtmlPreviewPage({
               <h1 className="text-lg font-bold tracking-tight">
                 Quotation Preview ({quotation.quotationNumber})
               </h1>
-              {quotation.status === "CLIENT_CONFIRMED" && (
+              {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(quotation.status) && (
                 <Badge className="bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center gap-1 shrink-0">
                   <Check className="h-3 w-3" />
-                  Client Confirmed Quote
+                  Client Approved
                 </Badge>
               )}
             </div>
@@ -392,36 +392,12 @@ export default function QuotationHtmlPreviewPage({
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          {isManagerOrAdmin && isPending && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-green-600 text-green-700 hover:bg-green-50"
-                onClick={handleApprove}
-                disabled={isApproving || isRejecting}
-              >
-                {isApproving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
-                Approve
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-red-600 text-red-700 hover:bg-red-50"
-                onClick={handleReject}
-                disabled={isApproving || isRejecting}
-              >
-                {isRejecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />}
-                Reject
-              </Button>
-            </>
-          )}
-          {isManagerOrAdmin && (
+          {((isManagerOrAdmin || (session?.user as any)?.id === quotation.preparedById) && quotation.status === "DRAFT") && (
             <Link href={`/quotations/new?editId=${quotation.id}`}>
               <Button
                 variant="outline"
                 size="sm"
-                className="border-primary/50 text-primary hover:bg-primary/10"
+                className="border-primary/50 text-primary hover:bg-primary/10 cursor-pointer"
               >
                 <Edit className="mr-2 h-4 w-4" /> Edit
               </Button>
@@ -432,8 +408,8 @@ export default function QuotationHtmlPreviewPage({
               variant="outline"
               size="sm"
               onClick={() => window.open(quotation.sharepointUrl || "", "_blank")}
-              disabled={disableDownload}
-              title={disableDownload ? "SharePoint folder is locked pending manager approval" : "Open SharePoint Folder"}
+              title="Open SharePoint Folder"
+              className="cursor-pointer"
             >
               <ExternalLink className="mr-2 h-4 w-4" /> SharePoint File
             </Button>
@@ -442,19 +418,19 @@ export default function QuotationHtmlPreviewPage({
             variant="outline"
             size="sm"
             onClick={() => window.open(`/api/quotations/${quotation.id}/pdf?preview=true`, "_blank")}
-            disabled={disableDownload}
-            title={disableDownload ? "PDF download is locked pending manager approval" : "Download PDF"}
+            title="Download PDF"
+            className="cursor-pointer"
           >
             <Download className="mr-2 h-4 w-4" /> Download PDF
           </Button>
-          {isAuthorizedToConfirm && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quotation.status) && (
+          {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quotation.status) && (
             <Button
               variant="outline"
               size="sm"
-              className="border-green-600 text-green-700 hover:bg-green-50 font-semibold"
+              className="border-green-600 text-green-700 hover:bg-green-50 font-semibold cursor-pointer"
               onClick={() => handleConfirmQuote(false)}
             >
-              <Check className="mr-2 h-4 w-4" /> Mark as Client Confirmed
+              <Check className="mr-2 h-4 w-4" /> Mark as Client Approved
             </Button>
           )}
         </div>

@@ -89,12 +89,15 @@ interface Props {
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
+  QUOTE_CREATED: "Quote Created",
   SENT: "Sent",
-  APPROVED: "Approved",
+  APPROVED: "Client Approved",
+  CLIENT_APPROVED: "Client Approved",
   REVISED: "Revised",
   REJECTED: "Rejected",
-  CLIENT_CONFIRMED: "Client Confirmed",
-  PO_RECEIVED: "PO Received",
+  CLIENT_CONFIRMED: "Client Approved",
+  PO_CONVERTED: "Converted to PO",
+  PO_RECEIVED: "Converted to PO",
   UNDER_PRODUCTION: "Under Production",
   PENDING_APPROVAL: "Pending Approval",
   CANCELLED: "Cancelled",
@@ -110,16 +113,19 @@ function getStatusBadge(status: string, isNotSelected = false) {
     )
   }
   switch (status) {
+    case "CLIENT_APPROVED":
     case "CLIENT_CONFIRMED":
+    case "APPROVED":
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30">
-          <Check className="h-2.5 w-2.5" /> Client Confirmed
+          <Check className="h-2.5 w-2.5" /> Client Approved
         </span>
       )
+    case "PO_CONVERTED":
     case "PO_RECEIVED":
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-400 border border-blue-200 dark:border-blue-800">
-          PO Received
+          Converted to PO
         </span>
       )
     case "UNDER_PRODUCTION":
@@ -130,7 +136,7 @@ function getStatusBadge(status: string, isNotSelected = false) {
       )
     case "REVISED":
       return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 dark:bg-orange-950/40 text-orange-800 dark:text-orange-400 border border-orange-200">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 dark:bg-purple-950/40 text-purple-800 dark:text-purple-400 border border-purple-200">
           Revised
         </span>
       )
@@ -140,16 +146,16 @@ function getStatusBadge(status: string, isNotSelected = false) {
           Sent
         </span>
       )
-    case "APPROVED":
-      return (
-        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 border border-emerald-200">
-          Approved
-        </span>
-      )
     case "REJECTED":
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-400 border border-red-200">
           Rejected
+        </span>
+      )
+    case "CANCELLED":
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-400 border border-red-200">
+          Cancelled
         </span>
       )
     case "PENDING_APPROVAL":
@@ -162,6 +168,12 @@ function getStatusBadge(status: string, isNotSelected = false) {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700">
           Draft
+        </span>
+      )
+    case "QUOTE_CREATED":
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-400 border border-blue-200">
+          Quote Created
         </span>
       )
     default:
@@ -212,8 +224,8 @@ function TimelineView({ series }: { series: QuotationSeries[] }) {
         <div key={idx} className="relative pl-7">
           {/* Timeline dot */}
           <span className={`absolute -left-[9px] top-1.5 h-4 w-4 rounded-full border-2 border-background shadow-sm flex items-center justify-center ${
-            ev.status === "CLIENT_CONFIRMED" ? "bg-green-500" :
-            ev.status === "PO_RECEIVED" ? "bg-blue-500" :
+            ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "APPROVED"].includes(ev.status) ? "bg-green-500" :
+            ["PO_CONVERTED", "PO_RECEIVED"].includes(ev.status) ? "bg-blue-500" :
             ev.status === "REJECTED" ? "bg-red-500" :
             ev.isRevision ? "bg-orange-400" :
             "bg-primary"
@@ -281,7 +293,7 @@ function SeriesCard({
   ].sort((a, b) => a.revisionNumber - b.revisionNumber)
 
   const hasConfirmedVersion = allVersions.some((v) =>
-    ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(v.status)
+    ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(v.status)
   )
 
   // Determine the latest meaningful status for the series header badge
@@ -355,10 +367,10 @@ function SeriesCard({
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                 {allVersions.map((v) => {
-                  const isConfirmed = v.status === "CLIENT_CONFIRMED"
-                  const isProgressed = ["PO_RECEIVED", "UNDER_PRODUCTION"].includes(v.status)
+                  const isConfirmed = v.status === "CLIENT_APPROVED" || v.status === "CLIENT_CONFIRMED"
+                  const isProgressed = ["PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(v.status)
                   const isNotSelected =
-                    hasConfirmedVersion && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(v.status)
+                    hasConfirmedVersion && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(v.status)
 
                   return (
                     <tr
@@ -413,21 +425,21 @@ function SeriesCard({
                               <RefreshCw className="mr-2 h-3.5 w-3.5 text-purple-600" /> Create Revision
                             </DropdownMenuItem>
                             {isAuthorizedToConfirm &&
-                              !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CANCELLED"].includes(v.status) && (
+                              !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CANCELLED"].includes(v.status) && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     className="cursor-pointer text-xs text-green-700 focus:text-green-700 focus:bg-green-50"
                                     onClick={() => onConfirm(v.id, false)}
                                   >
-                                    <Check className="mr-2 h-3.5 w-3.5 text-green-600" /> Mark as Client Confirmed
+                                    <Check className="mr-2 h-3.5 w-3.5 text-green-600" /> Mark as Client Approved
                                   </DropdownMenuItem>
                                 </>
                               )}
                             {isConfirmed && (
                               <DropdownMenuItem
                                 className="cursor-pointer text-xs text-blue-700 focus:text-blue-700 focus:bg-blue-50"
-                                onClick={() => onStatusUpdate(v.id, "PO_RECEIVED", "status")}
+                                onClick={() => onStatusUpdate(v.id, "PO_CONVERTED", "status")}
                               >
                                 <Check className="mr-2 h-3.5 w-3.5 text-blue-600" /> Convert to PO
                               </DropdownMenuItem>
@@ -456,10 +468,10 @@ function SeriesCard({
           {/* Mobile: stacked cards */}
           <div className="md:hidden divide-y divide-zinc-200 dark:divide-zinc-800">
             {allVersions.map((v) => {
-              const isConfirmed = v.status === "CLIENT_CONFIRMED"
+              const isConfirmed = v.status === "CLIENT_APPROVED" || v.status === "CLIENT_CONFIRMED"
               const isNotSelected =
                 hasConfirmedVersion &&
-                !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(v.status)
+                !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(v.status)
 
               return (
                 <div
@@ -503,14 +515,14 @@ function SeriesCard({
                       <FileDown className="mr-1 h-3 w-3" /> PDF
                     </Button>
                     {isAuthorizedToConfirm &&
-                      !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CANCELLED"].includes(v.status) && (
+                      !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CANCELLED"].includes(v.status) && (
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-7 text-xs text-green-600"
                           onClick={() => onConfirm(v.id, false)}
                         >
-                          <Check className="mr-1 h-3 w-3" /> Confirm
+                          <Check className="mr-1 h-3 w-3" /> Approve
                         </Button>
                       )}
                     {isConfirmed && (
@@ -518,7 +530,7 @@ function SeriesCard({
                         variant="outline"
                         size="sm"
                         className="h-7 text-xs text-indigo-600"
-                        onClick={() => onStatusUpdate(v.id, "PO_RECEIVED", "status")}
+                        onClick={() => onStatusUpdate(v.id, "PO_CONVERTED", "status")}
                       >
                         Convert to PO
                       </Button>
@@ -628,7 +640,7 @@ export function ClientQuotationTimeline({
       totalRevisions += all.length
 
       const confirmed = all.find((v) =>
-        ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(v.status)
+        ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(v.status)
       )
       if (confirmed) {
         confirmedCount++
@@ -667,7 +679,7 @@ export function ClientQuotationTimeline({
         throw new Error(data.error || "Failed to confirm quotation")
       }
 
-      toast.success("Quotation marked as Client Confirmed!")
+      toast.success("Quotation marked as Client Approved!")
       if (onStatusUpdate) onStatusUpdate()
     } catch (err: any) {
       toast.error(err.message || "Failed to confirm quotation.")
@@ -691,13 +703,13 @@ export function ClientQuotationTimeline({
 
   const STATUS_FILTER_OPTIONS = [
     { key: "DRAFT", label: "Draft" },
-    { key: "SENT", label: "Sent" },
+    { key: "QUOTE_CREATED", label: "Quote Created" },
     { key: "REVISED", label: "Revised" },
-    { key: "CLIENT_CONFIRMED", label: "Confirmed" },
+    { key: "CLIENT_APPROVED", label: "Client Approved" },
+    { key: "PO_CONVERTED", label: "Converted to PO" },
     { key: "REJECTED", label: "Rejected" },
-    { key: "PO_RECEIVED", label: "PO Received" },
+    { key: "CANCELLED", label: "Cancelled" },
     { key: "UNDER_PRODUCTION", label: "In Production" },
-    { key: "PENDING_APPROVAL", label: "Pending Approval" },
   ]
 
   const hasActiveFilters =
@@ -903,7 +915,7 @@ export function ClientQuotationTimeline({
           <div className="bg-card border rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4 space-y-4">
             <h2 className="text-lg font-bold">Confirm Replacement</h2>
             <p className="text-sm text-muted-foreground">
-              Revision <strong>{conflictingQuoteNo}</strong> is already marked as Client Confirmed.
+              Revision <strong>{conflictingQuoteNo}</strong> is already marked as Client Approved.
               Do you want to replace it with this revision?
             </p>
             <div className="flex justify-end gap-2 pt-2">

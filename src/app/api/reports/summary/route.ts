@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
     const totalCreated = quotations.length
     const totalRevisions = quotations.filter(q => q.parentId !== null || q.revisionNumber > 0).length
-    const clientConfirmed = quotations.filter(q => ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED"].includes(q.status)).length
+    const clientConfirmed = quotations.filter(q => ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "APPROVED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED"].includes(q.status)).length
 
     // Lost/rejected revisions: status is REJECTED or CANCELLED, OR it has been superseded by a confirmed quote in its series
     // To find superseded: we can group quotations by their root series ID (which is parentId || id)
@@ -50,9 +50,9 @@ export async function GET(request: Request) {
         const rootId = q.parentId || q.id
         const seriesQuotes = seriesMap.get(rootId) || []
         const hasConfirmedInSeries = seriesQuotes.some(sq => 
-          ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED"].includes(sq.status)
+          ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "APPROVED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED"].includes(sq.status)
         )
-        const isThisQuoteConfirmed = ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED"].includes(q.status)
+        const isThisQuoteConfirmed = ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "APPROVED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED"].includes(q.status)
         // If the series has a confirmed quote, but this specific one is not confirmed, it is "Not Selected" / "Superseded" / "Lost"
         if (hasConfirmedInSeries && !isThisQuoteConfirmed) {
           lostOrRejected++
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
       if (monthlySeriesMap.has(label)) {
         const data = monthlySeriesMap.get(label)!
         data.total += q.grandTotal
-        if (["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED"].includes(q.status)) {
+        if (["CLIENT_APPROVED", "CLIENT_CONFIRMED", "APPROVED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED"].includes(q.status)) {
           data.confirmed += q.grandTotal
         }
       }

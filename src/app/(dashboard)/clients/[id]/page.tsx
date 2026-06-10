@@ -698,9 +698,9 @@ function QuotationFolderGroup({ rootQuote }: { rootQuote: Quotation }) {
                 <FileText className="h-4 w-4 text-red-500 shrink-0" />
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-semibold font-mono group-hover:text-primary transition-colors">{v.quotationNumber}.pdf</p>
-                  {v.status === "CLIENT_CONFIRMED" && (
+                  {(v.status === "CLIENT_APPROVED" || v.status === "CLIENT_CONFIRMED") && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30">
-                      <Check className="h-2.5 w-2.5" /> Client Confirmed
+                      <Check className="h-2.5 w-2.5" /> Client Approved
                     </span>
                   )}
                   <p className="text-xs text-muted-foreground ml-1">

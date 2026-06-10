@@ -167,32 +167,8 @@ export async function PUT(
       where: { id: finalPreparedById }
     }) || existingQuotation.preparedBy
 
-    // CASE 0: MANAGER APPROVES A PENDING_APPROVAL QUOTATION
-    if (body.action === "APPROVE") {
-      if (logUserRole !== "ADMIN" && logUserRole !== "SALES_MANAGER" && logUserRole !== "SUPER_ADMIN") {
-        return NextResponse.json({ error: "Unauthorized to approve quotations" }, { status: 403 })
-      }
-      const approvedQuotation = await prisma.quotation.update({
-        where: { id: existingQuotation.id },
-        data: { status: "APPROVED" },
-        include: { client: true, items: true, revisions: true },
-      })
-      if (logUserId) {
-        await prisma.activityLog.create({
-          data: {
-            userId: logUserId,
-            action: "APPROVED_QUOTATION",
-            entityType: "QUOTATION",
-            entityId: approvedQuotation.id,
-            details: `Approved quotation ${existingQuotation.quotationNumber} by manager`,
-          },
-        })
-      }
-      return NextResponse.json(approvedQuotation)
-    }
-
-    // CASE 4: CLIENT CONFIRMS QUOTATION
-    if (body.action === "CLIENT_CONFIRM") {
+    // CASE 4: CLIENT CONFIRMS/APPROVES QUOTATION
+    if (body.action === "CLIENT_CONFIRM" || body.status === "CLIENT_APPROVED") {
       const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(logUserRole)
       const isSalesExecutiveWithPermission = logUserRole === "SALES_EXECUTIVE" && (
         dbSessionUser?.permissionOverrides.find(o => o.action === "canConfirmQuotation")?.value ?? rolePerm?.canConfirmQuotation ?? false
@@ -200,20 +176,20 @@ export async function PUT(
       const isAuthorized = isManagerOrAdmin || isSalesExecutiveWithPermission
       
       if (!isAuthorized) {
-        return NextResponse.json({ error: "Unauthorized: You do not have permission to confirm quotations" }, { status: 403 })
+        return NextResponse.json({ error: "Unauthorized: You do not have permission to approve quotations" }, { status: 403 })
       }
 
       const rootId = existingQuotation.parentId || existingQuotation.id
       const forceReplace = body.forceReplace === true
 
-      // Find if there is already a confirmed quotation in this series
+      // Find if there is already an approved quotation in this series
       const alreadyConfirmed = await prisma.quotation.findFirst({
         where: {
           OR: [
             { id: rootId },
             { parentId: rootId }
           ],
-          status: "CLIENT_CONFIRMED",
+          status: "CLIENT_APPROVED",
           id: { not: existingQuotation.id }
         }
       })
@@ -237,17 +213,17 @@ export async function PUT(
 
         const updated = await tx.quotation.update({
           where: { id: existingQuotation.id },
-          data: { status: "CLIENT_CONFIRMED" },
+          data: { status: "CLIENT_APPROVED" },
           include: { client: true, items: true, revisions: true }
         })
 
         await tx.activityLog.create({
           data: {
             userId: logUserId,
-            action: "CLIENT_CONFIRMED_QUOTATION",
+            action: "CLIENT_APPROVED_QUOTATION",
             entityType: "QUOTATION",
             entityId: updated.id,
-            details: `Marked quotation revision ${updated.quotationNumber} as Client Confirmed. Client: ${updated.client.companyName}${previousConfirmedNo ? ` (Replaced previous confirmed revision ${previousConfirmedNo})` : ""}`,
+            details: `Marked quotation revision ${updated.quotationNumber} as Client Approved. Client: ${updated.client.companyName}${previousConfirmedNo ? ` (Replaced previous approved revision ${previousConfirmedNo})` : ""}`,
           }
         })
 
@@ -855,31 +831,35 @@ export async function PUT(
         additionalCharges: parsedAdditionalCharges,
       }
 
-      let pdfBuffer: Buffer
-      try {
-        pdfBuffer = await renderToBuffer(
-          React.createElement(QuotationDocument, pdfProps) as any
-        )
-      } catch (pdfError) {
-        console.error("Failed to compile updated PDF buffer:", pdfError)
-        return NextResponse.json(
-          { error: "Failed to generate updated PDF document" },
-          { status: 500 }
-        )
-      }
+      const resolvedStatus = body.status || existingQuotation.status
+      let sharepointUrl = existingQuotation.sharepointUrl || ""
 
-      const sanitizedClientNameForFile = currentClient.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
-      const filenameBase = `${existingQuotation.quotationNumber}_${sanitizedClientNameForFile}`
-      let sharepointUrl = ""
-      try {
-        sharepointUrl = await uploadQuotationPdf(
-          currentClient.companyName,
-          filenameBase,
-          pdfBuffer
-        )
-      } catch (spError) {
-        console.error("Failed to upload updated PDF to SharePoint:", spError)
-        sharepointUrl = existingQuotation.sharepointUrl || ""
+      if (resolvedStatus !== "DRAFT") {
+        let pdfBuffer: Buffer
+        try {
+          pdfBuffer = await renderToBuffer(
+            React.createElement(QuotationDocument, pdfProps) as any
+          )
+        } catch (pdfError) {
+          console.error("Failed to compile updated PDF buffer:", pdfError)
+          return NextResponse.json(
+            { error: "Failed to generate updated PDF document" },
+            { status: 500 }
+          )
+        }
+
+        const sanitizedClientNameForFile = currentClient.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+        const filenameBase = `${existingQuotation.quotationNumber}_${sanitizedClientNameForFile}`
+        try {
+          sharepointUrl = await uploadQuotationPdf(
+            currentClient.companyName,
+            filenameBase,
+            pdfBuffer
+          )
+        } catch (spError) {
+          console.error("Failed to upload updated PDF to SharePoint:", spError)
+          sharepointUrl = existingQuotation.sharepointUrl || ""
+        }
       }
 
       // Execute transaction to delete and recreate items, and update parent quotation
@@ -888,8 +868,6 @@ export async function PUT(
         await tx.quotationItem.deleteMany({
           where: { quotationId: existingQuotation.id }
         })
-
-        const resolvedStatus = body.status || existingQuotation.status
 
         // 2. Update parent quotation
         return await tx.quotation.update({
@@ -964,14 +942,14 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized: You can only update your own quotations" }, { status: 403 })
     }
 
-    // Block forward transition to PO/Production if not client confirmed
-    const targetStatuses = ["PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "PRODUCTION", "INVOICE", "INVOICED"]
+    // Block forward transition to PO/Production if not client approved
+    const targetStatuses = ["PO_CONVERTED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "PRODUCTION", "INVOICE", "INVOICED"]
     const isMovingForward = (status && targetStatuses.includes(status)) || poStatus === "RECEIVED"
     
-    if (isMovingForward && existingQuotation.status !== "CLIENT_CONFIRMED") {
+    if (isMovingForward && existingQuotation.status !== "CLIENT_APPROVED") {
       return NextResponse.json({
         error: "FORBIDDEN_WORKFLOW",
-        message: "Only the Client Confirmed quotation can be transitioned to PO, Production, or Billing workflows. Please mark this revision as Client Confirmed first."
+        message: "Only the Client Approved quotation can be transitioned to PO, Production, or Billing workflows. Please mark this revision as Client Approved first."
       }, { status: 400 })
     }
 

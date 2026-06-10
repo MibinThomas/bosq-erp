@@ -81,7 +81,7 @@ export function DashboardKPIs({ data, loading }: { data: KPIStats | null, loadin
         <CardContent>
           <div className="text-2xl font-bold text-amber-600">{data.pendingApprovalsCount + data.pendingFollowUpsCount}</div>
           <p className="text-xs text-muted-foreground mt-1">
-            {data.pendingApprovalsCount} Approvals &bull; {data.pendingFollowUpsCount} Follow-ups
+            {data.pendingApprovalsCount} Created &bull; {data.pendingFollowUpsCount} Draft/Revised
           </p>
         </CardContent>
       </Card>

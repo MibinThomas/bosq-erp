@@ -645,8 +645,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             {/* Quotation Title */}
             <View style={{ alignItems: "flex-end" }}>
               <Text style={[styles.quotationHeading, { marginBottom: 0, marginTop: 30 }]}>Quotation</Text>
-              {status === "CLIENT_CONFIRMED" && (
-                <Text style={{ fontSize: 9, fontWeight: "bold", color: "#16a34a", marginTop: 2 }}>Client Confirmed</Text>
+              {(status === "CLIENT_APPROVED" || status === "CLIENT_CONFIRMED") && (
+                <Text style={{ fontSize: 9, fontWeight: "bold", color: "#16a34a", marginTop: 2 }}>Client Approved</Text>
               )}
             </View>
           </View>

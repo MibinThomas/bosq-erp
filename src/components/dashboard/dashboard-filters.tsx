@@ -183,11 +183,12 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="DRAFT">Draft</SelectItem>
-              <SelectItem value="SENT">Sent</SelectItem>
-              <SelectItem value="FOLLOW_UP">Follow Up</SelectItem>
-              <SelectItem value="APPROVED">Approved</SelectItem>
+              <SelectItem value="QUOTE_CREATED">Quote Created</SelectItem>
+              <SelectItem value="REVISED">Revised</SelectItem>
+              <SelectItem value="CLIENT_APPROVED">Client Approved</SelectItem>
+              <SelectItem value="PO_CONVERTED">Converted to PO</SelectItem>
               <SelectItem value="REJECTED">Rejected</SelectItem>
-              <SelectItem value="PO_RECEIVED">PO Received</SelectItem>
+              <SelectItem value="CANCELLED">Cancelled</SelectItem>
             </SelectContent>
           </Select>
         </div>

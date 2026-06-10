@@ -145,7 +145,7 @@ export default function QuotationsPage() {
 
       setIsReplaceDialogOpen(false)
       setTargetQuoteToConfirm(null)
-      toast.success("Quotation marked as Client Confirmed successfully!")
+      toast.success("Quotation marked as Client Approved successfully!")
     } catch (error: any) {
       toast.error(error.message || "Failed to confirm quotation.")
     }
@@ -204,20 +204,25 @@ export default function QuotationsPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
+      case "CLIENT_APPROVED":
       case "CLIENT_CONFIRMED":
-        return <Badge className="bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center gap-1 shrink-0"><Check size={11} />Client Confirmed Quote</Badge>
       case "APPROVED":
-        return <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium">Client Approved</Badge>
+        return <Badge className="bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center gap-1 shrink-0"><Check size={11} />Client Approved</Badge>
       case "SENT":
         return <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-medium">Sent to Client</Badge>
       case "DRAFT":
-        return <Badge variant="outline" className="text-gray-500 font-medium border-gray-300">Quote Created</Badge>
+        return <Badge variant="outline" className="text-gray-500 font-medium border-zinc-300">Draft</Badge>
+      case "QUOTE_CREATED":
+        return <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-medium">Quote Created</Badge>
       case "REJECTED":
         return <Badge variant="destructive" className="font-medium">Rejected</Badge>
+      case "CANCELLED":
+        return <Badge variant="destructive" className="font-medium bg-red-100 text-red-700 border-red-200 hover:bg-red-200">Cancelled</Badge>
       case "REVISED":
-        return <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-medium">Quote Revised</Badge>
+        return <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-medium">Revised</Badge>
+      case "PO_CONVERTED":
       case "PO_RECEIVED":
-        return <Badge className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium">PO Received</Badge>
+        return <Badge className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium">Converted to PO</Badge>
       case "UNDER_PRODUCTION":
         return <Badge className="bg-orange-600 hover:bg-orange-700 text-white font-medium">Under Production</Badge>
       default:
@@ -558,34 +563,40 @@ export default function QuotationsPage() {
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "DRAFT", "status")} className="cursor-pointer">
+                            Mark Draft
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "QUOTE_CREATED", "status")} className="cursor-pointer">
                             Mark Quote Created
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "REVISED", "status")} className="cursor-pointer">
-                            Mark Quote Revised
+                            Mark Revised
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "SENT", "status")} className="cursor-pointer">
-                            Mark Sent to Client
-                          </DropdownMenuItem>
-                          {isAuthorizedToConfirm && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quote.status) && (
+                          {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quote.status) && (
                             <DropdownMenuItem onClick={() => handleConfirmQuote(quote.id, false)} className="cursor-pointer font-semibold text-green-700 focus:text-green-700 focus:bg-green-50">
                               <Check className="mr-2 h-4 w-4 text-green-600" />
-                              Mark as Client Confirmed
+                              Mark as Client Approved
                             </DropdownMenuItem>
                           )}
-                          {quote.status === "CLIENT_CONFIRMED" && (
-                            <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "PO_RECEIVED", "status")} className="cursor-pointer">
-                              Mark PO Received
+                          {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(quote.status) && (
+                            <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "PO_CONVERTED", "status")} className="cursor-pointer">
+                              Convert to PO
                             </DropdownMenuItem>
                           )}
-                          {(quote.status === "CLIENT_CONFIRMED" || quote.status === "PO_RECEIVED") && (
+                          {["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED"].includes(quote.status) && (
                             <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "UNDER_PRODUCTION", "status")} className="cursor-pointer">
                               Mark Under Production
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "REJECTED", "status")} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50">
+                            Mark Rejected
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "CANCELLED", "status")} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50">
+                            Mark Cancelled
+                          </DropdownMenuItem>
                           
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          {quote.status === "DRAFT" || quote.status === "PENDING_APPROVAL" ? (
+                          {quote.status === "DRAFT" ? (
                             <Link href={`/quotations/new?editId=${quote.id}`}>
                               <DropdownMenuItem className="flex items-center text-amber-600 focus:text-amber-600 focus:bg-amber-50 cursor-pointer">
                                 <Edit className="mr-2 h-4 w-4 text-amber-600" />
@@ -706,26 +717,27 @@ export default function QuotationsPage() {
                       </thead>
                       <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                         {historyQuote.seriesQuotations.map((item: any) => {
-                          const isConfirmed = item.status === "CLIENT_CONFIRMED"
-                          const isProgressed = ["PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)
-
-                          let displayStatus = item.status
-                          if (item.status === "CLIENT_CONFIRMED") displayStatus = "Client Confirmed"
-                          else if (item.status === "PO_RECEIVED") displayStatus = "PO Received"
-                          else if (item.status === "UNDER_PRODUCTION") displayStatus = "Under Production"
-                          else if (item.status === "REVISED") displayStatus = "Revised"
-                          else if (item.status === "APPROVED") displayStatus = "Approved"
-                          else if (item.status === "REJECTED") displayStatus = "Rejected"
-                          else if (item.status === "CANCELLED") displayStatus = "Cancelled"
-                          else if (item.status === "DRAFT") displayStatus = "Draft"
-
-                          // Show Not Selected if another quote is confirmed
-                          const hasConfirmedInSeries = historyQuote.seriesQuotations.some((q: any) =>
-                            ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(q.status)
-                          )
-                          if (hasConfirmedInSeries && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)) {
-                            displayStatus = "Not Selected"
-                          }
+                           const isConfirmed = item.status === "CLIENT_APPROVED" || item.status === "CLIENT_CONFIRMED"
+                           const isProgressed = ["PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)
+ 
+                           let displayStatus = item.status
+                           if (item.status === "CLIENT_APPROVED" || item.status === "CLIENT_CONFIRMED") displayStatus = "Client Approved"
+                           else if (item.status === "PO_CONVERTED" || item.status === "PO_RECEIVED") displayStatus = "Converted to PO"
+                           else if (item.status === "UNDER_PRODUCTION") displayStatus = "Under Production"
+                           else if (item.status === "REVISED") displayStatus = "Revised"
+                           else if (item.status === "APPROVED") displayStatus = "Client Approved"
+                           else if (item.status === "REJECTED") displayStatus = "Rejected"
+                           else if (item.status === "CANCELLED") displayStatus = "Cancelled"
+                           else if (item.status === "DRAFT") displayStatus = "Draft"
+                           else if (item.status === "QUOTE_CREATED") displayStatus = "Quote Created"
+ 
+                           // Show Not Selected if another quote is confirmed
+                           const hasConfirmedInSeries = historyQuote.seriesQuotations.some((q: any) =>
+                             ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(q.status)
+                           )
+                           if (hasConfirmedInSeries && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)) {
+                             displayStatus = "Not Selected"
+                           }
 
                           return (
                             <tr
@@ -750,7 +762,7 @@ export default function QuotationsPage() {
                               <td className="p-3 text-center">
                                 {isConfirmed ? (
                                   <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30 shadow-xs">
-                                    <Check className="h-3 w-3 shrink-0" /> Client Confirmed
+                                    <Check className="h-3 w-3 shrink-0" /> Client Approved
                                   </span>
                                 ) : displayStatus === "Not Selected" ? (
                                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500 border border-zinc-200/50 dark:border-zinc-700/50">
@@ -777,7 +789,7 @@ export default function QuotationsPage() {
                                     View
                                   </Button>
 
-                                  {isAuthorizedToConfirm && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
+                                  {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -788,12 +800,12 @@ export default function QuotationsPage() {
                                     </Button>
                                   )}
 
-                                  {item.status === "CLIENT_CONFIRMED" && (
+                                  {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(item.status) && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       className="h-6 px-1.5 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 w-fit"
-                                      onClick={() => handleUpdateStatus(item.id, "PO_RECEIVED", "status")}
+                                      onClick={() => handleUpdateStatus(item.id, "PO_CONVERTED", "status")}
                                     >
                                       Convert to PO
                                     </Button>
@@ -810,25 +822,26 @@ export default function QuotationsPage() {
                   {/* Mobile/Tablet view: Stacked Cards */}
                   <div className="md:hidden space-y-3">
                     {historyQuote.seriesQuotations.map((item: any) => {
-                      const isConfirmed = item.status === "CLIENT_CONFIRMED"
-                      const isProgressed = ["PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)
-
-                      let displayStatus = item.status
-                      if (item.status === "CLIENT_CONFIRMED") displayStatus = "Client Confirmed"
-                      else if (item.status === "PO_RECEIVED") displayStatus = "PO Received"
-                      else if (item.status === "UNDER_PRODUCTION") displayStatus = "Under Production"
-                      else if (item.status === "REVISED") displayStatus = "Revised"
-                      else if (item.status === "APPROVED") displayStatus = "Approved"
-                      else if (item.status === "REJECTED") displayStatus = "Rejected"
-                      else if (item.status === "CANCELLED") displayStatus = "Cancelled"
-                      else if (item.status === "DRAFT") displayStatus = "Draft"
-
-                      const hasConfirmedInSeries = historyQuote.seriesQuotations.some((q: any) =>
-                        ["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(q.status)
-                      )
-                      if (hasConfirmedInSeries && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)) {
-                        displayStatus = "Not Selected"
-                      }
+                       const isConfirmed = item.status === "CLIENT_APPROVED" || item.status === "CLIENT_CONFIRMED"
+                       const isProgressed = ["PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)
+ 
+                       let displayStatus = item.status
+                       if (item.status === "CLIENT_APPROVED" || item.status === "CLIENT_CONFIRMED") displayStatus = "Client Approved"
+                       else if (item.status === "PO_CONVERTED" || item.status === "PO_RECEIVED") displayStatus = "Converted to PO"
+                       else if (item.status === "UNDER_PRODUCTION") displayStatus = "Under Production"
+                       else if (item.status === "REVISED") displayStatus = "Revised"
+                       else if (item.status === "APPROVED") displayStatus = "Client Approved"
+                       else if (item.status === "REJECTED") displayStatus = "Rejected"
+                       else if (item.status === "CANCELLED") displayStatus = "Cancelled"
+                       else if (item.status === "DRAFT") displayStatus = "Draft"
+                       else if (item.status === "QUOTE_CREATED") displayStatus = "Quote Created"
+ 
+                       const hasConfirmedInSeries = historyQuote.seriesQuotations.some((q: any) =>
+                         ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(q.status)
+                       )
+                       if (hasConfirmedInSeries && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)) {
+                         displayStatus = "Not Selected"
+                       }
 
                       return (
                         <div
@@ -853,7 +866,7 @@ export default function QuotationsPage() {
                             <div>
                               {isConfirmed ? (
                                 <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30 shadow-xs">
-                                  <Check className="h-3 w-3" /> Client Confirmed
+                                  <Check className="h-3 w-3" /> Client Approved
                                 </span>
                               ) : displayStatus === "Not Selected" ? (
                                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500 border border-zinc-200/50 dark:border-zinc-700/50">
@@ -888,27 +901,27 @@ export default function QuotationsPage() {
                               View
                             </Button>
 
-                            {isAuthorizedToConfirm && !["CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 px-3 text-xs text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/20 font-semibold"
-                                onClick={() => handleConfirmQuote(item.id, false)}
-                              >
-                                Confirm
-                              </Button>
-                            )}
-
-                            {item.status === "CLIENT_CONFIRMED" && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 px-3 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 font-semibold"
-                                onClick={() => handleUpdateStatus(item.id, "PO_RECEIVED", "status")}
-                              >
-                                Convert to PO
-                              </Button>
-                            )}
+                             {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
+                               <Button
+                                 variant="outline"
+                                 size="sm"
+                                 className="h-8 px-3 text-xs text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/20 font-semibold"
+                                 onClick={() => handleConfirmQuote(item.id, false)}
+                               >
+                                 Approve
+                               </Button>
+                             )}
+ 
+                             {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(item.status) && (
+                               <Button
+                                 variant="outline"
+                                 size="sm"
+                                 className="h-8 px-3 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 font-semibold"
+                                 onClick={() => handleUpdateStatus(item.id, "PO_CONVERTED", "status")}
+                               >
+                                 Convert to PO
+                               </Button>
+                             )}
                           </div>
                         </div>
                       )
@@ -929,7 +942,7 @@ export default function QuotationsPage() {
               Confirm Replacement
             </DialogTitle>
             <DialogDescription className="text-sm">
-              A quotation revision (<strong>{conflictingQuoteNo}</strong>) is already marked as Client Confirmed. Do you want to replace the confirmed quotation?
+              A quotation revision (<strong>{conflictingQuoteNo}</strong>) is already marked as Client Approved. Do you want to replace the confirmed quotation?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex justify-end gap-2 mt-4">

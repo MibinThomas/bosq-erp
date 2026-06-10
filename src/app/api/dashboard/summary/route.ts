@@ -81,6 +81,9 @@ export async function GET(request: Request) {
             { poStatus: "RECEIVED" },
             { status: "PO_RECEIVED" },
             { status: "CLIENT_CONFIRMED" },
+            { status: "CLIENT_APPROVED" },
+            { status: "APPROVED" },
+            { status: "PO_CONVERTED" },
             { status: "UNDER_PRODUCTION" }
           ]
         },
@@ -88,10 +91,10 @@ export async function GET(request: Request) {
         _sum: { subtotal: true }
       }),
       prisma.quotation.count({
-        where: { ...whereClause, status: "SENT" }
+        where: { ...whereClause, status: "QUOTE_CREATED" }
       }),
       prisma.quotation.count({
-        where: { ...whereClause, status: "FOLLOW_UP" }
+        where: { ...whereClause, status: { in: ["DRAFT", "REVISED"] } }
       })
     ])
 

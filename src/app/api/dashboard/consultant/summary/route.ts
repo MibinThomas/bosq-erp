@@ -138,16 +138,26 @@ export async function GET(request: Request) {
         _sum: { subtotal: true }
       }),
       prisma.quotation.count({
-        where: { ...qWhere, status: "CLIENT_CONFIRMED" }
+        where: { ...qWhere, status: { in: ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "APPROVED"] } }
       }),
       prisma.quotation.count({
-        where: { ...qWhere, status: { in: ["SENT", "PENDING_APPROVAL", "REVISED", "APPROVED"] } }
+        where: { ...qWhere, status: { in: ["DRAFT", "QUOTE_CREATED", "REVISED"] } }
       }),
       prisma.quotation.count({
-        where: { ...qWhere, status: "REJECTED" }
+        where: { ...qWhere, status: { in: ["REJECTED", "CANCELLED"] } }
       }),
       prisma.quotation.count({
-        where: { ...qWhere, OR: [{ status: "PO_RECEIVED" }, { status: "CLIENT_CONFIRMED" }, { poStatus: "RECEIVED" }, { status: "UNDER_PRODUCTION" }] }
+        where: {
+          ...qWhere,
+          OR: [
+            { status: "PO_CONVERTED" },
+            { status: "PO_RECEIVED" },
+            { status: "CLIENT_APPROVED" },
+            { status: "CLIENT_CONFIRMED" },
+            { status: "APPROVED" },
+            { status: "UNDER_PRODUCTION" }
+          ]
+        }
       }),
       prisma.quotation.count({
         where: { ...qWhere, status: "FOLLOW_UP" }
