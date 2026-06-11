@@ -2259,7 +2259,7 @@ function NewQuotationForm() {
                           <h4 className="text-sm font-semibold text-foreground">Additional Cost</h4>
                           {(() => {
                             const isSuperAdmin = userRole === "SUPER_ADMIN"
-                            const isCreator = initialData?.preparedById === (session?.user as any)?.id
+                            const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
                             const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (userPermissions?.canAddCustomCharges ?? false)
                             return !allowedAddCustomCharges && <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
                           })()}
@@ -2271,7 +2271,7 @@ function NewQuotationForm() {
                       <div className="space-y-3">
                         {additionalFields.map((field, index) => {
                           const isSuperAdmin = userRole === "SUPER_ADMIN"
-                          const isCreator = initialData?.preparedById === (session?.user as any)?.id
+                          const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
                           const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (userPermissions?.canAddCustomCharges ?? false)
                           
                           return (
@@ -2342,7 +2342,7 @@ function NewQuotationForm() {
 
                         {(() => {
                           const isSuperAdmin = userRole === "SUPER_ADMIN"
-                          const isCreator = initialData?.preparedById === (session?.user as any)?.id
+                          const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
                           const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (userPermissions?.canAddCustomCharges ?? false)
                           
                           if (allowedAddCustomCharges) {
