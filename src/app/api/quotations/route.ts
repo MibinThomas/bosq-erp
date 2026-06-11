@@ -211,7 +211,7 @@ export async function POST(request: Request) {
 
     const allowedMaxDiscount = isSuperAdmin ? 100 : (discountOverride?.maxDiscountPercent ?? rolePerm?.maxDiscountPercent ?? 0)
     const allowedCanOverrideVat = isSuperAdmin ? true : (dbSessionUser.permissionOverrides.find(o => o.action === "canOverrideVat")?.value ?? rolePerm?.canOverrideVat ?? false)
-    const allowedCanAddCustomCharges = isSuperAdmin ? true : (dbSessionUser.permissionOverrides.find(o => o.action === "canAddCustomCharges")?.value ?? rolePerm?.canAddCustomCharges ?? false)
+    const allowedCanAddCustomCharges = true; // Always allow creator to add custom charges on new quotes
 
     // Validate VAT Mode Override
     const resolvedVatMode = vatMode || "EXCLUDING"

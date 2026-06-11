@@ -2260,7 +2260,8 @@ function NewQuotationForm() {
                           {(() => {
                             const isSuperAdmin = userRole === "SUPER_ADMIN"
                             const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
-                            const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (userPermissions?.canAddCustomCharges ?? false)
+                            const isNewQuote = !existingQuote
+                            const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
                             return !allowedAddCustomCharges && <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
                           })()}
                         </div>
@@ -2272,7 +2273,8 @@ function NewQuotationForm() {
                         {additionalFields.map((field, index) => {
                           const isSuperAdmin = userRole === "SUPER_ADMIN"
                           const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
-                          const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (userPermissions?.canAddCustomCharges ?? false)
+                          const isNewQuote = !existingQuote
+                          const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
                           
                           return (
                             <div key={field.id} className="flex items-center gap-3 animate-in fade-in duration-200">
@@ -2343,7 +2345,8 @@ function NewQuotationForm() {
                         {(() => {
                           const isSuperAdmin = userRole === "SUPER_ADMIN"
                           const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
-                          const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (userPermissions?.canAddCustomCharges ?? false)
+                          const isNewQuote = !existingQuote
+                          const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
                           
                           if (allowedAddCustomCharges) {
                             return (
