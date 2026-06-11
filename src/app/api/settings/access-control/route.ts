@@ -152,7 +152,10 @@ export async function POST(request: Request) {
             marginVisible: basePerm ? basePerm.marginVisible : false,
             profitVisible: basePerm ? basePerm.profitVisible : false,
             markupVisible: basePerm ? basePerm.markupVisible : false,
-            canConfirmQuotation: basePerm ? basePerm.canConfirmQuotation : false
+            canConfirmQuotation: basePerm ? basePerm.canConfirmQuotation : false,
+            canOverrideVat: basePerm ? basePerm.canOverrideVat : false,
+            canAddCustomCharges: basePerm ? basePerm.canAddCustomCharges : false,
+            maxDiscountPercent: basePerm ? basePerm.maxDiscountPercent : 0,
           }
         })
       }
@@ -226,6 +229,9 @@ export async function PUT(request: Request) {
           profitVisible: p.profitVisible ?? false,
           markupVisible: p.markupVisible ?? false,
           canConfirmQuotation: p.canConfirmQuotation ?? false,
+          canOverrideVat: p.canOverrideVat ?? false,
+          canAddCustomCharges: p.canAddCustomCharges ?? false,
+          maxDiscountPercent: p.maxDiscountPercent !== undefined ? (p.maxDiscountPercent === "" || p.maxDiscountPercent === null ? 0 : parseFloat(p.maxDiscountPercent)) : 0,
         }
 
         if (existing) {
@@ -284,6 +290,7 @@ export async function PUT(request: Request) {
             value: o.value,
             ownership: o.ownership || null,
             approvalLimit: o.approvalLimit !== undefined && o.approvalLimit !== null && o.approvalLimit !== "" ? parseFloat(o.approvalLimit) : null,
+            maxDiscountPercent: o.maxDiscountPercent !== undefined && o.maxDiscountPercent !== null && o.maxDiscountPercent !== "" ? parseFloat(o.maxDiscountPercent) : null,
           }
         })
       }

@@ -35,6 +35,8 @@ const actions = [
   { id: "share", label: "Share" },
   { id: "manage", label: "Manage" },
   { id: "canConfirmQuotation", label: "Confirm Quote" },
+  { id: "canOverrideVat", label: "Override VAT" },
+  { id: "canAddCustomCharges", label: "Add Custom Charges" },
 ]
 
 const pricingVisibilities = [
@@ -142,6 +144,9 @@ export default function AccessControlPage() {
         profitVisible: perm?.profitVisible ?? false,
         markupVisible: perm?.markupVisible ?? false,
         canConfirmQuotation: perm?.canConfirmQuotation ?? false,
+        canOverrideVat: perm?.canOverrideVat ?? false,
+        canAddCustomCharges: perm?.canAddCustomCharges ?? false,
+        maxDiscountPercent: perm?.maxDiscountPercent ?? 0,
       }
     })
     setEditingPermissions(matrix)
@@ -202,12 +207,14 @@ export default function AccessControlPage() {
         }]
       } else {
         const currentOverride = prev.find(o => o.module === moduleId && o.action === actionId)
-        return [...filtered, { 
+        const updated = { 
           module: moduleId, 
           action: actionId, 
-          value: currentOverride?.value ?? true, 
-          approvalLimit: value 
-        }]
+          value: currentOverride?.value ?? true,
+        } as any
+        if (actionId === "maxDiscountPercent") updated.maxDiscountPercent = value
+        else updated.approvalLimit = value
+        return [...filtered, updated]
       }
     })
   }
@@ -515,6 +522,7 @@ export default function AccessControlPage() {
                         ))}
                         <th className="p-3 text-center min-w-[110px] border-l">Ownership</th>
                         <th className="p-3 text-center min-w-[100px] border-l">Appr. Limit (AED)</th>
+                        <th className="p-3 text-center min-w-[100px] border-l">Max Discount %</th>
                         <th className="p-3 text-center min-w-[350px] border-l">Pricing Visibilities</th>
                       </tr>
                     </thead>
@@ -525,7 +533,7 @@ export default function AccessControlPage() {
                           <tr key={m.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
                             <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-200 border-r">{m.name}</td>
                             {actions.map((a) => {
-                              const isConfirmAndNotQuote = a.id === "canConfirmQuotation" && m.id !== "QUOTATIONS"
+                              const isConfirmAndNotQuote = (a.id === "canConfirmQuotation" || a.id === "canOverrideVat" || a.id === "canAddCustomCharges") && m.id !== "QUOTATIONS"
                               return (
                                 <td key={a.id} className="p-3 text-center">
                                   {!isConfirmAndNotQuote && (
@@ -563,6 +571,18 @@ export default function AccessControlPage() {
                                 onChange={(e) => handleRolePermChange(m.id, "approvalLimit", e.target.value === "" ? null : parseFloat(e.target.value))}
                                 className="w-full text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-1 text-center dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
                               />
+                            </td>
+                            <td className="p-3 text-center border-l">
+                              {m.id === "QUOTATIONS" && (
+                                <input
+                                  type="number"
+                                  placeholder="%"
+                                  disabled={selectedRole.name === "SUPER_ADMIN"}
+                                  value={rowPerm.maxDiscountPercent ?? 0}
+                                  onChange={(e) => handleRolePermChange(m.id, "maxDiscountPercent", e.target.value === "" ? null : parseFloat(e.target.value))}
+                                  className="w-full text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-1 text-center dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
+                                />
+                              )}
                             </td>
                             <td className="p-3 border-l">
                               <div className="flex flex-wrap gap-x-3 gap-y-1">
@@ -669,12 +689,15 @@ export default function AccessControlPage() {
                             {modules.flatMap((m) => {
                               const moduleActions = [
                                 ...actions
-                                  .filter(a => a.id !== "canConfirmQuotation" || m.id === "QUOTATIONS")
+                                  .filter(a => !["canConfirmQuotation", "canOverrideVat", "canAddCustomCharges"].includes(a.id) || m.id === "QUOTATIONS")
                                   .map(a => ({ id: a.id, label: a.label, type: "boolean" as const })),
                                 ...pricingVisibilities.map(pv => ({ id: pv.id, label: `Pricing: ${pv.label}`, type: "boolean" as const })),
                                 { id: "ownership", label: "Ownership Constraint Override", type: "ownership" as const },
                                 { id: "approvalLimit", label: "Approval limit Override (AED)", type: "limit" as const }
                               ]
+                              if (m.id === "QUOTATIONS") {
+                                moduleActions.push({ id: "maxDiscountPercent", label: "Max Discount Override (%)", type: "limit" as const })
+                              }
 
                               return moduleActions.map((act) => {
                                 const userOverride = editingOverrides.find(o => o.module === m.id && o.action === act.id)
@@ -744,9 +767,9 @@ export default function AccessControlPage() {
                                       {selectVal === "custom" && act.type === "limit" && (
                                         <input
                                           type="number"
-                                          placeholder="AED limit"
-                                          value={userOverride?.approvalLimit ?? ""}
-                                          onChange={(e) => handleOverrideChange(m.id, act.id, "limit", e.target.value)}
+                                          placeholder={act.id === "maxDiscountPercent" ? "% limit" : "AED limit"}
+                                          value={(act.id === "maxDiscountPercent" ? userOverride?.maxDiscountPercent : userOverride?.approvalLimit) ?? ""}
+                                          onChange={(e) => handleOverrideChange(m.id, act.id, "limit", e.target.value === "" ? null : parseFloat(e.target.value))}
                                           className="text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-1 text-center dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
                                         />
                                       )}
