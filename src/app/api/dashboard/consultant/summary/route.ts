@@ -17,10 +17,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
-    const ownershipRule = profile.permissions.DASHBOARD?.ownership || "NONE"
-    if (ownershipRule === "NONE") {
+    const dashboardAccess = profile.permissions.DASHBOARD?.ownership || "NONE"
+    if (dashboardAccess === "NONE") {
       return NextResponse.json({ error: "No dashboard access" }, { status: 403 })
     }
+
+    const qOwnershipRule = profile.permissions.QUOTATIONS?.ownership || "ASSIGNED"
+    const cOwnershipRule = profile.permissions.CLIENTS?.ownership || "ASSIGNED"
 
     const url = new URL(request.url)
     const startDate = url.searchParams.get("startDate")
@@ -35,38 +38,26 @@ export async function GET(request: Request) {
     let qWhere: any = {}
     let cWhere: any = {}
 
-    // Enforce Ownership Rules
-    if (ownershipRule === "OWN") {
+    // Enforce Quotations Ownership
+    if (qOwnershipRule === "OWN") {
       qWhere.OR = [
         { preparedById: userId },
         { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
         { assignments: { some: { userId: userId } } }
       ]
-      cWhere.OR = [
-        { salespersonId: userId },
-        { assignments: { some: { userId: userId } } }
-      ]
-    } else if (ownershipRule === "ASSIGNED") {
+    } else if (qOwnershipRule === "ASSIGNED") {
       qWhere.OR = [
         { preparedById: userId },
         { salesAgentId: userId },
         { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
         { assignments: { some: { userId: userId } } }
       ]
-      cWhere.OR = [
-        { salespersonId: userId },
-        { assignments: { some: { userId: userId } } }
-      ]
-    } else if (ownershipRule === "DEPARTMENT") {
+    } else if (qOwnershipRule === "DEPARTMENT") {
       const user = await prisma.user.findUnique({ where: { id: userId } })
       if (user?.department) {
         qWhere.OR = [
           { preparedBy: { department: user.department } },
           { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
-          { assignments: { some: { user: { department: user.department } } } }
-        ]
-        cWhere.OR = [
-          { salesperson: { department: user.department } },
           { assignments: { some: { user: { department: user.department } } } }
         ]
       } else {
@@ -75,12 +66,30 @@ export async function GET(request: Request) {
           { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
           { assignments: { some: { userId: userId } } }
         ]
+      }
+    }
+
+    // Enforce Clients Ownership
+    if (cOwnershipRule === "OWN" || cOwnershipRule === "ASSIGNED") {
+      cWhere.OR = [
+        { salespersonId: userId },
+        { assignments: { some: { userId: userId } } }
+      ]
+    } else if (cOwnershipRule === "DEPARTMENT") {
+      const user = await prisma.user.findUnique({ where: { id: userId } })
+      if (user?.department) {
+        cWhere.OR = [
+          { salesperson: { department: user.department } },
+          { assignments: { some: { user: { department: user.department } } } }
+        ]
+      } else {
         cWhere.OR = [
           { salespersonId: userId },
           { assignments: { some: { userId: userId } } }
         ]
       }
     }
+    // End of ownership logic
 
     // Apply Filters
     if (startDate || endDate) {

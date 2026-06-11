@@ -15,8 +15,10 @@ export async function GET(request: Request) {
     const profile = await getPermissionsProfile(userId)
     if (!profile) return NextResponse.json({ error: "Access denied" }, { status: 403 })
 
-    const ownershipRule = profile.permissions.DASHBOARD?.ownership || "NONE"
-    if (ownershipRule === "NONE") return NextResponse.json({ error: "No dashboard access" }, { status: 403 })
+    const dashboardAccess = profile.permissions.DASHBOARD?.ownership || "NONE"
+    if (dashboardAccess === "NONE") return NextResponse.json({ error: "No dashboard access" }, { status: 403 })
+
+    const qOwnershipRule = profile.permissions.QUOTATIONS?.ownership || "ASSIGNED"
 
     const url = new URL(request.url)
     const startDate = url.searchParams.get("startDate")
@@ -30,19 +32,39 @@ export async function GET(request: Request) {
 
     let qWhere: any = {}
     let logWhere: any = { userId }
-    if (ownershipRule === "ALL") {
+    if (dashboardAccess === "ALL") {
       logWhere = {} // Show all logs if full access
     }
 
-    // Enforce Ownership Rules
-    if (ownershipRule === "OWN") {
-      qWhere.preparedById = userId
-    } else if (ownershipRule === "ASSIGNED") {
-      qWhere.OR = [ { preparedById: userId }, { salesAgentId: userId } ]
-    } else if (ownershipRule === "DEPARTMENT") {
+    // Enforce Quotations Ownership
+    if (qOwnershipRule === "OWN") {
+      qWhere.OR = [
+        { preparedById: userId },
+        { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
+        { assignments: { some: { userId: userId } } }
+      ]
+    } else if (qOwnershipRule === "ASSIGNED") {
+      qWhere.OR = [
+        { preparedById: userId },
+        { salesAgentId: userId },
+        { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
+        { assignments: { some: { userId: userId } } }
+      ]
+    } else if (qOwnershipRule === "DEPARTMENT") {
       const user = await prisma.user.findUnique({ where: { id: userId } })
-      if (user?.department) qWhere.preparedBy = { department: user.department }
-      else qWhere.preparedById = userId
+      if (user?.department) {
+        qWhere.OR = [
+          { preparedBy: { department: user.department } },
+          { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
+          { assignments: { some: { user: { department: user.department } } } }
+        ]
+      } else {
+        qWhere.OR = [
+          { preparedById: userId },
+          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: userId } } }
+        ]
+      }
     }
 
     // Apply Filters
