@@ -399,9 +399,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (appliedDiscountPercent > allowedMaxDiscount) {
-      return NextResponse.json({ error: `Forbidden: Applied discount of ${appliedDiscountPercent.toFixed(2)}% exceeds your role limit of ${allowedMaxDiscount}%` }, { status: 403 })
-    }
+    // Discount limit check removed
 
     // Calculate Taxable Amount, VAT, and Grand Total
     const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - discountAmt)

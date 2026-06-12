@@ -140,22 +140,23 @@ const ProductSearchSelect = React.memo(({
           <Button
             variant="outline"
             role="combobox"
+            title={label || "Search catalog product by name or code..."}
             className={cn(
               "w-full justify-between font-normal bg-card",
               !productId && "text-muted-foreground"
             )}
           >
-            <span className="truncate flex-1 text-left">
+            <span className="truncate flex-1 text-left max-w-[calc(100%-24px)]">
               {productId ? label : "Search catalog product by name or code..."}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         }
       />
-      <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[500px] p-0" align="start">
+      <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[650px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search products..." />
-          <CommandList className="max-h-[260px]">
+          <CommandList className="max-h-[350px]">
             <CommandEmpty className="p-3 text-center flex flex-col items-center justify-center">
               <p className="text-xs text-muted-foreground mb-2">No product found.</p>
               <Button
@@ -190,30 +191,45 @@ const ProductSearchSelect = React.memo(({
                       onProductSelect(product.id)
                       setOpen(false)
                     }}
+                    className="p-2 border-b last:border-b-0 border-muted/50 aria-selected:bg-muted/40 cursor-pointer"
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4 shrink-0",
-                        product.id === productId
-                          ? "opacity-100"
-                          : "opacity-0"
-                      )}
-                    />
-                    <div className="flex items-center gap-3 w-full py-1">
-                      <div className="h-10 w-10 shrink-0 border rounded overflow-hidden flex items-center justify-center bg-white shadow-sm">
+                    <div className="flex items-start gap-4 w-full">
+                      {/* Product Thumbnail */}
+                      <div className="h-14 w-14 shrink-0 border rounded-md overflow-hidden flex items-center justify-center bg-white shadow-sm">
                         {product.imageUrl ? (
-                          <img src={product.imageUrl} alt={product.productName} className="object-contain w-full h-full" />
+                          <img src={product.imageUrl} alt={product.productName} className="object-cover w-full h-full" />
                         ) : (
-                          <div className="text-[8px] text-muted-foreground text-center px-1 leading-tight">No Image</div>
+                          <div className="text-[9px] text-muted-foreground text-center px-1 leading-tight">No Image</div>
                         )}
                       </div>
-                      <div className="flex flex-col flex-1 overflow-hidden">
-                        <span className="font-medium text-sm text-foreground truncate">{product.productName}</span>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                          <span className="truncate">SKU: {product.productCode}</span>
-                          <span>•</span>
-                          <span className="font-semibold text-primary whitespace-nowrap">AED {basePrice.toFixed(2)}</span>
+                      
+                      {/* Product Details Stack */}
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className="font-semibold text-[13px] text-foreground truncate" title={product.productName}>
+                          {product.productName}
+                        </span>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                          <span className="truncate">SKU: <span className="font-medium text-foreground/80">{product.productCode}</span></span>
+                          {(product as any).category?.name && (
+                            <>
+                              <span className="text-muted-foreground/30">•</span>
+                              <span className="truncate">Category: {(product as any).category.name}</span>
+                            </>
+                          )}
                         </div>
+                        <div className="text-xs font-semibold text-primary mt-1.5">
+                          {watchSegment} Price: AED {basePrice.toFixed(2)}
+                        </div>
+                      </div>
+
+                      {/* Check Icon (only visible when selected) */}
+                      <div className="shrink-0 flex items-center h-full pt-1 pr-1">
+                        <Check
+                          className={cn(
+                            "h-5 w-5 text-primary",
+                            product.id === productId ? "opacity-100" : "opacity-0"
+                          )}
+                        />
                       </div>
                     </div>
                   </CommandItem>
@@ -222,18 +238,18 @@ const ProductSearchSelect = React.memo(({
             </CommandGroup>
           </CommandList>
           {/* Bottom Action Footer */}
-          <div className="p-2 border-t bg-muted/20">
+          <div className="p-2 border-t border-muted/60 bg-muted/5 sticky bottom-0">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="w-full justify-start text-primary hover:text-primary hover:bg-primary/5 font-medium flex items-center gap-1.5 h-9 cursor-pointer"
+              className="w-full justify-start text-primary hover:text-primary hover:bg-primary/10 font-semibold flex items-center gap-2 h-10 cursor-pointer rounded-md"
               onClick={() => {
                 onCustomProductClick()
                 setOpen(false)
               }}
             >
-              <Plus className="h-4 w-4 text-primary" />
+              <Plus className="h-4 w-4" />
               <span>+ New Custom Product</span>
             </Button>
           </div>
@@ -1317,131 +1333,15 @@ function NewQuotationForm() {
                         
                         if (!showDetails) return null;
 
+
                         if (isCustom) {
                           return (
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                              {/* Left Column: Image, Title, Specs & Notes */}
-                              <div className="lg:col-span-6 space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  {/* Product Name */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.description`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Product Name *</FormLabel>
-                                        <FormControl>
-                                          <Input placeholder="Enter product name or short title" {...field} className="bg-muted/10 focus-visible:bg-background" />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-
-                                  {/* Category Name */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.categoryName`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Product Type / Category *</FormLabel>
-                                        <Select
-                                          onValueChange={(val) => {
-                                            field.onChange(val)
-                                            if (val !== "Chairs") {
-                                              form.setValue(`items.${index}.chairType`, "")
-                                            }
-                                          }}
-                                          value={field.value || "Chairs"}
-                                        >
-                                          <FormControl>
-                                            <SelectTrigger className="bg-muted/10 focus:bg-background">
-                                              <SelectValue placeholder="Select Category" />
-                                            </SelectTrigger>
-                                          </FormControl>
-                                          <SelectContent>
-                                            <SelectItem value="Chairs">Chairs</SelectItem>
-                                            <SelectItem value="Desks">Desks</SelectItem>
-                                            <SelectItem value="Tables">Tables</SelectItem>
-                                            <SelectItem value="General">General / Other</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                </div>
-
-                                {/* Chair Type (if category is Chairs) */}
-                                {watchItems[index]?.categoryName === "Chairs" && (
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.chairType`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Chair Type *</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                                          <FormControl>
-                                            <SelectTrigger className="bg-muted/10 focus:bg-background">
-                                              <SelectValue placeholder="Select Chair Type" />
-                                            </SelectTrigger>
-                                          </FormControl>
-                                          <SelectContent>
-                                            <SelectItem value="Task Chair">Task Chair</SelectItem>
-                                            <SelectItem value="Executive Chair">Executive Chair</SelectItem>
-                                            <SelectItem value="Ergonomic Chair">Ergonomic Chair</SelectItem>
-                                            <SelectItem value="Visitor Chair">Visitor Chair</SelectItem>
-                                            <SelectItem value="Lounge Chair">Lounge Chair</SelectItem>
-                                            <SelectItem value="Stool">Stool</SelectItem>
-                                            <SelectItem value="Other">Other</SelectItem>
-                                          </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                )}
-
-                                {/* Short Description */}
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.shortDescription`}
-                                  render={({ field }) => {
-                                    const valLength = (field.value || "").length
-                                    const isValidLength = valLength >= 145 && valLength <= 260
-                                    return (
-                                      <FormItem className="space-y-1">
-                                        <div className="flex justify-between items-center">
-                                          <FormLabel className="text-xs font-semibold text-muted-foreground">Short Description *</FormLabel>
-                                          <span className={cn("text-[10px] font-medium", valLength > 0 && !isValidLength ? "text-destructive font-bold" : "text-muted-foreground")}>
-                                            {valLength} / 260 characters (Min 145)
-                                          </span>
-                                        </div>
-                                        <FormControl>
-                                          <Textarea
-                                            placeholder="Premium ergonomic chair designed for long-hour comfort with durable materials, executive aesthetics, and superior lumbar support for professional workspaces."
-                                            {...field}
-                                            rows={3}
-                                            className={cn(
-                                              "resize-none bg-muted/10 focus-visible:bg-background min-h-[80px]",
-                                              valLength > 0 && !isValidLength && "border-destructive focus-visible:ring-destructive"
-                                            )}
-                                          />
-                                        </FormControl>
-                                        {valLength > 0 && !isValidLength && (
-                                          <p className="text-[10px] text-destructive font-medium">
-                                            Short description must be between 145 and 260 characters.
-                                          </p>
-                                        )}
-                                        <FormMessage />
-                                      </FormItem>
-                                    )
-                                  }}
-                                />
-
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                              {/* Left Column: Image, Title, Type */}
+                              <div className="xl:col-span-4 space-y-4 flex flex-col">
                                 {/* Product Image Upload Zone */}
                                 <div className="space-y-2">
-                                  <FormLabel className="text-xs font-semibold text-muted-foreground">Product Image Upload</FormLabel>
+                                  <FormLabel className="text-xs font-semibold text-muted-foreground">Product Image</FormLabel>
                                   {watchItems[index]?.customImageUrl ? (
                                     <div className="flex items-center gap-4 p-3 border rounded-xl bg-muted/30">
                                       <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-sm">
@@ -1464,7 +1364,7 @@ function NewQuotationForm() {
                                           }}
                                           className="text-xs py-1 h-8"
                                         >
-                                          Crop / Adjust Image
+                                          Crop / Adjust
                                         </Button>
                                         <Button
                                           type="button"
@@ -1473,7 +1373,7 @@ function NewQuotationForm() {
                                           onClick={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
                                           className="text-xs py-1 h-8 text-destructive hover:bg-destructive/10 hover:text-destructive ml-2"
                                         >
-                                          Remove Image
+                                          Remove
                                         </Button>
                                       </div>
                                     </div>
@@ -1502,12 +1402,9 @@ function NewQuotationForm() {
                                         input?.click()
                                       }}
                                     >
-                                      <UploadCloud className="h-8 w-8 text-muted-foreground" />
-                                      <span className="text-xs font-semibold text-muted-foreground text-center">
-                                        Drag & drop or click to upload product image
-                                      </span>
-                                      <span className="text-[10px] text-muted-foreground text-center">
-                                        Supports JPG, PNG, WEBP
+                                      <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                                      <span className="text-[11px] font-semibold text-muted-foreground text-center">
+                                        Upload product image
                                       </span>
                                       <input
                                         id={`image-upload-input-${index}`}
@@ -1531,25 +1428,140 @@ function NewQuotationForm() {
                                   )}
                                 </div>
 
-                                {/* Technical Specifications */}
+                                {/* Product Name */}
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.description`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Product Name *</FormLabel>
+                                      <FormControl>
+                                        <Input placeholder="Enter product name" {...field} className="bg-muted/10 focus-visible:bg-background" />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  {/* Category Name */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.categoryName`}
+                                    render={({ field }) => (
+                                      <FormItem className="space-y-1">
+                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Category *</FormLabel>
+                                        <Select
+                                          onValueChange={(val) => {
+                                            field.onChange(val)
+                                            if (val !== "Chairs") {
+                                              form.setValue(`items.${index}.chairType`, "")
+                                            }
+                                          }}
+                                          value={field.value || "Chairs"}
+                                        >
+                                          <FormControl>
+                                            <SelectTrigger className="bg-muted/10 focus:bg-background">
+                                              <SelectValue placeholder="Category" />
+                                            </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent>
+                                            <SelectItem value="Chairs">Chairs</SelectItem>
+                                            <SelectItem value="Desks">Desks</SelectItem>
+                                            <SelectItem value="Tables">Tables</SelectItem>
+                                            <SelectItem value="General">General / Other</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Chair Type */}
+                                  {watchItems[index]?.categoryName === "Chairs" && (
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.chairType`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-xs font-semibold text-muted-foreground">Chair Type *</FormLabel>
+                                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                                            <FormControl>
+                                              <SelectTrigger className="bg-muted/10 focus:bg-background">
+                                                <SelectValue placeholder="Chair Type" />
+                                              </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                              <SelectItem value="Task Chair">Task Chair</SelectItem>
+                                              <SelectItem value="Executive Chair">Executive Chair</SelectItem>
+                                              <SelectItem value="Ergonomic Chair">Ergonomic Chair</SelectItem>
+                                              <SelectItem value="Visitor Chair">Visitor Chair</SelectItem>
+                                              <SelectItem value="Lounge Chair">Lounge Chair</SelectItem>
+                                              <SelectItem value="Stool">Stool</SelectItem>
+                                              <SelectItem value="Other">Other</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  )}
+                                </div>
+
+                                {/* Short Description */}
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.shortDescription`}
+                                  render={({ field }) => {
+                                    const valLength = (field.value || "").length
+                                    const isValidLength = valLength >= 145 && valLength <= 260
+                                    return (
+                                      <FormItem className="space-y-1">
+                                        <div className="flex justify-between items-center">
+                                          <FormLabel className="text-xs font-semibold text-muted-foreground">Short Description *</FormLabel>
+                                          <span className={cn("text-[9px] font-medium", valLength > 0 && !isValidLength ? "text-destructive font-bold" : "text-muted-foreground")}>
+                                            {valLength} / 260 (Min 145)
+                                          </span>
+                                        </div>
+                                        <FormControl>
+                                          <Textarea
+                                            placeholder="Premium ergonomic chair designed for long-hour comfort..."
+                                            {...field}
+                                            rows={3}
+                                            className={cn(
+                                              "resize-none bg-muted/10 focus-visible:bg-background text-xs min-h-[60px]",
+                                              valLength > 0 && !isValidLength && "border-destructive focus-visible:ring-destructive"
+                                            )}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )
+                                  }}
+                                />
+                              </div>
+
+                              {/* Middle Column: Specs & Notes */}
+                              <div className="xl:col-span-4 space-y-4 xl:border-l border-muted xl:pl-6 flex flex-col">
                                 <FormField
                                   control={form.control}
                                   name={`items.${index}.specifications`}
                                   render={({ field }) => (
-                                    <FormItem className="space-y-1">
-                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Technical Specifications</FormLabel>
-                                      <FormControl>
-                                        <RichTextEditor
-                                          placeholder="Technical specs, dimensions, materials..."
-                                          value={field.value || ""}
-                                          onChange={(val) => field.onChange(val)}
-                                        />
+                                    <FormItem className="space-y-1 flex-1 flex flex-col">
+                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Quotation Specifications</FormLabel>
+                                      <FormControl className="flex-1">
+                                        <div className="h-full min-h-[150px]">
+                                          <RichTextEditor
+                                            placeholder="Technical specs, dimensions, materials..."
+                                            value={field.value || ""}
+                                            onChange={(val) => field.onChange(val)}
+                                          />
+                                        </div>
                                       </FormControl>
                                     </FormItem>
                                   )}
                                 />
 
-                                {/* Special / Customization Notes */}
                                 <FormField
                                   control={form.control}
                                   name={`items.${index}.productNotes`}
@@ -1561,7 +1573,7 @@ function NewQuotationForm() {
                                           placeholder="Special instructions or customer specific requirements..."
                                           {...field}
                                           rows={3}
-                                          className="resize-none bg-muted/10 focus-visible:bg-background min-h-[80px]"
+                                          className="resize-none bg-muted/10 focus-visible:bg-background text-xs"
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -1570,186 +1582,190 @@ function NewQuotationForm() {
                                 />
                               </div>
 
-                              {/* Right Column: Pricing Math */}
-                              <div className="lg:col-span-6 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-muted pt-4 lg:pt-0 lg:pl-6 space-y-4">
-                                <div className="bg-muted/30 p-3 rounded-lg border border-muted/50">
-                                  <span className="text-xs font-semibold text-foreground block mb-0.5">Base Price Source</span>
-                                  <span className="text-amber-600 font-medium text-xs">Using Manual Base Price</span>
-                                </div>
+                              {/* Right Column: Pricing Controls */}
+                              <div className="xl:col-span-4 space-y-4 xl:border-l border-muted xl:pl-6 flex flex-col justify-between">
+                                <div className="space-y-4">
+                                  <div className="bg-muted/30 p-2.5 rounded-md border border-muted/50 flex justify-between items-center">
+                                    <span className="text-xs font-semibold text-foreground">Base Price Source</span>
+                                    <span className="text-amber-600 font-medium text-[11px] bg-amber-500/10 px-2 py-0.5 rounded">Manual Base Price</span>
+                                  </div>
 
-                                {/* Inputs Grid */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                  {/* Quantity */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.quantity`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Quantity</FormLabel>
-                                        <FormControl>
-                                          <NumericInput
-                                            type="number"
-                                            min="1"
-                                            className="h-9 font-medium"
-                                            value={field.value}
-                                            onChange={(val) => field.onChange(val === "" ? "" : (parseInt(val) || 0))}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
+                                  {/* 3x2 Grid for Pricing */}
+                                  <div className="grid grid-cols-3 gap-3">
+                                    {/* Quantity */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.quantity`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Quantity</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="1"
+                                              className="h-8 text-xs font-medium"
+                                              value={field.value}
+                                              onChange={(val) => field.onChange(val === "" ? "" : (parseInt(val) || 0))}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
 
-                                  {/* Base Price */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.basePrice`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Base Price</FormLabel>
-                                        <FormControl>
-                                          <NumericInput
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            className="h-9 font-mono"
-                                            value={field.value}
-                                            onChange={(val) => recalculateRow(index, "basePrice", val)}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
+                                    {/* Base Price */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.basePrice`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Base Price</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className="h-8 text-xs font-mono"
+                                              value={field.value}
+                                              onChange={(val) => recalculateRow(index, "basePrice", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
 
-                                  {/* Margin % */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.margin`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Margin (%)</FormLabel>
-                                        <FormControl>
-                                          <NumericInput
-                                            type="number"
-                                            min="-100"
-                                            max="99.9"
-                                            step="0.1"
-                                            className="h-9 font-mono"
-                                            value={field.value}
-                                            onChange={(val) => recalculateRow(index, "margin", val)}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
+                                    {/* Margin % */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.margin`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin (%)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="-100"
+                                              max="99.9"
+                                              step="0.1"
+                                              className="h-8 text-xs font-mono"
+                                              value={field.value}
+                                              onChange={(val) => recalculateRow(index, "margin", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
 
-                                  {/* Unit Price (AED) */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.unitPrice`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Unit Price (AED)</FormLabel>
-                                        <FormControl>
-                                          <NumericInput
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            className="h-9 font-mono bg-muted text-muted-foreground cursor-not-allowed"
-                                            disabled
-                                            value={field.value}
-                                            onChange={(val) => recalculateRow(index, "unitPrice", val)}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
+                                    {/* Unit Price */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.unitPrice`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Unit Price</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className="h-8 text-xs font-mono bg-muted/50 cursor-not-allowed"
+                                              disabled
+                                              value={field.value}
+                                              onChange={(val) => recalculateRow(index, "unitPrice", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
 
-                                  {/* Discount (%) */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.discount`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Discount (%)</FormLabel>
-                                        <FormControl>
-                                          <NumericInput
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            step="0.1"
-                                            className="h-9 font-mono text-destructive focus-visible:ring-destructive"
-                                            value={field.value}
-                                            onChange={(val) => field.onChange(val === "" ? "" : (parseFloat(val) || 0))}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
+                                    {/* Discount */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.discount`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount (%)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              max="100"
+                                              step="0.1"
+                                              className="h-8 text-xs font-mono text-destructive"
+                                              value={field.value}
+                                              onChange={(val) => field.onChange(val === "" ? "" : (parseFloat(val) || 0))}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
 
-                                  {/* Line Total */}
-                                  <div className="space-y-1 flex flex-col justify-end">
-                                    <span className="text-xs font-semibold text-muted-foreground block">Line Total</span>
-                                    <div className="h-9 px-3 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-between text-primary font-semibold font-mono text-sm shadow-inner">
-                                      <span className="text-[10px] text-primary/70">AED</span>
-                                      <span>
-                                        {(() => {
-                                          const qty = Number(watchItems[index]?.quantity) || 0
-                                          const price = Number(watchItems[index]?.unitPrice) || 0
-                                          const discPercent = Number(watchItems[index]?.discount) || 0
-                                          const discAmt = price * (discPercent / 100)
-                                          return ((price - discAmt) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                        })()}
-                                      </span>
+                                    {/* Line Total */}
+                                    <div className="space-y-1 flex flex-col justify-end">
+                                      <span className="text-[11px] font-semibold text-muted-foreground block">Line Total</span>
+                                      <div className="h-8 px-2 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-between text-primary font-semibold font-mono text-[11px] shadow-inner">
+                                        <span className="opacity-70">AED</span>
+                                        <span>
+                                          {(() => {
+                                            const qty = Number(watchItems[index]?.quantity) || 0
+                                            const price = Number(watchItems[index]?.unitPrice) || 0
+                                            const discPercent = Number(watchItems[index]?.discount) || 0
+                                            const discAmt = price * (discPercent / 100)
+                                            return ((price - discAmt) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                          })()}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
 
-                                {/* Math Helper Text + Remove Line + Add Custom Item */}
-                                <div className="flex flex-col items-end gap-2 pt-2">
-                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
-                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2.5 py-1 rounded self-start">
-                                      <Info className="h-3.5 w-3.5 text-muted-foreground/75 shrink-0" />
-                                      <span>Formula: Base Price ÷ (1 - Margin %)</span>
-                                    </div>
-
+                                {/* Math Helper & Actions */}
+                                <div className="flex flex-col gap-2 pt-4 mt-auto">
+                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2 py-1 rounded">
+                                    <Info className="h-3 w-3 text-muted-foreground/75 shrink-0" />
+                                    <span>Base Price ÷ (1 - Margin %)</span>
+                                  </div>
+                                  <div className="flex gap-2 w-full">
                                     {fields.length > 1 && (
                                       <Button
                                         type="button"
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => remove(index)}
-                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs py-1 h-7 rounded px-2.5 ml-auto flex items-center gap-1"
+                                        className="text-destructive hover:bg-destructive/10 flex-1 h-8 text-[11px]"
                                       >
-                                        <Trash2 className="h-3.5 w-3.5" />
+                                        <Trash2 className="h-3.5 w-3.5 mr-1" />
                                         Remove Line
                                       </Button>
                                     )}
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex-1 h-8 text-[11px]"
+                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", shortDescription: "", categoryName: "Chairs", chairType: "" })}
+                                    >
+                                      <Plus className="h-3.5 w-3.5 mr-1" />
+                                      Add Custom Item
+                                    </Button>
                                   </div>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full sm:w-auto mt-1 flex items-center gap-1.5"
-                                    onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", shortDescription: "", categoryName: "Chairs", chairType: "" })}
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                    Add Custom Item
-                                  </Button>
                                 </div>
                               </div>
                             </div>
                           )
-                        } else {
+                        }
+
+
+                        else {
                           // Standard Product
                           return (
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                              {/* Left Column: Image, Title, Specs & Notes */}
-                              <div className="lg:col-span-6 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                              {/* Left Column: Image & Title */}
+                              <div className="xl:col-span-4 space-y-4 flex flex-col">
                                 <div className="flex gap-4">
                                   {/* Thumbnail Image */}
                                   {(() => {
@@ -1775,7 +1791,7 @@ function NewQuotationForm() {
                                         <FormItem className="space-y-1">
                                           <FormLabel className="text-xs font-semibold text-muted-foreground">Product Name</FormLabel>
                                           <FormControl>
-                                            <Input placeholder="Product name" {...field} className="bg-muted text-muted-foreground cursor-not-allowed" disabled />
+                                            <Input placeholder="Product name" {...field} className="bg-muted text-muted-foreground text-xs cursor-not-allowed" disabled />
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
@@ -1783,300 +1799,301 @@ function NewQuotationForm() {
                                     />
                                   </div>
                                 </div>
+                              </div>
 
-                                {/* Specifications & Notes */}
-                                <div className="flex flex-col gap-4">
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.specifications`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Quotation Specifications</FormLabel>
-                                        <FormControl>
+                              {/* Middle Column: Specs & Notes */}
+                              <div className="xl:col-span-4 space-y-4 xl:border-l border-muted xl:pl-6 flex flex-col">
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.specifications`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1 flex-1 flex flex-col">
+                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Quotation Specifications</FormLabel>
+                                      <FormControl className="flex-1">
+                                        <div className="h-full min-h-[150px]">
                                           <RichTextEditor
                                             placeholder="Technical specs, dimensions, materials..."
                                             value={field.value || ""}
                                             onChange={(val) => field.onChange(val)}
                                           />
-                                        </FormControl>
-                                      </FormItem>
-                                    )}
-                                  />
+                                        </div>
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
 
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.productNotes`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Special / Customization Notes</FormLabel>
-                                        <FormControl>
-                                          <Textarea
-                                            placeholder="Special instructions or customer specific requirements..."
-                                            {...field}
-                                            rows={4}
-                                            className="resize-none bg-muted/10 focus-visible:bg-background min-h-[96px]"
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                </div>
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.productNotes`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Special / Customization Notes</FormLabel>
+                                      <FormControl>
+                                        <Textarea
+                                          placeholder="Special instructions or customer specific requirements..."
+                                          {...field}
+                                          rows={3}
+                                          className="resize-none bg-muted/10 focus-visible:bg-background text-xs min-h-[60px]"
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
                               </div>
 
-                              {/* Right Column: Pricing Math & Source Selector */}
-                              <div className="lg:col-span-6 flex flex-col justify-between border-t lg:border-t-0 lg:border-l border-muted pt-4 lg:pt-0 lg:pl-6 space-y-4">
-                                {/* Price Source & Helper Row */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-3 rounded-lg border border-muted/50">
-                                  <div className="space-y-0.5">
-                                    <span className="text-xs font-semibold text-foreground">Base Price Source</span>
-                                    <div className="text-[11px] text-muted-foreground">
-                                      {(() => {
-                                        const info = getSegmentPriceInfo(watchItems[index]?.productId)
-                                        if (watchItems[index]?.priceSource === "standard" && info) {
-                                          return (
-                                            <span className="text-primary font-medium flex items-center gap-1">
-                                              <Check className="h-3 w-3 text-emerald-500" />
-                                              Using {info.label}: AED {info.price.toFixed(2)}
-                                            </span>
-                                          )
-                                        }
-                                        return <span className="text-amber-600 font-medium">Using Manual Base Price</span>
-                                      })()}
+                              {/* Right Column: Pricing Controls */}
+                              <div className="xl:col-span-4 space-y-4 xl:border-l border-muted xl:pl-6 flex flex-col justify-between">
+                                <div className="space-y-4">
+                                  {/* Price Source & Helper Row */}
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-2.5 rounded-md border border-muted/50">
+                                    <div className="space-y-0.5">
+                                      <span className="text-xs font-semibold text-foreground">Base Price Source</span>
+                                      <div className="text-[10px] text-muted-foreground">
+                                        {(() => {
+                                          const info = getSegmentPriceInfo(watchItems[index]?.productId)
+                                          if (watchItems[index]?.priceSource === "standard" && info) {
+                                            return (
+                                              <span className="text-primary font-medium flex items-center gap-1">
+                                                <Check className="h-3 w-3 text-emerald-500" />
+                                                Using {info.label}: AED {info.price.toFixed(2)}
+                                              </span>
+                                            )
+                                          }
+                                          return <span className="text-amber-600 font-medium">Using Manual Base Price</span>
+                                        })()}
+                                      </div>
+                                    </div>
+
+                                    {/* Pricing Segment Toggle */}
+                                    <div className="flex items-center gap-1 bg-background border border-muted-foreground/10 p-1 rounded-md shrink-0">
+                                      <button
+                                        type="button"
+                                        disabled={!watchItems[index]?.productId}
+                                        onClick={() => {
+                                          form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
+                                          recalculateRow(index, "priceSource", "standard")
+                                        }}
+                                        className={cn(
+                                          "px-2 py-1 text-[10px] font-medium rounded transition-all",
+                                          watchItems[index]?.priceSource === "standard"
+                                            ? "bg-primary text-primary-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground disabled:opacity-40"
+                                        )}
+                                      >
+                                        Standard Price
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          form.setValue(`items.${index}.priceSource`, "manual", { shouldValidate: true, shouldDirty: true })
+                                          recalculateRow(index, "priceSource", "manual")
+                                        }}
+                                        className={cn(
+                                          "px-2 py-1 text-[10px] font-medium rounded transition-all",
+                                          watchItems[index]?.priceSource === "manual"
+                                            ? "bg-primary text-primary-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground"
+                                        )}
+                                      >
+                                        Manual Price
+                                      </button>
                                     </div>
                                   </div>
 
-                                  {/* Pricing Segment Toggle */}
-                                  <div className="flex items-center gap-1 bg-background border border-muted-foreground/10 p-1 rounded-md shrink-0">
-                                    <button
-                                      type="button"
-                                      disabled={!watchItems[index]?.productId}
-                                      onClick={() => {
-                                        form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
-                                        recalculateRow(index, "priceSource", "standard")
-                                      }}
-                                      className={cn(
-                                        "px-2.5 py-1 text-[11px] font-medium rounded transition-all",
-                                        watchItems[index]?.priceSource === "standard"
-                                          ? "bg-primary text-primary-foreground shadow-sm"
-                                          : "text-muted-foreground hover:text-foreground disabled:opacity-40"
-                                      )}
-                                    >
-                                      Standard Price
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        form.setValue(`items.${index}.priceSource`, "manual", { shouldValidate: true, shouldDirty: true })
-                                        recalculateRow(index, "priceSource", "manual")
-                                      }}
-                                      className={cn(
-                                        "px-2.5 py-1 text-[11px] font-medium rounded transition-all",
-                                        watchItems[index]?.priceSource === "manual"
-                                          ? "bg-primary text-primary-foreground shadow-sm"
-                                          : "text-muted-foreground hover:text-foreground"
-                                      )}
-                                    >
-                                      Manual Price
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Inputs Grid */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                  {/* Quantity */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.quantity`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Quantity</FormLabel>
-                                        <FormControl>
-                                          <NumericInput
-                                            type="number"
-                                            min="1"
-                                            className="h-9 font-medium"
-                                            value={field.value}
-                                            onChange={(val) => {
-                                              field.onChange(val === "" ? "" : (parseInt(val) || 0))
-                                            }}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-
-                                  {/* Base Price */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.basePrice`}
-                                    render={({ field }) => {
-                                      const isStandard = watchItems[index]?.priceSource === "standard"
-                                      return (
+                                  {/* 3x2 Grid for Pricing */}
+                                  <div className="grid grid-cols-3 gap-3">
+                                    {/* Quantity */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.quantity`}
+                                      render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                                            Base Price
-                                            {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
-                                          </FormLabel>
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Quantity</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
-                                              min="0"
-                                              step="0.01"
-                                              className={cn("h-9 font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
-                                              disabled={isStandard}
+                                              min="1"
+                                              className="h-8 text-xs font-medium"
                                               value={field.value}
                                               onChange={(val) => {
-                                                recalculateRow(index, "basePrice", val)
+                                                field.onChange(val === "" ? "" : (parseInt(val) || 0))
                                               }}
                                             />
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
-                                      )
-                                    }}
-                                  />
+                                      )}
+                                    />
 
-                                  {/* Margin % */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.margin`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Margin (%)</FormLabel>
-                                        <FormControl>
-                                          <NumericInput
-                                            type="number"
-                                            min="-100"
-                                            max="99.9"
-                                            step="0.1"
-                                            className="h-9 font-mono"
-                                            value={field.value}
-                                            onChange={(val) => {
-                                              recalculateRow(index, "margin", val)
-                                            }}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
+                                    {/* Base Price */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.basePrice`}
+                                      render={({ field }) => {
+                                        const isStandard = watchItems[index]?.priceSource === "standard"
+                                        return (
+                                          <FormItem className="space-y-1">
+                                            <FormLabel className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                                              Base Price
+                                              {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                            </FormLabel>
+                                            <FormControl>
+                                              <NumericInput
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                className={cn("h-8 text-xs font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
+                                                disabled={isStandard}
+                                                value={field.value}
+                                                onChange={(val) => {
+                                                  recalculateRow(index, "basePrice", val)
+                                                }}
+                                              />
+                                            </FormControl>
+                                            <FormMessage />
+                                          </FormItem>
+                                        )
+                                      }}
+                                    />
 
-                                  {/* Unit Price (AED) */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.unitPrice`}
-                                    render={({ field }) => {
-                                      const isStandard = watchItems[index]?.priceSource === "standard"
-                                      return (
+                                    {/* Margin % */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.margin`}
+                                      render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
-                                            Unit Price (AED)
-                                            {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
-                                          </FormLabel>
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin (%)</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
-                                              min="0"
-                                              step="0.01"
-                                              className={cn("h-9 font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
-                                              disabled={isStandard}
+                                              min="-100"
+                                              max="99.9"
+                                              step="0.1"
+                                              className="h-8 text-xs font-mono"
                                               value={field.value}
                                               onChange={(val) => {
-                                                recalculateRow(index, "unitPrice", val)
+                                                recalculateRow(index, "margin", val)
                                               }}
                                             />
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
-                                      )
-                                    }}
-                                  />
+                                      )}
+                                    />
 
-                                  {/* Discount (%) */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.discount`}
-                                    render={({ field }) => (
-                                      <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Discount (%)</FormLabel>
-                                        <FormControl>
-                                          <NumericInput
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            step="0.1"
-                                            className="h-9 font-mono text-destructive focus-visible:ring-destructive"
-                                            value={field.value}
-                                            onChange={(val) => {
-                                              field.onChange(val === "" ? "" : (parseFloat(val) || 0))
-                                            }}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
+                                    {/* Unit Price (AED) */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.unitPrice`}
+                                      render={({ field }) => {
+                                        const isStandard = watchItems[index]?.priceSource === "standard"
+                                        return (
+                                          <FormItem className="space-y-1">
+                                            <FormLabel className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                                              Unit Price
+                                              {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
+                                            </FormLabel>
+                                            <FormControl>
+                                              <NumericInput
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                className={cn("h-8 text-xs font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
+                                                disabled={isStandard}
+                                                value={field.value}
+                                                onChange={(val) => {
+                                                  recalculateRow(index, "unitPrice", val)
+                                                }}
+                                              />
+                                            </FormControl>
+                                            <FormMessage />
+                                          </FormItem>
+                                        )
+                                      }}
+                                    />
 
-                                  {/* Calculated Line Total Display */}
-                                  <div className="space-y-1 flex flex-col justify-end">
-                                    <span className="text-xs font-semibold text-muted-foreground block">Line Total</span>
-                                    <div className="h-9 px-3 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-between text-primary font-semibold font-mono text-sm shadow-inner">
-                                      <span className="text-[10px] text-primary/70">AED</span>
-                                      <span>
-                                        {(() => {
-                                          const qty = Number(watchItems[index]?.quantity) || 0
-                                          const price = Number(watchItems[index]?.unitPrice) || 0
-                                          const discPercent = Number(watchItems[index]?.discount) || 0
-                                          const discAmt = price * (discPercent / 100)
-                                          return ((price - discAmt) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                        })()}
-                                      </span>
+                                    {/* Discount (%) */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.discount`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount (%)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              max="100"
+                                              step="0.1"
+                                              className="h-8 text-xs font-mono text-destructive focus-visible:ring-destructive"
+                                              value={field.value}
+                                              onChange={(val) => {
+                                                field.onChange(val === "" ? "" : (parseFloat(val) || 0))
+                                              }}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {/* Calculated Line Total Display */}
+                                    <div className="space-y-1 flex flex-col justify-end">
+                                      <span className="text-[11px] font-semibold text-muted-foreground block">Line Total</span>
+                                      <div className="h-8 px-2 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-between text-primary font-semibold font-mono text-[11px] shadow-inner">
+                                        <span className="opacity-70">AED</span>
+                                        <span>
+                                          {(() => {
+                                            const qty = Number(watchItems[index]?.quantity) || 0
+                                            const price = Number(watchItems[index]?.unitPrice) || 0
+                                            const discPercent = Number(watchItems[index]?.discount) || 0
+                                            const discAmt = price * (discPercent / 100)
+                                            return ((price - discAmt) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                          })()}
+                                        </span>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
 
                                 {/* Visual Helper + Delete Row + Add Custom Item */}
-                                <div className="flex flex-col items-end gap-2 pt-2">
-                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
-                                    {/* Math Helper Text */}
-                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2.5 py-1 rounded self-start">
-                                      <Info className="h-3.5 w-3.5 text-muted-foreground/75 shrink-0" />
-                                      <span>
-                                        Formula: Base Price ÷ (1 - Margin %)
-                                      </span>
-                                    </div>
-
-                                    {/* Delete Row button */}
+                                <div className="flex flex-col gap-2 pt-4 mt-auto">
+                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2 py-1 rounded">
+                                    <Info className="h-3 w-3 text-muted-foreground/75 shrink-0" />
+                                    <span>Formula: Base Price ÷ (1 - Margin %)</span>
+                                  </div>
+                                  
+                                  <div className="flex gap-2 w-full">
                                     {fields.length > 1 && (
                                       <Button
                                         type="button"
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => remove(index)}
-                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs py-1 h-7 rounded px-2.5 ml-auto flex items-center gap-1"
+                                        className="text-destructive hover:bg-destructive/10 flex-1 h-8 text-[11px]"
                                       >
-                                        <Trash2 className="h-3.5 w-3.5" />
+                                        <Trash2 className="h-3.5 w-3.5 mr-1" />
                                         Remove Line
                                       </Button>
                                     )}
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="flex-1 h-8 text-[11px]"
+                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", shortDescription: "", categoryName: "Chairs", chairType: "" })}
+                                    >
+                                      <Plus className="h-3.5 w-3.5 mr-1" />
+                                      Add Custom Item
+                                    </Button>
                                   </div>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full sm:w-auto mt-1 flex items-center gap-1.5"
-                                    onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", shortDescription: "", categoryName: "Chairs", chairType: "" })}
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                    Add Custom Item
-                                  </Button>
                                 </div>
                               </div>
                             </div>
                           )
                         }
+
                       })()}
                     </div>
                   )
