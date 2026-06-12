@@ -625,9 +625,11 @@ function NewQuotationForm() {
   let vatAmount = 0
   let grandTotal = 0
   if (watchVatMode === "INCLUDING") {
-    vatAmount = taxableAmount - (taxableAmount / 1.05)
+    // Exclude Tax (VAT is 0)
+    vatAmount = 0
     grandTotal = taxableAmount
   } else {
+    // Include Tax (Add 5%)
     vatAmount = taxableAmount * 0.05
     grandTotal = taxableAmount + vatAmount
   }
@@ -2112,8 +2114,8 @@ function NewQuotationForm() {
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="EXCLUDING">VAT Exclusive (Standard)</SelectItem>
-                                  <SelectItem value="INCLUDING">VAT Inclusive</SelectItem>
+                                  <SelectItem value="EXCLUDING">Include Tax</SelectItem>
+                                  <SelectItem value="INCLUDING">Exclude Tax</SelectItem>
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -2411,20 +2413,16 @@ function NewQuotationForm() {
                       )}
 
                       {/* VAT */}
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground flex items-center gap-1.5">
-                          VAT (5%)
-                          {watchVatMode === "INCLUDING" && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-medium">Inclusive</span>
-                          )}
-                        </span>
-                        <span className="font-medium font-mono">
-                          {watchVatMode === "INCLUDING" ? (
-                            <span className="text-muted-foreground text-[11px] mr-1.5">(VAT Included)</span>
-                          ) : null}
-                          AED {vatAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
+                      {watchVatMode !== "INCLUDING" && (
+                        <div className="flex items-center justify-between text-muted-foreground/80 font-medium">
+                          <span className="flex items-center gap-1.5">
+                            VAT (5%)
+                          </span>
+                          <span className="font-mono flex items-center">
+                            AED {vatAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Grand Total */}

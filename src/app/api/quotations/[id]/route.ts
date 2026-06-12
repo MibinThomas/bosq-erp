@@ -352,9 +352,11 @@ export async function PUT(
       let grandTotal = 0
 
       if (resolvedVatMode === "INCLUDING") {
-        vatAmount = taxableAmount - (taxableAmount / 1.05)
+        // Exclude Tax
+        vatAmount = 0
         grandTotal = taxableAmount
       } else {
+        // Include Tax
         vatAmount = taxableAmount * 0.05
         grandTotal = taxableAmount + vatAmount
       }
@@ -720,9 +722,11 @@ export async function PUT(
       let grandTotal = 0
 
       if (resolvedVatMode === "INCLUDING") {
-        vatAmount = taxableAmount - (taxableAmount / 1.05)
+        // Exclude Tax
+        vatAmount = 0
         grandTotal = taxableAmount
       } else {
+        // Include Tax
         vatAmount = taxableAmount * 0.05
         grandTotal = taxableAmount + vatAmount
       }

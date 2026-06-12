@@ -898,13 +898,15 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               )}
 
               {/* 6. VAT */}
-              <View style={styles.leaderRow}>
-                <Text style={styles.totalsLabel}>
-                  VAT (5%){vatMode === "INCLUDING" ? " Inclusive" : ""}
-                </Text>
-                <View style={styles.leaderDots} />
-                <Text style={styles.totalsValue}>AED {formatCurrency(vatAmount)}</Text>
-              </View>
+              {vatMode !== "INCLUDING" && (
+                <View style={styles.leaderRow}>
+                  <Text style={styles.totalsLabel}>
+                    VAT (5%)
+                  </Text>
+                  <View style={styles.leaderDots} />
+                  <Text style={styles.totalsValue}>AED {formatCurrency(vatAmount)}</Text>
+                </View>
+              )}
 
               {/* 7. Grand Total */}
               <View style={styles.grandTotalRow}>
