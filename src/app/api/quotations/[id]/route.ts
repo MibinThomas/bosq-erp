@@ -260,9 +260,7 @@ export async function PUT(
 
       // Validate VAT Mode Override
       const resolvedVatMode = vatMode || "EXCLUDING"
-      if (resolvedVatMode === "INCLUDING" && !allowedCanOverrideVat) {
-        return NextResponse.json({ error: "Forbidden: You do not have permission to override VAT mode to Inclusive" }, { status: 403 })
-      }
+      // Removed VAT override restriction to allow any user to select Exclude Tax
 
       // Validate Additional Costs
       const parsedAdditionalCharges = Array.isArray(additionalCharges) ? additionalCharges : []
@@ -631,9 +629,7 @@ export async function PUT(
 
       // Validate VAT Mode Override
       const resolvedVatMode = vatMode || "EXCLUDING"
-      if (resolvedVatMode === "INCLUDING" && !allowedCanOverrideVat) {
-        return NextResponse.json({ error: "Forbidden: You do not have permission to override VAT mode to Inclusive" }, { status: 403 })
-      }
+      // Removed VAT override restriction to allow any user to select Exclude Tax
 
       // Validate Additional Costs
       const parsedAdditionalCharges = Array.isArray(additionalCharges) ? additionalCharges : []

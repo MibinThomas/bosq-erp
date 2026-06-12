@@ -2095,18 +2095,14 @@ function NewQuotationForm() {
                         control={form.control}
                         name="vatMode"
                         render={({ field }) => {
-                          const isSuperAdmin = userRole === "SUPER_ADMIN"
-                          const allowedVatOverride = isSuperAdmin ? true : (userPermissions?.canOverrideVat ?? false)
                           return (
                             <FormItem>
                               <FormLabel className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
                                 VAT Mode
-                                {!allowedVatOverride && <Lock className="h-3 w-3 text-muted-foreground/50" />}
                               </FormLabel>
                               <Select
                                 onValueChange={field.onChange}
                                 value={field.value}
-                                disabled={!allowedVatOverride}
                               >
                                 <FormControl>
                                   <SelectTrigger className="h-9 bg-card">
