@@ -142,11 +142,11 @@ const ProductSearchSelect = React.memo(({
             role="combobox"
             title={label || "Search catalog product by name or code..."}
             className={cn(
-              "w-full justify-between font-normal bg-card",
+              "w-full justify-between font-normal bg-card overflow-hidden",
               !productId && "text-muted-foreground"
             )}
           >
-            <span className="truncate flex-1 text-left max-w-[calc(100%-24px)]">
+            <span className="block truncate flex-1 text-left min-w-0">
               {productId ? label : "Search catalog product by name or code..."}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -156,7 +156,7 @@ const ProductSearchSelect = React.memo(({
       <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[650px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search products..." />
-          <CommandList className="max-h-[350px]">
+          <CommandList className="max-h-[350px] overflow-y-auto overflow-x-hidden">
             <CommandEmpty className="p-3 text-center flex flex-col items-center justify-center">
               <p className="text-xs text-muted-foreground mb-2">No product found.</p>
               <Button
@@ -193,7 +193,7 @@ const ProductSearchSelect = React.memo(({
                     }}
                     className="p-2 border-b last:border-b-0 border-muted/50 aria-selected:bg-muted/40 cursor-pointer"
                   >
-                    <div className="flex items-start gap-4 w-full">
+                    <div className="flex items-start gap-4 w-full min-w-0">
                       {/* Product Thumbnail */}
                       <div className="h-14 w-14 shrink-0 border rounded-md overflow-hidden flex items-center justify-center bg-white shadow-sm">
                         {product.imageUrl ? (
@@ -205,15 +205,19 @@ const ProductSearchSelect = React.memo(({
                       
                       {/* Product Details Stack */}
                       <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-[13px] text-foreground truncate" title={product.productName}>
+                        <span className="font-semibold text-[13px] text-foreground line-clamp-2 leading-tight" title={product.productName}>
                           {product.productName}
                         </span>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                          <span className="truncate">SKU: <span className="font-medium text-foreground/80">{product.productCode}</span></span>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground mt-1">
+                          <span className="truncate" title={`SKU: ${product.productCode}`}>
+                            SKU: <span className="font-medium text-foreground/80">{product.productCode}</span>
+                          </span>
                           {(product as any).category?.name && (
                             <>
-                              <span className="text-muted-foreground/30">•</span>
-                              <span className="truncate">Category: {(product as any).category.name}</span>
+                              <span className="text-muted-foreground/30 hidden sm:inline">•</span>
+                              <span className="truncate" title={`Category: ${(product as any).category.name}`}>
+                                Category: {(product as any).category.name}
+                              </span>
                             </>
                           )}
                         </div>
@@ -2101,351 +2105,382 @@ function NewQuotationForm() {
               </CardContent>
 
               {/* Financial Calculation Footer */}
-              <CardFooter className="border-t pt-6 bg-muted/5 shadow-inner">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full">
-                  {/* Left Column: Pricing Controls (Additional Cost, Special Discount, VAT Mode) */}
-                  <div className="lg:col-span-7 space-y-6">
-                    {/* Top Row: VAT Mode & Discount Type */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* VAT Mode */}
-                      <FormField
-                        control={form.control}
-                        name="vatMode"
-                        render={({ field }) => {
-                          return (
-                            <FormItem>
-                              <FormLabel className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                                VAT Mode
-                              </FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                value={field.value}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="h-9 bg-card">
-                                    <SelectValue placeholder="Select VAT Mode" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="EXCLUDING">Include Tax</SelectItem>
-                                  <SelectItem value="INCLUDING">Exclude Tax</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )
-                        }}
-                      />
-
-                      {/* Special Discount Type */}
-                      <FormField
-                        control={form.control}
-                        name="specialDiscountType"
-                        render={({ field }) => {
-                          const isSuperAdmin = userRole === "SUPER_ADMIN"
-                          const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
-                          const hasDiscountAccess = isSuperAdmin || allowedDiscount > 0
-                          return (
-                            <FormItem>
-                              <FormLabel className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                                Special Discount Type
-                                {!hasDiscountAccess && <Lock className="h-3 w-3 text-muted-foreground/50" />}
-                              </FormLabel>
-                              <Select
-                                onValueChange={(val) => {
-                                  field.onChange(val === "none" ? null : val)
-                                  if (val === "none") {
-                                    form.setValue("specialDiscountValue", 0)
-                                    form.setValue("specialDiscountReason", "")
-                                  }
-                                }}
-                                value={field.value || "none"}
-                                disabled={!hasDiscountAccess}
-                              >
-                                <FormControl>
-                                  <SelectTrigger className="h-9 bg-card">
-                                    <SelectValue placeholder="No Discount" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="none">No Discount</SelectItem>
-                                  <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
-                                  <SelectItem value="FIXED">Fixed Amount (AED)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )
-                        }}
-                      />
-
-                      {/* Special Discount Value */}
-                      {watchSpecialDiscountType && (
-                        <FormField
-                          control={form.control}
-                          name="specialDiscountValue"
-                          render={({ field }) => {
-                            const val = field.value === 0 ? "" : field.value
-                            return (
-                              <FormItem className="animate-in fade-in duration-200">
-                                <FormLabel className="text-xs font-semibold text-muted-foreground">
-                                  Discount Value {watchSpecialDiscountType === "PERCENTAGE" ? "(%)" : "(AED)"}
-                                </FormLabel>
-                                <FormControl>
-                                  <Input
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    className="h-9 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                    value={val}
-                                    onChange={(e) => {
-                                      const rawVal = e.target.value
-                                      const numVal = rawVal === "" ? 0 : parseFloat(rawVal) || 0
-                                      field.onChange(rawVal === "" ? "" : numVal)
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )
-                          }}
-                        />
-                      )}
-                    </div>
-
-                    {/* Special Discount Reason */}
-                    {watchSpecialDiscountType && (
-                      <FormField
-                        control={form.control}
-                        name="specialDiscountReason"
-                        render={({ field }) => (
-                          <FormItem className="mt-3 animate-in fade-in duration-200">
-                            <FormLabel className="text-xs font-semibold text-muted-foreground">Discount Reason (Optional)</FormLabel>
+              <CardFooter className="border-t pt-8 bg-muted/5 shadow-inner flex flex-col gap-8 w-full">
+                {/* 1. Discount & Tax Settings Section */}
+                <div className="w-full space-y-4">
+                  <h4 className="text-sm font-semibold text-foreground tracking-wider uppercase border-b pb-2">Discount & Tax Settings</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end bg-card p-5 rounded-xl border shadow-sm">
+                    {/* VAT Mode */}
+                    <FormField
+                      control={form.control}
+                      name="vatMode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-semibold text-muted-foreground">
+                            VAT Mode
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <Input
-                                placeholder="e.g. Special Approval, Project Discount"
-                                className="h-9 bg-card"
-                                {...field}
-                              />
+                              <SelectTrigger className="h-10 bg-background border-muted-foreground/20">
+                                <SelectValue placeholder="Select VAT Mode" />
+                              </SelectTrigger>
                             </FormControl>
+                            <SelectContent>
+                              <SelectItem value="EXCLUDING">Include Tax</SelectItem>
+                              <SelectItem value="INCLUDING">Exclude Tax</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Special Discount Type */}
+                    <FormField
+                      control={form.control}
+                      name="specialDiscountType"
+                      render={({ field }) => {
+                        const isSuperAdmin = userRole === "SUPER_ADMIN"
+                        const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
+                        const hasDiscountAccess = isSuperAdmin || allowedDiscount > 0
+                        return (
+                          <FormItem>
+                            <FormLabel className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                              Special Discount Type
+                              {!hasDiscountAccess && <Lock className="h-3 w-3 text-muted-foreground/50" />}
+                            </FormLabel>
+                            <Select
+                              onValueChange={(val) => {
+                                field.onChange(val === "none" ? null : val)
+                                if (val === "none") {
+                                  form.setValue("specialDiscountValue", 0)
+                                  form.setValue("specialDiscountReason", "")
+                                }
+                              }}
+                              value={field.value || "none"}
+                              disabled={!hasDiscountAccess}
+                            >
+                              <FormControl>
+                                <SelectTrigger className="h-10 bg-background border-muted-foreground/20">
+                                  <SelectValue placeholder="No Discount" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="none">No Discount</SelectItem>
+                                <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
+                                <SelectItem value="FIXED">Fixed Amount (AED)</SelectItem>
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
-                        )}
-                      />
-                    )}
-
-                    {/* Discount Limit Exceeded Warning */}
-                    {(() => {
-                      const isSuperAdmin = userRole === "SUPER_ADMIN"
-                      const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
-                      
-                      let currentAppliedDiscountPercent = 0
-                      const discValue = Number(watchSpecialDiscountValue) || 0
-                      if (discValue > 0) {
-                        if (watchSpecialDiscountType === "PERCENTAGE") {
-                          currentAppliedDiscountPercent = discValue
-                        } else if (watchSpecialDiscountType === "FIXED") {
-                          const baseForDiscount = subtotal + totalAdditionalCost
-                          currentAppliedDiscountPercent = baseForDiscount > 0 ? (discValue / baseForDiscount) * 100 : 0
-                        }
-                      }
-
-                      const isLimitExceeded = currentAppliedDiscountPercent > allowedDiscount
-                      if (isLimitExceeded) {
-                        return (
-                          <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-xl p-4 flex items-start gap-3 mt-3 animate-in shake duration-300">
-                            <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                            <div>
-                              <h5 className="font-semibold text-xs">Discount Limit Exceeded</h5>
-                              <p className="text-[11px] text-muted-foreground mt-0.5">
-                                Your role's maximum discount is **{allowedDiscount}%**. Currently applying **{currentAppliedDiscountPercent.toFixed(2)}%**. You will be blocked on submission.
-                              </p>
-                            </div>
-                          </div>
                         )
-                      }
-                      return null
-                    })()}
+                      }}
+                    />
 
-                    {/* Additional Cost Repeater */}
-                    <div className="border-t pt-6 mt-6">
-                      <div className="mb-4">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="text-sm font-semibold text-foreground">Additional Cost</h4>
-                          {(() => {
-                            const isSuperAdmin = userRole === "SUPER_ADMIN"
-                            const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
-                            const isNewQuote = !existingQuote
-                            const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
-                            return !allowedAddCustomCharges && <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
-                          })()}
-                        </div>
-                        <p className="text-xs text-muted-foreground">Add/edit additional cost for the order</p>
-                      </div>
-
-                      {/* Repeater Rows */}
-                      <div className="space-y-3">
-                        {additionalFields.map((field, index) => {
-                          const isSuperAdmin = userRole === "SUPER_ADMIN"
-                          const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
-                          const isNewQuote = !existingQuote
-                          const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
-                          
+                    {/* Special Discount Value */}
+                    {watchSpecialDiscountType ? (
+                      <FormField
+                        control={form.control}
+                        name="specialDiscountValue"
+                        render={({ field }) => {
+                          const val = field.value === 0 ? "" : field.value
                           return (
-                            <div key={field.id} className="flex items-center gap-3 animate-in fade-in duration-200">
-                              {/* Left side remove button */}
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                disabled={additionalFields.length === 1 || !allowedAddCustomCharges}
-                                onClick={() => removeAdditional(index)}
-                                className="h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0 cursor-pointer disabled:opacity-40"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-
-                              {/* Cost Item Description */}
-                              <div className="flex-1">
-                                <FormField
-                                  control={form.control}
-                                  name={`additionalCharges.${index}.name`}
-                                  render={({ field }) => (
-                                    <FormControl>
-                                      <Input
-                                        placeholder="Enter cost item"
-                                        className="h-9 bg-card"
-                                        disabled={!allowedAddCustomCharges}
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                  )}
-                                />
-                              </div>
-
-                              {/* Cost Item Amount */}
-                              <div className="w-36">
-                                <FormField
-                                  control={form.control}
-                                  name={`additionalCharges.${index}.amount`}
-                                  render={({ field }) => {
-                                    const val = field.value === 0 ? "" : field.value
-                                    return (
-                                      <FormControl>
-                                        <div className="relative flex items-center">
-                                          <span className="absolute left-3 text-xs font-semibold text-muted-foreground font-mono">AED</span>
-                                          <Input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            className="h-9 pl-11 pr-3 font-mono text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none bg-card w-full"
-                                            disabled={!allowedAddCustomCharges}
-                                            value={val}
-                                            onChange={(e) => {
-                                              const rawVal = e.target.value
-                                              const numVal = rawVal === "" ? "" : parseFloat(rawVal) || 0
-                                              field.onChange(numVal)
-                                            }}
-                                          />
-                                        </div>
-                                      </FormControl>
-                                    )
+                            <FormItem className="animate-in fade-in duration-200">
+                              <FormLabel className="text-xs font-semibold text-muted-foreground">
+                                Discount Value {watchSpecialDiscountType === "PERCENTAGE" ? "(%)" : "(AED)"}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  className="h-10 bg-background border-muted-foreground/20 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  value={val}
+                                  onChange={(e) => {
+                                    const rawVal = e.target.value
+                                    const numVal = rawVal === "" ? 0 : parseFloat(rawVal) || 0
+                                    field.onChange(rawVal === "" ? "" : numVal)
                                   }}
                                 />
-                              </div>
-                            </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
                           )
-                        })}
+                        }}
+                      />
+                    ) : (
+                      <div className="h-[68px] hidden md:block"></div>
+                    )}
 
+                    {/* Preview / Reason Block */}
+                    {watchSpecialDiscountType && (
+                      <div className="md:col-span-1 space-y-2 animate-in fade-in duration-200 h-[68px] flex flex-col justify-end">
+                        {/* We could place the reason field here, or show a live preview of the discount amount */}
                         {(() => {
                           const isSuperAdmin = userRole === "SUPER_ADMIN"
-                          const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
-                          const isNewQuote = !existingQuote
-                          const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
+                          const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
                           
-                          if (allowedAddCustomCharges) {
+                          let currentAppliedDiscountPercent = 0
+                          const discValue = Number(watchSpecialDiscountValue) || 0
+                          if (discValue > 0) {
+                            if (watchSpecialDiscountType === "PERCENTAGE") {
+                              currentAppliedDiscountPercent = discValue
+                            } else if (watchSpecialDiscountType === "FIXED") {
+                              const baseForDiscount = subtotal + totalAdditionalCost
+                              currentAppliedDiscountPercent = baseForDiscount > 0 ? (discValue / baseForDiscount) * 100 : 0
+                            }
+                          }
+
+                          const isLimitExceeded = currentAppliedDiscountPercent > allowedDiscount
+
+                          return (
+                            <div className="flex flex-col gap-1 w-full text-right bg-muted/50 rounded p-2 border border-muted">
+                               <span className="text-[10px] text-muted-foreground font-semibold uppercase">Discount Applied</span>
+                               <span className={cn("text-sm font-bold font-mono", isLimitExceeded ? "text-destructive" : "text-emerald-600 dark:text-emerald-500")}>
+                                 - AED {specialDiscountAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                               </span>
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    )}
+                    
+                    {/* Discount Reason & Limit Exceeded Row */}
+                    {watchSpecialDiscountType && (
+                      <div className="md:col-span-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                        <FormField
+                          control={form.control}
+                          name="specialDiscountReason"
+                          render={({ field }) => (
+                            <FormItem className="animate-in fade-in duration-200">
+                              <FormLabel className="text-xs font-semibold text-muted-foreground">Discount Reason (Optional)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="e.g. Special Approval, Project Discount"
+                                  className="h-10 bg-background border-muted-foreground/20"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        {/* Limit Exceeded Warning */}
+                        {(() => {
+                          const isSuperAdmin = userRole === "SUPER_ADMIN"
+                          const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
+                          
+                          let currentAppliedDiscountPercent = 0
+                          const discValue = Number(watchSpecialDiscountValue) || 0
+                          if (discValue > 0) {
+                            if (watchSpecialDiscountType === "PERCENTAGE") {
+                              currentAppliedDiscountPercent = discValue
+                            } else if (watchSpecialDiscountType === "FIXED") {
+                              const baseForDiscount = subtotal + totalAdditionalCost
+                              currentAppliedDiscountPercent = baseForDiscount > 0 ? (discValue / baseForDiscount) * 100 : 0
+                            }
+                          }
+
+                          const isLimitExceeded = currentAppliedDiscountPercent > allowedDiscount
+                          if (isLimitExceeded) {
                             return (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => appendAdditional({ name: "", amount: "" })}
-                                className="mt-2 text-xs flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                                Add Cost Item
-                              </Button>
+                              <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-3 flex items-start gap-3 animate-in shake duration-300">
+                                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                                <div>
+                                  <h5 className="font-semibold text-xs">Discount Limit Exceeded</h5>
+                                  <p className="text-[11px] mt-0.5">
+                                    Your role's max discount is **{allowedDiscount}%**. Currently applying **{currentAppliedDiscountPercent.toFixed(2)}%**. You will be blocked on submission.
+                                  </p>
+                                </div>
+                              </div>
                             )
                           }
                           return null
                         })()}
                       </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Bottom Row: Additional Costs & Calculation Breakdown */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full">
+                  {/* Left Column: Additional Cost Repeater */}
+                  <div className="lg:col-span-7 space-y-4">
+                    <h4 className="text-sm font-semibold text-foreground tracking-wider uppercase border-b pb-2 flex items-center gap-2">
+                      Additional Costs
+                      {(() => {
+                        const isSuperAdmin = userRole === "SUPER_ADMIN"
+                        const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
+                        const isNewQuote = !existingQuote
+                        const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
+                        return !allowedAddCustomCharges && <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      })()}
+                    </h4>
+                    
+                    <div className="space-y-3 p-4 rounded-xl border bg-card shadow-sm">
+                      {additionalFields.map((field, index) => {
+                        const isSuperAdmin = userRole === "SUPER_ADMIN"
+                        const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
+                        const isNewQuote = !existingQuote
+                        const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
+                        
+                        return (
+                          <div key={field.id} className="flex items-center gap-3 animate-in fade-in duration-200">
+                            {/* Left side remove button */}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={additionalFields.length === 1 || !allowedAddCustomCharges}
+                              onClick={() => removeAdditional(index)}
+                              className="h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0 cursor-pointer disabled:opacity-40"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+
+                            {/* Cost Item Description */}
+                            <div className="flex-1">
+                              <FormField
+                                control={form.control}
+                                name={`additionalCharges.${index}.name`}
+                                render={({ field }) => (
+                                  <FormControl>
+                                    <Input
+                                      placeholder="Enter cost item"
+                                      className="h-9 bg-background border-muted-foreground/20"
+                                      disabled={!allowedAddCustomCharges}
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                )}
+                              />
+                            </div>
+
+                            {/* Cost Item Amount */}
+                            <div className="w-36">
+                              <FormField
+                                control={form.control}
+                                name={`additionalCharges.${index}.amount`}
+                                render={({ field }) => {
+                                  const val = field.value === 0 ? "" : field.value
+                                  return (
+                                    <FormControl>
+                                      <div className="relative flex items-center">
+                                        <span className="absolute left-3 text-[10px] font-bold text-muted-foreground font-mono">AED</span>
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          placeholder="0.00"
+                                          className="h-9 pl-10 pr-3 font-mono text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none bg-background border-muted-foreground/20 w-full"
+                                          disabled={!allowedAddCustomCharges}
+                                          value={val}
+                                          onChange={(e) => {
+                                            const rawVal = e.target.value
+                                            const numVal = rawVal === "" ? "" : parseFloat(rawVal) || 0
+                                            field.onChange(numVal)
+                                          }}
+                                        />
+                                      </div>
+                                    </FormControl>
+                                  )
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      {(() => {
+                        const isSuperAdmin = userRole === "SUPER_ADMIN"
+                        const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
+                        const isNewQuote = !existingQuote
+                        const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
+                        
+                        if (allowedAddCustomCharges) {
+                          return (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => appendAdditional({ name: "", amount: "" })}
+                              className="mt-3 text-xs flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add Cost Item
+                            </Button>
+                          )
+                        }
+                        return null
+                      })()}
                     </div>
                   </div>
 
                   {/* Right Column: Financial Calculations Summary */}
-                  <div className="lg:col-span-5 space-y-4 lg:border-l lg:pl-8 border-muted">
-                    <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">Calculation Breakdown</h4>
+                  <div className="lg:col-span-5 space-y-4">
+                    <h4 className="text-sm font-semibold text-foreground tracking-wider uppercase border-b pb-2">Calculation Breakdown</h4>
                     
-                    <div className="space-y-3 text-sm border-b pb-4">
-                      {/* Subtotal */}
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Subtotal (Products)</span>
-                        <span className="font-medium font-mono">AED {subtotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <div className="bg-card p-6 rounded-xl border shadow-sm">
+                      <div className="space-y-3.5 text-sm border-b border-muted-foreground/10 pb-4">
+                        {/* Subtotal */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Subtotal (Products)</span>
+                          <span className="font-medium font-mono text-foreground">AED {subtotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+
+                        {/* Total Additional Cost */}
+                        {totalAdditionalCost > 0 && (
+                          <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-500 font-medium animate-in fade-in duration-300">
+                            <span className="text-muted-foreground">Additional Cost</span>
+                            <span className="font-mono">+ AED {totalAdditionalCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+
+                        {/* Special Discount */}
+                        {specialDiscountAmount > 0 && (
+                          <div className="flex justify-between items-center text-destructive font-medium animate-in fade-in duration-300">
+                            <span className="text-muted-foreground flex flex-col">
+                              <span>Special Discount</span>
+                              {form.watch("specialDiscountReason") && (
+                                <span className="text-[10px] text-muted-foreground/85 italic max-w-[180px] truncate">
+                                  Reason: {form.watch("specialDiscountReason")}
+                                </span>
+                              )}
+                            </span>
+                            <span className="font-mono">- AED {specialDiscountAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+
+                        {/* Taxable Amount */}
+                        {(totalAdditionalCost > 0 || specialDiscountAmount > 0) && (
+                          <div className="flex justify-between items-center pt-3 border-t border-dashed border-muted-foreground/20 animate-in fade-in duration-300">
+                            <span className="text-muted-foreground font-semibold">Taxable Subtotal</span>
+                            <span className="font-semibold font-mono text-foreground">AED {taxableAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </div>
+                        )}
+
+                        {/* VAT */}
+                        {watchVatMode !== "INCLUDING" && (
+                          <div className="flex items-center justify-between text-muted-foreground/80 font-medium animate-in fade-in duration-300">
+                            <span className="flex items-center gap-1.5">
+                              VAT (5%)
+                            </span>
+                            <span className="font-mono flex items-center text-foreground">
+                              AED {vatAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Total Additional Cost */}
-                      {totalAdditionalCost > 0 && (
-                        <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-500 font-medium">
-                          <span className="text-muted-foreground">Additional Cost</span>
-                          <span className="font-mono">+ AED {totalAdditionalCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
-
-                      {/* Special Discount */}
-                      {specialDiscountAmount > 0 && (
-                        <div className="flex justify-between items-center text-destructive font-medium">
-                          <span className="text-muted-foreground flex flex-col">
-                            <span>Special Discount</span>
-                            {form.watch("specialDiscountReason") && (
-                              <span className="text-[10px] text-muted-foreground/85 italic max-w-[180px] truncate">
-                                Reason: {form.watch("specialDiscountReason")}
-                              </span>
-                            )}
-                          </span>
-                          <span className="font-mono">- AED {specialDiscountAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
-
-                      {/* Taxable Amount */}
-                      {(totalAdditionalCost > 0 || specialDiscountAmount > 0) && (
-                        <div className="flex justify-between items-center pt-2 border-t border-dashed">
-                          <span className="text-muted-foreground font-semibold">Taxable Subtotal</span>
-                          <span className="font-semibold font-mono">AED {taxableAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
-
-                      {/* VAT */}
-                      {watchVatMode !== "INCLUDING" && (
-                        <div className="flex items-center justify-between text-muted-foreground/80 font-medium">
-                          <span className="flex items-center gap-1.5">
-                            VAT (5%)
-                          </span>
-                          <span className="font-mono flex items-center">
-                            AED {vatAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Grand Total */}
-                    <div className="flex justify-between items-center text-xl font-bold pt-2 text-primary">
-                      <span>Grand Total</span>
-                      <span className="font-mono">AED {grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      {/* Grand Total */}
+                      <div className="flex justify-between items-center text-xl font-bold pt-4 text-primary">
+                        <span>Grand Total</span>
+                        <span className="font-mono text-2xl">AED {grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </CardFooter>
+
             </Card>
 
             <div className="flex items-center justify-end space-x-4">
