@@ -2451,7 +2451,7 @@ function NewQuotationForm() {
                         )}
 
                         {/* Taxable Amount */}
-                        {(totalAdditionalCost > 0 || specialDiscountAmount > 0) && (
+                        {watchVatMode !== "INCLUDING" && (totalAdditionalCost > 0 || specialDiscountAmount > 0) && (
                           <div className="flex justify-between items-center pt-3 border-t border-dashed border-muted-foreground/20 animate-in fade-in duration-300">
                             <span className="text-muted-foreground font-semibold">Taxable Subtotal</span>
                             <span className="font-semibold font-mono text-foreground">AED {taxableAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -2471,9 +2471,9 @@ function NewQuotationForm() {
                         )}
                       </div>
 
-                      {/* Grand Total */}
+                      {/* Grand Total / Total Payable */}
                       <div className="flex justify-between items-center text-xl font-bold pt-4 text-primary">
-                        <span>Grand Total</span>
+                        <span>{watchVatMode === "INCLUDING" ? "Total Payable" : "Grand Total"}</span>
                         <span className="font-mono text-2xl">AED {grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     </div>

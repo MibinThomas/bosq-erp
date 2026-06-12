@@ -686,7 +686,7 @@ export default function QuotationHtmlPreviewPage({
             )}
 
             {/* 5. Taxable Subtotal */}
-            {hasTaxableSubtotal && (
+            {quotation.vatMode !== "INCLUDING" && hasTaxableSubtotal && (
               <div className="flex items-end w-full text-slate-800 font-bold text-[11px]">
                 <span className="shrink-0">Taxable Subtotal</span>
                 <span className="flex-1 border-b border-dotted border-slate-400 mx-2 mb-[3px]"></span>
@@ -705,9 +705,9 @@ export default function QuotationHtmlPreviewPage({
               </div>
             )}
 
-            {/* 7. Grand Total */}
+            {/* 7. Grand Total / Total Payable */}
             <div className="flex items-end w-full text-slate-900 font-bold text-[12px] pt-1">
-              <span className="shrink-0">Grand Total</span>
+              <span className="shrink-0">{quotation.vatMode === "INCLUDING" ? "Total Payable" : "Grand Total"}</span>
               <span className="flex-1 border-b border-dotted border-slate-900 mx-2 mb-[3px]"></span>
               <span className="font-mono shrink-0 text-slate-950">
                 AED {formatCurrency(quotation.grandTotal)}

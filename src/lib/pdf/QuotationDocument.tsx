@@ -885,7 +885,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               )}
 
               {/* 5. Taxable Subtotal */}
-              {hasTaxableSubtotal && (
+              {vatMode !== "INCLUDING" && hasTaxableSubtotal && (
                 <View style={styles.leaderRow}>
                   <Text style={[styles.totalsLabel, { fontWeight: "bold", color: colors.primary }]}>
                     Taxable Subtotal
@@ -908,9 +908,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 </View>
               )}
 
-              {/* 7. Grand Total */}
+              {/* 7. Grand Total / Total Payable */}
               <View style={styles.grandTotalRow}>
-                <Text style={styles.grandTotalLabel}>Grand Total</Text>
+                <Text style={styles.grandTotalLabel}>{vatMode === "INCLUDING" ? "Total Payable" : "Grand Total"}</Text>
                 <View style={[styles.leaderDots, { borderBottomColor: colors.primary }]} />
                 <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
               </View>
