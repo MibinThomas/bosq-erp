@@ -430,7 +430,7 @@ export async function POST(request: Request) {
         pattern: "solid",
         fgColor: { argb: "FFFFC7CE" } // Light red background
       }
-      const errorFont: ExcelJS.Font = {
+      const errorFont: Partial<ExcelJS.Font> = {
         color: { argb: "FF9C0006" } // Dark red text
       }
       const warningFill: ExcelJS.Fill = {
@@ -438,7 +438,7 @@ export async function POST(request: Request) {
         pattern: "solid",
         fgColor: { argb: "FFFFEB9C" } // Light yellow background
       }
-      const warningFont: ExcelJS.Font = {
+      const warningFont: Partial<ExcelJS.Font> = {
         color: { argb: "FF9C6500" } // Dark yellow text
       }
 
