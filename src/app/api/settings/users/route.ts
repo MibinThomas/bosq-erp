@@ -21,6 +21,7 @@ export async function GET() {
         role: true,
         phone: true,
         department: true,
+        isActive: true,
         createdAt: true,
       }
     })

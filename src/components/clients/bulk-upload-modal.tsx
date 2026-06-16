@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { 
   X, 
   FileSpreadsheet, 
@@ -21,6 +21,7 @@ interface BulkUploadModalProps {
 }
 
 interface ParsedClient {
+  rowIndex?: number
   clientId: string
   companyName: string
   contactPerson: string
@@ -30,6 +31,7 @@ interface ParsedClient {
   trn: string
   clientType: string
   notes: string
+  assignedConsultant: string
 }
 
 export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalProps) {
@@ -41,17 +43,85 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
 
+  const [dbUsers, setDbUsers] = useState<any[]>([])
+  const [systemSettings, setSystemSettings] = useState<Record<string, string>>({})
+  const [importResult, setImportResult] = useState<any | null>(null)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      setStep(1)
+      setHeaders([])
+      setCsvRows([])
+      setMappings({})
+      setClients([])
+      setImportResult(null)
+
+      // Fetch active users to validate assignments
+      fetch("/api/settings/users")
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            setDbUsers(data)
+          }
+        })
+        .catch(err => console.error("Failed to fetch users for validation", err))
+
+      // Fetch system settings
+      fetch("/api/settings/system")
+        .then(res => res.json())
+        .then(data => {
+          if (data && typeof data === "object") {
+            setSystemSettings(data)
+          }
+        })
+        .catch(err => console.error("Failed to fetch system settings", err))
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
   // Generate and download a formatted Excel import template
   const downloadSampleExcel = (e: React.MouseEvent) => {
     e.stopPropagation()
-    const headers = ["Client ID", "Company Name", "Contact Person", "Phone", "Email", "Address", "TRN", "Client Type", "Notes"]
+    const headers = [
+      "Client ID", 
+      "Company Name", 
+      "Contact Person", 
+      "Phone", 
+      "Email", 
+      "Address", 
+      "TRN", 
+      "Client Type", 
+      "Notes", 
+      "Assigned Design Consultant"
+    ]
     const rows = [
-      ["C-1001", "Acme Corporation", "John Doe", "+971 50 123 4567", "john@acme.com", "Office 402, Downtown Dubai, UAE", "100123456789012", "Direct", "Important VIP client"],
-      ["C-1002", "Tech Innovators", "Jane Smith", "+971 4 987 6543", "jane@tech.com", "Dubai Silicon Oasis, UAE", "100987654321098", "Dealer", "Bulk purchaser"],
+      [
+        "C-1001", 
+        "Acme Corporation", 
+        "John Doe", 
+        "+971 50 123 4567", 
+        "john@acme.com", 
+        "Office 402, Downtown Dubai, UAE", 
+        "100123456789012", 
+        "Direct", 
+        "Important VIP client", 
+        "John Consultant"
+      ],
+      [
+        "C-1002", 
+        "Tech Innovators", 
+        "Jane Smith", 
+        "+971 4 987 6543", 
+        "jane@tech.com", 
+        "Dubai Silicon Oasis, UAE", 
+        "100987654321098", 
+        "Dealer", 
+        "Bulk purchaser", 
+        "Jane Executive"
+      ],
     ]
     
     // Create worksheet
@@ -68,6 +138,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       { wch: 18 }, // TRN
       { wch: 15 }, // Client Type
       { wch: 35 }, // Notes
+      { wch: 25 }, // Assigned Design Consultant
     ]
 
     // Create workbook and append sheet
@@ -131,7 +202,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         { key: "address", synonyms: ["address", "location", "city", "street"] },
         { key: "trn", synonyms: ["trn", "tax", "vat", "taxnumber"] },
         { key: "clientType", synonyms: ["type", "clienttype", "category", "segment"] },
-        { key: "notes", synonyms: ["notes", "remarks", "comments", "details"] }
+        { key: "notes", synonyms: ["notes", "remarks", "comments", "details"] },
+        { key: "assignedConsultant", synonyms: ["consultant", "assigneddesignconsultant", "salesperson", "designconsultant", "salesexecutive", "sales"] }
       ]
 
       fileHeaders.forEach(header => {
@@ -181,7 +253,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     }
 
     // Convert CSV rows to client objects using mapped columns
-    const parsedClients: ParsedClient[] = csvRows.map(row => {
+    const parsedClients: ParsedClient[] = csvRows.map((row, idx) => {
       const getVal = (fieldKey: string) => {
         const colHeader = mappings[fieldKey]
         if (!colHeader) return ""
@@ -190,6 +262,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       }
 
       return {
+        rowIndex: idx + 2, // Excel row index mapping (1-indexed header + 1-indexed row number offset)
         clientId: getVal("clientId"),
         companyName: getVal("companyName"),
         contactPerson: getVal("contactPerson"),
@@ -198,7 +271,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         address: getVal("address"),
         trn: getVal("trn"),
         clientType: getVal("clientType") || "Direct",
-        notes: getVal("notes")
+        notes: getVal("notes"),
+        assignedConsultant: getVal("assignedConsultant"),
       }
     }).filter(c => c.companyName)
 
@@ -218,15 +292,53 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       if (!res.ok) throw new Error("Bulk import failed")
       const data = await res.json()
 
-      toast.success(`Successfully imported ${data.count} clients!`)
-      onSuccess()
-      onClose()
+      setImportResult(data)
+
+      if (data.summary?.failCount > 0) {
+        toast.error(`Import completed with ${data.summary.failCount} failed rows.`)
+      } else {
+        toast.success(`Successfully imported ${data.summary?.successCount || 0} clients!`)
+      }
     } catch (err) {
       console.error(err)
       toast.error("Failed to import clients. Please verify data formats.")
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleDownloadErrorReport = () => {
+    if (!importResult?.errorFileBase64) return
+    
+    const byteCharacters = atob(importResult.errorFileBase64)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", "Bulk_Upload_Error_Report.xlsx")
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success("Error report downloaded!")
+  }
+
+  const handleReuploadCorrected = () => {
+    setStep(1)
+    setHeaders([])
+    setCsvRows([])
+    setMappings({})
+    setClients([])
+    setImportResult(null)
+    toast.info("Please select the corrected Excel report file.")
+    setTimeout(() => {
+      fileInputRef.current?.click()
+    }, 100)
   }
 
   const handleDrag = (e: React.DragEvent) => {
@@ -246,6 +358,33 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleSpreadsheetFile(e.dataTransfer.files[0])
     }
+  }
+
+  const validateConsultantLocal = (name: string) => {
+    if (!name || name.trim() === "") {
+      return { isValid: true, warning: "" }
+    }
+    
+    const matchedUser = dbUsers.find(u => u.name && u.name.trim().toLowerCase() === name.trim().toLowerCase())
+    if (!matchedUser) {
+      return { isValid: false, warning: "Consultant name not found in ERP users" }
+    }
+    
+    if (matchedUser.isActive === false) {
+      return { isValid: false, warning: "User is currently inactive" }
+    }
+
+    const allowSalesExec = systemSettings["client_allow_sales_executive_assignment"] !== "false"
+    const allowedRoles = ["DESIGN_CONSULTANT"]
+    if (allowSalesExec) {
+      allowedRoles.push("SALES_EXECUTIVE")
+    }
+
+    if (!allowedRoles.includes(matchedUser.role)) {
+      return { isValid: false, warning: `User has role ${matchedUser.role.replace(/_/g, " ")}, not allowed` }
+    }
+
+    return { isValid: true, warning: "" }
   }
 
   return (
@@ -269,7 +408,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         </div>
 
         {/* Modal Steps Progress */}
-        <div className="flex items-center px-8 py-3 bg-muted/40 border-b text-xs font-semibold gap-4 select-none">
+        <div className="flex items-center px-8 py-3 bg-muted/40 border-b text-xs font-semibold gap-4 select-none flex-wrap">
           <span className={`px-2 py-1 rounded-full ${step === 1 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
             1. Upload Spreadsheet
           </span>
@@ -278,9 +417,17 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
             2. Map Schema Columns
           </span>
           <ArrowRight className="h-3 w-3 text-muted-foreground" />
-          <span className={`px-2 py-1 rounded-full ${step === 3 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
+          <span className={`px-2 py-1 rounded-full ${step === 3 && !importResult ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
             3. Preview & Import
           </span>
+          {importResult && (
+            <>
+              <ArrowRight className="h-3 w-3 text-muted-foreground" />
+              <span className="px-2 py-1 rounded-full bg-primary text-primary-foreground">
+                4. Import Results Summary
+              </span>
+            </>
+          )}
         </div>
 
         {/* Modal Content */}
@@ -313,7 +460,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                 <p className="text-sm text-muted-foreground text-center max-w-sm">
                   Support standard CSV or Excel (.xlsx) client listings.
                 </p>
-                <Button className="mt-4 bg-primary hover:bg-primary/90">
+                <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
                   Select Spreadsheet File
                 </Button>
               </div>
@@ -360,7 +507,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                   { key: "email", label: "Email", required: false },
                   { key: "address", label: "Address", required: false },
                   { key: "trn", label: "TRN", required: false },
-                  { key: "clientType", label: "Client Type (Direct, Dealer, etc)", required: false }
+                  { key: "clientType", label: "Client Type (Direct, Dealer, etc)", required: false },
+                  { key: "assignedConsultant", label: "Assigned Design Consultant", required: false }
                 ].map((field) => (
                   <div key={field.key} className="space-y-2 p-3 border rounded-xl bg-card/50 shadow-inner">
                     <label className="text-xs font-bold flex items-center justify-between">
@@ -389,7 +537,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                 <Button variant="outline" onClick={() => setStep(1)}>
                   Back
                 </Button>
-                <Button onClick={handleColumnMapping} className="bg-primary">
+                <Button onClick={handleColumnMapping} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
                   Map & Preview List <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -397,7 +545,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
           )}
 
           {/* STEP 3: PREVIEW */}
-          {step === 3 && (
+          {step === 3 && !importResult && (
             <div className="space-y-6">
               
               {/* Table Preview */}
@@ -411,80 +559,105 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                       <th className="p-3 text-xs font-bold">Phone</th>
                       <th className="p-3 text-xs font-bold">Email</th>
                       <th className="p-3 text-xs font-bold">Type</th>
+                      <th className="p-3 text-xs font-bold">Assigned Design Consultant</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {clients.map((c, idx) => (
-                      <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
-                        <td className="p-2 font-mono">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
-                            value={c.clientId}
-                            placeholder="Auto"
-                            onChange={(e) => {
-                              const updated = [...clients]
-                              updated[idx].clientId = e.target.value
-                              setClients(updated)
-                            }}
-                          />
-                        </td>
-                        <td className="p-2 font-semibold">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent font-semibold"
-                            value={c.companyName}
-                            onChange={(e) => {
-                              const updated = [...clients]
-                              updated[idx].companyName = e.target.value
-                              setClients(updated)
-                            }}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
-                            value={c.contactPerson}
-                            onChange={(e) => {
-                              const updated = [...clients]
-                              updated[idx].contactPerson = e.target.value
-                              setClients(updated)
-                            }}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
-                            value={c.phone}
-                            onChange={(e) => {
-                              const updated = [...clients]
-                              updated[idx].phone = e.target.value
-                              setClients(updated)
-                            }}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
-                            value={c.email}
-                            onChange={(e) => {
-                              const updated = [...clients]
-                              updated[idx].email = e.target.value
-                              setClients(updated)
-                            }}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
-                            value={c.clientType}
-                            onChange={(e) => {
-                              const updated = [...clients]
-                              updated[idx].clientType = e.target.value
-                              setClients(updated)
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {clients.map((c, idx) => {
+                      const validation = validateConsultantLocal(c.assignedConsultant)
+                      return (
+                        <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="p-2 font-mono">
+                            <input 
+                              className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent font-mono"
+                              value={c.clientId}
+                              placeholder="Auto"
+                              onChange={(e) => {
+                                const updated = [...clients]
+                                updated[idx].clientId = e.target.value
+                                setClients(updated)
+                              }}
+                            />
+                          </td>
+                          <td className="p-2 font-semibold">
+                            <input 
+                              className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent font-semibold"
+                              value={c.companyName}
+                              onChange={(e) => {
+                                const updated = [...clients]
+                                updated[idx].companyName = e.target.value
+                                setClients(updated)
+                              }}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
+                              value={c.contactPerson}
+                              onChange={(e) => {
+                                const updated = [...clients]
+                                updated[idx].contactPerson = e.target.value
+                                setClients(updated)
+                              }}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
+                              value={c.phone}
+                              onChange={(e) => {
+                                const updated = [...clients]
+                                updated[idx].phone = e.target.value
+                                setClients(updated)
+                              }}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
+                              value={c.email}
+                              onChange={(e) => {
+                                const updated = [...clients]
+                                updated[idx].email = e.target.value
+                                setClients(updated)
+                              }}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
+                              value={c.clientType}
+                              onChange={(e) => {
+                                const updated = [...clients]
+                                updated[idx].clientType = e.target.value
+                                setClients(updated)
+                              }}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <div className="space-y-1">
+                              <input 
+                                className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                  !validation.isValid ? "border-destructive text-destructive font-semibold" : ""
+                                }`}
+                                value={c.assignedConsultant}
+                                placeholder="Auto (System Setting)"
+                                onChange={(e) => {
+                                  const updated = [...clients]
+                                  updated[idx].assignedConsultant = e.target.value
+                                  setClients(updated)
+                                }}
+                              />
+                              {!validation.isValid && (
+                                <p className="text-[10px] text-destructive leading-tight font-semibold">
+                                  ⚠️ {validation.warning}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -494,7 +667,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                 <Button variant="outline" onClick={() => setStep(2)} disabled={uploading}>
                   Back
                 </Button>
-                <Button onClick={handleImport} className="bg-primary" disabled={uploading}>
+                <Button onClick={handleImport} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold" disabled={uploading}>
                   {uploading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -505,6 +678,124 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                       Import {clients.length} Clients
                     </>
                   )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 4: IMPORT RESULTS SUMMARY */}
+          {importResult && (
+            <div className="space-y-6">
+              <div className="p-6 bg-slate-900/40 rounded-2xl border space-y-4">
+                <h3 className="text-lg font-bold text-foreground">Upload Summary</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
+                    <p className="text-2xl font-bold text-green-500">{importResult.summary?.successCount || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Successfully Imported</p>
+                  </div>
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
+                    <p className="text-2xl font-bold text-red-500">{importResult.summary?.failCount || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Failed Rows</p>
+                  </div>
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 text-center">
+                    <p className="text-2xl font-bold text-yellow-500">{importResult.summary?.warningCount || 0}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Warnings</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3 pt-2">
+                  {importResult.errorFileBase64 && (
+                    <Button 
+                      onClick={handleDownloadErrorReport}
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold flex items-center gap-2 cursor-pointer"
+                    >
+                      <FileSpreadsheet className="h-4 w-4" />
+                      Download Error File
+                    </Button>
+                  )}
+                  <Button 
+                    variant="outline"
+                    onClick={handleReuploadCorrected}
+                    className="border-muted hover:bg-muted/50 flex items-center gap-2 cursor-pointer"
+                  >
+                    Re-upload Corrected File
+                  </Button>
+                </div>
+              </div>
+
+              {/* Error details list */}
+              {importResult.errors && importResult.errors.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm text-red-500 flex items-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" />
+                    Row-Level Errors Details ({importResult.errors.length})
+                  </h4>
+                  <div className="border rounded-xl overflow-hidden max-h-[300px] overflow-y-auto">
+                    <table className="w-full text-sm border-collapse text-left">
+                      <thead className="bg-muted/80 sticky top-0 border-b">
+                        <tr>
+                          <th className="p-3 text-xs font-bold w-16 text-center">Row</th>
+                          <th className="p-3 text-xs font-bold w-48">Column</th>
+                          <th className="p-3 text-xs font-bold w-48">Value</th>
+                          <th className="p-3 text-xs font-bold text-red-500">Error Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importResult.errors.map((err: any, idx: number) => (
+                          <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
+                            <td className="p-3 text-center font-mono">{err.row}</td>
+                            <td className="p-3 font-semibold">{err.column.replace(/([A-Z])/g, ' $1').replace(/^./, (str: string) => str.toUpperCase())}</td>
+                            <td className="p-3 font-mono text-xs max-w-[150px] truncate text-muted-foreground" title={err.value}>{err.value || <span className="italic">blank</span>}</td>
+                            <td className="p-3 text-red-500 text-xs">{err.error}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Warning details list */}
+              {importResult.warnings && importResult.warnings.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm text-yellow-500 flex items-center gap-1.5">
+                    <AlertCircle className="h-4 w-4" />
+                    Validation Warnings ({importResult.warnings.length})
+                  </h4>
+                  <div className="border rounded-xl overflow-hidden max-h-[200px] overflow-y-auto">
+                    <table className="w-full text-sm border-collapse text-left">
+                      <thead className="bg-muted/80 sticky top-0 border-b">
+                        <tr>
+                          <th className="p-3 text-xs font-bold w-16 text-center">Row</th>
+                          <th className="p-3 text-xs font-bold w-48">Column</th>
+                          <th className="p-3 text-xs font-bold w-48">Value</th>
+                          <th className="p-3 text-xs font-bold text-yellow-500">Warning</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importResult.warnings.map((warn: any, idx: number) => (
+                          <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
+                            <td className="p-3 text-center font-mono">{warn.row}</td>
+                            <td className="p-3 font-semibold">{warn.column.replace(/([A-Z])/g, ' $1').replace(/^./, (str: string) => str.toUpperCase())}</td>
+                            <td className="p-3 font-mono text-xs max-w-[150px] truncate text-muted-foreground" title={warn.value}>{warn.value || <span className="italic">blank</span>}</td>
+                            <td className="p-3 text-yellow-500 text-xs">{warn.warning}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4 border-t">
+                <Button 
+                  onClick={() => {
+                    onSuccess()
+                    onClose()
+                  }} 
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+                >
+                  Close & Refresh Clients List
                 </Button>
               </div>
             </div>

@@ -85,6 +85,18 @@ export async function GET() {
     const clients = await prisma.client.findMany({
       where: whereClause,
       orderBy: { clientId: "asc" },
+      include: {
+        assignments: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                role: true
+              }
+            }
+          }
+        }
+      }
     })
     return NextResponse.json(clients)
   } catch (error) {

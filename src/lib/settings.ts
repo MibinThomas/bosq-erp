@@ -10,6 +10,8 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   sharepoint_client_secret: process.env.AZURE_CLIENT_SECRET || "",
   sharepoint_site_id: process.env.SHAREPOINT_SITE_ID || "",
   sharepoint_drive_id: process.env.SHAREPOINT_DRIVE_ID || "",
+  client_assign_to_uploader: "true",
+  client_allow_sales_executive_assignment: "true",
 }
 
 export async function getSetting(key: string): Promise<string> {

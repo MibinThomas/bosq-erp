@@ -13,6 +13,18 @@ export async function GET(
 
     const client = await prisma.client.findUnique({
       where: { id, deletedAt: null },
+      include: {
+        assignments: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                role: true
+              }
+            }
+          }
+        }
+      }
     })
 
     if (!client) {
