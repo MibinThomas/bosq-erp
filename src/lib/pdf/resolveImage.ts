@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
 
 export async function resolveImageUrl(url: string | null | undefined): Promise<string | null> {
   if (!url) return null;
@@ -11,6 +10,7 @@ export async function resolveImageUrl(url: string | null | undefined): Promise<s
       try {
         const base64Data = url.split(",")[1];
         const buffer = Buffer.from(base64Data, "base64");
+        const sharp = (await import("sharp")).default;
         const convertedBuffer = await sharp(buffer).png().toBuffer();
         return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
       } catch (e) {
@@ -31,6 +31,7 @@ export async function resolveImageUrl(url: string | null | undefined): Promise<s
         
         // @react-pdf/renderer does not support WEBP, convert it
         if (contentType.includes('webp') || url.toLowerCase().endsWith('.webp')) {
+          const sharp = (await import("sharp")).default;
           const convertedBuffer = await sharp(fileBuffer).png().toBuffer();
           return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
         }
@@ -57,6 +58,7 @@ export async function resolveImageUrl(url: string | null | undefined): Promise<s
         
         // @react-pdf/renderer does not support WEBP, automatically convert it
         if (ext === "webp") {
+          const sharp = (await import("sharp")).default;
           const convertedBuffer = await sharp(fileBuffer).png().toBuffer();
           return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
         }

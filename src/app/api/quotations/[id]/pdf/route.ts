@@ -8,7 +8,6 @@ import { QuotationDocument } from "@/lib/pdf/QuotationDocument"
 import fs from "fs"
 import path from "path"
 import { getSettings } from "@/lib/settings"
-import sharp from "sharp"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 
 export async function GET(
@@ -20,11 +19,18 @@ export async function GET(
 
     let logoBase64 = ""
     try {
-      const logoPath = path.join(process.cwd(), "public", "assets", "logo", "BOSQ R LOGO.svg")
-      if (fs.existsSync(logoPath)) {
-        const fileBuffer = fs.readFileSync(logoPath)
-        const pngBuffer = await sharp(fileBuffer).png().toBuffer()
-        logoBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
+      const pngLogoPath = path.join(process.cwd(), "public", "assets", "logo", "logo.png")
+      if (fs.existsSync(pngLogoPath)) {
+        const fileBuffer = fs.readFileSync(pngLogoPath)
+        logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
+      } else {
+        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "BOSQ R LOGO.svg")
+        if (fs.existsSync(logoPath)) {
+          const fileBuffer = fs.readFileSync(logoPath)
+          const sharp = (await import("sharp")).default
+          const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+          logoBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
+        }
       }
     } catch (logoErr) {
       console.error("Failed to convert logo SVG:", logoErr)
@@ -46,6 +52,7 @@ export async function GET(
       const watermarkPath = path.join(process.cwd(), "public", "assets", "logo", "Watermark.svg")
       if (fs.existsSync(watermarkPath)) {
         const fileBuffer = fs.readFileSync(watermarkPath)
+        const sharp = (await import("sharp")).default
         const pngBuffer = await sharp(fileBuffer).png().toBuffer()
         watermarkBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
       }
