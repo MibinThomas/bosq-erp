@@ -80,11 +80,11 @@ export async function POST(request: Request) {
           select: { id: true }
         })
 
-        await tx.quotationAssignment.deleteMany({
-          where: { quotationId: { in: existingQuotes.map((q) => q.id) } }
-        })
-
         if (existingQuotes.length > 0) {
+          await tx.quotationAssignment.deleteMany({
+            where: { quotationId: { in: existingQuotes.map((q) => q.id) } }
+          })
+
           const quotationAssignmentsToCreate = existingQuotes.map((q) => ({
             quotationId: q.id,
             userId: targetUserId,
@@ -112,10 +112,10 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json({ success: true, message: `Successfully assigned ${clientIds.length} clients.` })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to bulk assign clients:", error)
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: error.message || "Internal Server Error" },
       { status: 500 }
     )
   }
