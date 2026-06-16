@@ -422,23 +422,23 @@ export async function POST(request: Request) {
         type: "pattern",
         pattern: "solid",
         fgColor: { argb: "FF1F4E78" } // Professional dark blue
-      }
+      } as ExcelJS.Fill
 
       // Styles for highlights
-      const errorFill = {
+      const errorFill: ExcelJS.Fill = {
         type: "pattern",
         pattern: "solid",
         fgColor: { argb: "FFFFC7CE" } // Light red background
       }
-      const errorFont = {
+      const errorFont: ExcelJS.Font = {
         color: { argb: "FF9C0006" } // Dark red text
       }
-      const warningFill = {
+      const warningFill: ExcelJS.Fill = {
         type: "pattern",
         pattern: "solid",
         fgColor: { argb: "FFFFEB9C" } // Light yellow background
       }
-      const warningFont = {
+      const warningFont: ExcelJS.Font = {
         color: { argb: "FF9C6500" } // Dark yellow text
       }
 
