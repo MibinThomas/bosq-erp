@@ -143,6 +143,79 @@ export async function PUT(
       where: { id: logUserId },
       include: { permissionOverrides: { where: { module: "QUOTATIONS" } } }
     })
+
+    const isEditingOrCreate = body.isRevision === true || body.isUpdate === true
+    if (isEditingOrCreate) {
+      const targetClientId = body.clientId || existingQuotation.clientId
+      const clientObj = await prisma.client.findUnique({ where: { id: targetClientId } })
+      if (!clientObj) {
+        return NextResponse.json({ error: "Client not found" }, { status: 404 })
+      }
+
+      if (dbSessionUser) {
+        const isExcludedFromAssignmentCheck = ["SUPER_ADMIN", "ADMIN"].includes(dbSessionUser.role)
+        if (!isExcludedFromAssignmentCheck) {
+          let hasAccess = false
+          let ownershipRule = "ASSIGNED"
+
+          if (dbSessionUser.role === "SALES_MANAGER") {
+            const clientsRoleObj = await prisma.role.findFirst({
+              where: { name: dbSessionUser.role },
+              include: { permissions: { where: { module: "CLIENTS" } } }
+            })
+            const clientsRolePerm = clientsRoleObj?.permissions[0]
+            
+            const clientsOverride = await prisma.userPermissionOverride.findUnique({
+              where: {
+                userId_module_action: {
+                  userId: dbSessionUser.id,
+                  module: "CLIENTS",
+                  action: "ownership"
+                }
+              }
+            })
+
+            if (clientsOverride?.ownership) {
+              ownershipRule = clientsOverride.ownership
+            } else if (clientsRolePerm?.ownership) {
+              ownershipRule = clientsRolePerm.ownership
+            } else {
+              ownershipRule = "ALL"
+            }
+          }
+
+          if (ownershipRule === "ALL") {
+            hasAccess = true
+          } else if (ownershipRule === "DEPARTMENT") {
+            const deptUsers = await prisma.user.findMany({
+              where: { department: dbSessionUser.department || "N/A" },
+              select: { id: true }
+            })
+            const deptUserIds = deptUsers.map(u => u.id)
+            
+            const assignmentCount = await prisma.clientAssignment.count({
+              where: {
+                clientId: targetClientId,
+                userId: { in: deptUserIds }
+              }
+            })
+            hasAccess = deptUserIds.includes(clientObj.salespersonId || "") || assignmentCount > 0
+          } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+            const assignmentCount = await prisma.clientAssignment.count({
+              where: {
+                clientId: targetClientId,
+                userId: dbSessionUser.id
+              }
+            })
+            hasAccess = clientObj.salespersonId === dbSessionUser.id || assignmentCount > 0
+          }
+
+          if (!hasAccess) {
+            return NextResponse.json({ error: "Forbidden: You are not assigned to this client and cannot create or update a quotation for them." }, { status: 403 })
+          }
+        }
+      }
+    }
     
     // RBAC validation checks for new pricing controls
     const isSuperAdmin = dbSessionUser ? dbSessionUser.role === "SUPER_ADMIN" : false

@@ -5,7 +5,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { hasPermission } from "@/lib/rbac"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user?.email) {
@@ -47,38 +47,45 @@ export async function GET() {
 
     const isExcludedFromOwnershipLimit = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(dbSessionUser.role)
 
+    const { searchParams } = new URL(request.url)
+    const all = searchParams.get("all") === "true"
+
     let whereClause: any = {
       deletedAt: null
     }
 
-    if (!isExcludedFromOwnershipLimit) {
-      whereClause.OR = [
-        { salespersonId: dbSessionUser.id },
-        { assignments: { some: { userId: dbSessionUser.id } } }
-      ]
-    } else if (ownershipRule !== "ALL") {
-      if (ownershipRule === "OWN") {
+    if (all) {
+      whereClause.status = "Approved"
+    } else {
+      if (!isExcludedFromOwnershipLimit) {
         whereClause.OR = [
           { salespersonId: dbSessionUser.id },
           { assignments: { some: { userId: dbSessionUser.id } } }
         ]
-      } else if (ownershipRule === "DEPARTMENT") {
-        const deptUsers = await prisma.user.findMany({
-          where: { department: dbSessionUser.department || "N/A" },
-          select: { id: true }
-        })
-        const deptUserIds = deptUsers.map(u => u.id)
-        whereClause.OR = [
-          { salespersonId: { in: deptUserIds } },
-          { assignments: { some: { userId: { in: deptUserIds } } } }
-        ]
-      } else if (ownershipRule === "ASSIGNED") {
-        whereClause.OR = [
-          { salespersonId: dbSessionUser.id },
-          { assignments: { some: { userId: dbSessionUser.id } } }
-        ]
-      } else if (ownershipRule === "NONE") {
-        whereClause.id = "none"
+      } else if (ownershipRule !== "ALL") {
+        if (ownershipRule === "OWN") {
+          whereClause.OR = [
+            { salespersonId: dbSessionUser.id },
+            { assignments: { some: { userId: dbSessionUser.id } } }
+          ]
+        } else if (ownershipRule === "DEPARTMENT") {
+          const deptUsers = await prisma.user.findMany({
+            where: { department: dbSessionUser.department || "N/A" },
+            select: { id: true }
+          })
+          const deptUserIds = deptUsers.map(u => u.id)
+          whereClause.OR = [
+            { salespersonId: { in: deptUserIds } },
+            { assignments: { some: { userId: { in: deptUserIds } } } }
+          ]
+        } else if (ownershipRule === "ASSIGNED") {
+          whereClause.OR = [
+            { salespersonId: dbSessionUser.id },
+            { assignments: { some: { userId: dbSessionUser.id } } }
+          ]
+        } else if (ownershipRule === "NONE") {
+          whereClause.id = "none"
+        }
       }
     }
 
@@ -90,6 +97,7 @@ export async function GET() {
           include: {
             user: {
               select: {
+                id: true,
                 name: true,
                 role: true
               }
@@ -98,7 +106,42 @@ export async function GET() {
         }
       }
     })
-    return NextResponse.json(clients)
+
+    // Compute access list for department check
+    const deptUsers = ownershipRule === "DEPARTMENT" ? await prisma.user.findMany({
+      where: { department: dbSessionUser.department || "N/A" },
+      select: { id: true }
+    }) : []
+    const deptUserIds = deptUsers.map(u => u.id)
+
+    // Map clients to add isAssigned flag
+    const clientsWithAccess = clients.map(client => {
+      let isAssigned = false
+      const isClientUserAssigned = client.salespersonId === dbSessionUser.id || 
+                                   client.assignments.some(a => a.userId === dbSessionUser.id)
+
+      if (isExcludedFromOwnershipLimit) {
+        if (ownershipRule === "ALL") {
+          isAssigned = true
+        } else if (ownershipRule === "DEPARTMENT") {
+          isAssigned = deptUserIds.includes(client.salespersonId || "") ||
+                       client.assignments.some(a => deptUserIds.includes(a.userId))
+        } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+          isAssigned = isClientUserAssigned
+        } else if (ownershipRule === "NONE") {
+          isAssigned = false
+        }
+      } else {
+        isAssigned = isClientUserAssigned
+      }
+
+      return {
+        ...client,
+        isAssigned
+      }
+    })
+
+    return NextResponse.json(clientsWithAccess)
   } catch (error) {
     console.error("Failed to fetch clients:", error)
     return NextResponse.json(

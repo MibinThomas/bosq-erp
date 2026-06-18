@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -35,7 +35,9 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { QuickAddProductModal } from "@/components/products/quick-add-product-modal"
 import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
+import { AssignmentModal } from "@/components/clients/assignment-modal"
 import { ImageCropper } from "@/components/ui/image-cropper"
+import { Badge } from "@/components/ui/badge"
 import { Image as ImageIcon, UploadCloud } from "lucide-react"
 
 const quotationSchema = z.object({
@@ -92,6 +94,15 @@ interface Client {
   trn: string | null
   clientType: string | null
   status: string
+  isAssigned?: boolean
+  assignments?: Array<{
+    userId: string
+    isPrimary: boolean
+    user: {
+      name: string
+      role: string
+    }
+  }>
 }
 
 interface Product {
@@ -315,7 +326,11 @@ function NewQuotationForm() {
   const initialClientId = searchParams.get("clientId") || ""
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN"
+  const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN"
+  
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
+  const [assigningClient, setAssigningClient] = useState<{ id: string, name: string } | null>(null)
 
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -415,7 +430,7 @@ function NewQuotationForm() {
     async function loadData() {
       try {
         const [clientsRes, productsRes] = await Promise.all([
-          fetch("/api/clients"),
+          fetch("/api/clients?all=true"),
           fetch("/api/products"),
         ])
         if (!clientsRes.ok || !productsRes.ok) throw new Error("Failed to load catalog data")
@@ -769,6 +784,22 @@ function NewQuotationForm() {
     }
   }
 
+  const handleRequestAccess = async (clientId: string, clientName: string) => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/request-access`, {
+        method: "POST",
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to request access")
+      }
+
+      toast.success(`Access request submitted for "${clientName}"! Admin will be notified.`)
+    } catch (error: any) {
+      toast.error(error.message || "Failed to request access. Please try again.")
+    }
+  }
+
   async function onSubmit(data: QuotationFormValues, targetStatus?: "DRAFT" | "QUOTE_CREATED") {
     if (isRevision && !revisionNotes.trim()) {
       toast.error("Revision notes are required to revise this quotation!")
@@ -1066,26 +1097,99 @@ function NewQuotationForm() {
                                     <Plus className="h-4 w-4 text-primary" />
                                     <span>Quick Add Client...</span>
                                   </CommandItem>
-                                  {clients.filter(c => c.status === "Approved" || c.status === "Pending Approval" || c.id === field.value).map((client) => (
-                                    <CommandItem
-                                      value={client.companyName}
-                                      key={client.id}
-                                      onSelect={() => {
-                                        form.setValue("clientId", client.id)
-                                        setIsClientPopoverOpen(false)
-                                      }}
-                                    >
-                                      <Check
+                                  {clients.filter(c => c.status === "Approved" || c.id === field.value).map((client) => {
+                                    const canSelect = client.isAssigned === true || isAdminOrSuperAdmin
+                                    const primaryAssignment = client.assignments?.find((a: any) => a.isPrimary)
+                                    const assignedConsultantText = primaryAssignment?.user?.name 
+                                      ? `Assigned to ${primaryAssignment.user.name}` 
+                                      : (client.assignments && client.assignments.length > 0)
+                                        ? `Assigned to ${client.assignments.map((a: any) => a.user?.name).filter(Boolean).join(", ")}`
+                                        : "Not Assigned"
+
+                                    const searchValue = `${client.companyName} ${client.contactPerson || ""} ${client.email || ""} ${client.phone || ""} ${client.clientId || ""}`
+
+                                    return (
+                                      <CommandItem
+                                        value={searchValue}
+                                        key={client.id}
+                                        onSelect={() => {
+                                          if (canSelect) {
+                                            form.setValue("clientId", client.id)
+                                            setIsClientPopoverOpen(false)
+                                          }
+                                        }}
                                         className={cn(
-                                          "mr-2 h-4 w-4",
-                                          client.id === field.value
-                                            ? "opacity-100"
-                                            : "opacity-0"
+                                          "p-3 border-b last:border-b-0 border-muted/50 flex flex-col items-start gap-1 cursor-pointer",
+                                          !canSelect && "cursor-not-allowed opacity-90 hover:bg-transparent"
                                         )}
-                                      />
-                                      {client.companyName}
-                                    </CommandItem>
-                                  ))}
+                                      >
+                                        <div className="flex items-center justify-between w-full">
+                                          <div className="flex items-center">
+                                            <Check
+                                              className={cn(
+                                                "mr-2 h-4 w-4 shrink-0",
+                                                client.id === field.value
+                                                  ? "opacity-100"
+                                                  : "opacity-0"
+                                              )}
+                                            />
+                                            <span className="font-semibold text-sm">{client.companyName}</span>
+                                          </div>
+                                          {!canSelect && (
+                                            <Badge variant="outline" className="text-red-500 border-red-200 bg-red-50 text-[10px] py-0 px-2 shrink-0">
+                                              Not Assigned
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        
+                                        <div className="text-xs text-muted-foreground ml-6">
+                                          {client.clientType || "Direct"} • {assignedConsultantText}
+                                        </div>
+
+                                        {!canSelect && (
+                                          <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                               onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <div className="flex items-start gap-1">
+                                              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                              <span>You can view this client, but cannot create quotation unless assigned.</span>
+                                            </div>
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="outline"
+                                              className="text-[10px] h-7 px-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0 self-end sm:self-auto"
+                                              onClick={async (e) => {
+                                                e.stopPropagation()
+                                                await handleRequestAccess(client.id, client.companyName)
+                                              }}
+                                            >
+                                              Request Access
+                                            </Button>
+                                          </div>
+                                        )}
+
+                                        {isAdminOrSuperAdmin && (
+                                          <div className="mt-2 ml-6" onClick={(e) => e.stopPropagation()}>
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="ghost"
+                                              className="text-[10px] h-7 px-2 text-primary hover:bg-primary/10 flex items-center gap-1"
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                setAssigningClient({ id: client.id, name: client.companyName })
+                                                setIsAssignModalOpen(true)
+                                              }}
+                                            >
+                                              <UserPlus className="h-3 w-3" />
+                                              <span>Assign Consultant</span>
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </CommandItem>
+                                    )
+                                  })}
                                 </CommandGroup>
                               </CommandList>
                             </Command>
@@ -2480,52 +2584,46 @@ function NewQuotationForm() {
                   </div>
                 </div>
               </CardFooter>
-
             </Card>
 
-            <div className="flex items-center justify-end space-x-4">
-              <Link href="/quotations">
-                <Button type="button" variant="outline">
-                  Cancel
-                </Button>
-              </Link>
-              {!isRevision && (
-                <Button
-                  type="button"
-                  onClick={() => form.handleSubmit((data) => onSubmit(data, "DRAFT"))()}
-                  disabled={submitting}
-                  variant="secondary"
-                  className="disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving Draft...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="mr-2 h-4 w-4" />
-                      Save as Draft
-                    </>
-                  )}
-                </Button>
-              )}
+            {/* Submission Actions */}
+            <div className="flex justify-end gap-4 mt-6">
               <Button
                 type="button"
-                onClick={() => form.handleSubmit((data) => onSubmit(data, "QUOTE_CREATED"))()}
+                variant="outline"
                 disabled={submitting}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                onClick={() => router.push("/quotations")}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={submitting}
+                onClick={form.handleSubmit((data) => onSubmit(data, "DRAFT"))}
               >
                 {submitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isRevision ? "Saving Revision..." : "Generating PDF & Saving..."}
+                    Saving...
                   </>
                 ) : (
+                  "Save Draft"
+                )}
+              </Button>
+              <Button
+                type="submit"
+                disabled={submitting}
+              >
+                {submitting ? (
                   <>
-                    {isRevision ? <RefreshCw className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}
-                    {isRevision ? "Compile & Save Revision" : "Compile & finalize PDF"}
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
                   </>
+                ) : isRevision ? (
+                  "Save Revision"
+                ) : (
+                  "Compile & Create"
                 )}
               </Button>
             </div>
@@ -2534,59 +2632,45 @@ function NewQuotationForm() {
       )}
 
       <QuickAddProductModal
-        isOpen={isQuickAddOpen}
-        userRole={userRole}
-        onClose={() => {
-          setIsQuickAddOpen(false)
-          setActiveLineIndex(null)
-        }}
-        onSuccess={(newProduct) => {
-          // Only append to local catalog if it's a real saved product (managers/admins)
-          const isTemp = newProduct.id.startsWith("custom-")
-          if (!isTemp) {
-            setProducts(prev => [...prev, newProduct])
-          }
-
-          // Auto-populate the active line item
+        open={isQuickAddOpen}
+        onOpenChange={setIsQuickAddOpen}
+        onSuccess={(product) => {
+          setProducts((prev) => [product, ...prev])
           if (activeLineIndex !== null) {
-            let basePrice = newProduct.unitPrice
-            if (watchSegment === "Interior") basePrice = newProduct.interiorPrice ?? newProduct.unitPrice
-            else if (watchSegment === "Dealer") basePrice = newProduct.dealerPrice ?? newProduct.unitPrice
-            else if (watchSegment === "Direct") basePrice = newProduct.directPrice ?? newProduct.unitPrice
-            else if (watchSegment === "Online") basePrice = newProduct.onlinePrice ?? newProduct.unitPrice
-
-            // For temp custom items, clear productId so they submit as free-text lines
-            form.setValue(`items.${activeLineIndex}.productId`, isTemp ? "" : newProduct.id)
-            form.setValue(`items.${activeLineIndex}.priceSource`, isTemp ? "manual" : "standard")
-            form.setValue(`items.${activeLineIndex}.description`, newProduct.productName)
-            form.setValue(`items.${activeLineIndex}.specifications`, newProduct.specifications ? newProduct.specifications.replace(/【/g, '• ').replace(/】 ?/g, ': ') : "")
-            form.setValue(`items.${activeLineIndex}.margin`, 0)
-            form.setValue(`items.${activeLineIndex}.manualMargin`, 0)
-            form.setValue(`items.${activeLineIndex}.basePrice`, basePrice)
-            form.setValue(`items.${activeLineIndex}.unitPrice`, basePrice)
-            form.setValue(`items.${activeLineIndex}.customImageUrl`, newProduct.imageUrl || "")
+            handleProductSelect(activeLineIndex, product.id)
           }
         }}
       />
 
       <QuickAddClientModal
-        isOpen={isQuickAddClientOpen}
-        userRole={userRole}
-        onClose={() => setIsQuickAddClientOpen(false)}
-        onSuccess={(newClient) => {
-          setClients((prev) => [...prev, newClient])
-          form.setValue("clientId", newClient.id)
+        open={isQuickAddClientOpen}
+        onOpenChange={setIsQuickAddClientOpen}
+        onSuccess={(client) => {
+          setClients((prev) => [client, ...prev])
+          form.setValue("clientId", client.id)
+        }}
+      />
+
+      <AssignmentModal
+        open={isAssignModalOpen}
+        onOpenChange={setIsAssignModalOpen}
+        clientId={assigningClient?.id || ""}
+        clientName={assigningClient?.name || ""}
+        onSuccess={async () => {
+          const res = await fetch("/api/clients?all=true")
+          if (res.ok) {
+            const data = await res.json()
+            setClients(data)
+          }
         }}
       />
 
       <ImageCropper
-        isOpen={isCropperOpen}
-        imageSrc={rawImageSrc}
-        onClose={() => {
-          setIsCropperOpen(false)
-          setRawImageSrc(null)
-        }}
+        open={isCropperOpen}
+        onOpenChange={setIsCropperOpen}
+        imageSrc={rawImageSrc || ""}
         onCrop={handleCropSave}
+        aspectRatio={1}
       />
     </div>
   )

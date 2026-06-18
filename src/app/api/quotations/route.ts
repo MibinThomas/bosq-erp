@@ -199,6 +199,69 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to create quotations" }, { status: 403 })
     }
 
+    // Validate if the user is assigned to this client or has full access (Admin/Super Admin)
+    const isExcludedFromAssignmentCheck = ["SUPER_ADMIN", "ADMIN"].includes(dbSessionUser.role)
+    if (!isExcludedFromAssignmentCheck) {
+      let hasAccess = false
+
+      let ownershipRule = "ASSIGNED" // Default for restricted roles like Sales Executive
+      if (dbSessionUser.role === "SALES_MANAGER") {
+        const clientsRoleObj = await prisma.role.findFirst({
+          where: { name: dbSessionUser.role },
+          include: { permissions: { where: { module: "CLIENTS" } } }
+        })
+        const clientsRolePerm = clientsRoleObj?.permissions[0]
+        
+        const clientsOverride = await prisma.userPermissionOverride.findUnique({
+          where: {
+            userId_module_action: {
+              userId: dbSessionUser.id,
+              module: "CLIENTS",
+              action: "ownership"
+            }
+          }
+        })
+
+        if (clientsOverride?.ownership) {
+          ownershipRule = clientsOverride.ownership
+        } else if (clientsRolePerm?.ownership) {
+          ownershipRule = clientsRolePerm.ownership
+        } else {
+          ownershipRule = "ALL" // Default for Sales Manager is ALL
+        }
+      }
+
+      if (ownershipRule === "ALL") {
+        hasAccess = true
+      } else if (ownershipRule === "DEPARTMENT") {
+        const deptUsers = await prisma.user.findMany({
+          where: { department: dbSessionUser.department || "N/A" },
+          select: { id: true }
+        })
+        const deptUserIds = deptUsers.map(u => u.id)
+        
+        const assignmentCount = await prisma.clientAssignment.count({
+          where: {
+            clientId: clientObj.id,
+            userId: { in: deptUserIds }
+          }
+        })
+        hasAccess = deptUserIds.includes(clientObj.salespersonId || "") || assignmentCount > 0
+      } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+        const assignmentCount = await prisma.clientAssignment.count({
+          where: {
+            clientId: clientObj.id,
+            userId: dbSessionUser.id
+          }
+        })
+        hasAccess = clientObj.salespersonId === dbSessionUser.id || assignmentCount > 0
+      }
+
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Forbidden: You are not assigned to this client and cannot create a quotation for them." }, { status: 403 })
+      }
+    }
+
     // RBAC validation checks for new pricing controls
     const isSuperAdmin = dbSessionUser.role === "SUPER_ADMIN"
     const discountOverride = dbSessionUser.permissionOverrides.find(o => o.action === "maxDiscountPercent")
