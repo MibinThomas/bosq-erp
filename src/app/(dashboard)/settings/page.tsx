@@ -23,7 +23,8 @@ import {
   Eye,
   EyeOff,
   Pencil,
-  Tag
+  Tag,
+  AlertCircle
 } from "lucide-react"
 
 // Types matching system models
@@ -113,6 +114,16 @@ export default function SettingsPage() {
   const [recalculating, setRecalculating] = useState(false)
   const [dbRoles, setDbRoles] = useState<any[]>([])
 
+  // 5. Client Access Requests State
+  const [accessRequests, setAccessRequests] = useState<any[]>([])
+  const [loadingRequests, setLoadingRequests] = useState(false)
+  const [showApproveModal, setShowApproveModal] = useState(false)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [activeRequest, setActiveRequest] = useState<any>(null)
+  const [rejectionReason, setRejectionReason] = useState("")
+  const [assignmentType, setAssignmentType] = useState("secondary")
+  const [submittingAction, setSubmittingAction] = useState(false)
+
   // Fetch all system settings on load
   useEffect(() => {
     fetchSettings()
@@ -120,7 +131,76 @@ export default function SettingsPage() {
     fetchTerms()
     fetchPricing()
     fetchDbRoles()
+    fetchAccessRequests()
   }, [])
+
+  const fetchAccessRequests = async () => {
+    try {
+      setLoadingRequests(true)
+      const res = await fetch("/api/clients/access-requests")
+      if (res.ok) {
+        const data = await res.json()
+        setAccessRequests(data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch access requests:", err)
+    } finally {
+      setLoadingRequests(false)
+    }
+  }
+
+  const handleApproveRequest = async (requestId: string, type: string) => {
+    setSubmittingAction(true)
+    try {
+      const res = await fetch("/api/clients/access-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action: "Approve", assignmentType: type })
+      })
+
+      if (res.ok) {
+        toast.success("Access request approved successfully!")
+        setShowApproveModal(false)
+        setActiveRequest(null)
+        fetchAccessRequests()
+      } else {
+        const err = await res.json()
+        toast.error(err.error || "Failed to approve request.")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("An error occurred.")
+    } finally {
+      setSubmittingAction(false)
+    }
+  }
+
+  const handleRejectRequest = async (requestId: string, reason: string) => {
+    setSubmittingAction(true)
+    try {
+      const res = await fetch("/api/clients/access-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action: "Reject", rejectionReason: reason })
+      })
+
+      if (res.ok) {
+        toast.success("Access request rejected successfully.")
+        setShowRejectModal(false)
+        setActiveRequest(null)
+        setRejectionReason("")
+        fetchAccessRequests()
+      } else {
+        const err = await res.json()
+        toast.error(err.error || "Failed to reject request.")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("An error occurred.")
+    } finally {
+      setSubmittingAction(false)
+    }
+  }
 
   const fetchDbRoles = async () => {
     try {
@@ -504,7 +584,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="company" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-5 h-auto gap-2 bg-slate-900/60 p-2 border border-slate-800 rounded-xl max-w-4xl">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6 h-auto gap-2 bg-slate-900/60 p-2 border border-slate-800 rounded-xl max-w-5xl">
           <TabsTrigger value="company" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
             <Building className="h-4 w-4" />
             Company Details
@@ -524,6 +604,10 @@ export default function SettingsPage() {
           <TabsTrigger value="integrations" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
             <Key className="h-4 w-4" />
             SharePoint Keys
+          </TabsTrigger>
+          <TabsTrigger value="client-requests" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
+            <UserCheck className="h-4 w-4" />
+            Client Requests
           </TabsTrigger>
         </TabsList>
 
@@ -967,6 +1051,111 @@ export default function SettingsPage() {
             </Card>
           </form>
         </TabsContent>
+
+        {/* Tab 5: Client Access Requests */}
+        <TabsContent value="client-requests" className="mt-6">
+          <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl">
+            <CardHeader className="border-b border-slate-800 pb-4">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <UserCheck className="text-orange-500 h-5 w-5" />
+                Client Access Requests
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Review and approve client access requests submitted by consultants.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {loadingRequests ? (
+                <div className="flex justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
+                </div>
+              ) : accessRequests.length === 0 ? (
+                <div className="text-sm text-slate-400 italic text-center p-8 border border-dashed border-slate-800 rounded-xl">
+                  No access requests submitted.
+                </div>
+              ) : (
+                <div className="relative overflow-x-auto rounded-lg border border-slate-800">
+                  <table className="w-full text-sm text-left text-slate-300">
+                    <thead className="text-xs uppercase bg-slate-900 text-slate-400 border-b border-slate-800">
+                      <tr>
+                        <th scope="col" className="px-6 py-4">Client Name</th>
+                        <th scope="col" className="px-6 py-4">Requested By</th>
+                        <th scope="col" className="px-6 py-4">User Role</th>
+                        <th scope="col" className="px-6 py-4">Request Date</th>
+                        <th scope="col" className="px-6 py-4">Status</th>
+                        <th scope="col" className="px-6 py-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {accessRequests.map((req) => (
+                        <tr key={req.id} className="border-b border-slate-800 bg-slate-950/40 hover:bg-slate-900/60 transition-colors">
+                          <td className="px-6 py-4 font-semibold text-slate-100">
+                            <div className="flex flex-col">
+                              <span>{req.client?.companyName}</span>
+                              <span className="text-[10px] text-slate-400 font-mono font-normal">{req.client?.clientId}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 font-medium text-slate-200">
+                            <div className="flex flex-col">
+                              <span>{req.userName || req.user?.name}</span>
+                              <span className="text-[10px] text-slate-400 font-normal">{req.user?.email}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex px-2 py-0.5 rounded bg-slate-800 text-xs text-slate-300">
+                              {req.user?.role?.replace(/_/g, " ")}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-400">
+                            {new Date(req.createdAt).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                              req.status === "Approved" ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                              req.status === "Rejected" ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                              "bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse"
+                            }`}>
+                              {req.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            {req.status === "Requested" && (
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-500 text-white font-semibold"
+                                  onClick={() => {
+                                    setActiveRequest(req)
+                                    setAssignmentType("secondary")
+                                    setShowApproveModal(true)
+                                  }}
+                                >
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-red-900 text-red-500 hover:bg-red-950 font-semibold"
+                                  onClick={() => {
+                                    setActiveRequest(req)
+                                    setRejectionReason("")
+                                    setShowRejectModal(true)
+                                  }}
+                                >
+                                  Reject
+                                </Button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Add User Modal */}
@@ -1350,30 +1539,115 @@ export default function SettingsPage() {
                 Are you sure you want to delete "{deleteConfirm.label}"? This action cannot be undone.
               </CardDescription>
             </CardHeader>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Approve Request Modal */}
+      {showApproveModal && activeRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <Card className="w-full max-w-md bg-slate-950 border-slate-800 text-white shadow-2xl">
+            <CardHeader className="border-b border-slate-800">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <UserCheck className="text-green-500 h-5 w-5" />
+                Approve Client Access Request
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Grant access to client "{activeRequest.client?.companyName}" for consultant "{activeRequest.userName || activeRequest.user?.name}".
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              <div className="space-y-2">
+                <Label className="text-slate-300">Assignment Type</Label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 cursor-pointer p-3 border border-slate-800 rounded-lg bg-slate-900/40 hover:bg-slate-900 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="assignmentType" 
+                      value="secondary"
+                      checked={assignmentType === "secondary"}
+                      onChange={() => setAssignmentType("secondary")}
+                      className="accent-orange-500 h-4 w-4"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-slate-100">Add as Secondary consultant (Recommended)</span>
+                      <span className="text-xs text-slate-400 mt-0.5">Allows access without changing primary client ownership.</span>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer p-3 border border-slate-800 rounded-lg bg-slate-900/40 hover:bg-slate-900 transition-colors">
+                    <input 
+                      type="radio" 
+                      name="assignmentType" 
+                      value="primary"
+                      checked={assignmentType === "primary"}
+                      onChange={() => setAssignmentType("primary")}
+                      className="accent-orange-500 h-4 w-4"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-slate-100">Make Primary Assigned Consultant</span>
+                      <span className="text-xs text-slate-400 mt-0.5">Replaces current salesperson ownership for this client.</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </CardContent>
             <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
-              <Button 
-                type="button" 
-                variant="ghost" 
-                onClick={() => setDeleteConfirm(null)} 
-                className="text-slate-400 hover:text-slate-200"
-              >
+              <Button type="button" variant="ghost" onClick={() => { setShowApproveModal(false); setActiveRequest(null); }} className="text-slate-400 hover:text-slate-200" disabled={submittingAction}>
                 Cancel
               </Button>
               <Button 
                 type="button" 
-                onClick={() => {
-                  if (deleteConfirm.type === "user") {
-                    executeDeleteUser(deleteConfirm.id, deleteConfirm.label)
-                  } else {
-                    executeDeleteTerm(deleteConfirm.type, deleteConfirm.id, deleteConfirm.label)
-                  }
-                  setDeleteConfirm(null)
-                }} 
-                className="bg-red-600 hover:bg-red-500 text-white font-semibold flex items-center gap-2"
-                disabled={loading}
+                onClick={() => handleApproveRequest(activeRequest.id, assignmentType)}
+                className="bg-green-600 hover:bg-green-500 text-white font-semibold flex items-center gap-2"
+                disabled={submittingAction}
               >
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                Confirm Delete
+                {submittingAction && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirm Approval
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Reject Request Modal */}
+      {showRejectModal && activeRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <Card className="w-full max-w-md bg-slate-950 border-slate-800 text-white shadow-2xl">
+            <CardHeader className="border-b border-slate-800">
+              <CardTitle className="text-lg text-red-500 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+                Reject Client Access Request
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Reject access to client "{activeRequest.client?.companyName}" for consultant "{activeRequest.userName || activeRequest.user?.name}".
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-6">
+              <div className="space-y-2">
+                <Label htmlFor="rejectionReason" className="text-slate-300">Rejection Reason (Optional)</Label>
+                <textarea 
+                  id="rejectionReason"
+                  placeholder="e.g. This client is already managed by another division."
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  rows={3}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600"
+                />
+              </div>
+            </CardContent>
+            <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
+              <Button type="button" variant="ghost" onClick={() => { setShowRejectModal(false); setActiveRequest(null); setRejectionReason(""); }} className="text-slate-400 hover:text-slate-200" disabled={submittingAction}>
+                Cancel
+              </Button>
+              <Button 
+                type="button" 
+                onClick={() => handleRejectRequest(activeRequest.id, rejectionReason)}
+                className="bg-red-600 hover:bg-red-500 text-white font-semibold flex items-center gap-2"
+                disabled={submittingAction}
+              >
+                {submittingAction && <Loader2 className="h-4 w-4 animate-spin" />}
+                Confirm Rejection
               </Button>
             </div>
           </Card>

@@ -37,6 +37,7 @@ model User {
 
   clientAssignments    ClientAssignment[]         @relation("ClientAssignments")
   quotationAssignments QuotationAssignment[]      @relation("QuotationAssignments")
+  accessRequests       ClientAccessRequest[]
 }
 
 model Notification {
@@ -73,6 +74,7 @@ model Client {
   boqs            Boq[]
   assignments     ClientAssignment[]
   documents       ClientDocument[]
+  accessRequests  ClientAccessRequest[]
 }
 
 model ClientDocument {
@@ -455,4 +457,20 @@ model QuotationAssignment {
   updatedAt   DateTime @updatedAt
 
   @@unique([quotationId, userId])
+}
+
+model ClientAccessRequest {
+  id              String   @id @default(cuid())
+  clientId        String
+  client          Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userName        String
+  status          String   @default("Requested") // Requested | Approved | Rejected
+  notes           String?
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([clientId, userId])
 }

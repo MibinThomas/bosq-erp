@@ -32,7 +32,50 @@ export async function POST(
       return NextResponse.json({ error: "Client not found" }, { status: 404 })
     }
 
-    // Fetch all Admin and Super Admin users to notify them
+    // 1. Check if user is already assigned to this client
+    const isPrimarySalesperson = client.salespersonId === dbSessionUser.id
+    const secondaryAssignmentCount = await prisma.clientAssignment.count({
+      where: {
+        clientId: client.id,
+        userId: dbSessionUser.id
+      }
+    })
+
+    if (isPrimarySalesperson || secondaryAssignmentCount > 0) {
+      return NextResponse.json(
+        { error: "You already have access/assignment to this client." },
+        { status: 400 }
+      )
+    }
+
+    // Parse request body for optional notes
+    const body = await request.json().catch(() => ({}))
+    const notes = body.notes || null
+
+    // 2. Create or Update (upsert) the access request record
+    const accessRequest = await prisma.clientAccessRequest.upsert({
+      where: {
+        clientId_userId: {
+          clientId: client.id,
+          userId: dbSessionUser.id
+        }
+      },
+      create: {
+        clientId: client.id,
+        userId: dbSessionUser.id,
+        userName: dbSessionUser.name || dbSessionUser.email || "Unknown User",
+        status: "Requested",
+        notes
+      },
+      update: {
+        status: "Requested",
+        notes,
+        rejectionReason: null,
+        updatedAt: new Date()
+      }
+    })
+
+    // 3. Fetch all Admin and Super Admin users to notify them
     const admins = await prisma.user.findMany({
       where: {
         role: { in: ["ADMIN", "SUPER_ADMIN"] },
@@ -48,12 +91,12 @@ export async function POST(
           title: "Client Access Request",
           message: `${dbSessionUser.name || dbSessionUser.email} has requested access to client "${client.companyName}" (${client.clientId}).`,
           type: "CLIENT_ACCESS_REQUEST",
-          link: `/clients/${client.id}`
+          link: `/settings` // Redirects to settings console where requests tab resides
         }))
       })
     }
 
-    // Log Activity
+    // 4. Log Activity
     await prisma.activityLog.create({
       data: {
         userId: dbSessionUser.id,
@@ -64,7 +107,7 @@ export async function POST(
       }
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, data: accessRequest })
   } catch (error) {
     console.error("Failed to request client access:", error)
     return NextResponse.json(

@@ -103,6 +103,9 @@ export async function GET(request: Request) {
               }
             }
           }
+        },
+        accessRequests: {
+          where: { userId: dbSessionUser.id }
         }
       }
     })

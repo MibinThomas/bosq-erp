@@ -106,6 +106,11 @@ interface Client {
       role: string
     }
   }>
+  accessRequests?: Array<{
+    id: string
+    status: string
+    rejectionReason: string | null
+  }>
 }
 
 interface Product {
@@ -787,17 +792,33 @@ function NewQuotationForm() {
     }
   }
 
+  const fetchClientsList = async () => {
+    try {
+      const res = await fetch("/api/clients?all=true")
+      if (res.ok) {
+        const data = await res.json()
+        setClients(data)
+      }
+    } catch (err) {
+      console.error("Failed to refresh clients list:", err)
+    }
+  }
+
   const handleRequestAccess = async (clientId: string, clientName: string) => {
     try {
       const res = await fetch(`/api/clients/${clientId}/request-access`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: "Requested access to client via quotations page." })
       })
 
       if (!res.ok) {
-        throw new Error("Failed to request access")
+        const err = await res.json()
+        throw new Error(err.error || "Failed to request access")
       }
 
       toast.success(`Access request submitted for "${clientName}"! Admin will be notified.`)
+      await fetchClientsList()
     } catch (error: any) {
       toast.error(error.message || "Failed to request access. Please try again.")
     }
@@ -1138,39 +1159,112 @@ function NewQuotationForm() {
                                             />
                                             <span className="font-semibold text-sm">{client.companyName}</span>
                                           </div>
-                                          {!canSelect && (
-                                            <Badge variant="outline" className="text-red-500 border-red-200 bg-red-50 text-[10px] py-0 px-2 shrink-0">
-                                              Not Assigned
-                                            </Badge>
-                                          )}
+                                          {!canSelect && (() => {
+                                            const activeReq = client.accessRequests?.[0]
+                                            const isRequested = activeReq?.status === "Requested"
+                                            const isRejected = activeReq?.status === "Rejected"
+
+                                            if (isRequested) {
+                                              return (
+                                                <Badge variant="outline" className="text-amber-500 border-amber-200 bg-amber-50 text-[10px] py-0 px-2 shrink-0">
+                                                  Access Requested
+                                                </Badge>
+                                              )
+                                            } else if (isRejected) {
+                                              return (
+                                                <Badge variant="outline" className="text-red-500 border-red-200 bg-red-50 text-[10px] py-0 px-2 shrink-0">
+                                                  Request Rejected
+                                                </Badge>
+                                              )
+                                            } else {
+                                              return (
+                                                <Badge variant="outline" className="text-red-500 border-red-200 bg-red-50 text-[10px] py-0 px-2 shrink-0">
+                                                  Not Assigned
+                                                </Badge>
+                                              )
+                                            }
+                                          })()}
                                         </div>
                                         
                                         <div className="text-xs text-muted-foreground ml-6">
                                           {client.clientType || "Direct"} • {assignedConsultantText}
                                         </div>
 
-                                        {!canSelect && (
-                                          <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                                               onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <div className="flex items-start gap-1">
-                                              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                              <span>You can view this client, but cannot create quotation unless assigned.</span>
-                                            </div>
-                                            <Button
-                                              type="button"
-                                              size="sm"
-                                              variant="outline"
-                                              className="text-[10px] h-7 px-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0 self-end sm:self-auto"
-                                              onClick={async (e) => {
-                                                e.stopPropagation()
-                                                await handleRequestAccess(client.id, client.companyName)
-                                              }}
+                                        {!canSelect && (() => {
+                                          const activeReq = client.accessRequests?.[0]
+                                          const isRequested = activeReq?.status === "Requested"
+                                          const isRejected = activeReq?.status === "Rejected"
+
+                                          if (isRequested) {
+                                            return (
+                                              <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                                   onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <div className="flex items-start gap-1">
+                                                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                  <span>Access request is pending Administrator approval.</span>
+                                                </div>
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  variant="outline"
+                                                  disabled
+                                                  className="text-[10px] h-7 px-2 border-amber-200 bg-amber-100 text-amber-600 dark:bg-amber-950/40 shrink-0 self-end sm:self-auto opacity-75 cursor-not-allowed"
+                                                >
+                                                  Requested
+                                                </Button>
+                                              </div>
+                                            )
+                                          }
+
+                                          if (isRejected) {
+                                            return (
+                                              <div className="mt-2 ml-6 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg text-[11px] text-red-850 dark:text-red-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                                   onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <div className="flex items-start gap-1">
+                                                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                  <span>Access request rejected{activeReq.rejectionReason ? `: ${activeReq.rejectionReason}` : "."}</span>
+                                                </div>
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="text-[10px] h-7 px-2 border-red-300 hover:bg-red-100 dark:hover:bg-red-950 text-red-900 dark:text-red-200 shrink-0 self-end sm:self-auto"
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation()
+                                                    await handleRequestAccess(client.id, client.companyName)
+                                                  }}
+                                                >
+                                                  Request Again
+                                                </Button>
+                                              </div>
+                                            )
+                                          }
+
+                                          return (
+                                            <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                              Request Access
-                                            </Button>
-                                          </div>
-                                        )}
+                                              <div className="flex items-start gap-1">
+                                                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                <span>You can view this client, but cannot create quotation unless assigned.</span>
+                                              </div>
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                className="text-[10px] h-7 px-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0 self-end sm:self-auto"
+                                                onClick={async (e) => {
+                                                  e.stopPropagation()
+                                                  await handleRequestAccess(client.id, client.companyName)
+                                                }}
+                                              >
+                                                Request Access
+                                              </Button>
+                                            </div>
+                                          )
+                                        })()}
 
                                         {isAdminOrSuperAdmin && (
                                           <div className="mt-2 ml-6" onClick={(e) => e.stopPropagation()}>
