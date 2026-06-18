@@ -2669,11 +2669,10 @@ function NewQuotationForm() {
       />
 
       <ImageCropper
-        open={isCropperOpen}
-        onOpenChange={setIsCropperOpen}
+        isOpen={isCropperOpen}
+        onClose={() => setIsCropperOpen(false)}
         imageSrc={rawImageSrc || ""}
         onCrop={handleCropSave}
-        aspectRatio={1}
       />
     </div>
   )
