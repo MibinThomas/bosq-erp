@@ -3,8 +3,8 @@ name: Deploy ERP to Vercel
 on:
   push:
     branches:
-      - main     # Triggers production deploy when pushing to main
-      - master   # Triggers beta deploy when pushing to master
+      - main     # Triggers production deploy when pushing to main (Client's Vercel Account)
+      - master   # Triggers beta deploy when pushing to master (User's Personal Vercel Account)
 
 jobs:
   deploy:
@@ -21,20 +21,37 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
+      - name: Set Target Environment Secrets
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "VERCEL_TOKEN=${{ secrets.PROD_VERCEL_TOKEN }}" >> $GITHUB_ENV
+            echo "VERCEL_ORG_ID=${{ secrets.PROD_VERCEL_ORG_ID }}" >> $GITHUB_ENV
+            echo "VERCEL_PROJECT_ID=${{ secrets.PROD_VERCEL_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "IS_PROD=--prod" >> $GITHUB_ENV
+            echo "ENV_NAME=production" >> $GITHUB_ENV
+          else
+            echo "VERCEL_TOKEN=${{ secrets.BETA_VERCEL_TOKEN }}" >> $GITHUB_ENV
+            echo "VERCEL_ORG_ID=${{ secrets.BETA_VERCEL_ORG_ID }}" >> $GITHUB_ENV
+            echo "VERCEL_PROJECT_ID=${{ secrets.BETA_VERCEL_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "IS_PROD=" >> $GITHUB_ENV
+            echo "ENV_NAME=preview" >> $GITHUB_ENV
+          fi
+        shell: bash
+
       - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=${{ github.ref_name == 'main' && 'production' || 'preview' }} --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=$ENV_NAME --token=$VERCEL_TOKEN
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
 
       - name: Build Project Artifacts
-        run: vercel build ${{ github.ref_name == 'main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build $IS_PROD --token=$VERCEL_TOKEN
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
 
       - name: Deploy Project to Vercel
-        run: vercel deploy --prebuilt ${{ github.ref_name == 'main' && '--prod' || '' }} --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt $IS_PROD --token=$VERCEL_TOKEN
         env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
