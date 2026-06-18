@@ -2635,8 +2635,8 @@ function NewQuotationForm() {
       )}
 
       <QuickAddProductModal
-        open={isQuickAddOpen}
-        onOpenChange={setIsQuickAddOpen}
+        isOpen={isQuickAddOpen}
+        onClose={() => setIsQuickAddOpen(false)}
         onSuccess={(product) => {
           setProducts((prev) => [product, ...prev])
           if (activeLineIndex !== null) {
@@ -2646,8 +2646,8 @@ function NewQuotationForm() {
       />
 
       <QuickAddClientModal
-        open={isQuickAddClientOpen}
-        onOpenChange={setIsQuickAddClientOpen}
+        isOpen={isQuickAddClientOpen}
+        onClose={() => setIsQuickAddClientOpen(false)}
         onSuccess={(client) => {
           setClients((prev) => [client, ...prev])
           form.setValue("clientId", client.id)

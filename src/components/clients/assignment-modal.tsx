@@ -25,11 +25,11 @@ interface AssignmentModalProps {
   onOpenChange: (open: boolean) => void
   clientId: string
   clientName: string
-  quotations: Quotation[]
+  quotations?: Quotation[]
   onSuccess: () => void
 }
 
-export function AssignmentModal({ open, onOpenChange, clientId, clientName, quotations, onSuccess }: AssignmentModalProps) {
+export function AssignmentModal({ open, onOpenChange, clientId, clientName, quotations = [], onSuccess }: AssignmentModalProps) {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
