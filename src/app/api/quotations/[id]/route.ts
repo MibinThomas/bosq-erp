@@ -10,6 +10,8 @@ import { getSettings } from "@/lib/settings"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64 } from "@/lib/pdf/logoCache"
+import { generateCode128DataUri } from "@/lib/pdf/barcode"
 
 // Get single quotation with items and revisions history
 export async function GET(
@@ -361,6 +363,8 @@ export async function PUT(
         include: { category: true }
       })
 
+      const resolvedStatus = "DRAFT"
+
       // Calculate new financial totals using strict order
       let subtotal = 0
       const quotationItemsToCreate = await Promise.all(items.map(async (item: any, idx: number) => {
@@ -373,9 +377,9 @@ export async function PUT(
 
         const matchedProd = dbProducts.find((p) => p.id === item.productId)
         
-        // Use customImageUrl if it exists, otherwise fall back to product image
         const rawImageUrl = item.customImageUrl || item.imageUrl || matchedProd?.imageUrl || null;
-        const resolvedImage = await resolveImageUrl(rawImageUrl);
+        // Skip resolution for drafts
+        const resolvedImage = resolvedStatus !== "DRAFT" ? await resolveImageUrl(rawImageUrl) : null;
 
         return {
           itemNo: idx + 1,
@@ -383,14 +387,14 @@ export async function PUT(
           description: item.description,
           specifications: item.specifications || "",
           productNotes: item.productNotes || null,
-          customImageUrl: item.customImageUrl || null,
+          customImageUrl: rawImageUrl,
           quantity: qty,
           basePrice: parseFloat(item.basePrice) || price,
           unitPrice: price,
           discount: disc,
           margin: marginVal,
           amount: amt,
-          imageUrl: resolvedImage, // this will be used for PDF rendering
+          imageUrl: resolvedImage,
           categoryName: item.categoryName || matchedProd?.category?.name || "OFFICE FURNITURE",
           chairType: item.chairType || matchedProd?.chairType || null,
           shortDescription: item.shortDescription || matchedProd?.shortDescription || null,
@@ -448,50 +452,6 @@ export async function PUT(
         )
       }
 
-      // Read both brand logos to base64
-      let logoBase64 = ""
-      try {
-        const pngLogoPath = path.join(process.cwd(), "public", "assets", "logo", "logo.png")
-        if (fs.existsSync(pngLogoPath)) {
-          const fileBuffer = fs.readFileSync(pngLogoPath)
-          logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
-        } else {
-          const logoPath = path.join(process.cwd(), "public", "assets", "logo", "BOSQ R LOGO.svg")
-          if (fs.existsSync(logoPath)) {
-            const fileBuffer = fs.readFileSync(logoPath)
-            const sharp = (await import("sharp")).default
-            const pngBuffer = await sharp(fileBuffer).png().toBuffer()
-            logoBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
-          }
-        }
-      } catch (logoErr) {
-        console.error("Failed to read logo buffer in revision:", logoErr)
-      }
-
-      let watermarkBase64 = ""
-      try {
-        const watermarkPath = path.join(process.cwd(), "public", "assets", "logo", "Watermark.svg")
-        if (fs.existsSync(watermarkPath)) {
-          const fileBuffer = fs.readFileSync(watermarkPath)
-          const sharp = (await import("sharp")).default
-          const pngBuffer = await sharp(fileBuffer).png().toBuffer()
-          watermarkBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
-        }
-      } catch (watermarkErr) {
-        console.error("Failed to generate watermark in revision:", watermarkErr)
-      }
-
-      let aynMuskLogoBase64 = ""
-      try {
-        const aynMuskLogoPath = path.join(process.cwd(), "public", "assets", "logo", "AYN Musk_PNG.png")
-        if (fs.existsSync(aynMuskLogoPath)) {
-          const fileBuffer = fs.readFileSync(aynMuskLogoPath)
-          aynMuskLogoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
-        }
-      } catch (aynMuskErr) {
-        console.error("Failed to read AYN Musk logo buffer in revision:", aynMuskErr)
-      }
-
       const rootId = existingQuotation.parentId || existingQuotation.id
       const rootQuotation = await prisma.quotation.findUnique({
         where: { id: rootId },
@@ -506,16 +466,18 @@ export async function PUT(
       const rootNumMatch = existingQuotation.quotationNumber.match(/^([IDP]\d+)/)
       const baseQuoteNo = rootNumMatch ? rootNumMatch[1] : existingQuotation.quotationNumber.split("-")[0]
       const revQuoteNum = `${baseQuoteNo}-${nextRevNo}`
+
+      // Read both brand logos to base64 (only if not draft)
+      let logoBase64 = ""
+      let watermarkBase64 = ""
+      let aynMuskLogoBase64 = ""
       let barcodeBase64 = ""
-      try {
-        const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(revQuoteNum)}&scale=2&rotate=N&includetext=false`
-        const res = await fetch(barcodeUrl)
-        if (res.ok) {
-          const arrayBuffer = await res.arrayBuffer()
-          barcodeBase64 = `data:image/png;base64,${Buffer.from(arrayBuffer).toString("base64")}`
-        }
-      } catch (barcodeErr) {
-        console.error("Failed to generate barcode in revision:", barcodeErr)
+
+      if (resolvedStatus !== "DRAFT") {
+        logoBase64 = await getLogoBase64()
+        watermarkBase64 = await getWatermarkBase64()
+        aynMuskLogoBase64 = await getAynMuskLogoBase64()
+        barcodeBase64 = generateCode128DataUri(revQuoteNum)
       }
 
       const companySettings = await getSettings([
@@ -564,35 +526,36 @@ export async function PUT(
       }
 
       let pdfBuffer: Buffer
-      try {
-        pdfBuffer = await renderToBuffer(
-          React.createElement(QuotationDocument, pdfProps) as any
-        )
-      } catch (pdfError) {
-        console.error("Failed to compile revised PDF buffer:", pdfError)
-        return NextResponse.json(
-          { error: "Failed to generate revised PDF document" },
-          { status: 500 }
-        )
-      }
-
-      // Upload revised PDF to SharePoint
-      const sanitizedClientNameForFile = existingQuotation.client.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
-      const filenameBase = `${revQuoteNum}_${sanitizedClientNameForFile}`
       let sharepointUrl = ""
-      try {
-        sharepointUrl = await uploadQuotationPdf(
-          existingQuotation.client.companyName,
-          filenameBase,
-          pdfBuffer
-        )
-      } catch (spError) {
-        console.error("Failed to upload revised PDF to SharePoint:", spError)
-        sharepointUrl = `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(
-          existingQuotation.client.companyName
-        )}/Quotations/${filenameBase}.pdf`
+      if (resolvedStatus !== "DRAFT") {
+        try {
+          pdfBuffer = await renderToBuffer(
+            React.createElement(QuotationDocument, pdfProps) as any
+          )
+        } catch (pdfError) {
+          console.error("Failed to compile revised PDF buffer:", pdfError)
+          return NextResponse.json(
+            { error: "Failed to generate revised PDF document" },
+            { status: 500 }
+          )
+        }
+
+        // Upload revised PDF to SharePoint
+        const sanitizedClientNameForFile = existingQuotation.client.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+        const filenameBase = `${revQuoteNum}_${sanitizedClientNameForFile}`
+        try {
+          sharepointUrl = await uploadQuotationPdf(
+            existingQuotation.client.companyName,
+            filenameBase,
+            pdfBuffer
+          )
+        } catch (spError) {
+          console.error("Failed to upload revised PDF to SharePoint:", spError)
+          sharepointUrl = `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(
+            existingQuotation.client.companyName
+          )}/Quotations/${filenameBase}.pdf`
+        }
       }
-      const resolvedStatus = "DRAFT"
 
       // Execute atomic transaction for revision (create a new quotation record, keep the old one)
       const updatedQuotation = await prisma.$transaction(async (tx) => {
@@ -653,7 +616,7 @@ export async function PUT(
                 description: item.description,
                 specifications: item.specifications,
                 productNotes: item.productNotes,
-                customImageUrl: item.customImageUrl || item.imageUrl,
+                customImageUrl: item.customImageUrl,
                 quantity: item.quantity,
                 basePrice: item.basePrice,
                 unitPrice: item.unitPrice,
@@ -670,6 +633,7 @@ export async function PUT(
           }
         })
       }, { maxWait: 15000, timeout: 30000 })
+
 
       // Log Activity
       try {
@@ -733,6 +697,8 @@ export async function PUT(
         )
       }
 
+      const resolvedStatus = body.status || existingQuotation.status
+
       // Prefetch products catalog details
       const productIds = items.map((i: any) => i.productId).filter(Boolean)
       const dbProducts = await prisma.product.findMany({
@@ -753,7 +719,8 @@ export async function PUT(
         const matchedProd = dbProducts.find((p) => p.id === item.productId)
 
         const rawImageUrl = item.customImageUrl || item.imageUrl || matchedProd?.imageUrl || null;
-        const resolvedImage = await resolveImageUrl(rawImageUrl);
+        // Skip resolution for drafts
+        const resolvedImage = resolvedStatus !== "DRAFT" ? await resolveImageUrl(rawImageUrl) : null;
 
         return {
           itemNo: idx + 1,
@@ -761,7 +728,7 @@ export async function PUT(
           description: item.description,
           specifications: item.specifications || "",
           productNotes: item.productNotes || null,
-          customImageUrl: item.customImageUrl || null,
+          customImageUrl: rawImageUrl,
           quantity: qty,
           basePrice: parseFloat(item.basePrice) || price,
           unitPrice: price,
@@ -813,60 +780,17 @@ export async function PUT(
         grandTotal = taxableAmount + vatAmount
       }
 
-      // Read brand logo to base64 for SharePoint PDF generation
+      // Read brand logo to base64 (only if not draft)
       let logoBase64 = ""
-      try {
-        const pngLogoPath = path.join(process.cwd(), "public", "assets", "logo", "logo.png")
-        if (fs.existsSync(pngLogoPath)) {
-          const fileBuffer = fs.readFileSync(pngLogoPath)
-          logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
-        } else {
-          const logoPath = path.join(process.cwd(), "public", "assets", "logo", "BOSQ R LOGO.svg")
-          if (fs.existsSync(logoPath)) {
-            const fileBuffer = fs.readFileSync(logoPath)
-            const sharp = (await import("sharp")).default
-            const pngBuffer = await sharp(fileBuffer).png().toBuffer()
-            logoBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
-          }
-        }
-      } catch (logoErr) {
-        console.error("Failed to read logo buffer in update:", logoErr)
-      }
-
       let watermarkBase64 = ""
-      try {
-        const watermarkPath = path.join(process.cwd(), "public", "assets", "logo", "Watermark.svg")
-        if (fs.existsSync(watermarkPath)) {
-          const fileBuffer = fs.readFileSync(watermarkPath)
-          const sharp = (await import("sharp")).default
-          const pngBuffer = await sharp(fileBuffer).png().toBuffer()
-          watermarkBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
-        }
-      } catch (watermarkErr) {
-        console.error("Failed to generate watermark in update:", watermarkErr)
-      }
-
       let aynMuskLogoBase64 = ""
-      try {
-        const aynMuskLogoPath = path.join(process.cwd(), "public", "assets", "logo", "AYN Musk_PNG.png")
-        if (fs.existsSync(aynMuskLogoPath)) {
-          const fileBuffer = fs.readFileSync(aynMuskLogoPath)
-          aynMuskLogoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
-        }
-      } catch (aynMuskErr) {
-        console.error("Failed to read AYN Musk logo buffer in update:", aynMuskErr)
-      }
-
       let barcodeBase64 = ""
-      try {
-        const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(existingQuotation.quotationNumber)}&scale=2&rotate=N&includetext=false`
-        const res = await fetch(barcodeUrl)
-        if (res.ok) {
-          const arrayBuffer = await res.arrayBuffer()
-          barcodeBase64 = `data:image/png;base64,${Buffer.from(arrayBuffer).toString("base64")}`
-        }
-      } catch (barcodeErr) {
-        console.error("Failed to generate barcode in update:", barcodeErr)
+
+      if (resolvedStatus !== "DRAFT") {
+        logoBase64 = await getLogoBase64()
+        watermarkBase64 = await getWatermarkBase64()
+        aynMuskLogoBase64 = await getAynMuskLogoBase64()
+        barcodeBase64 = generateCode128DataUri(existingQuotation.quotationNumber)
       }
 
       const companySettings = await getSettings([
@@ -928,7 +852,6 @@ export async function PUT(
         additionalCharges: parsedAdditionalCharges,
       }
 
-      const resolvedStatus = body.status || existingQuotation.status
       let sharepointUrl = existingQuotation.sharepointUrl || ""
 
       if (resolvedStatus !== "DRAFT") {
@@ -999,7 +922,7 @@ export async function PUT(
                 description: item.description,
                 specifications: item.specifications,
                 productNotes: item.productNotes,
-                customImageUrl: item.customImageUrl || item.imageUrl,
+                customImageUrl: item.customImageUrl,
                 quantity: item.quantity,
                 basePrice: item.basePrice,
                 unitPrice: item.unitPrice,

@@ -9,6 +9,8 @@ import fs from "fs"
 import path from "path"
 import { getSettings } from "@/lib/settings"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
+import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64 } from "@/lib/pdf/logoCache"
+import { generateCode128DataUri } from "@/lib/pdf/barcode"
 
 export async function GET(
   request: Request,
@@ -17,48 +19,9 @@ export async function GET(
   try {
     const { id } = await params
 
-    let logoBase64 = ""
-    try {
-      const pngLogoPath = path.join(process.cwd(), "public", "assets", "logo", "logo.png")
-      if (fs.existsSync(pngLogoPath)) {
-        const fileBuffer = fs.readFileSync(pngLogoPath)
-        logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
-      } else {
-        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "BOSQ R LOGO.svg")
-        if (fs.existsSync(logoPath)) {
-          const fileBuffer = fs.readFileSync(logoPath)
-          const sharp = (await import("sharp")).default
-          const pngBuffer = await sharp(fileBuffer).png().toBuffer()
-          logoBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
-        }
-      }
-    } catch (logoErr) {
-      console.error("Failed to convert logo SVG:", logoErr)
-    }
-
-    let aynMuskLogoBase64 = ""
-    try {
-      const aynMuskLogoPath = path.join(process.cwd(), "public", "assets", "logo", "AYN Musk_PNG.png")
-      if (fs.existsSync(aynMuskLogoPath)) {
-        const fileBuffer = fs.readFileSync(aynMuskLogoPath)
-        aynMuskLogoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
-      }
-    } catch (aynMuskErr) {
-      console.error("Failed to read AYN Musk logo buffer:", aynMuskErr)
-    }
-
-    let watermarkBase64 = ""
-    try {
-      const watermarkPath = path.join(process.cwd(), "public", "assets", "logo", "Watermark.svg")
-      if (fs.existsSync(watermarkPath)) {
-        const fileBuffer = fs.readFileSync(watermarkPath)
-        const sharp = (await import("sharp")).default
-        const pngBuffer = await sharp(fileBuffer).png().toBuffer()
-        watermarkBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
-      }
-    } catch (watermarkErr) {
-      console.error("Failed to convert watermark SVG:", watermarkErr)
-    }
+    const logoBase64 = await getLogoBase64()
+    const aynMuskLogoBase64 = await getAynMuskLogoBase64()
+    const watermarkBase64 = await getWatermarkBase64()
 
     // Fetch the quotation with all relations
     const quotation = await prisma.quotation.findFirst({
@@ -106,17 +69,8 @@ export async function GET(
     }
 
     // Generate barcode image dynamically
-    let barcodeBase64 = ""
-    try {
-      const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(quotation.quotationNumber)}&scale=2&rotate=N&includetext=false`
-      const res = await fetch(barcodeUrl)
-      if (res.ok) {
-        const arrayBuffer = await res.arrayBuffer()
-        barcodeBase64 = `data:image/png;base64,${Buffer.from(arrayBuffer).toString("base64")}`
-      }
-    } catch (barcodeErr) {
-      console.error("Failed to generate barcode:", barcodeErr)
-    }
+    const barcodeBase64 = generateCode128DataUri(quotation.quotationNumber)
+
 
     // Get Terms & Conditions
     const dbTerms = await prisma.termsCondition.findMany({

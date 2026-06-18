@@ -11,6 +11,8 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { getSettings } from "@/lib/settings"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 import { hasPermission } from "@/lib/rbac"
+import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64 } from "@/lib/pdf/logoCache"
+import { generateCode128DataUri } from "@/lib/pdf/barcode"
 
 export async function GET(request: Request) {
   try {
@@ -348,62 +350,17 @@ export async function POST(request: Request) {
       const nextBaseNumber = maxNumber + 1
       nextQuoteNo = `${prefix}${nextBaseNumber}`
     }
-
-    // Read both brand logos to base64
+    // Read both brand logos to base64 (only if not draft)
     let logoBase64 = ""
-    try {
-      const pngLogoPath = path.join(process.cwd(), "public", "assets", "logo", "logo.png")
-      if (fs.existsSync(pngLogoPath)) {
-        const fileBuffer = fs.readFileSync(pngLogoPath)
-        logoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
-      } else {
-        const logoPath = path.join(process.cwd(), "public", "assets", "logo", "BOSQ R LOGO.svg")
-        if (fs.existsSync(logoPath)) {
-          const fileBuffer = fs.readFileSync(logoPath)
-          const sharp = (await import("sharp")).default
-          const pngBuffer = await sharp(fileBuffer).png().toBuffer()
-          logoBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
-        }
-      }
-    } catch (logoErr) {
-      console.error("Failed to read logo buffer in create endpoint:", logoErr)
-    }
-
     let watermarkBase64 = ""
-    try {
-      const watermarkPath = path.join(process.cwd(), "public", "assets", "logo", "Watermark.svg")
-      if (fs.existsSync(watermarkPath)) {
-        const fileBuffer = fs.readFileSync(watermarkPath)
-        const sharp = (await import("sharp")).default
-        const pngBuffer = await sharp(fileBuffer).png().toBuffer()
-        watermarkBase64 = `data:image/png;base64,${pngBuffer.toString("base64")}`
-      }
-    } catch (watermarkErr) {
-      console.error("Failed to generate watermark in create endpoint:", watermarkErr)
-    }
-
     let aynMuskLogoBase64 = ""
-    try {
-      const aynMuskLogoPath = path.join(process.cwd(), "public", "assets", "logo", "AYN Musk_PNG.png")
-      if (fs.existsSync(aynMuskLogoPath)) {
-        const fileBuffer = fs.readFileSync(aynMuskLogoPath)
-        aynMuskLogoBase64 = `data:image/png;base64,${fileBuffer.toString("base64")}`
-      }
-    } catch (aynMuskErr) {
-      console.error("Failed to read AYN Musk logo buffer in create endpoint:", aynMuskErr)
-    }
-
-    // Generate barcode image dynamically
     let barcodeBase64 = ""
-    try {
-      const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(nextQuoteNo)}&scale=2&rotate=N&includetext=false`
-      const res = await fetch(barcodeUrl)
-      if (res.ok) {
-        const arrayBuffer = await res.arrayBuffer()
-        barcodeBase64 = `data:image/png;base64,${Buffer.from(arrayBuffer).toString("base64")}`
-      }
-    } catch (barcodeErr) {
-      console.error("Failed to generate barcode in creation:", barcodeErr)
+
+    if (resolvedStatus !== "DRAFT") {
+      logoBase64 = await getLogoBase64()
+      watermarkBase64 = await getWatermarkBase64()
+      aynMuskLogoBase64 = await getAynMuskLogoBase64()
+      barcodeBase64 = generateCode128DataUri(nextQuoteNo)
     }
 
     // Prefetch products catalog details to render image & category inside the PDF
@@ -426,7 +383,8 @@ export async function POST(request: Request) {
       const matchedProd = dbProducts.find((p) => p.id === item.productId)
       
       const rawImageUrl = item.customImageUrl || item.imageUrl || matchedProd?.imageUrl || null;
-      const resolvedImage = await resolveImageUrl(rawImageUrl);
+      // Only resolve image URL if not draft
+      const resolvedImage = resolvedStatus !== "DRAFT" ? await resolveImageUrl(rawImageUrl) : null;
 
       return {
         itemNo: idx + 1,
@@ -434,7 +392,7 @@ export async function POST(request: Request) {
         description: item.description,
         specifications: item.specifications || "",
         productNotes: item.productNotes || null,
-        customImageUrl: item.customImageUrl || null,
+        customImageUrl: rawImageUrl,
         quantity: qty,
         basePrice: parseFloat(item.basePrice) || price, // locked segment base price
         unitPrice: price,
@@ -613,7 +571,7 @@ export async function POST(request: Request) {
             description: item.description,
             specifications: item.specifications,
             productNotes: item.productNotes,
-            customImageUrl: item.imageUrl,
+            customImageUrl: item.customImageUrl,
             quantity: item.quantity,
             basePrice: item.basePrice,
             unitPrice: item.unitPrice,
