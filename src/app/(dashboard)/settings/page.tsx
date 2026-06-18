@@ -1539,6 +1539,29 @@ export default function SettingsPage() {
                 Are you sure you want to delete "{deleteConfirm.label}"? This action cannot be undone.
               </CardDescription>
             </CardHeader>
+            <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
+              <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => setDeleteConfirm(null)} 
+                className="text-slate-400 hover:text-slate-200"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="button" 
+                className="bg-red-600 hover:bg-red-500 text-white" 
+                onClick={() => {
+                  if (deleteConfirm.type === "user") {
+                    executeDeleteUser(deleteConfirm.id, deleteConfirm.label)
+                  } else {
+                    executeDeleteTerm(deleteConfirm.type, deleteConfirm.id, deleteConfirm.label)
+                  }
+                  setDeleteConfirm(null)
+                }}
+              >
+                Delete
+              </Button>
             </div>
           </Card>
         </div>
