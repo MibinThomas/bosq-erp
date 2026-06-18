@@ -16,8 +16,11 @@ import {
 
 interface Client {
   id: string
+  clientId?: string
   companyName: string
   contactPerson: string | null
+  email?: string | null
+  phone?: string | null
   trn: string | null
   clientType: string | null
   status: string
