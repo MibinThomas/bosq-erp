@@ -10,6 +10,7 @@ import { DashboardTimeline } from "@/components/dashboard/activity-timeline"
 import { Download } from "lucide-react"
 import { PendingClientApprovals } from "@/components/dashboard/pending-approvals"
 import { ConsultantDashboard } from "@/components/dashboard/consultant/consultant-dashboard"
+import { DashboardTopPerformers } from "@/components/dashboard/top-performers"
 
 export default function DashboardPage() {
   const { data: session } = useSession()
@@ -135,6 +136,12 @@ export default function DashboardPage() {
         <DashboardSalesChart data={chartData?.salesData || []} loading={loadingCharts} />
         <DashboardSegmentChart data={chartData?.segmentData || []} loading={loadingCharts} />
       </div>
+
+      <DashboardTopPerformers 
+        topConsultants={summaryData?.topConsultants || []}
+        topClients={summaryData?.topClients || []}
+        loading={loadingKPIs} 
+      />
 
       <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-5">
         <div className="lg:col-span-3 h-full">

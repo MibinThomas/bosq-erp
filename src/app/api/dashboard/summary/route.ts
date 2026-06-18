@@ -74,7 +74,9 @@ export async function GET(request: Request) {
       totalStats,
       convertedStats,
       pendingApprovalsCount,
-      pendingFollowUpsCount
+      pendingFollowUpsCount,
+      consultantStats,
+      clientStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
         where: whereClause,
@@ -102,6 +104,38 @@ export async function GET(request: Request) {
       }),
       prisma.quotation.count({
         where: { ...whereClause, status: { in: ["DRAFT", "REVISED"] } }
+      }),
+      prisma.quotation.groupBy({
+        by: ["preparedById"],
+        where: whereClause,
+        _count: {
+          id: true
+        },
+        _sum: {
+          subtotal: true
+        },
+        orderBy: {
+          _sum: {
+            subtotal: "desc"
+          }
+        },
+        take: 5
+      }),
+      prisma.quotation.groupBy({
+        by: ["clientId"],
+        where: whereClause,
+        _count: {
+          id: true
+        },
+        _sum: {
+          subtotal: true
+        },
+        orderBy: {
+          _sum: {
+            subtotal: "desc"
+          }
+        },
+        take: 5
       })
     ])
 
@@ -111,6 +145,44 @@ export async function GET(request: Request) {
     const convertedCount = convertedStats._count || 0
     const convertedValue = convertedStats._sum.subtotal || 0
 
+    // Fetch user and client details in parallel
+    const consultantIds = consultantStats.map(stat => stat.preparedById)
+    const clientIds = clientStats.map(stat => stat.clientId)
+
+    const [consultants, clients] = await Promise.all([
+      prisma.user.findMany({
+        where: { id: { in: consultantIds } },
+        select: { id: true, name: true, image: true, role: true }
+      }),
+      prisma.client.findMany({
+        where: { id: { in: clientIds } },
+        select: { id: true, companyName: true, clientType: true }
+      })
+    ])
+
+    const topConsultants = consultantStats.map(stat => {
+      const user = consultants.find(u => u.id === stat.preparedById)
+      return {
+        id: stat.preparedById,
+        name: user?.name || "Unknown",
+        image: user?.image || null,
+        role: user?.role || "SALES_EXECUTIVE",
+        count: stat._count.id,
+        value: stat._sum.subtotal || 0
+      }
+    })
+
+    const topClients = clientStats.map(stat => {
+      const client = clients.find(c => c.id === stat.clientId)
+      return {
+        id: stat.clientId,
+        companyName: client?.companyName || "Unknown Client",
+        clientType: client?.clientType || "Direct",
+        count: stat._count.id,
+        value: stat._sum.subtotal || 0
+      }
+    })
+
     return NextResponse.json({
       totalQuotes,
       totalValue,
@@ -118,7 +190,9 @@ export async function GET(request: Request) {
       convertedValue,
       winRate: totalQuotes > 0 ? (convertedCount / totalQuotes) * 100 : 0,
       pendingApprovalsCount,
-      pendingFollowUpsCount
+      pendingFollowUpsCount,
+      topConsultants,
+      topClients
     })
   } catch (error) {
     console.error("Dashboard summary error:", error)

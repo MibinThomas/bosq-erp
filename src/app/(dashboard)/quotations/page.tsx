@@ -28,6 +28,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import { MoreHorizontal } from "lucide-react"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -82,6 +89,21 @@ export default function QuotationsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const limit = 20
+
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [segmentFilter, setSegmentFilter] = useState("all")
+  const [poStatusFilter, setPoStatusFilter] = useState("all")
+  const [sortBy, setSortBy] = useState("quotationNumber")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setCurrentPage(1)
+    }, 400)
+    return () => clearTimeout(handler)
+  }, [searchTerm])
   
   const [historyQuote, setHistoryQuote] = useState<any | null>(null)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
@@ -178,7 +200,17 @@ export default function QuotationsPage() {
     async function fetchQuotations() {
       try {
         setLoading(true)
-        const res = await fetch(`/api/quotations?page=${currentPage}&limit=${limit}`)
+        const params = new URLSearchParams()
+        params.append("page", currentPage.toString())
+        params.append("limit", limit.toString())
+        if (debouncedSearch) params.append("search", debouncedSearch)
+        if (statusFilter && statusFilter !== "all") params.append("status", statusFilter)
+        if (segmentFilter && segmentFilter !== "all") params.append("customerSegment", segmentFilter)
+        if (poStatusFilter && poStatusFilter !== "all") params.append("poStatus", poStatusFilter)
+        params.append("sortBy", sortBy)
+        params.append("sortOrder", sortOrder)
+
+        const res = await fetch(`/api/quotations?${params.toString()}`)
         if (!res.ok) throw new Error("Failed to fetch quotations")
         const json = await res.json()
         if (json.data) {
@@ -195,17 +227,18 @@ export default function QuotationsPage() {
       }
     }
     fetchQuotations()
-  }, [currentPage])
+  }, [currentPage, debouncedSearch, statusFilter, segmentFilter, poStatusFilter, sortBy, sortOrder])
 
-  // Filter quotations dynamically
-  const filteredQuotations = quotations.filter((quote) => {
-    const term = searchTerm.toLowerCase()
-    return (
-      quote.quotationNumber.toLowerCase().includes(term) ||
-      quote.client.companyName.toLowerCase().includes(term) ||
-      (quote.projectName && quote.projectName.toLowerCase().includes(term))
-    )
-  })
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchTerm("")
+    setStatusFilter("all")
+    setSegmentFilter("all")
+    setPoStatusFilter("all")
+    setSortBy("quotationNumber")
+    setSortOrder("desc")
+    setCurrentPage(1)
+  }
 
   const getStatusBadge = (status: string, revisionNumber?: number) => {
     if (status === "DRAFT" && revisionNumber && revisionNumber > 1) {
@@ -266,7 +299,7 @@ export default function QuotationsPage() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(filteredQuotations.map(q => q.id))
+      setSelectedIds(quotations.map(q => q.id))
     } else {
       setSelectedIds([])
     }
@@ -328,30 +361,121 @@ export default function QuotationsPage() {
         </a>
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:max-w-md">
-          <div className="relative flex items-center w-full">
+      <div className="flex flex-col gap-4 bg-muted/20 p-4 rounded-xl border border-border/50">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          <div className="relative flex items-center flex-1 max-w-xl">
             <Search className="h-4 w-4 text-muted-foreground absolute left-3" />
             <Input
               placeholder="Search quotations, clients, projects..."
-              className="pl-9"
+              className="pl-9 bg-background border-zinc-200 dark:border-zinc-800"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          {isAdminOrSuperAdmin && selectedIds.length > 0 && (
-            <Button 
-              variant="destructive" 
-              onClick={handleDeleteSelected}
-              disabled={isDeleting}
-              className="shrink-0"
-            >
-              {isDeleting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Delete Selected ({selectedIds.length})
-            </Button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {isAdminOrSuperAdmin && selectedIds.length > 0 && (
+              <Button 
+                variant="destructive" 
+                onClick={handleDeleteSelected}
+                disabled={isDeleting}
+                className="shrink-0 h-9"
+              >
+                {isDeleting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Delete Selected ({selectedIds.length})
+              </Button>
+            )}
+            {(searchTerm || statusFilter !== "all" || segmentFilter !== "all" || poStatusFilter !== "all" || sortBy !== "quotationNumber" || sortOrder !== "desc") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearFilters}
+                className="h-9 text-xs border-zinc-200 dark:border-zinc-800"
+              >
+                Reset Filters
+              </Button>
+            )}
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Status Filter */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</label>
+            <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}>
+              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="DRAFT">Draft</SelectItem>
+                <SelectItem value="QUOTE_CREATED">Created</SelectItem>
+                <SelectItem value="SENT">Sent</SelectItem>
+                <SelectItem value="CLIENT_APPROVED">Client Approved</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="REVISED">Revised</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                <SelectItem value="PO_CONVERTED">PO Converted</SelectItem>
+                <SelectItem value="PO_RECEIVED">PO Received</SelectItem>
+                <SelectItem value="UNDER_PRODUCTION">Under Production</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Segment Filter */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Segment</label>
+            <Select value={segmentFilter} onValueChange={(val) => { setSegmentFilter(val); setCurrentPage(1); }}>
+              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Segments" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Segments</SelectItem>
+                <SelectItem value="Interior">Interior</SelectItem>
+                <SelectItem value="Dealer">Dealer</SelectItem>
+                <SelectItem value="Direct">Direct</SelectItem>
+                <SelectItem value="Online">Online</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* PO Status Filter */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">PO Status</label>
+            <Select value={poStatusFilter} onValueChange={(val) => { setPoStatusFilter(val); setCurrentPage(1); }}>
+              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All PO Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All PO Status</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="RECEIVED">Received</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sort By */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sort By</label>
+            <Select value={sortBy} onValueChange={(val) => { setSortBy(val); setCurrentPage(1); }}>
+              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Quotation No." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="quotationNumber">Quotation No.</SelectItem>
+                <SelectItem value="date">Date</SelectItem>
+                <SelectItem value="grandTotal">Total Amount</SelectItem>
+                <SelectItem value="client">Client Name</SelectItem>
+                <SelectItem value="preparedBy">Prepared By</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sort Order */}
+          <div className="space-y-1 col-span-2 sm:col-span-1">
+            <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Order</label>
+            <Select value={sortOrder} onValueChange={(val) => { setSortOrder(val as "asc" | "desc"); setCurrentPage(1); }}>
+              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Descending" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="desc">Descending</SelectItem>
+                <SelectItem value="asc">Ascending</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -361,11 +485,13 @@ export default function QuotationsPage() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Loading quotations...</p>
           </div>
-        ) : filteredQuotations.length === 0 ? (
+        ) : quotations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-2">
             <p className="text-lg font-medium">No quotations found</p>
             <p className="text-sm text-muted-foreground">
-              {searchTerm ? "Try searching with a different term" : "Click 'Create Quotation' to get started"}
+              {searchTerm || statusFilter !== "all" || segmentFilter !== "all" || poStatusFilter !== "all" 
+                ? "Try searching or filtering with a different term/value" 
+                : "Click 'Create Quotation' to get started"}
             </p>
           </div>
         ) : (
@@ -377,7 +503,7 @@ export default function QuotationsPage() {
                     {isAdminOrSuperAdmin && (
                       <TableHead className="w-12">
                         <Checkbox 
-                          checked={selectedIds.length > 0 && selectedIds.length === filteredQuotations.length}
+                          checked={selectedIds.length > 0 && selectedIds.length === quotations.length}
                           onCheckedChange={handleSelectAll}
                           aria-label="Select all"
                         />
@@ -394,7 +520,7 @@ export default function QuotationsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredQuotations.map((quote) => (
+                  {quotations.map((quote) => (
                     <TableRow key={quote.id} className="hover:bg-muted/30 transition-colors">
                       {isAdminOrSuperAdmin && (
                         <TableCell>

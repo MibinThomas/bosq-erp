@@ -99,17 +99,62 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get("page") || "1", 10)
-    const limit = parseInt(searchParams.get("limit") || "50", 10)
+    const limit = parseInt(searchParams.get("limit") || "20", 10)
 
-    const totalCount = await prisma.quotation.count({ where: whereClause })
+    const search = searchParams.get("search") || ""
+    const filterStatus = searchParams.get("status") || ""
+    const filterSegment = searchParams.get("customerSegment") || ""
+    const filterPoStatus = searchParams.get("poStatus") || ""
+    const sortBy = searchParams.get("sortBy") || "quotationNumber"
+    const sortOrder = searchParams.get("sortOrder") || "desc"
+
+    const andConditions: any[] = []
+
+    if (search) {
+      andConditions.push({
+        OR: [
+          { quotationNumber: { contains: search, mode: "insensitive" } },
+          { projectName: { contains: search, mode: "insensitive" } },
+          { client: { companyName: { contains: search, mode: "insensitive" } } }
+        ]
+      })
+    }
+
+    if (filterStatus) {
+      andConditions.push({ status: filterStatus })
+    }
+
+    if (filterSegment) {
+      andConditions.push({ customerSegment: filterSegment })
+    }
+
+    if (filterPoStatus) {
+      andConditions.push({ poStatus: filterPoStatus })
+    }
+
+    const finalWhere = {
+      ...whereClause,
+      ...(andConditions.length > 0 ? { AND: andConditions } : {})
+    }
+
+    const totalCount = await prisma.quotation.count({ where: finalWhere })
+
+    let orderBy: any = {}
+    if (sortBy === "client") {
+      orderBy = { client: { companyName: sortOrder } }
+    } else if (sortBy === "preparedBy") {
+      orderBy = { preparedBy: { name: sortOrder } }
+    } else {
+      orderBy = { [sortBy]: sortOrder }
+    }
 
     const quotations = await prisma.quotation.findMany({
-      where: whereClause,
+      where: finalWhere,
       include: {
         client: true,
         preparedBy: true,
       },
-      orderBy: { quotationNumber: "desc" },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit,
     })
