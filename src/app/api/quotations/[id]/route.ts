@@ -309,7 +309,7 @@ export async function PUT(
         })
 
         return updated
-      })
+      }, { maxWait: 15000, timeout: 30000 })
 
       return NextResponse.json(confirmedQuotation)
     }
@@ -669,7 +669,7 @@ export async function PUT(
             revisions: true,
           }
         })
-      })
+      }, { maxWait: 15000, timeout: 30000 })
 
       // Log Activity
       try {
@@ -1015,7 +1015,7 @@ export async function PUT(
             revisions: true,
           }
         })
-      })
+      }, { maxWait: 15000, timeout: 30000 })
 
       // Log Activity
       try {
