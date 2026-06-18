@@ -403,7 +403,7 @@ export default function QuotationsPage() {
           {/* Status Filter */}
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</label>
-            <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}>
+            <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val || "all"); setCurrentPage(1); }}>
               <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
@@ -425,7 +425,7 @@ export default function QuotationsPage() {
           {/* Segment Filter */}
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Segment</label>
-            <Select value={segmentFilter} onValueChange={(val) => { setSegmentFilter(val); setCurrentPage(1); }}>
+            <Select value={segmentFilter} onValueChange={(val) => { setSegmentFilter(val || "all"); setCurrentPage(1); }}>
               <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Segments" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Segments</SelectItem>
@@ -440,7 +440,7 @@ export default function QuotationsPage() {
           {/* PO Status Filter */}
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">PO Status</label>
-            <Select value={poStatusFilter} onValueChange={(val) => { setPoStatusFilter(val); setCurrentPage(1); }}>
+            <Select value={poStatusFilter} onValueChange={(val) => { setPoStatusFilter(val || "all"); setCurrentPage(1); }}>
               <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All PO Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All PO Status</SelectItem>
@@ -453,7 +453,7 @@ export default function QuotationsPage() {
           {/* Sort By */}
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sort By</label>
-            <Select value={sortBy} onValueChange={(val) => { setSortBy(val); setCurrentPage(1); }}>
+            <Select value={sortBy} onValueChange={(val) => { setSortBy(val || "quotationNumber"); setCurrentPage(1); }}>
               <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Quotation No." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="quotationNumber">Quotation No.</SelectItem>
@@ -468,7 +468,7 @@ export default function QuotationsPage() {
           {/* Sort Order */}
           <div className="space-y-1 col-span-2 sm:col-span-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Order</label>
-            <Select value={sortOrder} onValueChange={(val) => { setSortOrder(val as "asc" | "desc"); setCurrentPage(1); }}>
+            <Select value={sortOrder} onValueChange={(val) => { setSortOrder((val as "asc" | "desc") || "desc"); setCurrentPage(1); }}>
               <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Descending" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="desc">Descending</SelectItem>
