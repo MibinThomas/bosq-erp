@@ -1,0 +1,315 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' 
+      xmlns:w='urn:schemas-microsoft-com:office:word' 
+      xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+  <meta charset="utf-8">
+  <title>BOSQ ERP - AWS Deployment Guide</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      line-height: 1.6;
+      color: #333333;
+      padding: 40px;
+    }
+    h1 {
+      font-size: 20pt;
+      color: #1e3a8a;
+      border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 5px;
+      margin-top: 24pt;
+      margin-bottom: 12pt;
+    }
+    h2 {
+      font-size: 14pt;
+      color: #2563eb;
+      margin-top: 18pt;
+      margin-bottom: 8pt;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 3px;
+    }
+    h3 {
+      font-size: 11pt;
+      color: #1e293b;
+      margin-top: 12pt;
+      margin-bottom: 6pt;
+    }
+    p, li {
+      font-size: 10.5pt;
+      margin-bottom: 6pt;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      background-color: #f1f5f9;
+      padding: 2px 4px;
+      font-size: 9.5pt;
+      border-radius: 4px;
+    }
+    pre {
+      font-family: Consolas, "Courier New", monospace;
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 10px;
+      font-size: 9pt;
+      margin-top: 6pt;
+      margin-bottom: 12pt;
+      white-space: pre-wrap;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12pt;
+      margin-bottom: 12pt;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 8px 12px;
+      font-size: 10pt;
+      text-align: left;
+    }
+    th {
+      background-color: #f1f5f9;
+      font-weight: bold;
+      color: #1e293b;
+    }
+    .alert-warning {
+      background-color: #fef2f2;
+      border-left: 4px solid #ef4444;
+      padding: 12px;
+      margin-top: 12pt;
+      margin-bottom: 12pt;
+    }
+    .alert-tip {
+      background-color: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      padding: 12px;
+      margin-top: 12pt;
+      margin-bottom: 12pt;
+    }
+    .alert-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .warning-title {
+      color: #991b1b;
+    }
+    .tip-title {
+      color: #166534;
+    }
+  </style>
+</head>
+<body>
+
+  <div style="text-align: center; padding: 20px 0; margin-bottom: 30px; border-bottom: 3px double #1e3a8a;">
+    <h1 style="margin: 0; padding: 0; border: none; font-size: 26pt; color: #1e3a8a;">BOSQ ERP</h1>
+    <p style="font-size: 14pt; color: #475569; margin-top: 5px;">Multi-Environment Deployment &amp; Management Guide</p>
+  </div>
+
+  <p>This guidebook outlines the operational architecture, Git workflows, database migration rules, and hosting setups for managing <strong>BOSQ ERP</strong> across two isolated environments:</p>
+  <ul>
+    <li><strong>Beta Staging</strong> (Hosted on <strong>Vercel</strong> connected to the <code>master</code> branch).</li>
+    <li><strong>Production</strong> (Hosted on <strong>AWS</strong> connected to the <code>main</code> branch).</li>
+  </ul>
+
+  <h1>1. Environment &amp; Architecture Overview</h1>
+  <p>To ensure data integrity, prevent system outages, and maintain high performance, both environments are completely isolated. Changes enter through local development, propagate to <code>master</code> for Beta verification, and are finally promoted to <code>main</code> for production release.</p>
+
+  <h1>2. Environment Variables &amp; Credentials Separation</h1>
+  <p>You must configure different environments variables for both platforms. Never reuse keys or URLs between environments.</p>
+
+  <h3>Variable Mapping Reference</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Variable Name</th>
+        <th>Beta Environment (Vercel)</th>
+        <th>Production Environment (AWS)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>NODE_ENV</code></td>
+        <td><code>development</code> (or <code>staging</code>)</td>
+        <td><code>production</code></td>
+      </tr>
+      <tr>
+        <td><code>NEXTAUTH_URL</code></td>
+        <td><code>https://beta.yourdomain.com</code></td>
+        <td><code>https://yourdomain.com</code></td>
+      </tr>
+      <tr>
+        <td><code>DATABASE_URL</code></td>
+        <td><code>postgresql://user:pass@staging-db.neon.tech/...</code></td>
+        <td><code>postgresql://user:pass@production-rds.amazonaws.com/...</code></td>
+      </tr>
+      <tr>
+        <td><code>SHAREPOINT_FOLDER_PATH</code></td>
+        <td><code>/Beta/Quotations</code></td>
+        <td><code>/Production/Quotations</code></td>
+      </tr>
+      <tr>
+        <td><code>NEXT_PUBLIC_APP_ENV</code></td>
+        <td><code>beta</code></td>
+        <td><code>production</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="alert-warning">
+    <div class="alert-title warning-title">WARNING: Database Credentials Protection</div>
+    Keep your Production database credentials restricted. Only CI/CD build scripts or authorized system administrators should have access to your AWS RDS Production connection string.
+  </div>
+
+  <h1>3. Database Management &amp; Prisma Schema Migrations</h1>
+  <p>Prisma handles schemas differently during development and production. Violating these rules can lead to data loss.</p>
+
+  <h3>Workflow for Making Schema Changes</h3>
+  <ol>
+    <li>
+      <strong>Development</strong>:<br>
+      Modify <code>prisma/schema.prisma</code> locally. Run the development migration:
+      <pre>npx prisma migrate dev --name add_new_fields</pre>
+      <em>This creates a new sql migration file in your <code>/prisma/migrations</code> folder and updates your local DB.</em>
+    </li>
+    <li>
+      <strong>Beta / Vercel Deployment</strong>:<br>
+      Commit the generated migration files and push to <code>master</code>. Vercel's build command should run <code>prisma generate</code>. Staging migration should run as part of a post-deploy script or manually via CLI:
+      <pre>npx prisma migrate deploy</pre>
+    </li>
+    <li>
+      <strong>Production / AWS Deployment</strong>:<br>
+      Merge <code>master</code> into <code>main</code>. <strong>Never run <code>prisma db push</code> on your Production Database.</strong> This can drop tables or overwrite columns if there is a mismatch. Run the deployment pipeline. The pipeline should execute:
+      <pre>npx prisma migrate deploy</pre>
+      <em>This safely applies only the pending migration scripts to your production RDS database without downtime.</em>
+    </li>
+  </ol>
+
+  <h1>4. Hosting Next.js on AWS (Production)</h1>
+  <p>To achieve maximum performance and avoid cold starts, use <strong>AWS ECS Fargate</strong> with Docker.</p>
+
+  <h3>Dockerfile for Production Next.js</h3>
+  <pre># 1. Install dependencies
+FROM node:24-alpine AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+COPY package*.json ./
+COPY prisma ./prisma
+RUN npm ci
+
+# 2. Rebuild the source code
+FROM node:24-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npx prisma generate
+RUN npm run build
+
+# 3. Production image, copy all files and run next
+FROM node:24-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+
+USER nextjs
+EXPOSE 3000
+
+CMD ["node", "server.js"]</pre>
+
+  <div class="alert-tip">
+    <div class="alert-title tip-title">TIP: Standalone Configuration</div>
+    Ensure you update your <code>next.config.js</code> to enable standalone output:
+    <pre>module.exports = {
+  output: 'standalone',
+}</pre>
+  </div>
+
+  <h1>5. Automated CI/CD Pipeline (GitHub Actions)</h1>
+  <p>Create a GitHub Actions pipeline in <code>.github/workflows/deploy-production.yml</code> to automate the deployment to AWS ECS when code is merged into <code>main</code>.</p>
+
+  <pre>name: Deploy Production to AWS ECS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build &amp; Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: bosq-erp-prod
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY --all-tags
+
+      - name: Run Prisma Database Migrations
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          npm ci
+          npx prisma migrate deploy
+
+      - name: Deploy AWS ECS Task
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: task-definition.json
+          service: bosq-erp-service
+          cluster: bosq-erp-cluster
+          wait-for-service-stability: true</pre>
+
+  <h1>6. Verification &amp; Rollback Plans</h1>
+  <h3>Staging/Beta Verification Check</h3>
+  <p>Before merging <code>master</code> into <code>main</code>:</p>
+  <ol>
+    <li>Check that the Next.js Vercel build succeeded.</li>
+    <li>Confirm the database migration is complete on Staging.</li>
+    <li>Conduct end-to-end tests (quotation creation, revision, search, and dashboard loading).</li>
+  </ol>
+
+  <h3>Rollback Strategy on AWS</h3>
+  <p>If a bug occurs in production:</p>
+  <ol>
+    <li>Revert the commit on <code>main</code> or trigger the GitHub action using the previous Git commit SHA.</li>
+    <li>Since RDS migrations are additive, the previous application container can run safely even if new optional database columns exist.</li>
+  </ol>
+
+</body>
+</html>
