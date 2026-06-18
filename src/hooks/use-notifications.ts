@@ -12,25 +12,9 @@ export interface Notification {
 
 function playNotificationSound() {
   try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext
-    if (!AudioContext) return
-    const ctx = new AudioContext()
-    const osc = ctx.createOscillator()
-    const gainNode = ctx.createGain()
-
-    osc.type = "sine"
-    osc.frequency.setValueAtTime(880, ctx.currentTime) // A5
-    osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1) // Slide up to A6
-
-    gainNode.gain.setValueAtTime(0, ctx.currentTime)
-    gainNode.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.05)
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4)
-
-    osc.connect(gainNode)
-    gainNode.connect(ctx.destination)
-
-    osc.start()
-    osc.stop(ctx.currentTime + 0.5)
+    const audio = new Audio("/assets/notification/mixkit-positive-notification-951.wav")
+    audio.volume = 0.3
+    audio.play().catch(err => console.error("Playback failed:", err))
   } catch (e) {
     console.error("Failed to play notification sound", e)
   }

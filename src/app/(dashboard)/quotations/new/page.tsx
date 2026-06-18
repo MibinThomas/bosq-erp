@@ -844,8 +844,10 @@ function NewQuotationForm() {
           if (!item.description.trim()) {
             throw new Error("Product Name is required for custom products.")
           }
-          if (!item.shortDescription || item.shortDescription.trim().length < 145 || item.shortDescription.trim().length > 260) {
-            throw new Error(`Custom product "${item.description}" short description must be between 145 and 260 characters (currently ${item.shortDescription?.trim().length || 0} chars).`)
+          if (isManagerOrAdmin) {
+            if (!item.shortDescription || item.shortDescription.trim().length < 145 || item.shortDescription.trim().length > 260) {
+              throw new Error(`Custom product "${item.description}" short description must be between 145 and 260 characters (currently ${item.shortDescription?.trim().length || 0} chars) to save to the catalog.`)
+            }
           }
           if (item.categoryName === "Chairs" && !item.chairType) {
             throw new Error(`Chair Type is required for custom chair "${item.description}".`)

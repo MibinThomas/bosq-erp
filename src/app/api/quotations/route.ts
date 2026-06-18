@@ -630,15 +630,19 @@ export async function POST(request: Request) {
     })
 
     // Log Activity
-    await prisma.activityLog.create({
-      data: {
-        userId: creatorUser.id,
-        action: "CREATED_QUOTATION",
-        entityType: "QUOTATION",
-        entityId: newQuotation.id,
-        details: `Created quotation ${nextQuoteNo} for client ${clientObj.companyName} with amount AED ${grandTotal.toFixed(2)}`,
-      },
-    })
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId: creatorUser.id,
+          action: "CREATED_QUOTATION",
+          entityType: "QUOTATION",
+          entityId: newQuotation.id,
+          details: `Created quotation ${nextQuoteNo} for client ${clientObj.companyName} with amount AED ${grandTotal.toFixed(2)}`,
+        },
+      })
+    } catch (logError) {
+      console.error("Failed to write creation activity log:", logError)
+    }
 
     // Notify Managers/Admins
     const managers = await prisma.user.findMany({

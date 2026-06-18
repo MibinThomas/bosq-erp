@@ -129,13 +129,19 @@ export async function PUT(
     let logUserId = (session?.user as any)?.id || ""
     let logUserRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
     let defaultUser: any = null
-    if (!logUserId) {
+    if (logUserId) {
+      defaultUser = await prisma.user.findUnique({ where: { id: logUserId } })
+    }
+    
+    if (!defaultUser) {
       defaultUser = await prisma.user.findFirst({ where: { role: "SALES_EXECUTIVE" } })
+      if (!defaultUser) {
+        defaultUser = await prisma.user.findFirst()
+      }
       logUserId = defaultUser?.id || ""
       logUserRole = defaultUser?.role || "SALES_EXECUTIVE"
     } else {
-      defaultUser = await prisma.user.findUnique({ where: { id: logUserId } })
-      logUserRole = defaultUser?.role || "SALES_EXECUTIVE"
+      logUserRole = defaultUser.role
     }
 
     // Fetch dbSessionUser with overrides
@@ -666,16 +672,20 @@ export async function PUT(
       })
 
       // Log Activity
-      if (logUserId) {
-        await prisma.activityLog.create({
-          data: {
-            userId: logUserId,
-            action: "REVISED_QUOTATION",
-            entityType: "QUOTATION",
-            entityId: updatedQuotation.id,
-            details: `Revised quotation ${existingQuotation.quotationNumber} to ${revQuoteNum}. Notes: ${revisionNotes}`,
-          },
-        })
+      try {
+        if (logUserId) {
+          await prisma.activityLog.create({
+            data: {
+              userId: logUserId,
+              action: "REVISED_QUOTATION",
+              entityType: "QUOTATION",
+              entityId: updatedQuotation.id,
+              details: `Revised quotation ${existingQuotation.quotationNumber} to ${revQuoteNum}. Notes: ${revisionNotes}`,
+            },
+          })
+        }
+      } catch (logError) {
+        console.error("Failed to write revised quotation activity log:", logError)
       }
 
       return NextResponse.json(updatedQuotation)
@@ -1008,16 +1018,20 @@ export async function PUT(
       })
 
       // Log Activity
-      if (logUserId) {
-        await prisma.activityLog.create({
-          data: {
-            userId: logUserId,
-            action: "UPDATED_QUOTATION",
-            entityType: "QUOTATION",
-            entityId: updatedQuotation.id,
-            details: `Updated quotation draft details for ${existingQuotation.quotationNumber}`,
-          },
-        })
+      try {
+        if (logUserId) {
+          await prisma.activityLog.create({
+            data: {
+              userId: logUserId,
+              action: "UPDATED_QUOTATION",
+              entityType: "QUOTATION",
+              entityId: updatedQuotation.id,
+              details: `Updated quotation draft details for ${existingQuotation.quotationNumber}`,
+            },
+          })
+        }
+      } catch (logError) {
+        console.error("Failed to write updated quotation activity log:", logError)
       }
 
       return NextResponse.json(updatedQuotation)
@@ -1058,16 +1072,20 @@ export async function PUT(
     })
 
     // Log Activity
-    if (logUserId) {
-      await prisma.activityLog.create({
-        data: {
-          userId: logUserId,
-          action: "UPDATED_QUOTATION",
-          entityType: "QUOTATION",
-          entityId: updatedQuotation.id,
-          details: `Updated quotation ${existingQuotation.quotationNumber} fields: ${Object.keys(updateData).join(", ")}`,
-        },
-      })
+    try {
+      if (logUserId) {
+        await prisma.activityLog.create({
+          data: {
+            userId: logUserId,
+            action: "UPDATED_QUOTATION",
+            entityType: "QUOTATION",
+            entityId: updatedQuotation.id,
+            details: `Updated quotation ${existingQuotation.quotationNumber} fields: ${Object.keys(updateData).join(", ")}`,
+          },
+        })
+      }
+    } catch (logError) {
+      console.error("Failed to write normal quotation update activity log:", logError)
     }
 
     return NextResponse.json(updatedQuotation)
