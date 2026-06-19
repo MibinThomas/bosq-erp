@@ -284,7 +284,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         field.key.toLowerCase() === cleanHeader || 
         field.synonyms.some(syn => {
           const cleanSyn = syn.replace(/[^a-z0-9]/g, "")
-          return cleanHeader === cleanSyn || cleanHeader.includes(cleanSyn) || cleanSyn.includes(cleanHeader)
+          return cleanHeader === cleanSyn
         })
       )
       if (matched) {
@@ -477,51 +477,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
 
 
-      // Category specific checks
-      const lowerCat = (p.categoryName || "").toLowerCase()
-      if (lowerCat === "chair" || lowerCat === "chairs") {
-        if (!p.chairType) {
-          errorsList.push({
-            row: csvRowNum,
-            column: currentMappings["chairType"] || "Chair Type",
-            message: "Chair Type is required for Chair category.",
-            key: "chairType"
-          })
-        }
-        if (!p.availableColors) {
-          errorsList.push({
-            row: csvRowNum,
-            column: currentMappings["availableColors"] || "Color (for chairs)",
-            message: "Color is required for Chair category.",
-            key: "availableColors"
-          })
-        }
-      } else if (lowerCat === "workstation" || lowerCat === "workstations") {
-        if (!p.tableTopFinish) {
-          errorsList.push({
-            row: csvRowNum,
-            column: currentMappings["tableTopFinish"] || "Table Top Finish",
-            message: "Table Top Finish is required for Workstation category.",
-            key: "tableTopFinish"
-          })
-        }
-        if (!p.legType) {
-          errorsList.push({
-            row: csvRowNum,
-            column: currentMappings["legType"] || "Leg Type",
-            message: "Leg Type is required for Workstation category.",
-            key: "legType"
-          })
-        }
-        if (!p.storageOptions) {
-          errorsList.push({
-            row: csvRowNum,
-            column: currentMappings["storageOptions"] || "Storage Options",
-            message: "Storage Options are required for Workstation category.",
-            key: "storageOptions"
-          })
-        }
-      }
+
 
       // Non-blocking Warnings
       if (!p.warranty) {

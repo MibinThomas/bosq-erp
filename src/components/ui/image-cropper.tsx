@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
-import { X, ZoomIn, ZoomOut, RotateCw, Check, Image as ImageIcon, Sparkles } from "lucide-react"
+import { X, ZoomIn, ZoomOut, RotateCw, Check, Image as ImageIcon, Sparkles, UploadCloud } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface ImageCropperProps {
@@ -17,12 +17,30 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const [aspectRatio, setAspectRatio] = useState<string>("1:1") // '1:1' | '4:3' | '16:9' | 'free'
   const [croppedPreview, setCroppedPreview] = useState<string | null>(null)
+  const [currentImageSrc, setCurrentImageSrc] = useState<string | null>(null)
   
   const containerRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const isDraggingRef = useRef<boolean>(false)
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
   const offsetStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          setCurrentImageSrc(reader.result)
+          setZoom(1)
+          setRotation(0)
+          setOffset({ x: 0, y: 0 })
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
 
   // Reset states when a new image is loaded
   useEffect(() => {
@@ -32,6 +50,7 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
       setOffset({ x: 0, y: 0 })
       setAspectRatio("1:1")
       setCroppedPreview(null)
+      setCurrentImageSrc(imageSrc)
     }
   }, [isOpen, imageSrc])
 
@@ -205,7 +224,7 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
     }
   }
 
-  if (!isOpen || !imageSrc) return null
+  if (!isOpen || !currentImageSrc) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-300">
@@ -244,7 +263,7 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
               {/* Image element rotated, translated, and scaled */}
               <img
                 ref={imageRef}
-                src={imageSrc}
+                src={currentImageSrc}
                 alt="Original Upload"
                 onLoad={updateRealtimePreview}
                 className="absolute pointer-events-none select-none max-w-none max-h-none"
@@ -369,6 +388,31 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
                 <RotateCw className="h-3.5 w-3.5" />
                 {rotation}°
               </Button>
+            </div>
+
+            {/* Re-upload / Change Image */}
+            <div className="flex items-center justify-between bg-muted/30 p-3 rounded-xl border border-border/40">
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-foreground">Change Image</span>
+                <p className="text-[10px] text-muted-foreground">Select a different image file</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                className="h-9 px-3 flex items-center gap-1.5 hover:bg-muted font-medium border-border/80 text-xs cursor-pointer"
+              >
+                <UploadCloud className="h-3.5 w-3.5 text-primary" />
+                Upload New
+              </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileChange}
+              />
             </div>
 
             {/* Live Cropped Result Preview Box */}
