@@ -1690,55 +1690,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
         </div>
 
-      </div></div>
-
-      {/* Confirmation Dialog Overlay */}
-      {showConfirmation && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-100">
-          <div className="bg-white border rounded-2xl max-w-md w-full shadow-2xl p-6 dark:bg-zinc-900 dark:border-zinc-800 space-y-4">
-            <div>
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                <AlertTriangle size={18} className="text-amber-500" />
-                Confirm Catalog Import
-              </h3>
-              <p className="text-xs text-zinc-400 mt-1">
-                Verify the actions that will be performed on the product catalog:
-              </p>
-            </div>
-
-            <div className="divide-y dark:divide-zinc-850 text-xs">
-              <div className="py-2.5 flex justify-between items-center">
-                <span className="text-zinc-500 font-medium">Create New Products:</span>
-                <span className="font-bold text-green-600 dark:text-green-400">{createCount} Products</span>
-              </div>
-              <div className="py-2.5 flex justify-between items-center">
-                <span className="text-zinc-500 font-medium">Update Existing Products:</span>
-                <span className="font-bold text-amber-500">{updateCount} Products</span>
-              </div>
-              <div className="py-2.5 flex justify-between items-center">
-                <span className="text-zinc-500 font-medium">Skip (Unresolved Errors):</span>
-                <span className="font-bold text-red-650 dark:text-red-400">{skipCount} Products</span>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 text-xs">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowConfirmation(false)}
-                className="px-4 py-2 font-semibold"
-              >
-                Back
-              </Button>
-              <Button 
-                onClick={handleImport}
-                className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2"
-              >
-                Import Products
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Success Animation Screen Overlay */}
       {showSuccessOverlay && (
