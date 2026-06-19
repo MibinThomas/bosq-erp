@@ -43,6 +43,13 @@ interface ParsedProduct {
   localImageFile?: File
   previewUrl?: string
   status: string
+  chairType?: string
+  tableTopFinish?: string
+  legType?: string
+  storageOptions?: string
+  finishMaterial?: string
+  availableColors?: string
+  dimensions?: string
 }
 
 export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalProps) {
@@ -54,6 +61,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const [uploading, setUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const [pricingTiers, setPricingTiers] = useState({ dealer: 15, interior: 30, direct: 50, online: 75 })
+  const [exporting, setExporting] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<{ row: number; column: string; message: string; key?: string }[]>([])
 
   // Cropper states
   const [isCropperOpen, setIsCropperOpen] = useState(false)
@@ -99,29 +108,101 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     }).filter(row => row.length > 0 && row.some(cell => cell !== ""))
   }
 
-  const downloadSampleCSV = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    const headers = ["Product Code", "Product Name", "CategoryName", "Base Price (AED)", "Warranty", "Description", "Short Description", "Specifications (HTML/Text)", "Image Filename"]
-    const rows = [
-      ["CH-1001", "Aero Ergonomic Mesh Task Chair", "Chairs", "850.00", "5 Years", "High-performance ergonomic mesh chair with adaptive lumbar support", "High-performance ergonomic mesh chair with adaptive lumbar support, featuring a breathable backrest, adjustable armrests, and dynamic tilt mechanism.", "<ul><li>Material: Mesh</li><li>Base: Nylon</li><li>Color: Black</li><li>Dimensions: 650x650x1200</li></ul>", "aero_mesh_chair.jpg"],
-      ["CH-1002", "Ergo Pro Leather Executive Chair", "Chairs", "1250.00", "5 Years", "Luxury bonded leather manager chair with pneumatic height tilt adjust", "Luxury bonded leather manager chair with pneumatic height and tilt adjust, polished aluminum base, and premium padding for all-day executive comfort.", "Material: PU Leather<br>Base: Aluminum<br>Color: Brown", "ergo_leather_chair.jpg"],
-      ["DK-2001", "Linear Triple Bench Workstation", "Desks", "2450.00", "3 Years", "Premium steel frame corporate collaborative workspace table", "Premium steel frame corporate collaborative workspace table designed for modern open offices, featuring integrated cable management and privacy screens.", "Material: MFC, Legs: Powder Coated Steel", "bench_workstation.jpg"]
-    ]
-    
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(r => r.map(cell => `"${cell.replace(/"/g, '""')}"`).join(","))
-    ].join("\n")
+  const CSV_HEADERS = [
+    "Product Code",
+    "Product Name",
+    "Short Description",
+    "Category",
+    "Base Price (AED)",
+    "Warranty",
+    "Product Type",
+    "Chair Type (for chairs)",
+    "Color (for chairs)",
+    "Table Top Finish (for workstations)",
+    "Leg Type (for workstations)",
+    "Storage Options (for workstations)",
+    "Specifications / Details",
+    "Dimensions",
+    "Image Filename"
+  ]
 
+  const serializeToCSVCell = (val: any) => {
+    if (val === null || val === undefined) return '""'
+    const str = String(val)
+    return `"${str.replace(/"/g, '""')}"`
+  }
+
+  const downloadEmptyTemplate = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const csvContent = CSV_HEADERS.join(",") + "\n"
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.setAttribute("href", url)
-    link.setAttribute("download", "bosq_product_import_template.csv")
+    link.setAttribute("download", "bosq_product_import_template_empty.csv")
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    toast.success("Import template downloaded!")
+    toast.success("Empty import template downloaded!")
+  }
+
+  const downloadExistingProductsCSV = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setExporting(true)
+    try {
+      const res = await fetch("/api/products")
+      if (!res.ok) throw new Error("Failed to fetch products")
+      const productsList = await res.json()
+
+      const rows = productsList.map((p: any) => {
+        let imageFilename = ""
+        if (p.imageUrl) {
+          try {
+            const urlParts = p.imageUrl.split("/")
+            imageFilename = urlParts[urlParts.length - 1] || p.imageUrl
+          } catch {
+            imageFilename = p.imageUrl
+          }
+        }
+        return [
+          p.productCode || "",
+          p.productName || "",
+          p.shortDescription || "",
+          p.category?.name || p.categoryName || "",
+          typeof p.costPrice === "number" ? p.costPrice.toFixed(2) : "0.00",
+          p.warranty || "",
+          p.finishMaterial || "",
+          p.chairType || "",
+          p.availableColors || "",
+          p.tableTopFinish || "",
+          p.legType || "",
+          p.storageOptions || "",
+          p.specifications || "",
+          p.dimensions || "",
+          imageFilename
+        ]
+      })
+
+      const csvContent = [
+        CSV_HEADERS.join(","),
+        ...rows.map((r: any[]) => r.map(serializeToCSVCell).join(","))
+      ].join("\n")
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.setAttribute("href", url)
+      link.setAttribute("download", "bosq_existing_products_catalog.csv")
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      toast.success(`Exported ${productsList.length} products successfully!`)
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to export existing products. Please try again.")
+    } finally {
+      setExporting(false)
+    }
   }
 
   const handleSpreadsheetFile = (file: File) => {
@@ -160,15 +241,21 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       // Auto-suggest mappings based on common names
       const initialMappings: Record<string, string> = {}
       const targetFields = [
-        { key: "productCode", synonyms: ["code", "sku", "productcode", "itemcode", "id"] },
-        { key: "productName", synonyms: ["name", "title", "productname", "chairname", "item"] },
+        { key: "productCode", synonyms: ["product code", "code", "sku", "productcode", "itemcode", "id"] },
+        { key: "productName", synonyms: ["product name", "name", "title", "productname", "chairname", "item"] },
+        { key: "shortDescription", synonyms: ["short description", "shortdescription", "short desc", "summary"] },
         { key: "categoryName", synonyms: ["category", "type", "group", "class", "categoryname"] },
-        { key: "basePrice", synonyms: ["price", "unitprice", "rate", "cost", "sellingprice", "selling rate", "baseprice", "costprice"] },
-        { key: "description", synonyms: ["description", "details", "desc", "about"] },
-        { key: "shortDescription", synonyms: ["shortdescription", "short desc", "summary"] },
-        { key: "specifications", synonyms: ["specifications", "specs", "specification", "technical"] },
-        { key: "warranty", synonyms: ["warranty", "guarantee", "period"] },
-        { key: "imageFilename", synonyms: ["image", "photo", "filename", "imagename", "imagefilename", "picture"] }
+        { key: "basePrice", synonyms: ["base price (aed)", "base price", "price", "unitprice", "rate", "cost", "sellingprice", "selling rate", "baseprice", "costprice"] },
+        { key: "warranty", synonyms: ["warranty", "warranty period", "guarantee", "period"] },
+        { key: "finishMaterial", synonyms: ["product type", "producttype", "finish / material", "finish/material", "finish material", "finishmaterial"] },
+        { key: "chairType", synonyms: ["chair type (for chairs)", "chair type", "chairtype"] },
+        { key: "availableColors", synonyms: ["color (for chairs)", "color", "colors", "available color(s)", "available colors", "availablecolors"] },
+        { key: "tableTopFinish", synonyms: ["table top finish (for workstations)", "table top finish", "tabletop finish", "tabletopfinish"] },
+        { key: "legType", synonyms: ["leg type (for workstations)", "leg type", "legtype"] },
+        { key: "storageOptions", synonyms: ["storage options (for workstations)", "storage options", "storageoptions"] },
+        { key: "specifications", synonyms: ["specifications / details", "specifications", "details", "specs", "specification", "technical"] },
+        { key: "dimensions", synonyms: ["dimensions", "dimension", "size"] },
+        { key: "imageFilename", synonyms: ["image filename", "image", "photo", "filename", "imagename", "imagefilename", "picture"] }
       ]
 
       fileHeaders.forEach(header => {
@@ -210,10 +297,131 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     }
   }
 
+  const validateProducts = (items: ParsedProduct[]) => {
+    const errors: { row: number; column: string; message: string; key?: string }[] = []
+    
+    items.forEach((p, idx) => {
+      const csvRowNum = idx + 2
+      
+      if (!p.productName) {
+        errors.push({
+          row: csvRowNum,
+          column: mappings["productName"] || "Product Name",
+          message: "Product Name is required",
+          key: "productName"
+        })
+      }
+      
+      if (!p.categoryName) {
+        errors.push({
+          row: csvRowNum,
+          column: mappings["categoryName"] || "Category",
+          message: "Category is required",
+          key: "categoryName"
+        })
+      }
+      
+      if (typeof p.costPrice !== "number" || isNaN(p.costPrice) || p.costPrice <= 0) {
+        errors.push({
+          row: csvRowNum,
+          column: mappings["basePrice"] || "Base Price (AED)",
+          message: "Base Price must be a valid positive number",
+          key: "basePrice"
+        })
+      }
+      
+      if (p.shortDescription && (p.shortDescription.length < 145 || p.shortDescription.length > 260)) {
+        errors.push({
+          row: csvRowNum,
+          column: mappings["shortDescription"] || "Short Description",
+          message: `Short description must be 145-260 characters (currently ${p.shortDescription.length})`,
+          key: "shortDescription"
+        })
+      }
+      
+      const lowerCat = (p.categoryName || "").toLowerCase()
+      if (lowerCat === "chair" || lowerCat === "chairs") {
+        if (!p.chairType) {
+          errors.push({
+            row: csvRowNum,
+            column: mappings["chairType"] || "Chair Type",
+            message: "Chair Type is required for Chair category",
+            key: "chairType"
+          })
+        }
+        if (!p.availableColors) {
+          errors.push({
+            row: csvRowNum,
+            column: mappings["availableColors"] || "Color (for chairs)",
+            message: "Color is required for Chair category",
+            key: "availableColors"
+          })
+        }
+      } else if (lowerCat === "workstation" || lowerCat === "workstations") {
+        if (!p.tableTopFinish) {
+          errors.push({
+            row: csvRowNum,
+            column: mappings["tableTopFinish"] || "Table Top Finish",
+            message: "Table Top Finish is required for Workstation category",
+            key: "tableTopFinish"
+          })
+        }
+        if (!p.legType) {
+          errors.push({
+            row: csvRowNum,
+            column: mappings["legType"] || "Leg Type",
+            message: "Leg Type is required for Workstation category",
+            key: "legType"
+          })
+        }
+        if (!p.storageOptions) {
+          errors.push({
+            row: csvRowNum,
+            column: mappings["storageOptions"] || "Storage Options",
+            message: "Storage Options are required for Workstation category",
+            key: "storageOptions"
+          })
+        }
+      }
+    })
+    
+    return errors
+  }
+
+  const downloadErrorReport = () => {
+    const reportHeaders = ["Row Number", "Column Name", "Error Message", "Property Key"]
+    const rows = validationErrors.map(err => [
+      `Row ${err.row}`,
+      err.column,
+      err.message,
+      err.key || ""
+    ])
+    
+    const csvContent = [
+      reportHeaders.join(","),
+      ...rows.map(r => r.map(cell => `"${cell.replace(/"/g, '""')}"`).join(","))
+    ].join("\n")
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", "product_import_errors_report.csv")
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success("Error report downloaded!")
+  }
+
   const handleColumnMapping = () => {
-    // Validate required fields (Name and Category are essential)
-    if (!mappings["productName"] || !mappings["categoryName"]) {
-      toast.error("Please map at least Product Name and Category Name.")
+    // Validate that all required headers are mapped
+    const missingCols = []
+    if (!mappings["productName"]) missingCols.push("Product Name / Title")
+    if (!mappings["categoryName"]) missingCols.push("Category")
+    if (!mappings["basePrice"]) missingCols.push("Base Price (AED)")
+    
+    if (missingCols.length > 0) {
+      toast.error(`Please map all mandatory columns: ${missingCols.join(", ")}`)
       return
     }
 
@@ -225,7 +433,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         const colIdx = headers.indexOf(colHeader)
         if (colIdx !== -1) {
           const val = row[colIdx]
-          return val !== undefined && val !== null ? String(val) : ""
+          return val !== undefined && val !== null ? String(val).trim() : ""
         }
         return ""
       }
@@ -257,12 +465,21 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         directPrice,
         onlinePrice,
         warranty: getVal("warranty") || "5 Years",
+        finishMaterial: getVal("finishMaterial"),
+        chairType: getVal("chairType"),
+        availableColors: getVal("availableColors"),
+        tableTopFinish: getVal("tableTopFinish"),
+        legType: getVal("legType"),
+        storageOptions: getVal("storageOptions"),
+        dimensions: getVal("dimensions"),
         imageFilename: getVal("imageFilename"),
         status: "ACTIVE"
       }
-    }).filter(p => p.productName)
+    })
 
     setProducts(parsedProducts)
+    const errors = validateProducts(parsedProducts)
+    setValidationErrors(errors)
     setStep(3)
   }
 
@@ -474,20 +691,36 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                 </Button>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-2xl border">
-                <div>
-                  <h4 className="font-semibold text-sm">Need an import template?</h4>
-                  <p className="text-xs text-muted-foreground mt-0.5">Download a sample CSV file pre-configured with the ideal headers and sample products.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-muted/50 rounded-2xl border gap-4">
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-sm">Need a CSV template or existing data?</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">Download a clean empty template to import new products, or download existing product data to make bulk edits.</p>
                 </div>
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  onClick={downloadSampleCSV}
-                  className="border-primary/20 hover:bg-primary/5 hover:border-primary/45 text-primary text-xs shrink-0 cursor-pointer"
-                >
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Download Sample CSV
-                </Button>
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    onClick={downloadEmptyTemplate}
+                    className="border-primary/20 hover:bg-primary/5 hover:border-primary/45 text-primary text-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Download Empty Template
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    onClick={downloadExistingProductsCSV}
+                    disabled={exporting}
+                    className="border-primary/20 hover:bg-primary/5 hover:border-primary/45 text-primary text-xs cursor-pointer flex items-center gap-1.5"
+                  >
+                    {exporting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FileSpreadsheet className="h-4 w-4" />
+                    )}
+                    Download Existing Products
+                  </Button>
+                </div>
               </div>
 
               <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl flex gap-3 text-xs text-primary leading-relaxed">
@@ -512,12 +745,17 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                   { key: "productCode", label: "Product SKU / Code", required: false },
                   { key: "productName", label: "Product Name / Title", required: true },
                   { key: "categoryName", label: "Category", required: true },
-                  { key: "basePrice", label: "Base Price (AED)", required: false },
-                  { key: "dimensions", label: "Dimensions", required: false },
+                  { key: "basePrice", label: "Base Price (AED)", required: true },
                   { key: "warranty", label: "Warranty period", required: false },
-                  { key: "description", label: "Description / About", required: false },
+                  { key: "finishMaterial", label: "Product Type (Finish/Material)", required: false },
+                  { key: "chairType", label: "Chair Type (for chairs)", required: false },
+                  { key: "availableColors", label: "Color (for chairs)", required: false },
+                  { key: "tableTopFinish", label: "Table Top Finish (for workstations)", required: false },
+                  { key: "legType", label: "Leg Type (for workstations)", required: false },
+                  { key: "storageOptions", label: "Storage Options (for workstations)", required: false },
                   { key: "shortDescription", label: "Short Description (145-260 chars)", required: false },
                   { key: "specifications", label: "Specifications / Details", required: false },
+                  { key: "dimensions", label: "Dimensions", required: false },
                   { key: "imageFilename", label: "Image Filename (e.g. chair1.jpg)", required: false }
                 ].map((field) => (
                   <div key={field.key} className="space-y-2 p-3 border rounded-xl bg-card/50 shadow-inner">
@@ -555,228 +793,351 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
           )}
 
           {/* STEP 3: PREVIEW & IMAGE BULK UPLOAD */}
-          {step === 3 && (
-            <div className="space-y-6">
+          {step === 3 && (() => {
+            const hasCellError = (rowIdx: number, key: string) => {
+              const csvRowNum = rowIdx + 2
+              return validationErrors.some(err => err.row === csvRowNum && err.key === key)
+            }
+
+            const handleProductFieldChange = (index: number, key: keyof ParsedProduct, value: any) => {
+              const updated = [...products]
+              let parsedValue = value
               
-              {/* Image Drag and Drop */}
-              <div 
-                className="border-2 border-dashed border-primary/40 rounded-xl p-4 bg-primary/5 flex flex-col items-center justify-center cursor-pointer hover:bg-primary/10 transition-colors"
-                onClick={() => imageInputRef.current?.click()}
-              >
-                <input 
-                  type="file" 
-                  ref={imageInputRef} 
-                  multiple 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={(e) => e.target.files && handleImageBulkUpload(e.target.files)}
-                />
-                <div className="flex items-center gap-2 text-primary">
-                  <ImageIcon className="h-5 w-5" />
-                  <span className="text-sm font-semibold">Bulk Drop Product Images Here</span>
+              if (key === "costPrice") {
+                const parsed = parseFloat(value)
+                parsedValue = isNaN(parsed) ? 0.0 : parsed
+              }
+              
+              updated[index] = { ...updated[index], [key]: parsedValue }
+              
+              // If changing costPrice, recalculate other price tiers
+              if (key === "costPrice") {
+                const cost = parsedValue as number
+                const calculatePrice = (pct: number) => {
+                  if (pct >= 100) return cost
+                  return Number((cost / (1 - (pct / 100))).toFixed(2))
+                }
+                updated[index].dealerPrice = calculatePrice(pricingTiers.dealer)
+                updated[index].interiorPrice = calculatePrice(pricingTiers.interior)
+                updated[index].directPrice = calculatePrice(pricingTiers.direct)
+                updated[index].onlinePrice = calculatePrice(pricingTiers.online)
+                updated[index].unitPrice = updated[index].directPrice
+              }
+              
+              setProducts(updated)
+              const errors = validateProducts(updated)
+              setValidationErrors(errors)
+            }
+
+            return (
+              <div className="space-y-6">
+                
+                {/* Validation Error Banner */}
+                {validationErrors.length > 0 && (
+                  <div className="p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 font-semibold font-mono">
+                      <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                      <span>Found {validationErrors.length} validation error(s) in the data. Please fix highlighted cells below or download the report.</span>
+                    </div>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={downloadErrorReport}
+                      className="border-destructive/30 hover:bg-destructive/10 text-destructive text-[11px] shrink-0"
+                    >
+                      Download Error Report
+                    </Button>
+                  </div>
+                )}
+
+                {/* Image Drag and Drop */}
+                <div 
+                  className="border-2 border-dashed border-primary/40 rounded-xl p-4 bg-primary/5 flex flex-col items-center justify-center cursor-pointer hover:bg-primary/10 transition-colors"
+                  onClick={() => imageInputRef.current?.click()}
+                >
+                  <input 
+                    type="file" 
+                    ref={imageInputRef} 
+                    multiple 
+                    className="hidden" 
+                    accept="image/*"
+                    onChange={(e) => e.target.files && handleImageBulkUpload(e.target.files)}
+                  />
+                  <div className="flex items-center gap-2 text-primary">
+                    <ImageIcon className="h-5 w-5" />
+                    <span className="text-sm font-semibold">Bulk Drop Product Images Here</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Upload multiple chair images. The app automatically maps them by matching the filename (e.g., `AeroChair.jpg`) to rows!
+                  </p>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Upload multiple chair images. The app automatically maps them by matching the filename (e.g., `AeroChair.jpg`) to rows!
-                </p>
-              </div>
 
-              {/* Table Preview */}
-              <div className="border rounded-xl overflow-hidden max-h-[350px] overflow-y-auto">
-                <table className="w-full text-sm border-collapse text-left">
-                  <thead className="bg-muted/80 sticky top-0 border-b z-10">
-                    <tr>
-                      <th className="p-3 text-xs font-bold w-16">Image</th>
-                      <th className="p-3 text-xs font-bold w-24">Code</th>
-                      <th className="p-3 text-xs font-bold">Product Name</th>
-                      <th className="p-3 text-xs font-bold w-28">Category</th>
-                      <th className="p-3 text-xs font-bold w-20 text-right">Base</th>
-                      <th className="p-3 text-xs font-bold w-20 text-right">Dealer</th>
-                      <th className="p-3 text-xs font-bold w-20 text-right">Interior</th>
-                      <th className="p-3 text-xs font-bold w-20 text-right">Direct</th>
-                      <th className="p-3 text-xs font-bold w-20 text-right">Online</th>
-                      <th className="p-3 text-xs font-bold w-24">Warranty</th>
-                      <th className="p-3 text-xs font-bold w-32">Short Description</th>
-                      <th className="p-3 text-xs font-bold w-32">Specifications</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.map((p, idx) => (
-                      <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
-                        <td className="p-2 align-middle">
-                          {p.previewUrl ? (
-                            <div 
-                              className="relative h-10 w-10 border rounded-lg overflow-hidden bg-white shadow-inner cursor-pointer hover:border-primary group transition-all"
-                              onClick={() => {
-                                // Allow cropping/adjusting the existing image
-                                setActiveProductIndex(idx)
-                                setCropperImageSrc(p.previewUrl || null)
-                                setIsCropperOpen(true)
-                              }}
-                              title="Click to adjust and crop image"
-                            >
-                              <img src={p.previewUrl} alt="Preview" className="object-contain h-full w-full" />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <span className="text-[9px] text-white font-bold uppercase text-center">Crop</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <button 
-                              type="button"
-                              className="h-10 w-10 border rounded-lg flex items-center justify-center bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
-                              onClick={() => {
-                                const inp = document.createElement("input")
-                                inp.type = "file"
-                                inp.accept = "image/*"
-                                inp.onchange = (e) => {
-                                  const file = (e.target as HTMLInputElement).files?.[0]
-                                  if (file) handleSingleImageSelect(idx, file)
-                                }
-                                inp.click()
-                              }}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </button>
-                          )}
-                        </td>
-                        <td className="p-2 font-mono">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
-                            value={p.productCode}
-                            placeholder="Auto"
-                            onChange={(e) => {
-                              const updated = [...products]
-                              updated[idx].productCode = e.target.value
-                              setProducts(updated)
-                            }}
-                          />
-                        </td>
-                        <td className="p-2 font-semibold">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent font-semibold"
-                            value={p.productName}
-                            onChange={(e) => {
-                              const updated = [...products]
-                              updated[idx].productName = e.target.value
-                              setProducts(updated)
-                            }}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
-                            value={p.categoryName}
-                            onChange={(e) => {
-                              const updated = [...products]
-                              updated[idx].categoryName = e.target.value
-                              setProducts(updated)
-                            }}
-                          />
-                        </td>
-                        <td className="p-2 text-right">
-                          <input 
-                            type="number"
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono"
-                            value={p.costPrice}
-                            onChange={(e) => {
-                              const updated = [...products]
-                              const val = parseFloat(e.target.value) || 0
-                              updated[idx].costPrice = val
-                              
-                              const calculatePrice = (pct: number) => {
-                                if (pct >= 100) return val
-                                return Number((val / (1 - (pct / 100))).toFixed(2))
-                              }
-                              
-                              updated[idx].dealerPrice = calculatePrice(pricingTiers.dealer)
-                              updated[idx].interiorPrice = calculatePrice(pricingTiers.interior)
-                              updated[idx].directPrice = calculatePrice(pricingTiers.direct)
-                              updated[idx].onlinePrice = calculatePrice(pricingTiers.online)
-                              updated[idx].unitPrice = updated[idx].directPrice
-                              
-                              setProducts(updated)
-                            }}
-                          />
-                        </td>
-                        <td className="p-2 text-right">
-                          <input 
-                            type="number"
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
-                            value={p.dealerPrice}
-                            readOnly={true}
-                          />
-                        </td>
-                        <td className="p-2 text-right">
-                          <input 
-                            type="number"
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
-                            value={p.interiorPrice}
-                            readOnly={true}
-                          />
-                        </td>
-                        <td className="p-2 text-right">
-                          <input 
-                            type="number"
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
-                            value={p.directPrice}
-                            readOnly={true}
-                          />
-                        </td>
-                        <td className="p-2 text-right">
-                          <input 
-                            type="number"
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
-                            value={p.onlinePrice}
-                            readOnly={true}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
-                            value={p.warranty}
-                            onChange={(e) => {
-                              const updated = [...products]
-                              updated[idx].warranty = e.target.value
-                              setProducts(updated)
-                            }}
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input 
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent"
-                            value={p.specifications}
-                            onChange={(e) => {
-                              const updated = [...products]
-                              updated[idx].specifications = e.target.value
-                              setProducts(updated)
-                            }}
-                          />
-                        </td>
+                {/* Table Preview */}
+                <div className="border rounded-xl overflow-hidden max-h-[350px] overflow-y-auto">
+                  <table className="w-full text-sm border-collapse text-left">
+                    <thead className="bg-muted/80 sticky top-0 border-b z-10">
+                      <tr>
+                        <th className="p-3 text-xs font-bold w-16">Image</th>
+                        <th className="p-3 text-xs font-bold w-24">Code</th>
+                        <th className="p-3 text-xs font-bold w-48">Product Name</th>
+                        <th className="p-3 text-xs font-bold w-28">Category</th>
+                        <th className="p-3 text-xs font-bold w-20 text-right">Base</th>
+                        <th className="p-3 text-xs font-bold w-20 text-right">Dealer</th>
+                        <th className="p-3 text-xs font-bold w-20 text-right">Interior</th>
+                        <th className="p-3 text-xs font-bold w-20 text-right">Direct</th>
+                        <th className="p-3 text-xs font-bold w-20 text-right">Online</th>
+                        <th className="p-3 text-xs font-bold w-24">Warranty</th>
+                        <th className="p-3 text-xs font-bold w-28">Product Type</th>
+                        <th className="p-3 text-xs font-bold w-28">Chair Type</th>
+                        <th className="p-3 text-xs font-bold w-24">Color</th>
+                        <th className="p-3 text-xs font-bold w-28">Table Top Finish</th>
+                        <th className="p-3 text-xs font-bold w-28">Leg Type</th>
+                        <th className="p-3 text-xs font-bold w-28">Storage Options</th>
+                        <th className="p-3 text-xs font-bold w-48">Short Description</th>
+                        <th className="p-3 text-xs font-bold w-48">Specifications</th>
+                        <th className="p-3 text-xs font-bold w-24">Dimensions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {products.map((p, idx) => (
+                        <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="p-2 align-middle">
+                            {p.previewUrl ? (
+                              <div 
+                                className="relative h-10 w-10 border rounded-lg overflow-hidden bg-white shadow-inner cursor-pointer hover:border-primary group transition-all"
+                                onClick={() => {
+                                  setActiveProductIndex(idx)
+                                  setCropperImageSrc(p.previewUrl || null)
+                                  setIsCropperOpen(true)
+                                }}
+                                title="Click to adjust and crop image"
+                              >
+                                <img src={p.previewUrl} alt="Preview" className="object-contain h-full w-full" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <span className="text-[9px] text-white font-bold uppercase text-center">Crop</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <button 
+                                type="button"
+                                className="h-10 w-10 border rounded-lg flex items-center justify-center bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all cursor-pointer"
+                                onClick={() => {
+                                  const inp = document.createElement("input")
+                                  inp.type = "file"
+                                  inp.accept = "image/*"
+                                  inp.onchange = (e) => {
+                                    const file = (e.target as HTMLInputElement).files?.[0]
+                                    if (file) handleSingleImageSelect(idx, file)
+                                  }
+                                  inp.click()
+                                }}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </button>
+                            )}
+                          </td>
+                          <td className="p-2 font-mono">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "productCode") ? "border-red-500 bg-red-950/20" : ""
+                              }`}
+                              value={p.productCode}
+                              placeholder="Auto"
+                              onChange={(e) => handleProductFieldChange(idx, "productCode", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2 font-semibold">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent font-semibold ${
+                                hasCellError(idx, "productName") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.productName}
+                              onChange={(e) => handleProductFieldChange(idx, "productName", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "categoryName") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.categoryName}
+                              onChange={(e) => handleProductFieldChange(idx, "categoryName", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2 text-right">
+                            <input 
+                              type="number"
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono ${
+                                hasCellError(idx, "basePrice") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.costPrice || ""}
+                              onChange={(e) => handleProductFieldChange(idx, "costPrice", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2 text-right">
+                            <input 
+                              type="number"
+                              className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
+                              value={p.dealerPrice}
+                              readOnly={true}
+                            />
+                          </td>
+                          <td className="p-2 text-right">
+                            <input 
+                              type="number"
+                              className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
+                              value={p.interiorPrice}
+                              readOnly={true}
+                            />
+                          </td>
+                          <td className="p-2 text-right">
+                            <input 
+                              type="number"
+                              className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
+                              value={p.directPrice}
+                              readOnly={true}
+                            />
+                          </td>
+                          <td className="p-2 text-right">
+                            <input 
+                              type="number"
+                              className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
+                              value={p.onlinePrice}
+                              readOnly={true}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "warranty") ? "border-red-500 bg-red-950/20" : ""
+                              }`}
+                              value={p.warranty}
+                              onChange={(e) => handleProductFieldChange(idx, "warranty", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "finishMaterial") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.finishMaterial || ""}
+                              placeholder="Product Type"
+                              onChange={(e) => handleProductFieldChange(idx, "finishMaterial", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "chairType") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.chairType || ""}
+                              placeholder="Chair Type"
+                              onChange={(e) => handleProductFieldChange(idx, "chairType", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "availableColors") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.availableColors || ""}
+                              placeholder="Color"
+                              onChange={(e) => handleProductFieldChange(idx, "availableColors", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "tableTopFinish") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.tableTopFinish || ""}
+                              placeholder="Table Top Finish"
+                              onChange={(e) => handleProductFieldChange(idx, "tableTopFinish", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "legType") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.legType || ""}
+                              placeholder="Leg Type"
+                              onChange={(e) => handleProductFieldChange(idx, "legType", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "storageOptions") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.storageOptions || ""}
+                              placeholder="Storage Options"
+                              onChange={(e) => handleProductFieldChange(idx, "storageOptions", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "shortDescription") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.shortDescription || ""}
+                              placeholder="Short Description"
+                              onChange={(e) => handleProductFieldChange(idx, "shortDescription", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "specifications") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.specifications || ""}
+                              placeholder="Specifications"
+                              onChange={(e) => handleProductFieldChange(idx, "specifications", e.target.value)}
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              className={`w-full border rounded px-1.5 py-0.5 text-xs bg-transparent ${
+                                hasCellError(idx, "dimensions") ? "border-red-500 bg-red-950/20 text-red-500" : ""
+                              }`}
+                              value={p.dimensions || ""}
+                              placeholder="Dimensions"
+                              onChange={(e) => handleProductFieldChange(idx, "dimensions", e.target.value)}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-              {/* Step Footer */}
-              <div className="flex justify-between items-center pt-4 border-t">
-                <Button variant="outline" onClick={() => setStep(2)} disabled={uploading}>
-                  Back
-                </Button>
-                <Button onClick={handleImport} className="bg-primary" disabled={uploading}>
-                  {uploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Importing Products...
-                    </>
-                  ) : (
-                    <>
-                      Import {products.length} Products
-                    </>
-                  )}
-                </Button>
+                {/* Step Footer */}
+                <div className="flex justify-between items-center pt-4 border-t">
+                  <Button variant="outline" onClick={() => setStep(2)} disabled={uploading}>
+                    Back
+                  </Button>
+                  <Button 
+                    onClick={handleImport} 
+                    className="bg-primary" 
+                    disabled={uploading || validationErrors.length > 0}
+                    title={validationErrors.length > 0 ? "Please resolve all validation errors before importing" : ""}
+                  >
+                    {uploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Importing Products...
+                      </>
+                    ) : (
+                      <>
+                        Import {products.length} Products
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
         </div>
 

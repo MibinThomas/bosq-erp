@@ -45,6 +45,11 @@ export async function POST(request: Request) {
         availableColors,
         dimensions,
         imageUrl,
+        chairType,
+        tableTopFinish,
+        legType,
+        storageOptions,
+        finishMaterial,
       } = prod
 
       if (!productName || !categoryName) {
@@ -104,6 +109,11 @@ export async function POST(request: Request) {
           dimensions: dimensions ? dimensions : undefined,
           imageUrl: imageUrl ? imageUrl : undefined,
           status: "ACTIVE",
+          chairType: chairType !== undefined ? chairType : undefined,
+          tableTopFinish: tableTopFinish !== undefined ? tableTopFinish : undefined,
+          legType: legType !== undefined ? legType : undefined,
+          storageOptions: storageOptions !== undefined ? storageOptions : undefined,
+          finishMaterial: finishMaterial !== undefined ? finishMaterial : undefined,
         },
         create: {
           productCode: finalCode,
@@ -123,6 +133,11 @@ export async function POST(request: Request) {
           dimensions: dimensions || "Standard",
           imageUrl: imageUrl || null,
           status: "ACTIVE",
+          chairType: chairType || null,
+          tableTopFinish: tableTopFinish || null,
+          legType: legType || null,
+          storageOptions: storageOptions || null,
+          finishMaterial: finishMaterial || null,
         },
         include: {
           category: true,
