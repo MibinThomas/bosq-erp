@@ -292,6 +292,18 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       }
     })
 
+    console.log("[Bulk Importer] Parsed file headers:", fileHeaders)
+    console.log("[Bulk Importer] Auto-detected mappings:", initialMappings)
+
+    const mappedCount = Object.keys(initialMappings).length
+    if (mappedCount === 0) {
+      toast.error("Could not auto-detect any columns! Please expand 'Advanced Column Mapping' on the right to match your spreadsheet columns manually.", {
+        duration: 8000
+      })
+    } else {
+      toast.success(`Auto-detected and mapped ${mappedCount} columns successfully.`)
+    }
+
     setMappings(initialMappings)
 
     const parsedProducts: ParsedProduct[] = fileRows.map(row => {
