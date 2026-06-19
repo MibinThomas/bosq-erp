@@ -2,18 +2,41 @@
 
 import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { Shield, ShieldAlert, User, History, Check, Save, Copy, Trash2, Plus, AlertCircle, Info } from "lucide-react"
+import { 
+  Shield, 
+  ShieldAlert, 
+  User, 
+  History, 
+  Check, 
+  Save, 
+  Trash2, 
+  Plus, 
+  AlertCircle, 
+  Info,
+  Users,
+  Clock,
+  MapPin,
+  Search,
+  ArrowLeftRight,
+  CheckCircle2,
+  XCircle,
+  Ban,
+  Settings,
+  UserCheck,
+  Building,
+  AlertTriangle
+} from "lucide-react"
 import { toast } from "sonner"
 
 const modules = [
-  { id: "DASHBOARD", name: "Dashboard" },
   { id: "CLIENTS", name: "Clients" },
-  { id: "PRODUCTS", name: "Products" },
   { id: "QUOTATIONS", name: "Quotations" },
+  { id: "PRODUCTS", name: "Products" },
   { id: "BOQS", name: "BOQs" },
-  { id: "PURCHASE_ORDERS", name: "Purchase Orders" },
   { id: "REPORTS", name: "Reports" },
-  { id: "USER_MANAGEMENT", name: "User Management" },
+  { id: "USER_MANAGEMENT", name: "Users" },
+  { id: "DASHBOARD", name: "Dashboard" },
+  { id: "PURCHASE_ORDERS", name: "Purchase Orders" },
   { id: "SETTINGS", name: "Settings" },
   { id: "PRICING_MARKUP", name: "Pricing Markup" },
   { id: "ACCESS_CONTROL", name: "Access Control" },
@@ -22,57 +45,105 @@ const modules = [
   { id: "SYSTEM_CONFIGURATION", name: "System Configuration" },
 ]
 
-const actions = [
+const primaryActions = [
   { id: "view", label: "View" },
   { id: "create", label: "Create" },
   { id: "edit", label: "Edit" },
   { id: "delete", label: "Delete" },
   { id: "approve", label: "Approve" },
-  { id: "reject", label: "Reject" },
   { id: "export", label: "Export" },
-  { id: "downloadPdf", label: "PDF" },
-  { id: "uploadFiles", label: "Upload" },
-  { id: "share", label: "Share" },
-  { id: "manage", label: "Manage" },
-  { id: "canConfirmQuotation", label: "Confirm Quote" },
-  { id: "canOverrideVat", label: "Override VAT" },
-  { id: "canAddCustomCharges", label: "Add Custom Charges" },
 ]
 
-const pricingVisibilities = [
-  { id: "costPriceVisible", label: "Cost Price" },
-  { id: "dealerPriceVisible", label: "Dealer Price" },
-  { id: "marginVisible", label: "Margin" },
-  { id: "profitVisible", label: "Profit" },
-  { id: "markupVisible", label: "Markup" },
-]
+const territoriesList = ["UAE", "Dubai", "Abu Dhabi", "Sharhar", "Other Regions"]
 
 export default function AccessControlPage() {
   const { data: session } = useSession()
   const currentUserRole = (session?.user as any)?.role || ""
   const currentUserId = (session?.user as any)?.id || ""
 
-  const [activeTab, setActiveTab] = useState<"roles" | "overrides" | "logs">("roles")
+  const [activeTab, setActiveTab] = useState<"dashboard" | "roles" | "users" | "requests" | "logs">("dashboard")
   const [loading, setLoading] = useState(true)
+  
+  // Dynamic statistics
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    pendingRequests: 0,
+    suspendedUsers: 0,
+    totalRoles: 0
+  })
   
   // Data lists
   const [roles, setRoles] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
+  const [clientAccessRequests, setClientAccessRequests] = useState<any[]>([])
+  const [recentlyAddedUsers, setRecentlyAddedUsers] = useState<any[]>([])
   const [logs, setLogs] = useState<any[]>([])
+  
+  // Approval settings
+  const [approvalSettings, setApprovalSettings] = useState<Record<string, boolean>>({
+    client_creation: false,
+    client_access: false,
+    product_creation: false,
+    product_bulk_upload: false,
+    quotation: false,
+    revision: false
+  })
 
-  // Selection state
+  // Selection states
   const [selectedRoleId, setSelectedRoleId] = useState<string>("")
   const [selectedUserId, setSelectedUserId] = useState<string>("")
 
   // Edit states
   const [editingPermissions, setEditingPermissions] = useState<Record<string, any>>({})
-  const [editingOverrides, setEditingOverrides] = useState<any[]>([])
-  
-  // New role modal
-  const [showNewRoleModal, setShowNewRoleModal] = useState(false)
+  const [newRoleModal, setNewRoleModal] = useState(false)
   const [newRoleName, setNewRoleName] = useState("")
   const [newRoleDesc, setNewRoleDesc] = useState("")
   const [baseRoleId, setBaseRoleId] = useState("")
+
+  // User Profile Edit states
+  const [editingUserProfile, setEditingUserProfile] = useState({
+    name: "",
+    email: "",
+    role: "",
+    department: "",
+    employeeId: "",
+    status: "Active",
+    territories: [] as string[],
+    clientAssignments: [] as string[]
+  })
+
+  // Transfer client state
+  const [transferModal, setTransferModal] = useState({
+    isOpen: false,
+    clientId: "",
+    clientName: "",
+    fromUserId: "",
+    toUserId: ""
+  })
+
+  // Access request process states
+  const [rejectModal, setRejectModal] = useState({
+    isOpen: false,
+    requestId: "",
+    clientName: "",
+    userName: "",
+    reason: ""
+  })
+
+  const [reassignModal, setReassignModal] = useState({
+    isOpen: false,
+    requestId: "",
+    clientName: "",
+    userName: "",
+    newOwnerId: ""
+  })
+
+  // Search filter states
+  const [userSearchTerm, setUserSearchTerm] = useState("")
+  const [clientSearchTerm, setClientSearchTerm] = useState("")
+  const [logFilterTerm, setLogFilterTerm] = useState("")
 
   const fetchData = async () => {
     setLoading(true)
@@ -81,7 +152,6 @@ export default function AccessControlPage() {
       if (res.ok) {
         const data = await res.json()
         
-        // Filter out Super Admin if current user is only Admin
         let filteredRoles = data.roles || []
         let filteredUsers = data.users || []
         
@@ -92,35 +162,55 @@ export default function AccessControlPage() {
 
         setRoles(filteredRoles)
         setUsers(filteredUsers)
+        setClients(data.clients || [])
+        setClientAccessRequests(data.clientAccessRequests || [])
+        setRecentlyAddedUsers(data.recentlyAddedUsers || [])
         setLogs(data.logs || [])
+        
+        if (data.stats) {
+          setStats(data.stats)
+        }
 
-        // Set default selection
+        // Map system settings to local approvals state
+        const approvalsMap: Record<string, boolean> = {
+          client_creation: false,
+          client_access: false,
+          product_creation: false,
+          product_bulk_upload: false,
+          quotation: false,
+          revision: false
+        }
+        data.systemSettings?.forEach((setting: any) => {
+          const suffix = setting.key.replace("approval_control_", "")
+          approvalsMap[suffix] = setting.value === "true"
+        })
+        setApprovalSettings(approvalsMap)
+
+        // Default selections
         if (filteredRoles.length > 0 && !selectedRoleId) {
           setSelectedRoleId(filteredRoles[0].id)
-          loadRolePermissions(filteredRoles[0], filteredRoles[0].permissions)
+          loadRolePermissions(filteredRoles[0].permissions)
         }
         if (filteredUsers.length > 0 && !selectedUserId) {
           setSelectedUserId(filteredUsers[0].id)
-          loadUserOverrides(filteredUsers[0].permissionOverrides)
+          loadUserProfile(filteredUsers[0])
         }
       } else {
-        toast.error("Failed to load access control configuration data")
+        toast.error("Failed to load access control configurations")
       }
     } catch (err) {
       console.error(err)
-      toast.error("An error occurred while fetching configurations")
+      toast.error("Error fetching access control data")
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    if (session) {
-      fetchData()
-    }
-  }, [session])
+    fetchData()
+  }, [])
 
-  const loadRolePermissions = (role: any, permissions: any[]) => {
+  const loadRolePermissions = (permissions: any[]) => {
     const matrix: Record<string, any> = {}
     modules.forEach(m => {
       const perm = permissions?.find((p: any) => p.module === m.id)
@@ -130,52 +220,46 @@ export default function AccessControlPage() {
         edit: perm?.edit ?? false,
         delete: perm?.delete ?? false,
         approve: perm?.approve ?? false,
-        reject: perm?.reject ?? false,
         export: perm?.export ?? false,
-        downloadPdf: perm?.downloadPdf ?? false,
-        uploadFiles: perm?.uploadFiles ?? false,
-        share: perm?.share ?? false,
-        manage: perm?.manage ?? false,
-        ownership: perm?.ownership ?? "ALL",
-        approvalLimit: perm?.approvalLimit ?? "",
-        costPriceVisible: perm?.costPriceVisible ?? false,
-        dealerPriceVisible: perm?.dealerPriceVisible ?? false,
-        marginVisible: perm?.marginVisible ?? false,
-        profitVisible: perm?.profitVisible ?? false,
-        markupVisible: perm?.markupVisible ?? false,
-        canConfirmQuotation: perm?.canConfirmQuotation ?? false,
-        canOverrideVat: perm?.canOverrideVat ?? false,
-        canAddCustomCharges: perm?.canAddCustomCharges ?? false,
-        maxDiscountPercent: perm?.maxDiscountPercent ?? 0,
       }
     })
     setEditingPermissions(matrix)
   }
 
-  const loadUserOverrides = (overrides: any[]) => {
-    setEditingOverrides(overrides || [])
+  const loadUserProfile = (user: any) => {
+    if (!user) return
+    const territoriesArr = user.territories ? user.territories.split(",").map((t: string) => t.trim()).filter(Boolean) : []
+    const clientIds = user.clientAssignments ? user.clientAssignments.filter((ca: any) => !ca.isPrimary).map((ca: any) => ca.clientId) : []
+    
+    setEditingUserProfile({
+      name: user.name || "",
+      email: user.email || "",
+      role: user.role || "",
+      department: user.department || "",
+      employeeId: user.employeeId || "",
+      status: user.status || "Active",
+      territories: territoriesArr,
+      clientAssignments: clientIds
+    })
   }
 
-  // Handle Role change selection
   const handleRoleSelect = (roleId: string) => {
     setSelectedRoleId(roleId)
     const role = roles.find(r => r.id === roleId)
     if (role) {
-      loadRolePermissions(role, role.permissions)
+      loadRolePermissions(role.permissions)
     }
   }
 
-  // Handle User change selection
   const handleUserSelect = (userId: string) => {
     setSelectedUserId(userId)
     const user = users.find(u => u.id === userId)
     if (user) {
-      loadUserOverrides(user.permissionOverrides)
+      loadUserProfile(user)
     }
   }
 
-  // Modify local role permission cell
-  const handleRolePermChange = (moduleId: string, actionId: string, value: any) => {
+  const handleRolePermChange = (moduleId: string, actionId: string, value: boolean) => {
     setEditingPermissions(prev => ({
       ...prev,
       [moduleId]: {
@@ -185,47 +269,12 @@ export default function AccessControlPage() {
     }))
   }
 
-  // Modify user overrides
-  const handleOverrideChange = (moduleId: string, actionId: string, actionType: "boolean" | "ownership" | "limit", value: any) => {
-    setEditingOverrides(prev => {
-      // Find if override exists
-      const filtered = prev.filter(o => !(o.module === moduleId && o.action === actionId))
-      
-      if (actionType === "boolean") {
-        if (value === null) {
-          // No override (inherited)
-          return filtered
-        }
-        return [...filtered, { module: moduleId, action: actionId, value }]
-      } else if (actionType === "ownership") {
-        const currentOverride = prev.find(o => o.module === moduleId && o.action === actionId)
-        return [...filtered, { 
-          module: moduleId, 
-          action: actionId, 
-          value: currentOverride?.value ?? true, 
-          ownership: value 
-        }]
-      } else {
-        const currentOverride = prev.find(o => o.module === moduleId && o.action === actionId)
-        const updated = { 
-          module: moduleId, 
-          action: actionId, 
-          value: currentOverride?.value ?? true,
-        } as any
-        if (actionId === "maxDiscountPercent") updated.maxDiscountPercent = value
-        else updated.approvalLimit = value
-        return [...filtered, updated]
-      }
-    })
-  }
-
-  // Save Role permissions to DB
   const saveRolePermissions = async () => {
     const selectedRole = roles.find(r => r.id === selectedRoleId)
     if (!selectedRole) return
 
-    if (selectedRole.name === "SUPER_ADMIN" && currentUserRole !== "SUPER_ADMIN") {
-      toast.error("Only Super Admins can save SUPER_ADMIN configurations")
+    if (selectedRole.name === "SUPER_ADMIN") {
+      toast.error("Super Admin permissions cannot be modified")
       return
     }
 
@@ -261,44 +310,6 @@ export default function AccessControlPage() {
     }
   }
 
-  // Save User overrides to DB
-  const saveUserOverrides = async () => {
-    const targetUser = users.find(u => u.id === selectedUserId)
-    if (!targetUser) return
-
-    if (targetUser.role === "SUPER_ADMIN" && currentUserRole !== "SUPER_ADMIN") {
-      toast.error("Only Super Admins can save SUPER_ADMIN overrides")
-      return
-    }
-
-    setLoading(true)
-    try {
-      const res = await fetch("/api/settings/access-control", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "update_overrides",
-          targetUserId: selectedUserId,
-          overrides: editingOverrides
-        })
-      })
-
-      if (res.ok) {
-        toast.success("User overrides saved successfully")
-        fetchData()
-      } else {
-        const errData = await res.json()
-        toast.error(errData.error || "Failed to save user overrides")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error saving user overrides")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Create custom role
   const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newRoleName) return
@@ -318,7 +329,7 @@ export default function AccessControlPage() {
 
       if (res.ok) {
         toast.success("Custom role created successfully")
-        setShowNewRoleModal(false)
+        setNewRoleModal(false)
         setNewRoleName("")
         setNewRoleDesc("")
         setBaseRoleId("")
@@ -335,16 +346,15 @@ export default function AccessControlPage() {
     }
   }
 
-  // Delete custom role
   const handleDeleteRole = async (roleId: string) => {
     const role = roles.find(r => r.id === roleId)
     if (!role) return
     if (role.isSystem) {
-      toast.error("Cannot delete system default roles")
+      toast.error("System roles cannot be deleted")
       return
     }
 
-    if (!confirm(`Are you sure you want to delete the role ${role.name}? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete the role ${role.name}? This will revoke access for all users assigned to this role.`)) {
       return
     }
 
@@ -370,42 +380,327 @@ export default function AccessControlPage() {
     }
   }
 
+  // Update user profile info & client assignments
+  const handleSaveUserProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const targetUser = users.find(u => u.id === selectedUserId)
+    if (!targetUser) return
+
+    setLoading(true)
+    try {
+      const res = await fetch("/api/settings/access-control", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "update_user_profile",
+          targetUserId: selectedUserId,
+          name: editingUserProfile.name,
+          email: editingUserProfile.email,
+          role: editingUserProfile.role,
+          department: editingUserProfile.department,
+          employeeId: editingUserProfile.employeeId,
+          status: editingUserProfile.status,
+          territories: editingUserProfile.territories.join(","),
+          clientAssignments: editingUserProfile.clientAssignments
+        })
+      })
+
+      if (res.ok) {
+        toast.success("User profile and assignments saved successfully")
+        fetchData()
+      } else {
+        const errData = await res.json()
+        toast.error(errData.error || "Failed to update user profile")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Error updating user details")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Toggle global approval workflows
+  const handleToggleApprovalSetting = async (key: string, currentValue: boolean) => {
+    const updatedValue = !currentValue
+    const settingKey = `approval_control_${key}`
+
+    // Optimistic UI update
+    setApprovalSettings(prev => ({
+      ...prev,
+      [key]: updatedValue
+    }))
+
+    try {
+      const res = await fetch("/api/settings/access-control", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "update_approval_settings",
+          settings: {
+            [settingKey]: String(updatedValue)
+          }
+        })
+      })
+
+      if (res.ok) {
+        toast.success(`Workflow setting updated: ${key.replace("_", " ")} approval ${updatedValue ? "Enabled" : "Disabled"}`)
+      } else {
+        toast.error("Failed to update approval workflow setting")
+        // Revert
+        setApprovalSettings(prev => ({
+          ...prev,
+          [key]: currentValue
+        }))
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Error updating approval workflow setting")
+      // Revert
+      setApprovalSettings(prev => ({
+        ...prev,
+        [key]: currentValue
+      }))
+    }
+  }
+
+  // Assign client to user
+  const handleAssignClient = (clientId: string) => {
+    if (!clientId) return
+    if (editingUserProfile.clientAssignments.includes(clientId)) {
+      toast.warning("Client is already assigned to this user")
+      return
+    }
+
+    setEditingUserProfile(prev => ({
+      ...prev,
+      clientAssignments: [...prev.clientAssignments, clientId]
+    }))
+    toast.success("Added client to user's pending assignments list (Click Save changes to commit)")
+  }
+
+  // Revoke client access instantly
+  const handleRevokeClientAccess = async (clientId: string) => {
+    if (!confirm("Are you sure you want to instantly revoke access to this client for the user?")) {
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch("/api/settings/access-control", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "remove_client_access",
+          clientId,
+          userId: selectedUserId
+        })
+      })
+
+      if (res.ok) {
+        toast.success("Client access revoked successfully")
+        fetchData()
+      } else {
+        toast.error("Failed to revoke client access")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Error revoking client access")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Transfer client ownership from user profile
+  const handleTransferClient = async () => {
+    if (!transferModal.toUserId) {
+      toast.error("Please select the target consultant to transfer ownership to")
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await fetch("/api/settings/access-control", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "transfer_client",
+          clientId: transferModal.clientId,
+          fromUserId: transferModal.fromUserId,
+          toUserId: transferModal.toUserId
+        })
+      })
+
+      if (res.ok) {
+        toast.success("Client ownership transferred successfully")
+        setTransferModal(prev => ({ ...prev, isOpen: false }))
+        fetchData()
+      } else {
+        toast.error("Failed to transfer client ownership")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Error transferring client ownership")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Access Requests processing
+  const handleProcessAccessRequest = async (requestId: string, action: "Approve" | "Reject" | "Reassign", payload: any = {}) => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/settings/access-control", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "process_access_request",
+          requestId,
+          action,
+          ...payload
+        })
+      })
+
+      if (res.ok) {
+        toast.success(`Access request successfully ${action === "Approve" ? "Approved" : action === "Reject" ? "Rejected" : "Reassigned"}`)
+        setRejectModal(prev => ({ ...prev, isOpen: false }))
+        setReassignModal(prev => ({ ...prev, isOpen: false }))
+        fetchData()
+      } else {
+        toast.error("Failed to process access request")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Error processing access request")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Filtered lists
+  const filteredUsersList = users.filter(u => {
+    const search = userSearchTerm.toLowerCase()
+    return (
+      (u.name && u.name.toLowerCase().includes(search)) ||
+      u.email.toLowerCase().includes(search) ||
+      (u.employeeId && u.employeeId.toLowerCase().includes(search)) ||
+      u.role.toLowerCase().includes(search)
+    )
+  })
+
+  const filteredClientsForAssign = clients.filter(c => {
+    const search = clientSearchTerm.toLowerCase()
+    return (
+      c.companyName.toLowerCase().includes(search) ||
+      c.clientId.toLowerCase().includes(search)
+    )
+  })
+
+  const filteredLogs = logs.filter(l => {
+    const search = logFilterTerm.toLowerCase()
+    return (
+      l.action.toLowerCase().includes(search) ||
+      l.details.toLowerCase().includes(search) ||
+      (l.user?.name && l.user.name.toLowerCase().includes(search)) ||
+      (l.user?.email && l.user.email.toLowerCase().includes(search)) ||
+      (l.targetUser?.name && l.targetUser.name.toLowerCase().includes(search))
+    )
+  })
+
   const selectedRole = roles.find(r => r.id === selectedRoleId)
-  const isSelectedRoleSystem = selectedRole?.isSystem ?? false
+  const selectedUser = users.find(u => u.id === selectedUserId)
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-5 mb-6">
+      {/* Header section */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-5 mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-white dark:to-zinc-400 bg-clip-text text-transparent">
-            Access Control Panel
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-amber-600 to-amber-400 bg-clip-text text-transparent">
+            Super Admin Access Control Panel
           </h1>
           <p className="text-sm text-zinc-500 mt-1">
-            Configure dynamic roles, action matrix permissions, granular user overrides, and view compliance logs.
+            Redesigned centralized dashboard for user roles, granular module permissions, approvals configuration, client assignments, and audit compliance logs.
           </p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {activeTab === "roles" && (
-            <button
-              onClick={() => setShowNewRoleModal(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 px-4 py-2.5 text-xs font-semibold text-white shadow hover:bg-zinc-800 transition-all dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100"
-            >
-              <Plus size={14} />
-              Create Custom Role
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800 mb-6 gap-2">
+      {/* Overview Cards (Static stats loaded from API) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:scale-[1.01] transition-all flex items-center space-x-3.5">
+          <div className="p-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+            <Users size={20} />
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Total Users</div>
+            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{stats.totalUsers}</div>
+          </div>
+        </div>
+        
+        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:scale-[1.01] transition-all flex items-center space-x-3.5">
+          <div className="p-2.5 rounded-lg bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400">
+            <UserCheck size={20} />
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Active Users</div>
+            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{stats.activeUsers}</div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:scale-[1.01] transition-all flex items-center space-x-3.5">
+          <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 relative">
+            <Clock size={20} />
+            {stats.pendingRequests > 0 && (
+              <span className="absolute top-1 right-1 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+              </span>
+            )}
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Pending Access</div>
+            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{stats.pendingRequests}</div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:scale-[1.01] transition-all flex items-center space-x-3.5">
+          <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400">
+            <Ban size={20} />
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Suspended</div>
+            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{stats.suspendedUsers}</div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:scale-[1.01] transition-all flex items-center space-x-3.5">
+          <div className="p-2.5 rounded-lg bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400">
+            <Shield size={20} />
+          </div>
+          <div>
+            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Total Roles</div>
+            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{stats.totalRoles}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs navigation */}
+      <div className="flex border-b border-zinc-200 dark:border-zinc-800 mb-6 gap-2 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab("dashboard")}
+          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
+            activeTab === "dashboard"
+              ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
+              : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+          }`}
+        >
+          <Settings size={16} />
+          Overview Dashboard
+        </button>
         <button
           onClick={() => setActiveTab("roles")}
-          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 ${
+          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
             activeTab === "roles"
-              ? "border-zinc-900 text-zinc-900 dark:border-white dark:text-white"
+              ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
               : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
           }`}
         >
@@ -413,57 +708,154 @@ export default function AccessControlPage() {
           Role Permissions Matrix
         </button>
         <button
-          onClick={() => setActiveTab("overrides")}
-          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 ${
-            activeTab === "overrides"
-              ? "border-zinc-900 text-zinc-900 dark:border-white dark:text-white"
+          onClick={() => setActiveTab("users")}
+          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
+            activeTab === "users"
+              ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
               : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
           }`}
         >
           <User size={16} />
-          User-Level Overrides
+          User &amp; Client Access Console
+        </button>
+        <button
+          onClick={() => setActiveTab("requests")}
+          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap relative ${
+            activeTab === "requests"
+              ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
+              : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+          }`}
+        >
+          <Clock size={16} />
+          Access Requests
+          {stats.pendingRequests > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-500 text-white font-bold">
+              {stats.pendingRequests}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setActiveTab("logs")}
-          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 ${
+          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
             activeTab === "logs"
-              ? "border-zinc-900 text-zinc-900 dark:border-white dark:text-white"
+              ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
               : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
           }`}
         >
           <History size={16} />
-          Access Control Audit Logs
+          Compliance Logs
         </button>
       </div>
 
       {loading && (
-        <div className="py-20 text-center text-zinc-500 text-sm animate-pulse">
-          Loading access configuration data, please wait...
+        <div className="py-20 text-center text-zinc-400 text-sm animate-pulse flex flex-col items-center justify-center space-y-2">
+          <Clock size={24} className="animate-spin text-amber-500" />
+          <span>Synchronizing access control data, please wait...</span>
         </div>
       )}
 
+      {/* Tab 1: Dashboard Overview */}
+      {!loading && activeTab === "dashboard" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Approval Controls ON/OFF */}
+          <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Workflow Approval Controls</h2>
+              <p className="text-xs text-zinc-400 mt-0.5">Toggle which core ERP transactions require strict Admin/Super Admin approval before final processing.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                { key: "client_creation", label: "Client Creation Approval", desc: "Requires admin confirmation when a consultant adds a new client." },
+                { key: "client_access", label: "Client Access Approval", desc: "Requires admin review when a consultant requests client records transfer." },
+                { key: "product_creation", label: "Product Creation Approval", desc: "Requires authorization when new items are added to catalog." },
+                { key: "product_bulk_upload", label: "Product Bulk Upload Approval", desc: "Requires verification when products are imported via CSV files." },
+                { key: "quotation", label: "Quotation Approval", desc: "Requires manager signature for quotes above default margin thresholds." },
+                { key: "revision", label: "Revision Confirmation Approval", desc: "Requires authorization when quotations are revised with custom items." },
+              ].map((setting) => (
+                <div key={setting.key} className="flex items-start justify-between p-3.5 border dark:border-zinc-800 rounded-xl hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 transition-all">
+                  <div className="space-y-0.5 max-w-[80%]">
+                    <span className="block text-xs font-bold text-zinc-900 dark:text-zinc-200">{setting.label}</span>
+                    <span className="block text-[10px] text-zinc-400 leading-normal">{setting.desc}</span>
+                  </div>
+                  <button
+                    onClick={() => handleToggleApprovalSetting(setting.key, approvalSettings[setting.key] || false)}
+                    className={`h-5 w-9 rounded-full transition-all shrink-0 relative ${
+                      approvalSettings[setting.key]
+                        ? "bg-amber-500"
+                        : "bg-zinc-200 dark:bg-zinc-800"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 bg-white h-4 w-4 rounded-full transition-all ${
+                        approvalSettings[setting.key]
+                          ? "translate-x-4"
+                          : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Recently Added Users & Quick Actions */}
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider border-b pb-2.5">Recently Added Users</h3>
+            <div className="divide-y dark:divide-zinc-800">
+              {recentlyAddedUsers.map((user) => (
+                <div key={user.id} className="py-3 flex items-center justify-between text-xs">
+                  <div className="min-w-0 pr-2">
+                    <span className="block font-semibold text-zinc-800 dark:text-zinc-200 truncate">{user.name || user.email}</span>
+                    <span className="block text-[10px] text-zinc-400 truncate mt-0.5">{user.role} | {user.department || "No Dept"}</span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                    user.status === "Active" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
+                    user.status === "Suspended" ? "bg-red-100 text-red-700 dark:bg-red-950/20 dark:text-red-400" :
+                    "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
+                  }`}>
+                    {user.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 2: Role Permissions Matrix */}
       {!loading && activeTab === "roles" && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Roles List */}
-          <div className="lg:col-span-1 bg-white dark:bg-zinc-900 border rounded-xl p-4 shadow-sm">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Roles</h3>
+          {/* Roles Side Panel */}
+          <div className="lg:col-span-1 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Roles List</h3>
+              <button
+                onClick={() => setNewRoleModal(true)}
+                className="text-[10px] font-bold text-amber-600 hover:text-amber-700 flex items-center gap-0.5"
+              >
+                <Plus size={10} /> Add Custom
+              </button>
+            </div>
+            
             <div className="space-y-1.5">
               {roles.map((r) => (
                 <div
                   key={r.id}
                   onClick={() => handleRoleSelect(r.id)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left text-sm font-medium transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left text-sm font-medium transition-all cursor-pointer border ${
                     selectedRoleId === r.id
-                      ? "bg-zinc-100 text-zinc-950 dark:bg-zinc-800 dark:text-white"
-                      : "hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/50"
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                      : "border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300"
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate">{r.name}</span>
+                    <span className="block truncate font-bold text-xs">{r.name}</span>
                     <span className="block text-[10px] text-zinc-400 truncate mt-0.5">{r.description || "No description"}</span>
                   </div>
                   {r.isSystem && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 border font-semibold shrink-0">
+                    <span className="ml-2 px-1.5 py-0.5 rounded text-[8px] bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border font-semibold shrink-0">
                       System
                     </span>
                   )}
@@ -472,38 +864,40 @@ export default function AccessControlPage() {
             </div>
           </div>
 
-          {/* Permissions Matrix Grid */}
+          {/* Permissions Matrix display */}
           <div className="lg:col-span-3 space-y-4">
             {selectedRole && (
-              <div className="bg-white dark:bg-zinc-900 border rounded-xl p-5 shadow-sm space-y-5">
-                <div className="flex items-center justify-between gap-4 border-b pb-4">
+              <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-5">
+                
+                {/* Header detail */}
+                <div className="flex items-center justify-between gap-4 border-b dark:border-zinc-800 pb-4">
                   <div>
-                    <h2 className="text-lg font-bold text-zinc-900 dark:text-white">{selectedRole.name} Permissions</h2>
+                    <h2 className="text-lg font-bold text-zinc-900 dark:text-white">{selectedRole.name} Permissions Matrix</h2>
                     <p className="text-xs text-zinc-400 mt-0.5">{selectedRole.description}</p>
                   </div>
                   <div className="flex gap-2">
-                    {!isSelectedRoleSystem && (
+                    {!selectedRole.isSystem && (
                       <button
                         onClick={() => handleDeleteRole(selectedRole.id)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-medium hover:bg-red-50 dark:border-red-900/50 dark:hover:bg-red-950/20"
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold hover:bg-red-50 dark:border-red-950/20 dark:hover:bg-red-950/40"
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={12} />
                         Delete Role
                       </button>
                     )}
                     <button
                       onClick={saveRolePermissions}
                       disabled={selectedRole.name === "SUPER_ADMIN"}
-                      className="inline-flex items-center gap-1 rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 px-4 py-1.5 text-xs font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-4 py-1.5 text-xs font-bold hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                     >
-                      <Save size={13} />
+                      <Save size={12} />
                       Save Permissions Matrix
                     </button>
                   </div>
                 </div>
 
                 {selectedRole.name === "SUPER_ADMIN" && (
-                  <div className="p-3.5 bg-yellow-50 dark:bg-yellow-950/25 border border-yellow-200 dark:border-yellow-900/40 rounded-xl text-yellow-800 dark:text-yellow-400 text-xs flex items-start gap-2">
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/25 border border-amber-200 dark:border-amber-900/40 rounded-xl text-amber-800 dark:text-amber-400 text-xs flex items-start gap-2">
                     <ShieldAlert size={16} className="shrink-0 mt-0.5" />
                     <div>
                       <strong>Super Admin Bypass Rule Enabled:</strong> The SUPER_ADMIN role bypasses all authorization matrix constraints and has hardcoded full system access. Editing Super Admin permissions is disabled.
@@ -511,95 +905,34 @@ export default function AccessControlPage() {
                   </div>
                 )}
 
-                {/* Table Matrix */}
-                <div className="overflow-x-auto border rounded-xl max-h-[500px]">
+                {/* Grid matrix */}
+                <div className="overflow-x-auto border dark:border-zinc-800 rounded-xl max-h-[500px]">
                   <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
                     <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold sticky top-0 z-10">
                       <tr>
-                        <th className="p-3 border-r">Module</th>
-                        {actions.map(a => (
+                        <th className="p-3 border-r dark:border-zinc-800">Module</th>
+                        {primaryActions.map(a => (
                           <th key={a.id} className="p-3 text-center min-w-[70px]">{a.label}</th>
                         ))}
-                        <th className="p-3 text-center min-w-[110px] border-l">Ownership</th>
-                        <th className="p-3 text-center min-w-[100px] border-l">Appr. Limit (AED)</th>
-                        <th className="p-3 text-center min-w-[100px] border-l">Max Discount %</th>
-                        <th className="p-3 text-center min-w-[350px] border-l">Pricing Visibilities</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                       {modules.map((m) => {
                         const rowPerm = editingPermissions[m.id] || {}
                         return (
-                          <tr key={m.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                            <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-200 border-r">{m.name}</td>
-                            {actions.map((a) => {
-                              const isConfirmAndNotQuote = (a.id === "canConfirmQuotation" || a.id === "canOverrideVat" || a.id === "canAddCustomCharges") && m.id !== "QUOTATIONS"
-                              return (
-                                <td key={a.id} className="p-3 text-center">
-                                  {!isConfirmAndNotQuote && (
-                                    <input
-                                      type="checkbox"
-                                      checked={rowPerm[a.id] ?? false}
-                                      disabled={selectedRole.name === "SUPER_ADMIN"}
-                                      onChange={(e) => handleRolePermChange(m.id, a.id, e.target.checked)}
-                                      className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-zinc-900 focus:ring-zinc-900 dark:bg-zinc-800"
-                                    />
-                                  )}
-                                </td>
-                              )
-                            })}
-                            <td className="p-3 text-center border-l">
-                              <select
-                                value={rowPerm.ownership || "ALL"}
-                                disabled={selectedRole.name === "SUPER_ADMIN"}
-                                onChange={(e) => handleRolePermChange(m.id, "ownership", e.target.value)}
-                                className="w-full text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-1 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
-                              >
-                                <option value="ALL">All (ALL)</option>
-                                <option value="DEPARTMENT">Department</option>
-                                <option value="OWN">Own Only</option>
-                                <option value="ASSIGNED">Assigned</option>
-                                <option value="NONE">None</option>
-                              </select>
-                            </td>
-                            <td className="p-3 text-center border-l">
-                              <input
-                                type="number"
-                                placeholder="None"
-                                disabled={selectedRole.name === "SUPER_ADMIN"}
-                                value={rowPerm.approvalLimit ?? ""}
-                                onChange={(e) => handleRolePermChange(m.id, "approvalLimit", e.target.value === "" ? null : parseFloat(e.target.value))}
-                                className="w-full text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-1 text-center dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
-                              />
-                            </td>
-                            <td className="p-3 text-center border-l">
-                              {m.id === "QUOTATIONS" && (
+                          <tr key={m.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 transition-all">
+                            <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-200 border-r dark:border-zinc-800">{m.name}</td>
+                            {primaryActions.map((a) => (
+                              <td key={a.id} className="p-3 text-center">
                                 <input
-                                  type="number"
-                                  placeholder="%"
+                                  type="checkbox"
+                                  checked={rowPerm[a.id] ?? false}
                                   disabled={selectedRole.name === "SUPER_ADMIN"}
-                                  value={rowPerm.maxDiscountPercent ?? 0}
-                                  onChange={(e) => handleRolePermChange(m.id, "maxDiscountPercent", e.target.value === "" ? null : parseFloat(e.target.value))}
-                                  className="w-full text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-1 text-center dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
+                                  onChange={(e) => handleRolePermChange(m.id, a.id, e.target.checked)}
+                                  className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-amber-600 focus:ring-amber-500 dark:bg-zinc-800 cursor-pointer"
                                 />
-                              )}
-                            </td>
-                            <td className="p-3 border-l">
-                              <div className="flex flex-wrap gap-x-3 gap-y-1">
-                                {pricingVisibilities.map((pv) => (
-                                  <label key={pv.id} className="inline-flex items-center gap-1 cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={rowPerm[pv.id] ?? false}
-                                      disabled={selectedRole.name === "SUPER_ADMIN"}
-                                      onChange={(e) => handleRolePermChange(m.id, pv.id, e.target.checked)}
-                                      className="h-3 w-3 rounded text-zinc-900 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700"
-                                    />
-                                    <span className="text-[10px] text-zinc-500">{pv.label}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            </td>
+                              </td>
+                            ))}
                           </tr>
                         )
                       })}
@@ -612,232 +945,500 @@ export default function AccessControlPage() {
         </div>
       )}
 
-      {/* User Overrides Matrix tab */}
-      {!loading && activeTab === "overrides" && (
+      {/* Tab 3: User & Client Access Console */}
+      {!loading && activeTab === "users" && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Users list */}
-          <div className="lg:col-span-1 bg-white dark:bg-zinc-900 border rounded-xl p-4 shadow-sm">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Users</h3>
-            <div className="space-y-1.5">
-              {users.map((u) => (
+          {/* User selection panel */}
+          <div className="lg:col-span-1 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">User Accounts</h3>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="Filter users..."
+                  value={userSearchTerm}
+                  onChange={(e) => setUserSearchTerm(e.target.value)}
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent pl-8 pr-3 py-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-1.5 max-h-[500px] overflow-y-auto">
+              {filteredUsersList.map((u) => (
                 <div
                   key={u.id}
                   onClick={() => handleUserSelect(u.id)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left text-sm font-medium transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left text-sm font-medium transition-all cursor-pointer border ${
                     selectedUserId === u.id
-                      ? "bg-zinc-100 text-zinc-950 dark:bg-zinc-800 dark:text-white"
-                      : "hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/50"
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                      : "border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300"
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate">{u.name || u.email}</span>
+                    <span className="block truncate font-bold text-xs">{u.name || u.email}</span>
                     <span className="block text-[10px] text-zinc-400 truncate mt-0.5">{u.role}</span>
                   </div>
-                  {u.permissionOverrides && u.permissionOverrides.length > 0 && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] bg-amber-100 text-amber-800 dark:bg-amber-950/45 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30 font-semibold shrink-0">
-                      Overrides
-                    </span>
-                  )}
+                  <span className={`ml-2 px-1.5 py-0.5 rounded text-[8px] font-bold ${
+                    u.status === "Active" ? "bg-green-50 text-green-700 border border-green-200" :
+                    u.status === "Suspended" ? "bg-red-50 text-red-700 border border-red-200" :
+                    "bg-zinc-100 text-zinc-700 border border-zinc-200"
+                  }`}>
+                    {u.status}
+                  </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Overrides configurator */}
+          {/* User profile & Client Assignments detail */}
           <div className="lg:col-span-3 space-y-4">
-            {selectedUserId && (
-              <div className="bg-white dark:bg-zinc-900 border rounded-xl p-5 shadow-sm space-y-5">
-                {(() => {
-                  const targetUser = users.find(u => u.id === selectedUserId)
-                  return (
-                    <>
-                      <div className="flex items-center justify-between gap-4 border-b pb-4">
-                        <div>
-                          <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Overrides for {targetUser?.name || targetUser?.email}</h2>
-                          <p className="text-xs text-zinc-400 mt-0.5">Role: {targetUser?.role} | Department: {targetUser?.department || "None"}</p>
-                        </div>
-                        <div>
-                          <button
-                            onClick={saveUserOverrides}
-                            className="inline-flex items-center gap-1 rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 px-4 py-1.5 text-xs font-semibold hover:bg-zinc-800 dark:hover:bg-zinc-100"
-                          >
-                            <Save size={13} />
-                            Save User Overrides
-                          </button>
-                        </div>
-                      </div>
+            {selectedUser && (
+              <form onSubmit={handleSaveUserProfile} className="space-y-4">
+                
+                {/* Profile Editor */}
+                <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-5">
+                  <div className="flex items-center justify-between gap-4 border-b dark:border-zinc-800 pb-4">
+                    <div>
+                      <h2 className="text-lg font-bold text-zinc-900 dark:text-white">User Information</h2>
+                      <p className="text-xs text-zinc-400 mt-0.5">Manage permissions, status, employee IDs and assigned clients.</p>
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      disabled={selectedUser.role === "SUPER_ADMIN" && currentUserRole !== "SUPER_ADMIN"}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-4 py-1.5 text-xs font-bold hover:bg-amber-700 disabled:opacity-40 transition-all shadow-sm"
+                    >
+                      <Save size={12} />
+                      Save Changes
+                    </button>
+                  </div>
 
-                      <div className="p-3 bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs text-zinc-500 dark:text-zinc-400 flex items-start gap-2">
-                        <Info size={16} className="shrink-0 mt-0.5 text-zinc-400" />
-                        <div>
-                          Select explicitly <strong>Grant (Allow)</strong> or <strong>Deny (Restrict)</strong> to override this user&apos;s default role-level permissions. Selecting <strong>Inherit</strong> clears the override.
-                        </div>
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={editingUserProfile.name}
+                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={editingUserProfile.email}
+                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, email: e.target.value }))}
+                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                      />
+                    </div>
 
-                      {/* Overrides Table */}
-                      <div className="overflow-x-auto border rounded-xl max-h-[500px]">
-                        <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
-                          <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold sticky top-0 z-10">
-                            <tr>
-                              <th className="p-3 border-r">Module</th>
-                              <th className="p-3 border-r">Action / Variable</th>
-                              <th className="p-3 text-center">Override Value</th>
-                              <th className="p-3 text-center border-l">Granular Constraint</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                            {modules.flatMap((m) => {
-                              const moduleActions = [
-                                ...actions
-                                  .filter(a => !["canConfirmQuotation", "canOverrideVat", "canAddCustomCharges"].includes(a.id) || m.id === "QUOTATIONS")
-                                  .map(a => ({ id: a.id, label: a.label, type: "boolean" as const })),
-                                ...pricingVisibilities.map(pv => ({ id: pv.id, label: `Pricing: ${pv.label}`, type: "boolean" as const })),
-                                { id: "ownership", label: "Ownership Constraint Override", type: "ownership" as const },
-                                { id: "approvalLimit", label: "Approval limit Override (AED)", type: "limit" as const }
-                              ]
-                              if (m.id === "QUOTATIONS") {
-                                moduleActions.push({ id: "maxDiscountPercent", label: "Max Discount Override (%)", type: "limit" as const })
-                              }
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Employee ID</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. EMP-1002"
+                        value={editingUserProfile.employeeId}
+                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, employeeId: e.target.value }))}
+                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                      />
+                    </div>
 
-                              return moduleActions.map((act) => {
-                                const userOverride = editingOverrides.find(o => o.module === m.id && o.action === act.id)
-                                let selectVal = "inherit"
-                                if (userOverride !== undefined) {
-                                  if (act.type === "boolean") {
-                                    selectVal = userOverride.value ? "allow" : "deny"
-                                  } else {
-                                    selectVal = "custom"
-                                  }
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 mb-1">System Role</label>
+                      <select
+                        value={editingUserProfile.role}
+                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, role: e.target.value }))}
+                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
+                      >
+                        {roles.map(r => (
+                          <option key={r.id} value={r.name}>{r.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Department</label>
+                      <select
+                        value={editingUserProfile.department}
+                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, department: e.target.value }))}
+                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
+                      >
+                        <option value="">No Department</option>
+                        <option value="SALES">Sales</option>
+                        <option value="DESIGN">Design</option>
+                        <option value="ESTIMATION">Estimation</option>
+                        <option value="ACCOUNTS">Accounts</option>
+                        <option value="PRODUCTION">Production</option>
+                        <option value="ADMIN">Administration</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Access Status</label>
+                      <select
+                        value={editingUserProfile.status}
+                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, status: e.target.value }))}
+                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
+                      >
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Suspended">Suspended</option>
+                        <option value="Pending Approval">Pending Approval</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Territories (Future Ready checkboxes) */}
+                  <div className="pt-2">
+                    <label className="block text-xs font-semibold text-zinc-500 mb-2">Assigned Territories</label>
+                    <div className="flex flex-wrap gap-4 bg-zinc-50 dark:bg-zinc-800/20 p-3 rounded-xl border dark:border-zinc-800">
+                      {territoriesList.map((t) => {
+                        const checked = editingUserProfile.territories.includes(t)
+                        return (
+                          <label key={t} className="inline-flex items-center gap-1.5 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer font-medium">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setEditingUserProfile(prev => ({
+                                    ...prev,
+                                    territories: [...prev.territories, t]
+                                  }))
+                                } else {
+                                  setEditingUserProfile(prev => ({
+                                    ...prev,
+                                    territories: prev.territories.filter(x => x !== t)
+                                  }))
                                 }
+                              }}
+                              className="h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-700 text-amber-600 focus:ring-amber-500"
+                            />
+                            {t}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
 
-                                return (
-                                  <tr key={`${m.id}-${act.id}`} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
-                                    <td className="p-2.5 font-medium text-zinc-900 dark:text-zinc-200 border-r">{m.name}</td>
-                                    <td className="p-2.5 text-zinc-600 dark:text-zinc-400 border-r">{act.label}</td>
-                                    <td className="p-2.5 text-center">
-                                      {act.type === "boolean" ? (
-                                        <select
-                                          value={selectVal}
-                                          onChange={(e) => {
-                                            const v = e.target.value
-                                            if (v === "inherit") {
-                                              handleOverrideChange(m.id, act.id, "boolean", null)
-                                            } else {
-                                              handleOverrideChange(m.id, act.id, "boolean", v === "allow")
-                                            }
-                                          }}
-                                          className="text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-1 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
-                                        >
-                                          <option value="inherit">Inherit (Default)</option>
-                                          <option value="allow" className="text-green-600 font-semibold">Grant / Allow</option>
-                                          <option value="deny" className="text-red-600 font-semibold">Deny / Restrict</option>
-                                        </select>
-                                      ) : (
-                                        <select
-                                          value={selectVal}
-                                          onChange={(e) => {
-                                            const v = e.target.value
-                                            if (v === "inherit") {
-                                              handleOverrideChange(m.id, act.id, act.type, null)
-                                            } else {
-                                              handleOverrideChange(m.id, act.id, act.type, act.type === "ownership" ? "ALL" : 0.0)
-                                            }
-                                          }}
-                                          className="text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-1 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
-                                        >
-                                          <option value="inherit">Inherit (Default)</option>
-                                          <option value="custom">Custom Override</option>
-                                        </select>
-                                      )}
-                                    </td>
-                                    <td className="p-2.5 border-l text-center">
-                                      {selectVal === "custom" && act.type === "ownership" && (
-                                        <select
-                                          value={userOverride?.ownership || "ALL"}
-                                          onChange={(e) => handleOverrideChange(m.id, act.id, "ownership", e.target.value)}
-                                          className="text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-1 dark:bg-zinc-800 text-zinc-850 dark:text-zinc-200"
-                                        >
-                                          <option value="ALL">All (ALL)</option>
-                                          <option value="DEPARTMENT">Department</option>
-                                          <option value="OWN">Own Only</option>
-                                          <option value="ASSIGNED">Assigned</option>
-                                          <option value="NONE">None</option>
-                                        </select>
-                                      )}
-                                      {selectVal === "custom" && act.type === "limit" && (
-                                        <input
-                                          type="number"
-                                          placeholder={act.id === "maxDiscountPercent" ? "% limit" : "AED limit"}
-                                          value={(act.id === "maxDiscountPercent" ? userOverride?.maxDiscountPercent : userOverride?.approvalLimit) ?? ""}
-                                          onChange={(e) => handleOverrideChange(m.id, act.id, "limit", e.target.value === "" ? null : parseFloat(e.target.value))}
-                                          className="text-xs rounded border border-zinc-200 dark:border-zinc-800 bg-transparent p-1 text-center dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200"
-                                        />
-                                      )}
-                                    </td>
-                                  </tr>
-                                )
-                              })
-                            })}
-                          </tbody>
-                        </table>
+                {/* Client Assignment editor */}
+                <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Client Access Control</h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">Assign, transfer, or remove client ownership instantly.</p>
+                  </div>
+
+                  {/* Add client input search */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Search Clients to Assign (Secondary Access)</label>
+                      <div className="relative">
+                        <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-zinc-400" />
+                        <input
+                          type="text"
+                          placeholder="Search client catalog by company name or ID..."
+                          value={clientSearchTerm}
+                          onChange={(e) => setClientSearchTerm(e.target.value)}
+                          className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent pl-7 pr-3 py-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                        />
                       </div>
-                    </>
-                  )
-                })()}
-              </div>
+                      
+                      {clientSearchTerm && (
+                        <div className="absolute z-20 mt-1 max-h-40 overflow-y-auto w-[400px] border bg-white dark:bg-zinc-900 dark:border-zinc-800 rounded-lg shadow-lg text-xs divide-y dark:divide-zinc-800">
+                          {filteredClientsForAssign.slice(0, 5).map(c => (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                handleAssignClient(c.id)
+                                setClientSearchTerm("")
+                              }}
+                              className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer flex justify-between items-center"
+                            >
+                              <span>{c.companyName} ({c.clientId})</span>
+                              <span className="text-[10px] text-zinc-400">Add</span>
+                            </div>
+                          ))}
+                          {filteredClientsForAssign.length === 0 && (
+                            <div className="p-2 text-zinc-400 text-center">No clients match query.</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Assigned Clients table */}
+                  <div className="overflow-x-auto border dark:border-zinc-800 rounded-xl">
+                    <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
+                      <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold">
+                        <tr>
+                          <th className="p-3">Client ID</th>
+                          <th className="p-3">Company Name</th>
+                          <th className="p-3">Assignment Type</th>
+                          <th className="p-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                        {/* Primary Assignments */}
+                        {clients.filter(c => c.salespersonId === selectedUserId).map(c => (
+                          <tr key={c.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10">
+                            <td className="p-3 font-semibold text-zinc-950 dark:text-zinc-100">{c.clientId}</td>
+                            <td className="p-3 font-semibold text-zinc-950 dark:text-zinc-100">{c.companyName}</td>
+                            <td className="p-3">
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30">
+                                Primary Owner
+                              </span>
+                            </td>
+                            <td className="p-3 text-right space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setTransferModal({
+                                  isOpen: true,
+                                  clientId: c.id,
+                                  clientName: c.companyName,
+                                  fromUserId: selectedUserId,
+                                  toUserId: ""
+                                })}
+                                className="inline-flex items-center gap-1 border border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800 text-[10px] font-semibold text-zinc-700 dark:text-zinc-300 px-2.5 py-1 rounded"
+                              >
+                                <ArrowLeftRight size={10} /> Transfer
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeClientAccess(c.id)}
+                                className="inline-flex items-center gap-1 border border-red-200 hover:bg-red-50 text-[10px] font-semibold text-red-600 px-2.5 py-1 rounded dark:border-red-950/30 dark:hover:bg-red-950/20"
+                              >
+                                <Ban size={10} /> Revoke
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+
+                        {/* Secondary Assignments (Loaded from user's current selected assignments list) */}
+                        {editingUserProfile.clientAssignments.map(clientId => {
+                          const client = clients.find(c => c.id === clientId)
+                          if (!client) return null
+                          return (
+                            <tr key={clientId} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10">
+                              <td className="p-3 text-zinc-700 dark:text-zinc-300">{client.clientId}</td>
+                              <td className="p-3 text-zinc-700 dark:text-zinc-300">{client.companyName}</td>
+                              <td className="p-3">
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                                  Secondary Access
+                                </span>
+                              </td>
+                              <td className="p-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    // If saved in DB, request direct API delete. Otherwise, remove from local state list
+                                    const savedAssignment = selectedUser.clientAssignments?.find((ca: any) => ca.clientId === clientId)
+                                    if (savedAssignment) {
+                                      handleRevokeClientAccess(clientId)
+                                    } else {
+                                      setEditingUserProfile(prev => ({
+                                        ...prev,
+                                        clientAssignments: prev.clientAssignments.filter(id => id !== clientId)
+                                      }))
+                                      toast.info("Removed client from unsaved secondary access list")
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-1 border border-red-200 hover:bg-red-50 text-[10px] font-semibold text-red-600 px-2.5 py-1 rounded dark:border-red-950/30 dark:hover:bg-red-950/20"
+                                >
+                                  <Ban size={10} /> Revoke
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+
+                        {clients.filter(c => c.salespersonId === selectedUserId).length === 0 &&
+                         editingUserProfile.clientAssignments.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="p-8 text-center text-zinc-400">No client assignments map to this user.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </form>
             )}
           </div>
         </div>
       )}
 
-      {/* Logs Tab */}
-      {!loading && activeTab === "logs" && (
-        <div className="bg-white dark:bg-zinc-900 border rounded-xl p-5 shadow-sm space-y-4">
+      {/* Tab 4: Access Requests Queue */}
+      {!loading && activeTab === "requests" && (
+        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
           <div>
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Compliance &amp; Access Control Audit Logs</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">Read-only historical view of updates made to roles and user overrides.</p>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Client Access Request Queue</h2>
+            <p className="text-xs text-zinc-400 mt-0.5">Approve, reject, or reassign requests submitted by design consultants requesting access to other owners&apos; clients.</p>
           </div>
 
-          <div className="overflow-x-auto border rounded-xl">
+          <div className="overflow-x-auto border dark:border-zinc-800 rounded-xl">
             <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
               <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold">
                 <tr>
+                  <th className="p-3">Requesting User</th>
+                  <th className="p-3">Current Owner</th>
+                  <th className="p-3">Client Name</th>
+                  <th className="p-3">Submitted Date</th>
+                  <th className="p-3">Reason</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-zinc-650 dark:text-zinc-450">
+                {clientAccessRequests.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-10 text-center text-zinc-400">
+                      No client access requests are in the queue.
+                    </td>
+                  </tr>
+                ) : (
+                  clientAccessRequests.map((req) => {
+                    const owner = users.find(u => u.id === req.client.salespersonId)
+                    return (
+                      <tr key={req.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10">
+                        <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-100">
+                          {req.user?.name || req.userName || req.user?.email || "Unknown"}
+                        </td>
+                        <td className="p-3">
+                          {owner ? (
+                            <span className="font-semibold text-zinc-700 dark:text-zinc-300">{owner.name || owner.email}</span>
+                          ) : (
+                            <span className="text-zinc-400">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-100">
+                          {req.client.companyName} ({req.client.clientId})
+                        </td>
+                        <td className="p-3 whitespace-nowrap">{new Date(req.createdAt).toLocaleDateString()}</td>
+                        <td className="p-3 max-w-[200px] truncate" title={req.notes}>{req.notes || "-"}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                            req.status === "Requested" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 animate-pulse" :
+                            req.status === "Approved" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
+                            "bg-red-100 text-red-700 dark:bg-red-950/20 dark:text-red-400"
+                          }`}>
+                            {req.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right space-x-1.5">
+                          {req.status === "Requested" ? (
+                            <>
+                              <button
+                                onClick={() => handleProcessAccessRequest(req.id, "Approve", { assignmentType: "secondary" })}
+                                className="inline-flex items-center gap-0.5 rounded bg-green-600 text-white px-2 py-1 text-[10px] font-bold hover:bg-green-700"
+                              >
+                                <Check size={10} /> Approve
+                              </button>
+                              <button
+                                onClick={() => setReassignModal({
+                                  isOpen: true,
+                                  requestId: req.id,
+                                  clientName: req.client.companyName,
+                                  userName: req.user?.name || req.userName || "Consultant",
+                                  newOwnerId: ""
+                                })}
+                                className="inline-flex items-center gap-0.5 rounded bg-amber-600 text-white px-2 py-1 text-[10px] font-bold hover:bg-amber-700"
+                              >
+                                <ArrowLeftRight size={10} /> Reassign
+                              </button>
+                              <button
+                                onClick={() => setRejectModal({
+                                  isOpen: true,
+                                  requestId: req.id,
+                                  clientName: req.client.companyName,
+                                  userName: req.user?.name || req.userName || "Consultant",
+                                  reason: ""
+                                })}
+                                className="inline-flex items-center gap-0.5 rounded bg-red-650 text-white px-2 py-1 text-[10px] font-bold hover:bg-red-750"
+                              >
+                                <XCircle size={10} /> Reject
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-[10px] text-zinc-400">Processed</span>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: Logs */}
+      {!loading && activeTab === "logs" && (
+        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Compliance &amp; Access Control Audit Logs</h2>
+              <p className="text-xs text-zinc-400 mt-0.5">View compliance trails for actions performed by supervisors and system administrators.</p>
+            </div>
+            
+            <div className="relative w-64 shrink-0">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Search audit trail logs..."
+                value={logFilterTerm}
+                onChange={(e) => setLogFilterTerm(e.target.value)}
+                className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent pl-8 pr-3 py-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto border dark:border-zinc-800 rounded-xl max-h-[500px]">
+            <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
+              <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold sticky top-0 z-10">
+                <tr>
                   <th className="p-3">Timestamp</th>
                   <th className="p-3">Operator</th>
-                  <th className="p-3">Action Type</th>
-                  <th className="p-3">Target User</th>
+                  <th className="p-3">Action</th>
+                  <th className="p-3">Target</th>
                   <th className="p-3">Details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-zinc-600 dark:text-zinc-400">
-                {logs.length === 0 ? (
+                {filteredLogs.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="p-10 text-center text-zinc-400">
-                      No logs available or found.
+                      No matching audit logs found.
                     </td>
                   </tr>
                 ) : (
-                  logs.map((log) => (
-                    <tr key={log.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/20">
+                  filteredLogs.map((log) => (
+                    <tr key={log.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10">
                       <td className="p-3 whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>
-                      <td className="p-3 font-medium text-zinc-900 dark:text-zinc-200">
-                        {log.user?.name || log.user?.email || "Unknown"}
+                      <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-250">
+                        {log.user?.name || log.user?.email || "System"}
                       </td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 border dark:border-zinc-700">
                           {log.action}
                         </span>
                       </td>
                       <td className="p-3">
                         {log.targetUser ? (
-                          <span className="font-medium text-zinc-900 dark:text-zinc-200">
+                          <span className="font-semibold text-zinc-900 dark:text-zinc-250">
                             {log.targetUser.name || log.targetUser.email}
                           </span>
                         ) : (
                           <span className="text-zinc-400">Global/Role</span>
                         )}
                       </td>
-                      <td className="p-3 text-zinc-500 dark:text-zinc-400 max-w-sm truncate" title={log.details}>
+                      <td className="p-3 max-w-sm truncate" title={log.details}>
                         {log.details}
                       </td>
                     </tr>
@@ -850,46 +1451,46 @@ export default function AccessControlPage() {
       )}
 
       {/* New Role Modal */}
-      {showNewRoleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      {newRoleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-150">
           <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-md w-full shadow-2xl p-6 space-y-4">
             <div>
               <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Create Custom Role</h3>
               <p className="text-xs text-zinc-400 mt-0.5">Define a new custom role with standard permissions template.</p>
             </div>
 
-            <form onSubmit={handleCreateRole} className="space-y-4">
+            <form onSubmit={handleCreateRole} className="space-y-4 text-xs">
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1">Role Name</label>
+                <label className="block text-zinc-500 font-semibold mb-1">Role Name</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Sales Coordinator"
                   value={newRoleName}
                   onChange={(e) => setNewRoleName(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1">Description</label>
+                <label className="block text-zinc-500 font-semibold mb-1">Description</label>
                 <textarea
                   placeholder="e.g. Supports sales executives with coordination tasks."
                   value={newRoleDesc}
                   onChange={(e) => setNewRoleDesc(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
                   rows={3}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-500 mb-1">Duplicate/Copy Permissions From (Optional)</label>
+                <label className="block text-zinc-500 font-semibold mb-1">Copy Permissions From (Optional)</label>
                 <select
                   value={baseRoleId}
                   onChange={(e) => setBaseRoleId(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
                 >
-                  <option value="">None (Standard Default)</option>
+                  <option value="">None (Empty Slate)</option>
                   {roles.map(r => (
                     <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
@@ -899,19 +1500,161 @@ export default function AccessControlPage() {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowNewRoleModal(false)}
-                  className="px-4 py-2 text-xs font-semibold border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                  onClick={() => setNewRoleModal(false)}
+                  className="px-4 py-2 font-semibold border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-semibold bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 rounded-lg hover:bg-zinc-800 dark:hover:bg-zinc-100"
+                  className="px-4 py-2 font-bold bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all"
                 >
                   Create Custom Role
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Ownership Modal */}
+      {transferModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-sm w-full shadow-2xl p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                <ArrowLeftRight size={16} className="text-amber-500" />
+                Transfer Client Ownership
+              </h3>
+              <p className="text-[11px] text-zinc-400 mt-1">
+                Reassign the primary owner of client <strong>&quot;{transferModal.clientName}&quot;</strong> to a different consultant.
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-zinc-500 font-semibold mb-1">Select New Owner</label>
+                <select
+                  value={transferModal.toUserId}
+                  onChange={(e) => setTransferModal(prev => ({ ...prev, toUserId: e.target.value }))}
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
+                >
+                  <option value="">-- Choose Consultant --</option>
+                  {users.filter(u => u.id !== transferModal.fromUserId).map(u => (
+                    <option key={u.id} value={u.id}>{u.name || u.email} ({u.role})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setTransferModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleTransferClient}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg"
+                >
+                  Transfer Ownership
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Access Request Modal */}
+      {rejectModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-sm w-full shadow-2xl p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-red-650 dark:text-red-400 flex items-center gap-1.5">
+                <XCircle size={16} />
+                Reject Access Request
+              </h3>
+              <p className="text-[11px] text-zinc-400 mt-1">
+                Provide a reason for rejecting the client access request from <strong>{rejectModal.userName}</strong> for client <strong>&quot;{rejectModal.clientName}&quot;</strong>.
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-zinc-500 font-semibold mb-1">Rejection Reason</label>
+                <textarea
+                  required
+                  placeholder="e.g. This client belongs to another region and should not be shared."
+                  value={rejectModal.reason}
+                  onChange={(e) => setRejectModal(prev => ({ ...prev, reason: e.target.value }))}
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  onClick={() => setRejectModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleProcessAccessRequest(rejectModal.requestId, "Reject", { rejectionReason: rejectModal.reason })}
+                  className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg"
+                >
+                  Reject Request
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reassign Access Request Modal */}
+      {reassignModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-sm w-full shadow-2xl p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-amber-500 flex items-center gap-1.5">
+                <ArrowLeftRight size={16} />
+                Reassign Client &amp; Approve Request
+              </h3>
+              <p className="text-[11px] text-zinc-400 mt-1">
+                Reassign client <strong>&quot;{reassignModal.clientName}&quot;</strong> to a different primary consultant, while granting secondary access to the requesting user <strong>{reassignModal.userName}</strong>.
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-zinc-500 font-semibold mb-1">Select New Primary Owner</label>
+                <select
+                  value={reassignModal.newOwnerId}
+                  onChange={(e) => setReassignModal(prev => ({ ...prev, newOwnerId: e.target.value }))}
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
+                >
+                  <option value="">-- Choose Consultant --</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.name || u.email} ({u.role})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  onClick={() => setReassignModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleProcessAccessRequest(reassignModal.requestId, "Reassign", { newOwnerId: reassignModal.newOwnerId })}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg"
+                >
+                  Reassign &amp; Approve
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

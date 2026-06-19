@@ -22,6 +22,9 @@ model User {
   signature     String?
   role          String    @default("SALES_EXECUTIVE") // Roles: ADMIN, SALES_MANAGER, SALES_EXECUTIVE, ACCOUNTS, PRODUCTION, ESTIMATOR
   isActive      Boolean   @default(true)
+  employeeId    String?
+  territories   String?
+  status        String    @default("Active")
   deletedAt     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
