@@ -42,6 +42,50 @@ export async function getGraphClient(tenantId: string, clientId: string, clientS
   })
 }
 
+// Dynamically resolves library name/title to its drive ID if configured as a name
+async function resolveDriveId(client: any, siteId: string, driveIdOrName: string): Promise<string> {
+  if (!driveIdOrName) return ""
+  
+  // If it is already a SharePoint drive ID format (e.g. starts with b!), return it
+  if (driveIdOrName.startsWith("b!")) {
+    return driveIdOrName
+  }
+
+  try {
+    const response = await client.api(`/sites/${siteId}/drives`).get()
+    const drives = response.value || []
+    
+    // Match by name case-insensitive
+    const exactMatch = drives.find(
+      (d: any) => d.name.toLowerCase() === driveIdOrName.toLowerCase()
+    )
+    if (exactMatch) {
+      console.log(`Resolved drive ID for "${driveIdOrName}": ${exactMatch.id}`)
+      return exactMatch.id
+    }
+
+    // Match by fuzzy normalized name
+    const fuzzyMatch = drives.find(
+      (d: any) => d.name.toLowerCase().replace(/[^a-z0-9]/g, "") === driveIdOrName.toLowerCase().replace(/[^a-z0-9]/g, "")
+    )
+    if (fuzzyMatch) {
+      console.log(`Resolved drive ID (fuzzy) for "${driveIdOrName}": ${fuzzyMatch.id}`)
+      return fuzzyMatch.id
+    }
+
+    // Fallback: If we have drives, use the default Documents or first available
+    const defaultDrive = drives.find((d: any) => d.name === "Documents") || drives[0]
+    if (defaultDrive) {
+      console.warn(`Drive "${driveIdOrName}" not found. Falling back to drive: "${defaultDrive.name}"`)
+      return defaultDrive.id
+    }
+  } catch (err) {
+    console.error("Error resolving SharePoint drive ID:", err)
+  }
+
+  return driveIdOrName
+}
+
 export async function createClientFolder(companyName: string) {
   const { config, hasCreds } = await getSharePointConfig()
   
@@ -57,14 +101,16 @@ export async function createClientFolder(companyName: string) {
       config.sharepoint_client_secret
     )
     
+    const resolvedDrive = await resolveDriveId(client, config.sharepoint_site_id, config.sharepoint_drive_id)
+    
     // Use ensureFolderStructure to create Clients folder and the client subfolder safely
-    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName)
+    await ensureFolderStructure(client, config.sharepoint_site_id, resolvedDrive, companyName)
     
     const sanitizedCompany = sanitizeClientName(companyName)
     
     // Fetch the folder to get its ID
     const folderResult = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${sanitizedCompany}`)
+      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:/Clients/${sanitizedCompany}`)
       .get()
 
     return folderResult.id
@@ -80,8 +126,6 @@ export function sanitizeClientName(name: string): string {
 
 export function getBaseQuotationFolder(identifier: string): string {
   if (!identifier) return ""
-  // Extract base project number (e.g. "P2230-1_Client" -> "P2230", "BOQ_P2230" -> "P2230", "ID2230" -> "ID2230")
-  // It looks for a sequence of letters followed directly by numbers (e.g. P, ID, BOQ)
   const match = identifier.match(/(?:BOQ_)?([a-zA-Z]+\d+)/i)
   if (match) {
     return match[1].toUpperCase()
@@ -109,7 +153,6 @@ export async function ensureFolderStructure(
 
   for (const folderPath of folders) {
     try {
-      // Check if folder exists
       await client
         .api(`/sites/${siteId}/drives/${driveId}/root:/${folderPath}`)
         .get()
@@ -123,7 +166,6 @@ export async function ensureFolderStructure(
           ? `/sites/${siteId}/drives/${driveId}/root:/${parentPath}:/children`
           : `/sites/${siteId}/drives/${driveId}/root/children`
           
-        // Create folder if it doesn't exist
         await client.api(endpoint).post({
           name: folderName,
           folder: {},
@@ -141,7 +183,6 @@ export async function uploadQuotationPdf(companyName: string, filenameBase: stri
   const sanitizedCompany = sanitizeClientName(companyName)
   const sanitizedFilename = filenameBase.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
   
-  // Extract base quotation number ensuring revisions go into the main folder
   const quotationGroupFolder = getBaseQuotationFolder(sanitizedFilename)
 
   const fallbackPath = quotationGroupFolder
@@ -160,8 +201,9 @@ export async function uploadQuotationPdf(companyName: string, filenameBase: stri
       config.sharepoint_client_secret
     )
     
-    // Ensure all directories are created
-    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName, quotationGroupFolder)
+    const resolvedDrive = await resolveDriveId(client, config.sharepoint_site_id, config.sharepoint_drive_id)
+    
+    await ensureFolderStructure(client, config.sharepoint_site_id, resolvedDrive, companyName, quotationGroupFolder)
     
     const fileName = `${sanitizedFilename}.pdf`
     const path = quotationGroupFolder 
@@ -169,7 +211,7 @@ export async function uploadQuotationPdf(companyName: string, filenameBase: stri
       : `/Clients/${sanitizedCompany}/Quotations/${fileName}`
     
     const result = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:${path}:/content`)
+      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:${path}:/content`)
       .put(pdfBuffer)
 
     return result.webUrl
@@ -184,7 +226,6 @@ export async function uploadBoqExcel(companyName: string, filenameBase: string, 
   const sanitizedCompany = sanitizeClientName(companyName)
   const sanitizedFilename = filenameBase.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
   
-  // Clean the provided folder name to ensure revisions go to the root base folder
   const cleanGroupFolder = quotationGroupFolder ? getBaseQuotationFolder(quotationGroupFolder) : ""
   
   const fallbackPath = cleanGroupFolder
@@ -203,7 +244,9 @@ export async function uploadBoqExcel(companyName: string, filenameBase: string, 
       config.sharepoint_client_secret
     )
     
-    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName, cleanGroupFolder)
+    const resolvedDrive = await resolveDriveId(client, config.sharepoint_site_id, config.sharepoint_drive_id)
+    
+    await ensureFolderStructure(client, config.sharepoint_site_id, resolvedDrive, companyName, cleanGroupFolder)
     
     const fileName = `${sanitizedFilename}.xlsx`
     const path = cleanGroupFolder 
@@ -211,7 +254,7 @@ export async function uploadBoqExcel(companyName: string, filenameBase: string, 
       : `/Clients/${sanitizedCompany}/Quotations/${fileName}`
     
     const result = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:${path}:/content`)
+      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:${path}:/content`)
       .put(excelBuffer)
 
     return result.webUrl
@@ -233,7 +276,7 @@ export async function renameClientFolder(oldCompanyName: string, newCompanyName:
   const newSanitized = sanitizeClientName(newCompanyName)
 
   if (oldSanitized === newSanitized) {
-    return true // No actual change in sanitized name
+    return true
   }
 
   try {
@@ -243,20 +286,19 @@ export async function renameClientFolder(oldCompanyName: string, newCompanyName:
       config.sharepoint_client_secret
     )
     
-    // Check if the old folder exists
+    const resolvedDrive = await resolveDriveId(client, config.sharepoint_site_id, config.sharepoint_drive_id)
+    
     try {
-      await client.api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${oldSanitized}`).get()
+      await client.api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:/Clients/${oldSanitized}`).get()
     } catch (err: any) {
       if (err.statusCode === 404) {
-        // Old folder doesn't exist, nothing to rename
         return true
       }
       throw err
     }
 
-    // Attempt to rename
     await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${oldSanitized}`)
+      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:/Clients/${oldSanitized}`)
       .patch({
         name: newSanitized,
         "@microsoft.graph.conflictBehavior": "fail"
@@ -285,11 +327,12 @@ export async function migrateClientFolderToClientsDir(companyName: string) {
       config.sharepoint_client_secret
     )
 
-    // 1. Check if the folder exists at the root
+    const resolvedDrive = await resolveDriveId(client, config.sharepoint_site_id, config.sharepoint_drive_id)
+
     let rootFolderId = null
     try {
       const rootFolder = await client
-        .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/${sanitizedCompany}`)
+        .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:/${sanitizedCompany}`)
         .get()
       rootFolderId = rootFolder.id
     } catch (err: any) {
@@ -299,15 +342,14 @@ export async function migrateClientFolderToClientsDir(companyName: string) {
       throw err
     }
 
-    // 2. Ensure "Clients" folder exists
     try {
       await client
-        .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients`)
+        .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:/Clients`)
         .get()
     } catch (err: any) {
       if (err.statusCode === 404) {
         await client
-          .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root/children`)
+          .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root/children`)
           .post({
             name: "Clients",
             folder: {},
@@ -318,17 +360,14 @@ export async function migrateClientFolderToClientsDir(companyName: string) {
       }
     }
 
-    // Get Clients folder ID
     const clientsFolder = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients`)
+      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:/Clients`)
       .get()
 
-    // 3. Check if folder already exists in Clients/
     try {
       await client
-        .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${sanitizedCompany}`)
+        .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:/Clients/${sanitizedCompany}`)
         .get()
-      // Exists in destination! We cannot move it because of conflict.
       return { success: false, reason: "Folder already exists in Clients directory" }
     } catch (err: any) {
       if (err.statusCode !== 404) {
@@ -336,9 +375,8 @@ export async function migrateClientFolderToClientsDir(companyName: string) {
       }
     }
 
-    // 4. Move folder to Clients/
     await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/items/${rootFolderId}`)
+      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/items/${rootFolderId}`)
       .patch({
         parentReference: {
           id: clientsFolder.id
@@ -413,13 +451,15 @@ export async function uploadClientDocument(companyName: string, filename: string
       config.sharepoint_client_secret
     )
     
-    await ensureClientDocumentsFolder(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName)
+    const resolvedDrive = await resolveDriveId(client, config.sharepoint_site_id, config.sharepoint_drive_id)
+    
+    await ensureClientDocumentsFolder(client, config.sharepoint_site_id, resolvedDrive, companyName)
     
     const cleanFilename = filename.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
     const path = `/Clients/${sanitizedCompany}/Documents/${cleanFilename}`
     
     const result = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:${path}:/content`)
+      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:${path}:/content`)
       .put(fileBuffer)
 
     return {
@@ -449,8 +489,10 @@ export async function deleteClientDocument(itemId: string) {
       config.sharepoint_client_secret
     )
     
+    const resolvedDrive = await resolveDriveId(client, config.sharepoint_site_id, config.sharepoint_drive_id)
+    
     await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/items/${itemId}`)
+      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/items/${itemId}`)
       .delete()
 
     return true
@@ -477,31 +519,28 @@ export async function migrateQuotationToGroupFolder(companyName: string, fileNam
       config.sharepoint_client_secret
     )
 
-    // Ensure the target group folder exists
-    await ensureFolderStructure(client, config.sharepoint_site_id, config.sharepoint_drive_id, companyName, cleanGroupFolder)
+    const resolvedDrive = await resolveDriveId(client, config.sharepoint_site_id, config.sharepoint_drive_id)
 
-    // Get the target folder ID
+    await ensureFolderStructure(client, config.sharepoint_site_id, resolvedDrive, companyName, cleanGroupFolder)
+
     const targetFolder = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${sanitizedCompany}/Quotations/${cleanGroupFolder}`)
+      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:/Clients/${sanitizedCompany}/Quotations/${cleanGroupFolder}`)
       .get()
 
-    // Find the file in the parent Quotations folder (where it might be scattered)
     let fileItem = null
     try {
       fileItem = await client
-        .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/root:/Clients/${sanitizedCompany}/Quotations/${fileNameWithExtension}`)
+        .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:/Clients/${sanitizedCompany}/Quotations/${fileNameWithExtension}`)
         .get()
     } catch (err: any) {
       if (err.statusCode === 404) {
-        // Might already be in the right folder or somewhere else
         return { success: false, reason: "File not found in root Quotations folder" }
       }
       throw err
     }
 
-    // Move the file into the group folder
     const result = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${config.sharepoint_drive_id}/items/${fileItem.id}`)
+      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/items/${fileItem.id}`)
       .patch({
         parentReference: {
           id: targetFolder.id
@@ -514,5 +553,3 @@ export async function migrateQuotationToGroupFolder(companyName: string, fileNam
     return { success: false, error }
   }
 }
-
-

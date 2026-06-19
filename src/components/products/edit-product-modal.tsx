@@ -149,7 +149,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
       const formData = new FormData()
       formData.append("file", croppedFile)
 
-      const uploadRes = await fetch("/api/upload", {
+      const uploadRes = await fetch("/api/upload?type=product", {
         method: "POST",
         body: formData,
       })

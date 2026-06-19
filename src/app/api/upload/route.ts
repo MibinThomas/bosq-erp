@@ -32,6 +32,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid file type. Only images are allowed." }, { status: 400 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const type = searchParams.get("type")
+
+    let folder = "products" // default folder
+    if (type === "avatar") {
+      folder = "avatars"
+    } else if (type === "signature") {
+      folder = "signatures"
+    }
+
     const ext = file.name ? path.extname(file.name).toLowerCase() : ".jpg"
     const randomId = crypto.randomBytes(16).toString("hex")
     const filename = `upload-${Date.now()}-${randomId}${ext}`
@@ -47,7 +57,7 @@ export async function POST(request: Request) {
       const bytes = await file.arrayBuffer()
       const buffer = Buffer.from(bytes)
       
-      const uploadDir = path.join(process.cwd(), "public", "uploads")
+      const uploadDir = path.join(process.cwd(), "public", "uploads", folder)
       if (!fs.existsSync(uploadDir)) {
         console.log("[UPLOAD API] Creating upload directory:", uploadDir);
         await mkdir(uploadDir, { recursive: true })
@@ -57,7 +67,7 @@ export async function POST(request: Request) {
       console.log("[UPLOAD API] Writing file to:", filePath);
       await writeFile(filePath, buffer)
       console.log("[UPLOAD API] File successfully written locally.");
-      return NextResponse.json({ url: `/uploads/${filename}` })
+      return NextResponse.json({ url: `/uploads/${folder}/${filename}` })
     }
 
     // Otherwise, upload to Vercel Blob
@@ -65,7 +75,8 @@ export async function POST(request: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
-    const blob = await put(filename, buffer, {
+    const blobPathname = `${folder}/${filename}`
+    const blob = await put(blobPathname, buffer, {
       access: "public",
       contentType: file.type,
     })

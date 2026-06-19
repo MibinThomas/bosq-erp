@@ -88,7 +88,7 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
       const formData = new FormData()
       formData.append("file", croppedFile)
 
-      const uploadRes = await fetch("/api/upload", {
+      const uploadRes = await fetch("/api/upload?type=product", {
         method: "POST",
         body: formData,
       })

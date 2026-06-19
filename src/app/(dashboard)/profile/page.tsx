@@ -50,9 +50,10 @@ export default function ProfilePage() {
     const formData = new FormData()
     formData.append("file", file)
 
+    const type = field === "image" ? "avatar" : "signature"
     const toastId = toast.loading("Uploading image...")
     try {
-      const res = await fetch("/api/upload", {
+      const res = await fetch(`/api/upload?type=${type}`, {
         method: "POST",
         body: formData
       })

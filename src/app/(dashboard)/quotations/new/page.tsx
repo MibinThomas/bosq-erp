@@ -389,7 +389,7 @@ function NewQuotationForm() {
       const croppedFile = dataURLtoFile(croppedBase64, `product-cropped-${Date.now()}.png`)
       const formData = new FormData()
       formData.append("file", croppedFile)
-      const uploadRes = await fetch("/api/upload", {
+      const uploadRes = await fetch("/api/upload?type=product", {
         method: "POST",
         body: formData,
       })

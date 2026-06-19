@@ -49,3 +49,6 @@ claude.md
 *.db-journal
 *.db-shm
 *.db-wal
+
+# uploads fallback
+/public/uploads/

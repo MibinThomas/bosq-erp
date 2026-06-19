@@ -260,7 +260,7 @@ export default function BoqBuilderPage() {
     formData.append("file", file)
     
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: formData })
+      const res = await fetch("/api/upload?type=product", { method: "POST", body: formData })
       const data = await res.json()
       if (data.url) {
         updateItem(idx, "customImageUrl", data.url)
