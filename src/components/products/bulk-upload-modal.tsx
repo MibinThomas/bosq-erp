@@ -1277,7 +1277,14 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
                               {/* SKU Code */}
                               <div className="w-28 shrink-0 space-y-1">
-                                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Product SKU / Code</label>
+                                <div className="flex items-center justify-between gap-1">
+                                  <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Product SKU / Code</label>
+                                  {p.productCode && existingProductCodes.includes(p.productCode.toLowerCase().trim()) && (
+                                    <span className="text-[8px] font-bold text-amber-600 dark:text-amber-400 animate-pulse bg-amber-50 dark:bg-amber-950/20 px-1 py-0.5 rounded leading-none border border-amber-200 dark:border-amber-900/30">
+                                      Exists
+                                    </span>
+                                  )}
+                                </div>
                                 <input 
                                   id={`input-${idx}-productCode`}
                                   className={`w-full border rounded-lg px-2 py-1 text-xs bg-zinc-55 dark:bg-zinc-805 border-zinc-200 dark:border-zinc-700 font-mono focus:ring-amber-500 ${
@@ -1627,7 +1634,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                 </div>
                 <div className="py-3 flex justify-between items-center">
                   <span className="text-zinc-550 font-medium flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-amber-505" /> Update Existing Products
+                    <span className="h-2 w-2 rounded-full bg-amber-500" /> Update Existing Products
                   </span>
                   <span className="font-bold text-amber-500">{updateCount} Products</span>
                 </div>
