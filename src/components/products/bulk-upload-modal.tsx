@@ -886,6 +886,25 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     }
   }
 
+  const handleImageDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setImageDragActive(true)
+    } else if (e.type === "dragleave") {
+      setImageDragActive(false)
+    }
+  }
+
+  const handleImageDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setImageDragActive(false)
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleImageBulkUpload(e.dataTransfer.files)
+    }
+  }
+
   const handleDeleteProduct = (index: number) => {
     const updated = products.filter((_, idx) => idx !== index)
     setProducts(updated)
