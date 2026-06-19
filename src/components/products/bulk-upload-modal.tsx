@@ -1028,8 +1028,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                                   </span>
                                 )}
                               </label>
-                              {field.note && (
-                                <p className="text-[10px] text-zinc-400 mt-0.5 font-medium leading-relaxed">{field.note}</p>
+                              {"note" in field && (field as any).note && (
+                                <p className="text-[10px] text-zinc-400 mt-0.5 font-medium leading-relaxed">{(field as any).note}</p>
                               )}
                             </div>
                             <select 
