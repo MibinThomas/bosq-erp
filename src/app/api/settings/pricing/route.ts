@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { dealer, interior, direct, online } = body
+    const { dealer, interior, direct, online, recalculateExisting } = body
 
     const dealerVal = Math.min(Number(dealer), 99.99)
     const interiorVal = Math.min(Number(interior), 99.99)
@@ -55,18 +55,66 @@ export async function POST(request: Request) {
       create: { key: "PRICING_PERCENTAGES", value: valueStr }
     })
 
-    // Log Activity
+    let recalculatedCount = 0
+
+    if (recalculateExisting) {
+      // Fetch all products
+      const products = await prisma.product.findMany({
+        select: { id: true, costPrice: true }
+      })
+
+      // Build and run the transaction
+      const updateOperations = products.map(product => {
+        const cost = product.costPrice || 0
+        const dealerPrice = cost / (1 - (dealerVal / 100))
+        const interiorPrice = cost / (1 - (interiorVal / 100))
+        const directPrice = cost / (1 - (directVal / 100))
+        const onlinePrice = cost / (1 - (onlineVal / 100))
+
+        return prisma.product.update({
+          where: { id: product.id },
+          data: {
+            dealerPrice: Number(dealerPrice.toFixed(2)),
+            interiorPrice: Number(interiorPrice.toFixed(2)),
+            directPrice: Number(directPrice.toFixed(2)),
+            onlinePrice: Number(onlinePrice.toFixed(2)),
+            unitPrice: Number(directPrice.toFixed(2))
+          }
+        })
+      })
+
+      if (updateOperations.length > 0) {
+        await prisma.$transaction(updateOperations)
+        recalculatedCount = updateOperations.length
+      }
+
+      // Log Recalculate Activity
+      await prisma.activityLog.create({
+        data: {
+          userId: (session.user as any).id,
+          action: "RECALCULATED_PRICING",
+          entityType: "SYSTEM",
+          entityId: "ALL_PRODUCTS",
+          details: `Automatically recalculated prices for ${recalculatedCount} products on margin update`,
+        },
+      })
+    }
+
+    // Log Settings Update Activity
     await prisma.activityLog.create({
       data: {
         userId: (session.user as any).id,
         action: "UPDATED_SETTINGS",
         entityType: "SYSTEM",
         entityId: setting.id,
-        details: "Updated global pricing markup percentages",
+        details: `Updated global pricing markup percentages${recalculateExisting ? ' and recalculated existing products' : ''}`,
       },
     })
 
-    return NextResponse.json(JSON.parse(setting.value))
+    return NextResponse.json({
+      ...JSON.parse(setting.value),
+      recalculatedCount
+    })
   } catch (error) {
     console.error("Failed to update pricing percentages:", error)
     return NextResponse.json({ error: "Failed to update pricing percentages" }, { status: 500 })

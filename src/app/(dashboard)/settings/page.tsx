@@ -111,7 +111,7 @@ export default function SettingsPage() {
   const [directPct, setDirectPct] = useState(50)
   const [onlinePct, setOnlinePct] = useState(75)
   const [savingPricing, setSavingPricing] = useState(false)
-  const [recalculating, setRecalculating] = useState(false)
+  const [recalculateExisting, setRecalculateExisting] = useState(false)
   const [dbRoles, setDbRoles] = useState<any[]>([])
 
   // 5. Client Access Requests State
@@ -524,10 +524,22 @@ export default function SettingsPage() {
       const res = await fetch("/api/settings/pricing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dealer: dealerPct, interior: interiorPct, direct: directPct, online: onlinePct })
+        body: JSON.stringify({ 
+          dealer: dealerPct, 
+          interior: interiorPct, 
+          direct: directPct, 
+          online: onlinePct,
+          recalculateExisting
+        })
       })
       if (res.ok) {
-        toast.success("Pricing markup percentages saved!")
+        const data = await res.json()
+        if (recalculateExisting && data.recalculatedCount !== undefined) {
+          toast.success(`Pricing markup percentages saved & recalculated for ${data.recalculatedCount} products!`)
+        } else {
+          toast.success("Pricing markup percentages saved!")
+        }
+        setRecalculateExisting(false)
       } else {
         const errData = await res.json()
         toast.error(errData.error || "Failed to save pricing percentages")
@@ -540,28 +552,7 @@ export default function SettingsPage() {
     }
   }
 
-  const handleRecalculatePrices = async () => {
-    if (!confirm("Are you sure you want to recalculate ALL existing product prices using the current margins? This will overwrite any manual overrides on products. Quotations and BOQs will NOT be affected.")) return
-    
-    setRecalculating(true)
-    try {
-      const res = await fetch("/api/settings/pricing/recalculate", {
-        method: "POST"
-      })
-      if (res.ok) {
-        const data = await res.json()
-        toast.success(`Successfully updated ${data.updatedCount} products!`)
-      } else {
-        const errData = await res.json()
-        toast.error(errData.error || "Failed to recalculate prices")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("An error occurred while recalculating prices")
-    } finally {
-      setRecalculating(false)
-    }
-  }
+
 
   if (pageLoading) {
     return (
@@ -759,11 +750,19 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </div>
-                <div className="pt-4 border-t border-slate-800 flex justify-between mt-4">
-                  <Button type="button" onClick={handleRecalculatePrices} variant="outline" className="border-red-900 text-red-500 hover:bg-red-950 hover:text-red-400 font-semibold flex items-center gap-2" disabled={recalculating}>
-                    {recalculating && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Recalculate Existing Products
-                  </Button>
+                <div className="flex items-center gap-2 pt-2 pb-2 mt-4">
+                  <input 
+                    id="recalculateExisting"
+                    type="checkbox"
+                    checked={recalculateExisting}
+                    onChange={(e) => setRecalculateExisting(e.target.checked)}
+                    className="rounded border-slate-800 text-orange-600 focus:ring-orange-600 bg-slate-900 h-4 w-4 cursor-pointer"
+                  />
+                  <Label htmlFor="recalculateExisting" className="text-slate-300 cursor-pointer select-none">
+                    Recalculate Existing Product Prices
+                  </Label>
+                </div>
+                <div className="pt-4 border-t border-slate-800 flex justify-end mt-4">
                   <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white font-semibold flex items-center gap-2" disabled={savingPricing}>
                     {savingPricing && <Loader2 className="h-4 w-4 animate-spin" />}
                     Save Pricing Margins

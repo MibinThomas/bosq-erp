@@ -17,7 +17,7 @@ const prisma = new PrismaClient({ adapter })
 
 async function main() {
   const email = "superadmin@bosq.ae"
-  const password = "SuperAdminPassword123"
+  const password = "BosqSuper@2026"
 
   const user = await prisma.user.upsert({
     where: { email },

@@ -101,11 +101,11 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
   const downloadSampleCSV = (e: React.MouseEvent) => {
     e.stopPropagation()
-    const headers = ["Product Code", "Product Name", "CategoryName", "Base Price (AED)", "Dealer Price", "Interior Price", "Direct Price", "Online Price", "Warranty", "Description", "Short Description", "Specifications (HTML/Text)", "Image Filename"]
+    const headers = ["Product Code", "Product Name", "CategoryName", "Base Price (AED)", "Warranty", "Description", "Short Description", "Specifications (HTML/Text)", "Image Filename"]
     const rows = [
-      ["CH-1001", "Aero Ergonomic Mesh Task Chair", "Chairs", "850.00", "", "", "", "", "5 Years", "High-performance ergonomic mesh chair with adaptive lumbar support", "High-performance ergonomic mesh chair with adaptive lumbar support, featuring a breathable backrest, adjustable armrests, and dynamic tilt mechanism.", "<ul><li>Material: Mesh</li><li>Base: Nylon</li><li>Color: Black</li><li>Dimensions: 650x650x1200</li></ul>", "aero_mesh_chair.jpg"],
-      ["CH-1002", "Ergo Pro Leather Executive Chair", "Chairs", "1250.00", "1437.50", "", "", "", "5 Years", "Luxury bonded leather manager chair with pneumatic height tilt adjust", "Luxury bonded leather manager chair with pneumatic height and tilt adjust, polished aluminum base, and premium padding for all-day executive comfort.", "Material: PU Leather<br>Base: Aluminum<br>Color: Brown", "ergo_leather_chair.jpg"],
-      ["DK-2001", "Linear Triple Bench Workstation", "Desks", "2450.00", "", "", "", "", "3 Years", "Premium steel frame corporate collaborative workspace table", "Premium steel frame corporate collaborative workspace table designed for modern open offices, featuring integrated cable management and privacy screens.", "Material: MFC, Legs: Powder Coated Steel", "bench_workstation.jpg"]
+      ["CH-1001", "Aero Ergonomic Mesh Task Chair", "Chairs", "850.00", "5 Years", "High-performance ergonomic mesh chair with adaptive lumbar support", "High-performance ergonomic mesh chair with adaptive lumbar support, featuring a breathable backrest, adjustable armrests, and dynamic tilt mechanism.", "<ul><li>Material: Mesh</li><li>Base: Nylon</li><li>Color: Black</li><li>Dimensions: 650x650x1200</li></ul>", "aero_mesh_chair.jpg"],
+      ["CH-1002", "Ergo Pro Leather Executive Chair", "Chairs", "1250.00", "5 Years", "Luxury bonded leather manager chair with pneumatic height tilt adjust", "Luxury bonded leather manager chair with pneumatic height and tilt adjust, polished aluminum base, and premium padding for all-day executive comfort.", "Material: PU Leather<br>Base: Aluminum<br>Color: Brown", "ergo_leather_chair.jpg"],
+      ["DK-2001", "Linear Triple Bench Workstation", "Desks", "2450.00", "3 Years", "Premium steel frame corporate collaborative workspace table", "Premium steel frame corporate collaborative workspace table designed for modern open offices, featuring integrated cable management and privacy screens.", "Material: MFC, Legs: Powder Coated Steel", "bench_workstation.jpg"]
     ]
     
     const csvContent = [
@@ -164,10 +164,6 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         { key: "productName", synonyms: ["name", "title", "productname", "chairname", "item"] },
         { key: "categoryName", synonyms: ["category", "type", "group", "class", "categoryname"] },
         { key: "basePrice", synonyms: ["price", "unitprice", "rate", "cost", "sellingprice", "selling rate", "baseprice", "costprice"] },
-        { key: "dealerPrice", synonyms: ["dealerprice", "dealer"] },
-        { key: "interiorPrice", synonyms: ["interiorprice", "interior"] },
-        { key: "directPrice", synonyms: ["directprice", "direct"] },
-        { key: "onlinePrice", synonyms: ["onlineprice", "online"] },
         { key: "description", synonyms: ["description", "details", "desc", "about"] },
         { key: "shortDescription", synonyms: ["shortdescription", "short desc", "summary"] },
         { key: "specifications", synonyms: ["specifications", "specs", "specification", "technical"] },
@@ -237,20 +233,15 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       const basePriceVal = parseFloat(getVal("basePrice").replace(/[^0-9.]/g, ""))
       const basePrice = isNaN(basePriceVal) ? 0.0 : basePriceVal
 
-      const parseOptPrice = (key: string, pct: number) => {
-        const strVal = getVal(key)
-        if (strVal) {
-          const val = parseFloat(strVal.replace(/[^0-9.]/g, ""))
-          if (!isNaN(val)) return val
-        }
-        if (pct >= 100) return basePrice // fallback if margin is >= 100 (which is invalid)
+      const calculatePrice = (pct: number) => {
+        if (pct >= 100) return basePrice
         return Number((basePrice / (1 - (pct / 100))).toFixed(2))
       }
 
-      const dealerPrice = parseOptPrice("dealerPrice", pricingTiers.dealer)
-      const interiorPrice = parseOptPrice("interiorPrice", pricingTiers.interior)
-      const directPrice = parseOptPrice("directPrice", pricingTiers.direct)
-      const onlinePrice = parseOptPrice("onlinePrice", pricingTiers.online)
+      const dealerPrice = calculatePrice(pricingTiers.dealer)
+      const interiorPrice = calculatePrice(pricingTiers.interior)
+      const directPrice = calculatePrice(pricingTiers.direct)
+      const onlinePrice = calculatePrice(pricingTiers.online)
 
       return {
         productCode: getVal("productCode"),
@@ -259,7 +250,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         description: getVal("description"),
         shortDescription: getVal("shortDescription"),
         specifications: getVal("specifications"),
-        unitPrice: basePrice, // Fallback for standard tables
+        unitPrice: directPrice,
         costPrice: basePrice,
         dealerPrice,
         interiorPrice,
@@ -522,10 +513,6 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                   { key: "productName", label: "Product Name / Title", required: true },
                   { key: "categoryName", label: "Category", required: true },
                   { key: "basePrice", label: "Base Price (AED)", required: false },
-                  { key: "dealerPrice", label: "Dealer Price", required: false },
-                  { key: "interiorPrice", label: "Interior Price", required: false },
-                  { key: "directPrice", label: "Direct Price", required: false },
-                  { key: "onlinePrice", label: "Online Price", required: false },
                   { key: "dimensions", label: "Dimensions", required: false },
                   { key: "warranty", label: "Warranty period", required: false },
                   { key: "description", label: "Description / About", required: false },
@@ -694,7 +681,18 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                               const updated = [...products]
                               const val = parseFloat(e.target.value) || 0
                               updated[idx].costPrice = val
-                              updated[idx].unitPrice = val
+                              
+                              const calculatePrice = (pct: number) => {
+                                if (pct >= 100) return val
+                                return Number((val / (1 - (pct / 100))).toFixed(2))
+                              }
+                              
+                              updated[idx].dealerPrice = calculatePrice(pricingTiers.dealer)
+                              updated[idx].interiorPrice = calculatePrice(pricingTiers.interior)
+                              updated[idx].directPrice = calculatePrice(pricingTiers.direct)
+                              updated[idx].onlinePrice = calculatePrice(pricingTiers.online)
+                              updated[idx].unitPrice = updated[idx].directPrice
+                              
                               setProducts(updated)
                             }}
                           />
@@ -702,49 +700,33 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                         <td className="p-2 text-right">
                           <input 
                             type="number"
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono"
+                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
                             value={p.dealerPrice}
-                            onChange={(e) => {
-                              const updated = [...products]
-                              updated[idx].dealerPrice = parseFloat(e.target.value) || 0
-                              setProducts(updated)
-                            }}
+                            readOnly={true}
                           />
                         </td>
                         <td className="p-2 text-right">
                           <input 
                             type="number"
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono"
+                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
                             value={p.interiorPrice}
-                            onChange={(e) => {
-                              const updated = [...products]
-                              updated[idx].interiorPrice = parseFloat(e.target.value) || 0
-                              setProducts(updated)
-                            }}
+                            readOnly={true}
                           />
                         </td>
                         <td className="p-2 text-right">
                           <input 
                             type="number"
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono"
+                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
                             value={p.directPrice}
-                            onChange={(e) => {
-                              const updated = [...products]
-                              updated[idx].directPrice = parseFloat(e.target.value) || 0
-                              setProducts(updated)
-                            }}
+                            readOnly={true}
                           />
                         </td>
                         <td className="p-2 text-right">
                           <input 
                             type="number"
-                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono"
+                            className="w-full border rounded px-1.5 py-0.5 text-xs bg-transparent text-right font-mono text-muted-foreground"
                             value={p.onlinePrice}
-                            onChange={(e) => {
-                              const updated = [...products]
-                              updated[idx].onlinePrice = parseFloat(e.target.value) || 0
-                              setProducts(updated)
-                            }}
+                            readOnly={true}
                           />
                         </td>
                         <td className="p-2">
