@@ -20,8 +20,8 @@ async function run() {
     `);
     console.log("User table columns in PostgreSQL:", columns);
     
-    const usersCount = await prisma.$queryRawUnsafe(`SELECT COUNT(*) FROM "User"`);
-    console.log("Total users count in database:", usersCount);
+    const users = await prisma.$queryRawUnsafe(`SELECT id, name, email, role FROM "User"`);
+    console.log("Users in database:", users);
   } catch (err) {
     console.error("DB test failed:", err);
   } finally {
