@@ -68,7 +68,7 @@ const quotationSchema = z.object({
       margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= -100, "Margin must be at least -100").refine(val => (val === "" ? 0 : Number(val)) < 100, "Margin must be less than 100%"),
       manualMargin: z.union([z.number(), z.string()]).optional(),
       customImageUrl: z.string().nullable().optional(),
-      shortDescription: z.string().optional(),
+      productDescription: z.string().optional(),
       categoryName: z.string().optional(),
       chairType: z.string().optional(),
     })
@@ -124,6 +124,7 @@ interface Product {
   onlinePrice?: number
   specifications: string | null
   imageUrl: string | null
+  description?: string | null
 }
 interface ProductSearchSelectProps {
   productId: string | null | undefined
@@ -493,7 +494,7 @@ function NewQuotationForm() {
                   margin: marginVal,
                   manualMargin: marginVal,
                   customImageUrl: item.customImageUrl || "",
-                  shortDescription: item.product?.shortDescription || "",
+                  productDescription: item.product?.description || "",
                   categoryName: item.product?.category?.name || "Chairs",
                   chairType: item.product?.chairType || "",
                 }
@@ -552,7 +553,7 @@ function NewQuotationForm() {
             margin: 0,
             manualMargin: "",
             customImageUrl: item.customImageUrl || "",
-            shortDescription: item.shortDescription || "",
+            productDescription: item.productDescription || item.shortDescription || item.description || "",
             categoryName: item.categoryName || "Chairs",
             chairType: item.chairType || "",
           })),
@@ -586,7 +587,7 @@ function NewQuotationForm() {
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", shortDescription: "", categoryName: "Chairs", chairType: "" }],
+      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "" }],
       deliveryCharge: 0,
       notes: "",
       vatMode: "EXCLUDING",
@@ -713,6 +714,7 @@ function NewQuotationForm() {
       form.setValue(`items.${index}.productId`, matchedProduct.id, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.description`, matchedProduct.productName, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.productDescription`, matchedProduct.description || "", { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.specifications`, matchedProduct.specifications ? matchedProduct.specifications.replace(/【/g, '• ').replace(/】 ?/g, ': ') : "", { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.manualMargin`, 0, { shouldValidate: true, shouldDirty: true })
@@ -845,9 +847,6 @@ function NewQuotationForm() {
             throw new Error("Product Name is required for custom products.")
           }
           if (isManagerOrAdmin) {
-            if (!item.shortDescription || item.shortDescription.trim().length < 145 || item.shortDescription.trim().length > 260) {
-              throw new Error(`Custom product "${item.description}" short description must be between 145 and 260 characters (currently ${item.shortDescription?.trim().length || 0} chars) to save to the catalog.`)
-            }
           }
           if (item.categoryName === "Chairs" && !item.chairType) {
             throw new Error(`Chair Type is required for custom chair "${item.description}".`)
@@ -861,7 +860,7 @@ function NewQuotationForm() {
                 productName: item.description,
                 categoryName: item.categoryName || "General",
                 unitPrice: Number(item.unitPrice) || 0.0,
-                shortDescription: item.shortDescription,
+                description: item.productDescription,
                 specifications: item.specifications || undefined,
                 warranty: "5 Years",
                 imageUrl: item.customImageUrl || undefined,
@@ -1518,7 +1517,7 @@ function NewQuotationForm() {
                               onCustomProductClick={() => {
                                 form.setValue(`items.${index}.priceSource`, "manual", { shouldValidate: true, shouldDirty: true })
                                 form.setValue(`items.${index}.description`, "", { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.shortDescription`, "", { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.productDescription`, "", { shouldValidate: true, shouldDirty: true })
                                 form.setValue(`items.${index}.categoryName`, "Chairs", { shouldValidate: true, shouldDirty: true })
                                 form.setValue(`items.${index}.chairType`, "", { shouldValidate: true, shouldDirty: true })
                                 form.setValue(`items.${index}.quantity`, 1, { shouldValidate: true, shouldDirty: true })
@@ -1715,19 +1714,18 @@ function NewQuotationForm() {
                                   )}
                                 </div>
 
-                                {/* Short Description */}
+                                {/* Product Description */}
                                 <FormField
                                   control={form.control}
-                                  name={`items.${index}.shortDescription`}
+                                  name={`items.${index}.productDescription`}
                                   render={({ field }) => {
                                     const valLength = (field.value || "").length
-                                    const isValidLength = valLength >= 145 && valLength <= 260
                                     return (
                                       <FormItem className="space-y-1">
                                         <div className="flex justify-between items-center">
-                                          <FormLabel className="text-xs font-semibold text-muted-foreground">Short Description *</FormLabel>
-                                          <span className={cn("text-[9px] font-medium", valLength > 0 && !isValidLength ? "text-destructive font-bold" : "text-muted-foreground")}>
-                                            {valLength} / 260 (Min 145)
+                                          <FormLabel className="text-xs font-semibold text-muted-foreground">Product Description</FormLabel>
+                                          <span className="text-[9px] font-medium text-muted-foreground">
+                                            {valLength} chars
                                           </span>
                                         </div>
                                         <FormControl>
@@ -1735,10 +1733,7 @@ function NewQuotationForm() {
                                             placeholder="Premium ergonomic chair designed for long-hour comfort..."
                                             {...field}
                                             rows={3}
-                                            className={cn(
-                                              "resize-none bg-muted/10 focus-visible:bg-background text-xs min-h-[60px]",
-                                              valLength > 0 && !isValidLength && "border-destructive focus-visible:ring-destructive"
-                                            )}
+                                            className="resize-none bg-muted/10 focus-visible:bg-background text-xs min-h-[60px]"
                                           />
                                         </FormControl>
                                         <FormMessage />
@@ -1954,7 +1949,7 @@ function NewQuotationForm() {
                                       variant="outline"
                                       size="sm"
                                       className="flex-1 h-8 text-[11px]"
-                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", shortDescription: "", categoryName: "Chairs", chairType: "" })}
+                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "" })}
                                     >
                                       <Plus className="h-3.5 w-3.5 mr-1" />
                                       Add Custom Item
@@ -2289,7 +2284,7 @@ function NewQuotationForm() {
                                       variant="outline"
                                       size="sm"
                                       className="flex-1 h-8 text-[11px]"
-                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", shortDescription: "", categoryName: "Chairs", chairType: "" })}
+                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "" })}
                                     >
                                       <Plus className="h-3.5 w-3.5 mr-1" />
                                       Add Custom Item

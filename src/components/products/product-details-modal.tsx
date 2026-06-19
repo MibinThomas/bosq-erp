@@ -19,7 +19,6 @@ interface Product {
   availableColors: string | null
   dimensions: string | null
   specifications: string | null
-  shortDescription: string | null
   description?: string | null
   status: string
   imageUrl: string | null
@@ -177,21 +176,11 @@ export function ProductDetailsModal({
                   </div>
                 )}
 
-                {/* Short Description */}
-                {product.shortDescription && (
-                  <div className="space-y-1.5">
-                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Short Description</span>
-                    <p className="text-xs leading-relaxed text-foreground">
-                      {product.shortDescription}
-                    </p>
-                  </div>
-                )}
-
-                {/* Description */}
+                {/* Product Description */}
                 {product.description && (
                   <div className="space-y-1.5">
                     <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Product Description</span>
-                    <p className="text-xs leading-relaxed text-muted-foreground">
+                    <p className="text-xs leading-relaxed text-foreground">
                       {product.description}
                     </p>
                   </div>

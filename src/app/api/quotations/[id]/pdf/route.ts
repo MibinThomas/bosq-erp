@@ -89,7 +89,7 @@ export async function GET(
     const docItems = await Promise.all(quotation.items.map(async (item) => ({
       itemNo: item.itemNo,
       description: item.description,
-      shortDescription: item.product?.shortDescription,
+      productDescription: item.product?.description,
       specifications: item.specifications,
       productNotes: item.productNotes,
       quantity: item.quantity,

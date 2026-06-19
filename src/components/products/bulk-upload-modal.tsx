@@ -39,7 +39,6 @@ interface ParsedProduct {
   productName: string
   categoryName: string
   description: string
-  shortDescription: string
   specifications: string
   unitPrice: number
   costPrice: number
@@ -156,7 +155,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const CSV_HEADERS = [
     "Product Code",
     "Product Name",
-    "Short Description",
+    "Product Description",
     "Category",
     "Base Price (AED)",
     "Warranty",
@@ -212,7 +211,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return [
           p.productCode || "",
           p.productName || "",
-          p.shortDescription || "",
+          p.description || "",
           p.category?.name || p.categoryName || "",
           typeof p.costPrice === "number" ? p.costPrice.toFixed(2) : "0.00",
           p.warranty || "",
@@ -264,7 +263,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     const targetFields = [
       { key: "productCode", synonyms: ["product code", "code", "sku", "productcode", "itemcode", "id"] },
       { key: "productName", synonyms: ["product name", "name", "title", "productname", "chairname", "item"] },
-      { key: "shortDescription", synonyms: ["short description", "shortdescription", "short desc", "summary"] },
+      { key: "description", synonyms: ["product description", "description", "short description", "shortdescription", "short desc", "summary", "full description"] },
       { key: "categoryName", synonyms: ["category", "type", "group", "class", "categoryname"] },
       { key: "basePrice", synonyms: ["base price (aed)", "base price", "price", "unitprice", "rate", "cost", "sellingprice", "selling rate", "baseprice", "costprice", "price(aed)"] },
       { key: "warranty", synonyms: ["warranty", "warranty period", "guarantee", "period"] },
@@ -319,8 +318,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         productCode: getVal("productCode"),
         productName: getVal("productName"),
         categoryName: getVal("categoryName") || "Chairs",
-        description: getVal("description") || getVal("specifications") || "",
-        shortDescription: getVal("shortDescription"),
+        description: getVal("description") || getVal("shortDescription") || getVal("specifications") || "",
         specifications: getVal("specifications"),
         unitPrice: calculatePrice(pricingTiers.direct),
         costPrice: basePrice,
@@ -465,14 +463,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         })
       }
 
-      if (p.shortDescription && (p.shortDescription.length < 145 || p.shortDescription.length > 260)) {
-        errorsList.push({
-          row: csvRowNum,
-          column: currentMappings["shortDescription"] || "Short Description",
-          message: `Short description must be 145-260 characters (currently ${p.shortDescription.length} chars).`,
-          key: "shortDescription"
-        })
-      }
+
 
       // Category specific checks
       const lowerCat = (p.categoryName || "").toLowerCase()
@@ -629,8 +620,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         productCode: getVal("productCode"),
         productName: getVal("productName"),
         categoryName: getVal("categoryName") || "Chairs",
-        description: getVal("description") || getVal("specifications") || "",
-        shortDescription: getVal("shortDescription"),
+        description: getVal("description") || getVal("shortDescription") || getVal("specifications") || "",
         specifications: getVal("specifications"),
         unitPrice: calculatePrice(pricingTiers.direct),
         costPrice: basePrice,
@@ -1502,26 +1492,25 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                                   />
                                 </div>
 
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide">Short Description (145-260 chars)</label>
-                                  <input
-                                    id={`input-${idx}-shortDescription`}
-                                    className={`w-full border rounded-lg px-2.5 py-1.5 bg-white dark:bg-zinc-900 text-xs focus:ring-amber-500 ${
-                                      rowErrors.some(e => e.key === "shortDescription") ? "border-red-500 bg-red-950/20" : ""
-                                    }`}
-                                    value={p.shortDescription || ""}
-                                    onChange={(e) => handleProductFieldChange(idx, "shortDescription", e.target.value)}
-                                  />
-                                </div>
-
                                 <div className="md:col-span-3 space-y-1">
-                                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide">Specifications / Details</label>
+                                  <label className="text-[10px] font-bold text-zinc-450 uppercase tracking-wide">Product Description</label>
                                   <textarea
                                     id={`input-${idx}-description`}
                                     className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-zinc-900 text-xs focus:ring-amber-500"
                                     value={p.description || ""}
                                     rows={3}
                                     onChange={(e) => handleProductFieldChange(idx, "description", e.target.value)}
+                                  />
+                                </div>
+
+                                <div className="md:col-span-3 space-y-1">
+                                  <label className="text-[10px] font-bold text-zinc-450 uppercase tracking-wide">Specifications / Details</label>
+                                  <textarea
+                                    id={`input-${idx}-specifications`}
+                                    className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-zinc-900 text-xs focus:ring-amber-500"
+                                    value={p.specifications || ""}
+                                    rows={3}
+                                    onChange={(e) => handleProductFieldChange(idx, "specifications", e.target.value)}
                                   />
                                 </div>
                               </div>
@@ -1610,8 +1599,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                         { key: "categoryName", label: "Category", required: true },
                         { key: "finishMaterial", label: "Product Type (Finish)", required: false },
                         { key: "basePrice", label: "Base Price Only (AED)", required: true },
-                        { key: "shortDescription", label: "Short Description", required: false },
-                        { key: "description", label: "Full Description", required: false },
+                        { key: "description", label: "Product Description", required: false },
                         { key: "specifications", label: "Specifications", required: false },
                         { key: "warranty", label: "Warranty period", required: false },
                         { key: "dimensions", label: "Dimensions", required: false },

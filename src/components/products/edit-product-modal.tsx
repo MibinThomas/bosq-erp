@@ -23,7 +23,7 @@ interface Product {
   availableColors: string | null
   dimensions: string | null
   specifications: string | null
-  shortDescription: string | null
+  description?: string | null
   status: string
   imageUrl: string | null
   category: {
@@ -50,8 +50,9 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
   const [onlinePrice, setOnlinePrice] = useState("")
   const [warranty, setWarranty] = useState("")
   const [specifications, setSpecifications] = useState("")
-  const [shortDescription, setShortDescription] = useState("")
+  const [description, setDescription] = useState("")
   const [status, setStatus] = useState("ACTIVE")
+  const [categoriesList, setCategoriesList] = useState<any[]>([])
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [base64Image, setBase64Image] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -77,6 +78,17 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
   }, [])
 
   useEffect(() => {
+    fetch("/api/products/categories")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setCategoriesList(data)
+        }
+      })
+      .catch(console.error)
+  }, [isOpen])
+
+  useEffect(() => {
     if (product) {
       setName(product.productName)
       setCode(product.productCode)
@@ -89,7 +101,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
       setOnlinePrice(product.onlinePrice?.toString() || "")
       setWarranty(product.warranty || "5 Years")
       setSpecifications(product.specifications || "")
-      setShortDescription(product.shortDescription || "")
+      setDescription(product.description || "")
       setStatus(product.status)
       setImagePreview(product.imageUrl)
       setBase64Image(null)
@@ -189,10 +201,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
       return
     }
 
-    if (shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260)) {
-      toast.error("Short description must be between 145 and 260 characters.")
-      return
-    }
+
 
     setLoading(true)
     try {
@@ -210,7 +219,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
           directPrice: directPrice !== "" ? parseFloat(directPrice) : parseFloat(price),
           onlinePrice: onlinePrice !== "" ? parseFloat(onlinePrice) : parseFloat(price),
           warranty,
-          shortDescription,
+          description,
           specifications,
           status,
           imageUrl: base64Image || undefined
@@ -274,11 +283,17 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
             <div className="space-y-1.5">
               <label className="text-xs font-bold">Category</label>
               <Input 
+                list="edit-categories-list"
                 value={categoryName} 
                 onChange={(e) => setCategoryName(e.target.value)} 
                 placeholder="E.g., Chairs"
                 required 
               />
+              <datalist id="edit-categories-list">
+                {categoriesList.map((cat: any) => (
+                  <option key={cat.id} value={cat.name} />
+                ))}
+              </datalist>
             </div>
 
             <div className="space-y-1.5">
@@ -364,23 +379,17 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
 
             <div className="space-y-1.5 col-span-2">
               <label className="text-xs font-bold flex justify-between">
-                <span>Short Description</span>
-                <span className={`text-[10px] ${shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260) ? "text-destructive font-bold" : "text-muted-foreground"}`}>
-                  {shortDescription.length} / 260 (Min 145)
+                <span>Product Description</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {description.length} chars
                 </span>
               </label>
               <textarea
-                className={`w-full border rounded-md px-3 py-2 text-sm bg-background resize-none min-h-[60px] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260) ? "border-destructive focus:ring-destructive" : ""}`}
-                value={shortDescription}
-                onChange={(e) => setShortDescription(e.target.value)}
-                placeholder={"Enter a brief product summary (145-260 characters)..."}
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none min-h-[60px] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Enter a description for this product..."
               />
-              {shortDescription.length > 0 && shortDescription.length < 145 && (
-                <p className="text-[10px] text-destructive">Short description must be at least 145 characters.</p>
-              )}
-              {shortDescription.length > 260 && (
-                <p className="text-[10px] text-destructive">Short description cannot exceed 260 characters.</p>
-              )}
             </div>
 
             <div className="space-y-1.5 col-span-2">

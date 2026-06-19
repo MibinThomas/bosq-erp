@@ -9,6 +9,7 @@ import { ProductDetailsModal } from "@/components/products/product-details-modal
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { BulkUploadModal } from "@/components/products/bulk-upload-modal"
 import { EditProductModal } from "@/components/products/edit-product-modal"
 import {
@@ -47,7 +48,6 @@ interface Product {
   availableColors: string | null
   dimensions: string | null
   specifications: string | null
-  shortDescription: string | null
   description?: string | null
   status: string
   imageUrl: string | null
@@ -72,6 +72,11 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState("")
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; description: string | null }[]>([])
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [newCategoryDesc, setNewCategoryDesc] = useState("")
+  const [creatingCategory, setCreatingCategory] = useState(false)
 
   // Details Modal States
   const [selectedDetailProduct, setSelectedDetailProduct] = useState<Product | null>(null)
@@ -283,7 +288,8 @@ export default function ProductsPage() {
           unitPrice: rate,
           discount: 0,
           margin: 0,
-          customImageUrl: prod.imageUrl || ""
+          customImageUrl: prod.imageUrl || "",
+          productDescription: prod.description || ""
         }
       })
     }
@@ -338,8 +344,21 @@ export default function ProductsPage() {
     }
   }
 
+  async function fetchCategories() {
+    try {
+      const res = await fetch("/api/products/categories")
+      if (res.ok) {
+        const data = await res.json()
+        setCategoriesList(data)
+      }
+    } catch (err) {
+      console.error("Failed to load categories:", err)
+    }
+  }
+
   useEffect(() => {
     fetchProducts()
+    fetchCategories()
   }, [])
 
   // Filter products dynamically
@@ -354,8 +373,7 @@ export default function ProductsPage() {
     return matchesSearch && matchesCategory
   })
 
-  // Extract unique categories dynamically
-  const categories = Array.from(new Set(products.map((p) => p.category.name)))
+
 
   return (
     <div className="space-y-6">
@@ -386,6 +404,14 @@ export default function ProductsPage() {
 
           {isManagerOrAdmin && (
             <>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4 text-primary" />
+                Add Category
+              </Button>
               <Button 
                 variant="outline" 
                 onClick={() => setIsBulkOpen(true)}
@@ -422,9 +448,9 @@ export default function ProductsPage() {
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
             <option value="">All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+            {categoriesList.map((cat) => (
+              <option key={cat.id} value={cat.name}>
+                {cat.name}
               </option>
             ))}
           </select>
@@ -720,6 +746,121 @@ export default function ProductsPage() {
         onClose={() => setIsBulkOpen(false)}
         onSuccess={fetchProducts}
       />
+
+      {/* Create Category Modal */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-card rounded-2xl border shadow-2xl flex flex-col p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                  <Plus className="h-5 w-5 text-primary" />
+                  Create Product Category
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Add a new dynamic category to classify catalog products.
+                </p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => {
+                  setIsCategoryModalOpen(false)
+                  setNewCategoryName("")
+                  setNewCategoryDesc("")
+                }} 
+                className="rounded-full h-8 w-8"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault()
+                if (!newCategoryName.trim()) {
+                  toast.error("Category name is required.")
+                  return
+                }
+                setCreatingCategory(true)
+                try {
+                  const res = await fetch("/api/products/categories", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: newCategoryName.trim(),
+                      description: newCategoryDesc.trim() || undefined,
+                    })
+                  })
+                  const data = await res.json()
+                  if (!res.ok) {
+                    throw new Error(data.error || "Failed to create category")
+                  }
+                  toast.success(`Category "${data.name}" created successfully!`)
+                  setNewCategoryName("")
+                  setNewCategoryDesc("")
+                  setIsCategoryModalOpen(false)
+                  fetchCategories()
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to create category.")
+                } finally {
+                  setCreatingCategory(false)
+                }
+              }} 
+              className="space-y-4"
+            >
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Category Name *</label>
+                <Input 
+                  value={newCategoryName} 
+                  onChange={(e) => setNewCategoryName(e.target.value)} 
+                  placeholder="E.g., Acoustic Pods" 
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Description</label>
+                <Textarea 
+                  value={newCategoryDesc} 
+                  onChange={(e) => setNewCategoryDesc(e.target.value)} 
+                  placeholder="Optional brief description of this product range..." 
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsCategoryModalOpen(false)
+                    setNewCategoryName("")
+                    setNewCategoryDesc("")
+                  }} 
+                  disabled={creatingCategory}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" 
+                  disabled={creatingCategory}
+                >
+                  {creatingCategory ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Category"
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <EditProductModal
         product={editingProduct}

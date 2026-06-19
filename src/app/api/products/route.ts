@@ -44,7 +44,6 @@ export async function POST(request: Request) {
       dimensions,
       imageUrl,
       imageUrls,
-      shortDescription,
       chairType,
       tableTopFinish,
       legType,
@@ -57,15 +56,6 @@ export async function POST(request: Request) {
         { error: "Product name and category are required" },
         { status: 400 }
       )
-    }
-
-    if (shortDescription) {
-      if (shortDescription.length < 145 || shortDescription.length > 260) {
-        return NextResponse.json(
-          { error: "Short description must be between 145 and 260 characters." },
-          { status: 400 }
-        )
-      }
     }
 
     // 1. Get or create category
@@ -107,8 +97,7 @@ export async function POST(request: Request) {
         productCode: finalCode,
         productName,
         categoryId: category.id,
-        description,
-        shortDescription,
+        description: description || null,
         specifications,
         unitPrice: parseFloat(unitPrice) || 0.0,
         costPrice: parseFloat(costPrice) || 0.0,

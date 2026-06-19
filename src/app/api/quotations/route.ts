@@ -447,7 +447,7 @@ export async function POST(request: Request) {
         imageUrl: resolvedImage,
         categoryName: item.categoryName || matchedProd?.category?.name || "OFFICE FURNITURE",
         chairType: item.chairType || matchedProd?.chairType || null,
-        shortDescription: item.shortDescription || matchedProd?.shortDescription || null,
+        productDescription: item.productDescription || matchedProd?.description || null,
       }
     }))
 

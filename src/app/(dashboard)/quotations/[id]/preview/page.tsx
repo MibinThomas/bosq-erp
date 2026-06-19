@@ -26,7 +26,7 @@ interface QuotationItem {
   product?: {
     imageUrl: string | null
     sku: string
-    shortDescription?: string | null
+    description?: string | null
     category?: { name: string } | null
     chairType?: string | null
   } | null
@@ -590,10 +590,10 @@ export default function QuotationHtmlPreviewPage({
                     </div>
                   )}
 
-                  {/* 3. Short Description */}
-                  {item.product?.shortDescription && (
+                  {/* 3. Product Description */}
+                  {item.product?.description && (
                     <div className="text-[#444444] text-[6.5px] mb-[4px] leading-[1.4] max-w-[95%] line-clamp-4 break-words whitespace-normal shrink overflow-hidden">
-                      {item.product.shortDescription}
+                      {item.product.description}
                     </div>
                   )}
 

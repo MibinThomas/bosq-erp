@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { ArrowLeft, Loader2, Save, Package, Tag, Calculator, Info, Image as ImageIcon, Briefcase, Settings2, ShieldCheck, Palette, Grid } from "lucide-react"
+import { ArrowLeft, Loader2, Save, Package, Tag, Calculator, Info, Image as ImageIcon, Briefcase, Settings2, ShieldCheck, Palette, Grid, Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -22,8 +22,29 @@ export default function NewProductPage() {
   const [saving, setSaving] = useState(false)
   const [margins, setMargins] = useState({ dealer: 15, interior: 30, direct: 50, online: 75 })
   const [manualOverride, setManualOverride] = useState(false)
+  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; description: string | null }[]>([])
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState("")
+  const [newCategoryDesc, setNewCategoryDesc] = useState("")
+  const [creatingCategory, setCreatingCategory] = useState(false)
 
-  // Fetch margins on mount
+  // Fetch categories list
+  async function fetchCategories(selectNewName?: string) {
+    try {
+      const res = await fetch("/api/products/categories")
+      if (res.ok) {
+        const data = await res.json()
+        setCategoriesList(data)
+        if (selectNewName) {
+          setFormData(prev => ({ ...prev, categoryName: selectNewName }))
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load categories:", err)
+    }
+  }
+
+  // Fetch margins and categories on mount
   useEffect(() => {
     fetch("/api/settings/pricing")
       .then(res => res.json())
@@ -33,13 +54,14 @@ export default function NewProductPage() {
         }
       })
       .catch(console.error)
+    fetchCategories()
   }, [])
 
   const [formData, setFormData] = useState({
     productCode: "",
     productName: "",
     categoryName: "Chair",
-    shortDescription: "",
+    description: "",
     specifications: "",
     costPrice: "",
     unitPrice: "", // This will map to directPrice initially
@@ -116,23 +138,22 @@ export default function NewProductPage() {
       toast.error("Product name is required")
       return
     }
-    
-    if (formData.shortDescription.length > 0 && (formData.shortDescription.length < 145 || formData.shortDescription.length > 260)) {
-      toast.error("Short description must be between 145 and 260 characters.")
-      return
-    }
 
     if (!formData.costPrice.trim() || isNaN(parseFloat(formData.costPrice))) {
       toast.error("Valid cost price is required")
       return
     }
 
-    if (formData.categoryName === "Chair") {
+    const categoryLower = (formData.categoryName || "").toLowerCase()
+    const isChair = categoryLower.includes("chair")
+    const isWorkstation = categoryLower.includes("workstation")
+
+    if (isChair) {
       if (!formData.chairType) return toast.error("Chair Type is required")
       if (!formData.availableColors) return toast.error("Available Color(s) is required")
     }
 
-    if (formData.categoryName === "Workstation") {
+    if (isWorkstation) {
       if (!formData.tableTopFinish) return toast.error("Table Top Finish is required")
       if (!formData.legType) return toast.error("Leg Type is required")
       if (!formData.storageOptions) return toast.error("Storage Options are required")
@@ -167,7 +188,11 @@ export default function NewProductPage() {
     }
   }
 
-  const descLen = formData.shortDescription.length
+  const descLen = (formData.description || "").length
+  const categoryLower = (formData.categoryName || "").toLowerCase()
+  const isChair = categoryLower.includes("chair")
+  const isWorkstation = categoryLower.includes("workstation")
+  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER"
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-24">
@@ -207,17 +232,27 @@ export default function NewProductPage() {
                 Select Product Category
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {["Chair", "Workstation", "Other Furniture / Accessories"].map(cat => (
+                {categoriesList.map(cat => (
                   <div 
-                    key={cat} 
-                    onClick={() => setFormData(prev => ({ ...prev, categoryName: cat }))}
-                    className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center text-center transition-all ${formData.categoryName === cat ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20" : "hover:border-primary/50 hover:bg-muted/50"}`}
+                    key={cat.id} 
+                    onClick={() => setFormData(prev => ({ ...prev, categoryName: cat.name }))}
+                    className={`cursor-pointer border rounded-xl p-4 flex flex-col items-center justify-center text-center transition-all ${formData.categoryName === cat.name ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20" : "hover:border-primary/50 hover:bg-muted/50"}`}
                   >
-                    <span className={`font-semibold ${formData.categoryName === cat ? "text-primary" : "text-muted-foreground"}`}>
-                      {cat}
+                    <span className={`font-semibold ${formData.categoryName === cat.name ? "text-primary" : "text-muted-foreground"}`}>
+                      {cat.name}
                     </span>
                   </div>
                 ))}
+                
+                {isManagerOrAdmin && (
+                  <div 
+                    onClick={() => setIsCategoryModalOpen(true)}
+                    className="cursor-pointer border border-dashed border-primary/45 hover:border-primary rounded-xl p-4 flex flex-col items-center justify-center text-center hover:bg-primary/5 transition-all text-primary"
+                  >
+                    <Plus className="h-5 w-5 mb-1 text-primary" />
+                    <span className="font-semibold text-xs">+ Add Category</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -254,22 +289,18 @@ export default function NewProductPage() {
               <div className="space-y-2 md:col-span-2 relative">
                 <div className="flex justify-between items-end mb-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Short Description <span className="text-red-500">*</span>
+                    Product Description
                   </label>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${descLen < 145 || descLen > 260 ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700"}`}>
-                    {descLen} / 260 chars (Min: 145)
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                    {descLen} chars
                   </span>
                 </div>
                 <Textarea
-                  placeholder="Premium ergonomic chair designed for ultimate comfort and durability..."
+                  placeholder="Enter a description for this product..."
                   rows={3}
-                  value={formData.shortDescription}
-                  onChange={(e) => setFormData(prev => ({ ...prev, shortDescription: e.target.value }))}
-                  className={descLen > 0 && (descLen < 145 || descLen > 260) ? "border-red-400 focus-visible:ring-red-400" : ""}
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 />
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Used in product cards and SEO. Keep it engaging and concise.
-                </p>
               </div>
             </div>
           </div>
@@ -277,13 +308,13 @@ export default function NewProductPage() {
           {/* Dynamic Category Specifications */}
           <div className="bg-card border border-border/60 rounded-2xl p-6 shadow-sm space-y-6">
             <h2 className="text-lg font-bold border-b pb-4 flex items-center gap-2">
-              <Settings2 className="h-5 w-5 text-primary" /> {formData.categoryName} Details
+              <Settings2 className="h-5 w-5 text-primary" /> {isChair ? "Chair" : isWorkstation ? "Workstation" : "Other Category"} Details
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
               {/* CHAIR FIELDS */}
-              {formData.categoryName === "Chair" && (
+              {isChair && (
                 <>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -314,7 +345,7 @@ export default function NewProductPage() {
               )}
 
               {/* WORKSTATION FIELDS */}
-              {formData.categoryName === "Workstation" && (
+              {isWorkstation && (
                 <>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -365,7 +396,7 @@ export default function NewProductPage() {
               )}
 
               {/* OTHER CATEGORY FIELDS */}
-              {formData.categoryName === "Other Furniture / Accessories" && (
+              {!isChair && !isWorkstation && (
                 <>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -544,6 +575,122 @@ export default function NewProductPage() {
 
         </div>
       </div>
+
+      {/* Inline Create Category Modal */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-card rounded-2xl border shadow-2xl flex flex-col p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                  <Plus className="h-5 w-5 text-primary" />
+                  Create Product Category
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Add a new dynamic category to classify catalog products.
+                </p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => {
+                  setIsCategoryModalOpen(false)
+                  setNewCategoryName("")
+                  setNewCategoryDesc("")
+                }} 
+                className="rounded-full h-8 w-8"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault()
+                if (!newCategoryName.trim()) {
+                  toast.error("Category name is required.")
+                  return
+                }
+                setCreatingCategory(true)
+                try {
+                  const res = await fetch("/api/products/categories", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      name: newCategoryName.trim(),
+                      description: newCategoryDesc.trim() || undefined,
+                    })
+                  })
+                  const data = await res.json()
+                  if (!res.ok) {
+                    throw new Error(data.error || "Failed to create category")
+                  }
+                  toast.success(`Category "${data.name}" created successfully!`)
+                  setNewCategoryName("")
+                  setNewCategoryDesc("")
+                  setIsCategoryModalOpen(false)
+                  fetchCategories(data.name) // select the newly created category immediately
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to create category.")
+                } finally {
+                  setCreatingCategory(false)
+                }
+              }} 
+              className="space-y-4"
+            >
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Category Name *</label>
+                <Input 
+                  value={newCategoryName} 
+                  onChange={(e) => setNewCategoryName(e.target.value)} 
+                  placeholder="E.g., Acoustic Pods" 
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Description</label>
+                <Textarea 
+                  value={newCategoryDesc} 
+                  onChange={(e) => setNewCategoryDesc(e.target.value)} 
+                  placeholder="Optional brief description of this product range..." 
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsCategoryModalOpen(false)
+                    setNewCategoryName("")
+                    setNewCategoryDesc("")
+                  }} 
+                  disabled={creatingCategory}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" 
+                  disabled={creatingCategory}
+                >
+                  {creatingCategory ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Category"
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

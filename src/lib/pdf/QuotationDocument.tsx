@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
 export interface QuotationPdfItem {
   itemNo: number
   description: string
-  shortDescription?: string | null
+  productDescription?: string | null
   specifications?: string | null
   productNotes?: string | null
   quantity: number
@@ -783,9 +783,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 </View>
               )}
 
-              {/* 3. Short Description */}
-              {item.shortDescription && (
-                <Text style={styles.itemDescText}>{item.shortDescription}</Text>
+              {/* 3. Product Description */}
+              {item.productDescription && (
+                <Text style={styles.itemDescText}>{item.productDescription}</Text>
               )}
 
               {/* 4, 5, 6. Specs, Prod Time, Remarks */}

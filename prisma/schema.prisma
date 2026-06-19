@@ -112,7 +112,6 @@ model Product {
   categoryId      String
   category        ProductCategory @relation(fields: [categoryId], references: [id])
   description     String?
-  shortDescription String?
   specifications  String?
   imageUrl        String?
   imageUrls       String[]  @default([])

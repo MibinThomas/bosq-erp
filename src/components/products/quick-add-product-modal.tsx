@@ -34,7 +34,7 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
   const [categoryName, setCategoryName] = useState("Chairs")
   const [price, setPrice] = useState("")
   const [warranty, setWarranty] = useState("5 Years")
-  const [shortDescription, setShortDescription] = useState("")
+  const [description, setDescription] = useState("")
   const [specifications, setSpecifications] = useState("")
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [base64Image, setBase64Image] = useState<string | null>(null)
@@ -123,10 +123,7 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
       return
     }
 
-    if (shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260)) {
-      toast.error("Short description must be between 145 and 260 characters.")
-      return
-    }
+
 
     setLoading(true)
     try {
@@ -157,7 +154,7 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
             productCode: code || undefined,
             categoryName: categoryName || "General",
             unitPrice: parseFloat(price) || 0.0,
-            shortDescription: shortDescription || undefined,
+            description: description || undefined,
             specifications: specifications || undefined,
             warranty,
             imageUrl: base64Image || undefined,
@@ -191,7 +188,7 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
       setCategoryName("Chairs")
       setPrice("")
       setWarranty("5 Years")
-      setShortDescription("")
+      setDescription("")
       setSpecifications("")
       setImagePreview(null)
       setBase64Image(null)
@@ -287,26 +284,20 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
               )}
             </div>
 
-            {/* Short Description field for all users */}
+            {/* Product Description field for all users */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold flex justify-between">
-                <span>Short Description</span>
-                <span className={`text-[10px] ${shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260) ? "text-destructive font-bold" : "text-muted-foreground"}`}>
-                  {shortDescription.length} / 260 (Min 145)
+                <span>Product Description</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {description.length} chars
                 </span>
               </label>
               <textarea
-                className={`w-full border rounded-md px-3 py-2 text-sm bg-background resize-none min-h-[60px] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 ${shortDescription.length > 0 && (shortDescription.length < 145 || shortDescription.length > 260) ? "border-destructive focus:ring-destructive" : ""}`}
-                value={shortDescription}
-                onChange={(e) => setShortDescription(e.target.value)}
-                placeholder={"Enter a brief product summary (145-260 characters)..."}
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background resize-none min-h-[60px] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Enter a description for this product..."
               />
-              {shortDescription.length > 0 && shortDescription.length < 145 && (
-                <p className="text-[10px] text-destructive">Short description must be at least 145 characters.</p>
-              )}
-              {shortDescription.length > 260 && (
-                <p className="text-[10px] text-destructive">Short description cannot exceed 260 characters.</p>
-              )}
             </div>
 
             {/* Specifications field for all users */}
