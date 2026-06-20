@@ -51,8 +51,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logoImageLeft: {
-    width: 176,
-    height: 56,
+    width: 280,
+    height: 90,
     objectFit: "contain",
     objectPositionX: "left",
   },
@@ -756,13 +756,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
               </View>
 
-              {/* Barcode & Barcode Text underneath */}
-              {barcodeBase64 && (
-                <View style={styles.barcodeWrapper}>
-                  <PdfImage src={barcodeBase64} style={styles.barcodeImage} />
-                  <Text style={styles.barcodeText}>{quotationNumber}</Text>
-                </View>
-              )}
+              {/* Removed Barcode per user request */}
             </View>
 
           </View>

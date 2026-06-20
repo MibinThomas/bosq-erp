@@ -483,7 +483,7 @@ export default function QuotationHtmlPreviewPage({
               <img
                 src={quotation.companyLogoUrl || "/assets/logo/BOSQ R LOGO.svg"}
                 alt="BOSQ"
-                className="w-44 h-14 object-contain object-left"
+                className="w-[280px] h-[90px] object-contain object-left"
               />
             </div>
             <div className="w-[44%] text-right">
@@ -555,30 +555,7 @@ export default function QuotationHtmlPreviewPage({
                 <span>{quotation.salesAgentContactNumber || quotation.preparedBy?.phone || "-"}</span>
               </div>
 
-              {/* Dynamic Barcode */}
-              {quotation.barcodeBase64 ? (
-                <div className="mt-[10px] w-[140px] flex flex-col items-center ml-auto">
-                  <img
-                    src={quotation.barcodeBase64}
-                    alt={quotation.quotationNumber}
-                    className="h-[25px] w-[140px] object-contain"
-                  />
-                  <span className="text-[7px] text-slate-500 font-mono mt-[2px] uppercase tracking-[0.5px] text-center">
-                    {quotation.quotationNumber}
-                  </span>
-                </div>
-              ) : barcodeUrl ? (
-                <div className="mt-[10px] w-[140px] flex flex-col items-center ml-auto">
-                  <img
-                    src={barcodeUrl}
-                    alt={quotation.quotationNumber}
-                    className="h-[25px] w-[140px] object-contain"
-                  />
-                  <span className="text-[7px] text-slate-500 font-mono mt-[2px] uppercase tracking-[0.5px] text-center">
-                    {quotation.quotationNumber}
-                  </span>
-                </div>
-              ) : null}
+              {/* Removed Barcode per user request */}
             </div>
           </div>
 

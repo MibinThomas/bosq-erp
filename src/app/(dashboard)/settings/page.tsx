@@ -765,6 +765,9 @@ export default function SettingsPage() {
                             }}
                           />
                         </div>
+                        <p className="text-[10px] text-slate-500 italic mt-1">
+                          💡 Recommended dimension: <b>280px x 90px</b> (or 3:1 aspect ratio) with a transparent background.
+                        </p>
                       </div>
 
                       {/* Footer Logo Upload */}
@@ -812,6 +815,9 @@ export default function SettingsPage() {
                             }}
                           />
                         </div>
+                        <p className="text-[10px] text-slate-500 italic mt-1">
+                          💡 Recommended dimension: <b>180px x 45px</b> (or 4:1 aspect ratio) with a transparent background.
+                        </p>
                       </div>
                     </div>
                   </div>
