@@ -34,10 +34,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 22,
+    marginBottom: 24,
     borderBottomWidth: 1,
     borderBottomColor: colors.lineColor,
-    paddingBottom: 15,
+    paddingBottom: 20,
   },
   leftColumn: {
     width: "53%",
@@ -129,19 +129,21 @@ const styles = StyleSheet.create({
   },
   barcodeWrapper: {
     marginTop: 10,
-    alignItems: "flex-end",
+    width: 140,
+    alignItems: "center",
+    alignSelf: "flex-end",
   },
   barcodeImage: {
     width: 140,
     height: 25,
     objectFit: "contain",
-    objectPositionX: "right",
   },
   barcodeText: {
     fontSize: 7,
     color: colors.secondary,
     marginTop: 2,
     letterSpacing: 0.5,
+    textAlign: "center",
   },
 
   // Table Styling
@@ -526,90 +528,111 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       .trim();
   }
 
-  const renderSpecifications = (specs: string | null | undefined, productNotes?: string | null) => {
-    if (!specs && !productNotes) return null;
+  const parseSpecifications = (specs: string | null | undefined) => {
+    if (!specs) return [];
+    const rawText = sanitizeHtmlToText(specs);
+    const lines = rawText.split('\n').map(line => line.trim()).filter(line => line !== "");
+    const parsedSpecs: { key?: string; value: string }[] = [];
 
-    const rawText = sanitizeHtmlToText(specs || "");
-    const lines = rawText.split("\n").map((l) => l.trim()).filter((l) => l !== "");
-
-    let normalSpecs: React.ReactNode[] = [];
-    let productionTime: string | null = null;
-    let remarksLines: string[] = [];
-    let warranty: string | null = null;
-    
-    let currentContext = "normal";
-
-    lines.forEach((line, idx) => {
-      let isKeyLine = false;
-      let key = "";
-      let val = "";
-      
-      if (line.includes(":")) {
-        const colonIndex = line.indexOf(":");
-        key = line.substring(0, colonIndex).trim();
-        val = line.substring(colonIndex + 1).trim();
-        isKeyLine = true;
+    lines.forEach((line) => {
+      if (/^product\s+specifications$/i.test(line)) {
+        return;
       }
-      
-      if (isKeyLine && key.toLowerCase().includes("production time")) {
-        currentContext = "productionTime";
-        productionTime = val;
-      } else if (isKeyLine && key.toLowerCase().includes("remarks")) {
-        currentContext = "remarks";
-        if (val) remarksLines.push(val);
-      } else if (isKeyLine && key.toLowerCase().includes("warranty")) {
-        currentContext = "normal";
-        warranty = val;
-      } else if (isKeyLine) {
-        currentContext = "normal";
-        normalSpecs.push(
-          <View key={`spec-${idx}`} style={styles.specRow}>
-            <Text style={styles.specKey}>{key}:</Text>
-            <Text style={styles.specValue}>{val}</Text>
-          </View>
-        );
+
+      if (line.includes(",") && line.includes(":")) {
+        const parts = line.split(',');
+        let currentSpec: { key?: string; value: string } | null = null;
+        
+        parts.forEach((part) => {
+          const trimmed = part.trim();
+          if (trimmed.includes(":")) {
+            const colonIndex = trimmed.indexOf(":");
+            const key = trimmed.substring(0, colonIndex).trim();
+            const value = trimmed.substring(colonIndex + 1).trim();
+            
+            if (currentSpec) {
+              parsedSpecs.push(currentSpec);
+            }
+            currentSpec = { key, value };
+          } else {
+            if (currentSpec) {
+              currentSpec.value += ", " + trimmed;
+            } else {
+              parsedSpecs.push({ value: trimmed });
+            }
+          }
+        });
+        if (currentSpec) {
+          parsedSpecs.push(currentSpec);
+        }
       } else {
-        if (currentContext === "remarks") {
-          remarksLines.push(line);
+        if (line.includes(":")) {
+          const colonIndex = line.indexOf(":");
+          const key = line.substring(0, colonIndex).trim();
+          const value = line.substring(colonIndex + 1).trim();
+          parsedSpecs.push({ key, value });
         } else {
-          normalSpecs.push(
-            <Text key={`text-${idx}`} style={{ color: "#444444", fontSize: 6.5, marginBottom: 2.5, lineHeight: 1.3 }}>
-              {line}
-            </Text>
-          );
+          parsedSpecs.push({ value: line });
         }
       }
     });
 
+    return parsedSpecs.filter(spec => {
+      const val = spec.value.trim().toLowerCase();
+      if (!val || val === "-" || val === "not specified" || val === "none") {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  const renderSpecifications = (specs: string | null | undefined, productNotes?: string | null) => {
+    const parsed = parseSpecifications(specs);
+    
+    // Filter out remarks from specifications list
+    const specsList = parsed.filter(s => s.key?.toLowerCase() !== "remarks");
+    const remarksFromSpecs = parsed.filter(s => s.key?.toLowerCase() === "remarks").map(s => s.value);
+    
+    const remarksLines = [...remarksFromSpecs];
     if (productNotes) {
       remarksLines.push(productNotes);
     }
+    
+    if (specsList.length === 0 && remarksLines.length === 0) return null;
 
     return (
-      <View style={{ marginTop: 2 }}>
-        {normalSpecs.length > 0 && <View style={{ marginBottom: 2 }}>{normalSpecs}</View>}
-        
-        {productionTime && (
-          <View style={{ marginBottom: 2 }}>
-            <Text style={[styles.specKey, { color: "#1e3a8a", width: "100%" }]}>
-              Production Time: <Text style={[styles.specValue, { color: "#1e3a8a" }]}>{productionTime}</Text>
+      <View style={{ marginTop: 6 }}>
+        {specsList.length > 0 && (
+          <View style={{ marginBottom: 4 }}>
+            <Text style={{ fontWeight: "bold", fontSize: 6.5, color: colors.primary, marginBottom: 3 }}>
+              Product Specifications
             </Text>
-          </View>
-        )}
-
-        {warranty && (
-          <View style={[styles.specRow, { marginBottom: 2 }]}>
-            <Text style={styles.specKey}>Warranty:</Text>
-            <Text style={styles.specValue}>{warranty}</Text>
+            {specsList.map((spec, idx) => {
+              const isProdTime = spec.key?.toLowerCase() === "production time";
+              const textColor = isProdTime ? "#1e3a8a" : "#444444";
+              const keyColor = isProdTime ? "#1e3a8a" : colors.primary;
+              return (
+                <View key={`spec-${idx}`} style={{ flexDirection: "row", marginBottom: 2.5, fontSize: 5.75, lineHeight: 1.3 }}>
+                  {spec.key ? (
+                    <>
+                      <Text style={{ fontWeight: "bold", color: keyColor, width: 90 }}>{spec.key}:</Text>
+                      <Text style={{ flex: 1, color: textColor }}>{spec.value}</Text>
+                    </>
+                  ) : (
+                    <Text style={{ flex: 1, color: textColor }}>{spec.value}</Text>
+                  )}
+                </View>
+              );
+            })}
           </View>
         )}
         
         {remarksLines.length > 0 && (
-          <View style={{ marginTop: 2, flexDirection: "row", paddingLeft: 0, marginLeft: 0 }}>
-            <Text style={{ fontWeight: "bold", fontSize: 6.5, color: colors.accent, marginRight: 4, paddingLeft: 0, marginLeft: 0 }}>Remarks:</Text>
+          <View style={{ marginTop: 2, flexDirection: "row", alignItems: "flex-start" }}>
+            <Text style={{ fontWeight: "bold", fontSize: 5.75, color: colors.accent, marginRight: 4 }}>Remarks:</Text>
             <View style={{ flex: 1 }}>
               {remarksLines.map((r, i) => (
-                <Text key={i} style={{ fontSize: 6.5, color: colors.secondary, marginBottom: 1 }}>{r}</Text>
+                <Text key={i} style={{ fontSize: 5.75, color: colors.secondary, marginBottom: 1 }}>{r}</Text>
               ))}
             </View>
           </View>
@@ -669,12 +692,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 
                 <View style={styles.infoRowInline}>
                   <Text style={styles.infoKeyInline}>Quotation for:</Text>
-                  <Text style={styles.infoValueInline}>{clientContact}</Text>
+                  <Text style={styles.infoValueInline}>{clientName}</Text>
                 </View>
 
                 <View style={styles.infoRowInline}>
-                  <Text style={styles.infoKeyInline}>Company Name:</Text>
-                  <Text style={styles.infoValueInline}>{clientName}</Text>
+                  <Text style={styles.infoKeyInline}>Contact Person:</Text>
+                  <Text style={styles.infoValueInline}>{clientContact || "-"}</Text>
                 </View>
 
                 <View style={styles.infoRowInline}>
@@ -745,7 +768,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           </View>
 
           {/* Bottom Row: Sales Executive & Project Name */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%", marginTop: 16 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%", marginTop: 24 }}>
             <View style={{ flexDirection: "row" }}>
               <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Sales Executive: </Text>
               <Text style={{ color: "#827f82", fontSize: 6.75 }}>{salesAgentName || preparedBy}</Text>

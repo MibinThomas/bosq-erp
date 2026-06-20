@@ -116,7 +116,7 @@ export async function GET(
       companyAddress: companySettings.company_address,
       companyTrn: companySettings.company_trn,
       clientName: quotation.client.companyName,
-      clientContact: quotation.client.contactPerson || "Valued Customer",
+      clientContact: quotation.client.contactPerson || "-",
       clientPhone: quotation.client.phone || "",
       clientEmail: quotation.client.email || "",
       clientAddress: quotation.client.address || "Dubai, UAE",

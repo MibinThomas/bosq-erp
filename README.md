@@ -31,6 +31,11 @@ A premium, cloud-native Enterprise Resource Planning (ERP) web application tailo
 - **Dynamic Folder Storage**: Quotation PDFs and Client documents (Trade License, VAT Certificate) are automatically stored in customer-specific SharePoint folders.
 - **Connection Diagnostics**: Live test connections and App Registration checks (including UUID client secret format alerts) are available in the SharePoint settings panel.
 
+### 5. Premium Product Details Pop-up Modal
+- **Two-Column E-Commerce Layout**: Product cards expand into a beautiful detail layout summarizing technical specifications, dynamic highlight boxes (Warranty, Best For, Assembly, Color), and interactive price adjustments based on customer type (Retail, Interior, Dealer, Online).
+- **Lightbox Gallery**: Fullscreen image zoom overlay with multi-image thumbnail slider navigation.
+- **Persistent Actions**: Clean fixed footer containing quantity adjustments and brand orange "Add to Quote" CTA button.
+
 ---
 
 ## Technology Stack

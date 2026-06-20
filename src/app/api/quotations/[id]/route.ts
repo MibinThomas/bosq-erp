@@ -82,10 +82,17 @@ export async function GET(
       }
     })
 
+    const logoBase64 = await getLogoBase64()
+    const aynMuskLogoBase64 = await getAynMuskLogoBase64()
+    const barcodeBase64 = generateCode128DataUri(quotation.quotationNumber)
+
     return NextResponse.json({
       ...quotation,
       revisions,
-      seriesQuotations
+      seriesQuotations,
+      companyLogoUrl: logoBase64 || null,
+      aynMuskLogoUrl: aynMuskLogoBase64 || null,
+      barcodeBase64: barcodeBase64 || null,
     })
   } catch (error) {
     console.error("Failed to fetch quotation:", error)
@@ -495,7 +502,7 @@ export async function PUT(
         companyAddress: companySettings.company_address,
         companyTrn: companySettings.company_trn,
         clientName: existingQuotation.client.companyName,
-        clientContact: existingQuotation.client.contactPerson || "Valued Customer",
+        clientContact: existingQuotation.client.contactPerson || "-",
         clientPhone: existingQuotation.client.phone || "",
         clientEmail: existingQuotation.client.email || "",
         clientAddress: existingQuotation.client.address || "Dubai, UAE",
@@ -825,7 +832,7 @@ export async function PUT(
         companyAddress: companySettings.company_address,
         companyTrn: companySettings.company_trn,
         clientName: currentClient.companyName,
-        clientContact: currentClient.contactPerson || "Valued Customer",
+        clientContact: currentClient.contactPerson || "-",
         clientPhone: currentClient.phone || "",
         clientEmail: currentClient.email || "",
         clientAddress: currentClient.address || "Dubai, UAE",

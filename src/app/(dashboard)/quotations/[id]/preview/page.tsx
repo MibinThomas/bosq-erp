@@ -77,6 +77,9 @@ interface Quotation {
     clientId: string
   }
   items: QuotationItem[]
+  companyLogoUrl?: string | null
+  aynMuskLogoUrl?: string | null
+  barcodeBase64?: string | null
 }
 
 export default function QuotationHtmlPreviewPage({
@@ -244,6 +247,10 @@ export default function QuotationHtmlPreviewPage({
   const sanitizeHtmlToText = (html: string) => {
     if (!html) return "";
     let text = html;
+    text = text.replace(/style="[^"]*"/gi, '');
+    text = text.replace(/style='[^']*'/gi, '');
+    text = text.replace(/size="[^"]*"/gi, '');
+    text = text.replace(/color="[^"]*"/gi, '');
     text = text.replace(/<br\s*\/?>/gi, '\n');
     text = text.replace(/<\/p>/gi, '\n');
     text = text.replace(/<\/div>/gi, '\n');
@@ -258,80 +265,107 @@ export default function QuotationHtmlPreviewPage({
     return text.trim();
   }
 
-  const renderSpecificationsHtml = (specs: string | null | undefined, productNotes?: string | null) => {
-    if (!specs && !productNotes) return null;
+  const parseSpecifications = (specs: string | null | undefined) => {
+    if (!specs) return [];
+    const rawText = sanitizeHtmlToText(specs);
+    const lines = rawText.split('\n').map(line => line.trim()).filter(line => line !== "");
+    const parsedSpecs: { key?: string; value: string }[] = [];
 
-    const rawText = sanitizeHtmlToText(specs || "");
-    const lines = rawText.split("\n").map((l) => l.trim()).filter((l) => l !== "");
-    
-    let normalSpecs: React.ReactNode[] = [];
-    let productionTime: string | null = null;
-    let remarksLines: string[] = [];
-    let warranty: string | null = null;
-    
-    let currentContext = "normal";
-
-    lines.forEach((line, idx) => {
-      let isKeyLine = false;
-      let key = "";
-      let val = "";
-      
-      if (line.includes(":")) {
-        const colonIndex = line.indexOf(":");
-        key = line.substring(0, colonIndex).trim();
-        val = line.substring(colonIndex + 1).trim();
-        isKeyLine = true;
+    lines.forEach((line) => {
+      if (/^product\s+specifications$/i.test(line)) {
+        return;
       }
-      
-      if (isKeyLine && key.toLowerCase().includes("production time")) {
-        currentContext = "productionTime";
-        productionTime = val;
-      } else if (isKeyLine && key.toLowerCase().includes("remarks")) {
-        currentContext = "remarks";
-        if (val) remarksLines.push(val);
-      } else if (isKeyLine && key.toLowerCase().includes("warranty")) {
-        currentContext = "normal";
-        warranty = val;
-      } else if (isKeyLine) {
-        currentContext = "normal";
-        normalSpecs.push(
-          <div key={`spec-${idx}`} className="flex text-[8.5px] mb-[4px] leading-tight pl-0 ml-0">
-            <span className="font-bold text-slate-900 w-[95px] shrink-0">{key}:</span>
-            <span className="text-[#444444] flex-1">{val}</span>
-          </div>
-        );
+
+      if (line.includes(",") && line.includes(":")) {
+        const parts = line.split(',');
+        let currentSpec: { key?: string; value: string } | null = null;
+        
+        parts.forEach((part) => {
+          const trimmed = part.trim();
+          if (trimmed.includes(":")) {
+            const colonIndex = trimmed.indexOf(":");
+            const key = trimmed.substring(0, colonIndex).trim();
+            const value = trimmed.substring(colonIndex + 1).trim();
+            
+            if (currentSpec) {
+              parsedSpecs.push(currentSpec);
+            }
+            currentSpec = { key, value };
+          } else {
+            if (currentSpec) {
+              currentSpec.value += ", " + trimmed;
+            } else {
+              parsedSpecs.push({ value: trimmed });
+            }
+          }
+        });
+        if (currentSpec) {
+          parsedSpecs.push(currentSpec);
+        }
       } else {
-        if (currentContext === "remarks") {
-          remarksLines.push(line);
+        if (line.includes(":")) {
+          const colonIndex = line.indexOf(":");
+          const key = line.substring(0, colonIndex).trim();
+          const value = line.substring(colonIndex + 1).trim();
+          parsedSpecs.push({ key, value });
         } else {
-          normalSpecs.push(<div key={`text-${idx}`} className="text-[#444444] mb-[4px] leading-tight text-[8.5px]">{line}</div>);
+          parsedSpecs.push({ value: line });
         }
       }
     });
 
+    return parsedSpecs.filter(spec => {
+      const val = spec.value.trim().toLowerCase();
+      if (!val || val === "-" || val === "not specified" || val === "none") {
+        return false;
+      }
+      return true;
+    });
+  }
+
+  const renderSpecificationsHtml = (specs: string | null | undefined, productNotes?: string | null) => {
+    const parsed = parseSpecifications(specs);
+    
+    // Filter out remarks from specifications list
+    const specsList = parsed.filter(s => s.key?.toLowerCase() !== "remarks");
+    const remarksFromSpecs = parsed.filter(s => s.key?.toLowerCase() === "remarks").map(s => s.value);
+    
+    const remarksLines = [...remarksFromSpecs];
     if (productNotes) {
       remarksLines.push(productNotes);
     }
+    
+    if (specsList.length === 0 && remarksLines.length === 0) return null;
 
     return (
-      <div className="mt-2 space-y-[4px]">
-        {normalSpecs.length > 0 && <div className="mb-2">{normalSpecs}</div>}
-        
-        {productionTime && (
-          <div className="font-bold text-[#1e3a8a] text-[8.5px] mb-2 leading-tight">
-            Production Time: <span className="font-normal">{productionTime}</span>
+      <div className="mt-2.5">
+        {specsList.length > 0 && (
+          <div className="mb-2">
+            <div className="font-bold text-slate-900 text-[9px] mb-1.5">
+              Product Specifications
+            </div>
+            {specsList.map((spec, idx) => {
+              const isProdTime = spec.key?.toLowerCase() === "production time";
+              const textColorClass = isProdTime ? "text-[#1e3a8a]" : "text-[#444444]";
+              const keyColorClass = isProdTime ? "text-[#1e3a8a]" : "text-slate-900";
+              return (
+                <div key={`spec-${idx}`} className="flex text-[8px] mb-[2px] leading-tight pl-0 ml-0">
+                  {spec.key ? (
+                    <>
+                      <span className={`font-bold ${keyColorClass} w-[90px] shrink-0`}>{spec.key}:</span>
+                      <span className={`${textColorClass} flex-1`}>{spec.value}</span>
+                    </>
+                  ) : (
+                    <span className={`${textColorClass} flex-1`}>{spec.value}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {warranty && (
-          <div className="flex text-[8.5px] mb-[4px] leading-tight">
-            <span className="font-bold text-slate-900 w-[95px] shrink-0">Warranty:</span>
-            <span className="text-[#444444] flex-1">{warranty}</span>
-          </div>
-        )}
-        
         {remarksLines.length > 0 && (
-          <div className="text-[8.5px] leading-tight flex mt-2 pl-0 ml-0">
+          <div className="text-[8px] leading-tight flex mt-2 pl-0 ml-0">
             <span className="font-bold text-[#F17423] mr-1 shrink-0">Remarks:</span>
             <span className="text-[#444444] flex-1">
                {remarksLines.map((r, i) => (
@@ -344,17 +378,8 @@ export default function QuotationHtmlPreviewPage({
     );
   }
 
-  const formattedDate = new Date(quotation.date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
-
-  const formattedValidityDate = new Date(quotation.validityDate).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
+  const formattedDate = quotation.date ? new Date(quotation.date).toISOString().split("T")[0] : ""
+  const formattedValidityDate = quotation.validityDate ? new Date(quotation.validityDate).toISOString().split("T")[0] : ""
 
   const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(
     quotation.quotationNumber
@@ -456,7 +481,7 @@ export default function QuotationHtmlPreviewPage({
           <div className="flex justify-between items-start w-full mb-6">
             <div className="w-[53%]">
               <img
-                src="/assets/logo/BOSQ R LOGO.svg"
+                src={quotation.companyLogoUrl || "/assets/logo/BOSQ R LOGO.svg"}
                 alt="BOSQ"
                 className="w-44 h-14 object-contain object-left"
               />
@@ -465,6 +490,9 @@ export default function QuotationHtmlPreviewPage({
               <h1 className="text-2xl font-bold text-slate-900 uppercase tracking-tight mb-0 mt-[30px]">
                 Quotation
               </h1>
+              {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(quotation.status) && (
+                <div className="text-[12px] font-bold text-green-600 mt-2">Client Approved</div>
+              )}
             </div>
           </div>
 
@@ -472,32 +500,36 @@ export default function QuotationHtmlPreviewPage({
           <div className="flex justify-between items-start w-full">
             
             {/* Left Column: Client Info Block */}
-            <div className="w-[53%] space-y-1 text-[9.9px]">
+            <div className="w-[53%] space-y-1 text-[9px] leading-tight">
               <h2 className="font-bold text-slate-900 text-[10.8px] uppercase mb-2">CLIENT INFORMATION</h2>
               <div className="flex">
-                <span className="font-bold text-slate-800 w-28">Quotation for:</span>
+                <span className="font-bold text-slate-800 w-28 shrink-0">Quotation for:</span>
                 <span className="text-slate-600 flex-1 font-semibold">{quotation.client.companyName}</span>
               </div>
               <div className="flex">
-                <span className="font-bold text-slate-800 w-16">Address:</span>
+                <span className="font-bold text-slate-800 w-28 shrink-0">Contact Person:</span>
+                <span className="text-slate-600 flex-1">{quotation.client.contactPerson || "-"}</span>
+              </div>
+              <div className="flex">
+                <span className="font-bold text-slate-800 w-28 shrink-0">Address:</span>
                 <span className="text-slate-600 flex-1">{quotation.client.address || "-"}</span>
               </div>
               <div className="flex">
-                <span className="font-bold text-slate-800 w-28">Phone:</span>
-                <span className="text-slate-600 flex-1">{quotation.client?.phone || "-"}</span>
+                <span className="font-bold text-slate-800 w-28 shrink-0">Phone:</span>
+                <span className="text-slate-600 flex-1">{quotation.client.phone || "-"}</span>
               </div>
               <div className="flex">
-                <span className="font-bold text-slate-800 w-28">Email:</span>
-                <span className="text-slate-600 flex-1">{quotation.client?.email || "-"}</span>
+                <span className="font-bold text-slate-800 w-28 shrink-0">Email:</span>
+                <span className="text-slate-600 flex-1">{quotation.client.email || "-"}</span>
               </div>
               <div className="flex">
-                <span className="font-bold text-slate-800 w-28">TRN:</span>
-                <span className="text-slate-600 flex-1">{quotation.client?.trn || "-"}</span>
+                <span className="font-bold text-slate-800 w-28 shrink-0">TRN:</span>
+                <span className="text-slate-600 flex-1">{quotation.client.trn || "-"}</span>
               </div>
             </div>
 
             {/* Right Column: Quotation Meta Details */}
-            <div className="w-[44%] flex flex-col items-end text-right space-y-1 text-slate-600 text-[9.9px]">
+            <div className="w-[44%] flex flex-col items-end text-right space-y-1 text-slate-600 text-[9px] leading-tight">
               <div className="flex justify-end w-full">
                 <span className="font-bold text-slate-800 mr-2">Date:</span>
                 <span>{formattedDate}</span>
@@ -524,21 +556,34 @@ export default function QuotationHtmlPreviewPage({
               </div>
 
               {/* Dynamic Barcode */}
-              <div className="pt-2 flex flex-col items-end w-full">
-                <img
-                  src={barcodeUrl}
-                  alt={quotation.quotationNumber}
-                  className="h-10 w-44 object-contain object-right"
-                />
-                <span className="text-[9px] text-slate-500 font-mono mt-1 uppercase tracking-widest text-right">
-                  {quotation.quotationNumber}
-                </span>
-              </div>
+              {quotation.barcodeBase64 ? (
+                <div className="mt-[10px] w-[140px] flex flex-col items-center ml-auto">
+                  <img
+                    src={quotation.barcodeBase64}
+                    alt={quotation.quotationNumber}
+                    className="h-[25px] w-[140px] object-contain"
+                  />
+                  <span className="text-[7px] text-slate-500 font-mono mt-[2px] uppercase tracking-[0.5px] text-center">
+                    {quotation.quotationNumber}
+                  </span>
+                </div>
+              ) : barcodeUrl ? (
+                <div className="mt-[10px] w-[140px] flex flex-col items-center ml-auto">
+                  <img
+                    src={barcodeUrl}
+                    alt={quotation.quotationNumber}
+                    className="h-[25px] w-[140px] object-contain"
+                  />
+                  <span className="text-[7px] text-slate-500 font-mono mt-[2px] uppercase tracking-[0.5px] text-center">
+                    {quotation.quotationNumber}
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
 
           {/* Bottom Row: Sales Executive & Project Name */}
-          <div className="flex justify-between w-full mt-6 text-[9.9px]">
+          <div className="flex justify-between w-full mt-6 text-[9px]">
             <div>
               <span className="font-bold mr-1" style={{ color: "#827f82" }}>Sales Executive:</span>
               <span style={{ color: "#827f82" }}>{quotation.salesAgentName || quotation.preparedBy?.name || "Sales Executive"}</span>
@@ -746,7 +791,7 @@ export default function QuotationHtmlPreviewPage({
         <div className={`border-t border-slate-100 flex justify-between items-center text-slate-500 text-[9px] ${quotation.items.length === 1 ? 'pt-4 mt-4' : 'pt-12 mt-12'}`}>
           <div>
             <img
-              src="/assets/logo/AYN Musk_PNG.png"
+              src={quotation.aynMuskLogoUrl || "/assets/logo/AYN Musk_PNG.png"}
               alt="AYN Musk"
               className="w-24 h-6 object-contain object-left"
             />
