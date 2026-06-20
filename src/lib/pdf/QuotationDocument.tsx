@@ -604,22 +604,23 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       <View style={{ marginTop: 6 }}>
         {specsList.length > 0 && (
           <View style={{ marginBottom: 4 }}>
-            <Text style={{ fontWeight: "bold", fontSize: 6.5, color: colors.primary, marginBottom: 3 }}>
-              Product Specifications
-            </Text>
             {specsList.map((spec, idx) => {
               const isProdTime = spec.key?.toLowerCase() === "production time";
               const textColor = isProdTime ? "#1e3a8a" : "#444444";
               const keyColor = isProdTime ? "#1e3a8a" : colors.primary;
               return (
-                <View key={`spec-${idx}`} style={{ flexDirection: "row", marginBottom: 2.5, fontSize: 5.75, lineHeight: 1.3 }}>
+                <View key={`spec-${idx}`} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 2, fontSize: 6.5, lineHeight: 1.35 }}>
                   {spec.key ? (
                     <>
-                      <Text style={{ fontWeight: "bold", color: keyColor, width: 90 }}>{spec.key}:</Text>
-                      <Text style={{ flex: 1, color: textColor }}>{spec.value}</Text>
+                      <Text style={{ fontWeight: "bold", color: keyColor, marginRight: 3, flexShrink: 0 }}>{spec.key}:</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: textColor }}>{spec.value}</Text>
+                      </View>
                     </>
                   ) : (
-                    <Text style={{ flex: 1, color: textColor }}>{spec.value}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: textColor }}>{spec.value}</Text>
+                    </View>
                   )}
                 </View>
               );
@@ -629,10 +630,10 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         
         {remarksLines.length > 0 && (
           <View style={{ marginTop: 2, flexDirection: "row", alignItems: "flex-start" }}>
-            <Text style={{ fontWeight: "bold", fontSize: 5.75, color: colors.accent, marginRight: 4 }}>Remarks:</Text>
+            <Text style={{ fontWeight: "bold", fontSize: 6.5, color: colors.accent, marginRight: 4 }}>Remarks:</Text>
             <View style={{ flex: 1 }}>
               {remarksLines.map((r, i) => (
-                <Text key={i} style={{ fontSize: 5.75, color: colors.secondary, marginBottom: 1 }}>{r}</Text>
+                <Text key={i} style={{ fontSize: 6.5, color: colors.secondary, marginBottom: 1 }}>{r}</Text>
               ))}
             </View>
           </View>

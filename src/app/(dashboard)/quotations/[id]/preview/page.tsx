@@ -341,18 +341,15 @@ export default function QuotationHtmlPreviewPage({
       <div className="mt-2.5">
         {specsList.length > 0 && (
           <div className="mb-2">
-            <div className="font-bold text-slate-900 text-[9px] mb-1.5">
-              Product Specifications
-            </div>
             {specsList.map((spec, idx) => {
               const isProdTime = spec.key?.toLowerCase() === "production time";
               const textColorClass = isProdTime ? "text-[#1e3a8a]" : "text-[#444444]";
               const keyColorClass = isProdTime ? "text-[#1e3a8a]" : "text-slate-900";
               return (
-                <div key={`spec-${idx}`} className="flex text-[8px] mb-[2px] leading-tight pl-0 ml-0">
+                <div key={`spec-${idx}`} className="flex items-start text-[8.5px] mb-[2px] leading-tight pl-0 ml-0">
                   {spec.key ? (
                     <>
-                      <span className={`font-bold ${keyColorClass} w-[90px] shrink-0`}>{spec.key}:</span>
+                      <span className={`font-bold ${keyColorClass} shrink-0 mr-1`}>{spec.key}:</span>
                       <span className={`${textColorClass} flex-1`}>{spec.value}</span>
                     </>
                   ) : (
@@ -365,7 +362,7 @@ export default function QuotationHtmlPreviewPage({
         )}
 
         {remarksLines.length > 0 && (
-          <div className="text-[8px] leading-tight flex mt-2 pl-0 ml-0">
+          <div className="text-[8.5px] leading-tight flex mt-2 pl-0 ml-0">
             <span className="font-bold text-[#F17423] mr-1 shrink-0">Remarks:</span>
             <span className="text-[#444444] flex-1">
                {remarksLines.map((r, i) => (
