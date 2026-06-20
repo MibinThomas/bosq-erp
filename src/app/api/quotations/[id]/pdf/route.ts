@@ -89,7 +89,7 @@ export async function GET(
     const docItems = await Promise.all(quotation.items.map(async (item) => ({
       itemNo: item.itemNo,
       description: item.description,
-      productDescription: item.product?.description,
+      productDescription: item.productDescription || item.product?.description || null,
       specifications: item.specifications,
       productNotes: item.productNotes,
       quantity: item.quantity,
@@ -97,8 +97,8 @@ export async function GET(
       discount: item.discount,
       amount: item.amount,
       imageUrl: await resolveImageUrl(item.customImageUrl || item.product?.imageUrl),
-      categoryName: item.product?.category?.name || "OFFICE FURNITURE",
-      chairType: item.product?.chairType || null,
+      categoryName: item.categoryName || item.product?.category?.name || "OFFICE FURNITURE",
+      chairType: item.chairType || item.product?.chairType || null,
     })))
 
     const companySettings = await getSettings([

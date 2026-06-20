@@ -23,6 +23,9 @@ interface QuotationItem {
   amount: number
   customImageUrl: string | null
   productNotes?: string | null
+  productDescription?: string | null
+  categoryName?: string | null
+  chairType?: string | null
   product?: {
     imageUrl: string | null
     sku: string
@@ -553,15 +556,11 @@ export default function QuotationHtmlPreviewPage({
         <table className={`w-full table-fixed border-collapse text-[11px] ${quotation.items.length === 1 ? 'mb-[32px]' : 'mb-[40px]'}`}>
           <thead>
             <tr className="text-slate-900 text-left font-bold border-y border-slate-900">
-              <th className="py-3 px-4 w-[45%]">Item Description</th>
-              <th className="py-3 px-4 w-[25%] text-center">Image</th>
-              <th className="py-3 px-4 w-[30%]">
-                <div className="flex w-full">
-                  <span className="w-[25%] text-center">QTY</span>
-                  <span className="w-[37.5%] text-right">Price</span>
-                  <span className="w-[37.5%] text-right">Total</span>
-                </div>
-              </th>
+              <th className="py-3 px-4 w-[40%]">Item Description</th>
+              <th className="py-3 px-4 w-[33%] text-center">Image</th>
+              <th className="py-3 px-4 w-[7%] text-center">QTY</th>
+              <th className="py-3 px-4 w-[10%] text-right">Price</th>
+              <th className="py-3 px-4 w-[10%] text-right">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -571,29 +570,29 @@ export default function QuotationHtmlPreviewPage({
                 className="border-b border-[#fab48a] align-top"
               >
                 {/* Description and specifications */}
-                <td className="px-4 align-top pt-[12px] pb-[14px] w-[45%] break-words whitespace-normal max-w-full shrink overflow-hidden">
+                <td className="px-4 align-top pt-[12px] pb-[14px] w-[40%] break-words whitespace-normal max-w-full shrink overflow-hidden">
                   {/* 1. Product Name */}
                   <div className="font-bold text-slate-900 text-[9.5px] leading-[1.1] mb-2 break-words whitespace-normal max-w-full shrink overflow-hidden">{item.description}</div>
                   
                   {/* 2. Product Type / Category */}
-                  {item.product?.category?.name && (
+                  {(item.categoryName || item.product?.category?.name) && (
                     <div className="text-[#383e42] text-[5.85px] font-bold uppercase mb-[2px] tracking-[0.08em] break-words whitespace-normal max-w-full shrink overflow-hidden">
-                      {item.product.category.name}
+                      {item.categoryName || item.product?.category?.name}
                     </div>
                   )}
 
                   {/* 2.5 Chair Type (if applicable) */}
-                  {(item.product?.category?.name?.toLowerCase() === "chair" || item.product?.category?.name?.toLowerCase() === "chairs") && item.product?.chairType && (
+                  {((item.categoryName || item.product?.category?.name)?.toLowerCase() === "chair" || (item.categoryName || item.product?.category?.name)?.toLowerCase() === "chairs") && (item.chairType || item.product?.chairType) && (
                     <div className="text-[6.5px] mb-[2px] flex break-words whitespace-normal max-w-full shrink overflow-hidden">
                       <span className="font-bold text-slate-900 mr-1 shrink-0">Chair Type:</span>
-                      <span className="text-[#444444] flex-1 break-words">{item.product.chairType}</span>
+                      <span className="text-[#444444] flex-1 break-words">{item.chairType || item.product?.chairType}</span>
                     </div>
                   )}
 
                   {/* 3. Product Description */}
-                  {item.product?.description && (
+                  {(item.productDescription || item.product?.description) && (
                     <div className="text-[#444444] text-[6.5px] mb-[4px] leading-[1.4] max-w-[95%] line-clamp-4 break-words whitespace-normal shrink overflow-hidden">
-                      {item.product.description}
+                      {item.productDescription || item.product?.description}
                     </div>
                   )}
 
@@ -602,27 +601,33 @@ export default function QuotationHtmlPreviewPage({
                 </td>
 
                 {/* Product Image */}
-                <td className="px-4 text-center align-top pt-[12px] pb-[14px] w-[25%] overflow-hidden">
+                <td className="px-4 text-center align-top pt-[12px] pb-[14px] w-[33%] overflow-hidden">
                   {item.customImageUrl || item.product?.imageUrl ? (
                     <img
                       src={(item.customImageUrl || item.product?.imageUrl) ?? undefined}
                       alt={item.description}
-                      className="w-full max-w-[150px] h-[150px] object-contain mx-auto"
+                      className="w-full max-w-[180px] h-[120px] object-contain mx-auto"
                     />
                   ) : (
-                    <div className="w-full max-w-[150px] h-[150px] border border-dashed border-slate-200 rounded-sm flex items-center justify-center text-[8.5px] text-slate-400 bg-slate-50 mx-auto">
-                      No Image
+                    <div className="w-full max-w-[180px] h-[120px] border border-dashed border-slate-200 rounded-sm flex items-center justify-center text-[8.5px] text-slate-400 bg-slate-50 mx-auto">
+                      No Image Available
                     </div>
                   )}
                 </td>
 
-                {/* Qty, Price, Total Grouped into 30% Column */}
-                <td className="px-4 align-top pt-[12px] pb-[14px] w-[30%]">
-                  <div className="flex w-full">
-                    <div className="w-[25%] text-center font-medium text-slate-800">{item.quantity}</div>
-                    <div className="w-[37.5%] text-right text-slate-800 font-mono">{formatCurrency(item.unitPrice)}</div>
-                    <div className="w-[37.5%] text-right font-bold text-slate-950 font-mono">{formatCurrency(item.amount)}</div>
-                  </div>
+                {/* Qty */}
+                <td className="px-4 align-top pt-[12px] pb-[14px] w-[7%] text-center font-medium text-slate-800">
+                  {item.quantity}
+                </td>
+
+                {/* Price */}
+                <td className="px-4 align-top pt-[12px] pb-[14px] w-[10%] text-right text-slate-800 font-mono">
+                  {formatCurrency(item.unitPrice)}
+                </td>
+
+                {/* Total */}
+                <td className="px-4 align-top pt-[12px] pb-[14px] w-[10%] text-right font-bold text-slate-950 font-mono">
+                  {formatCurrency(item.amount)}
                 </td>
               </tr>
             ))}

@@ -206,6 +206,9 @@ model QuotationItem {
   specifications  String?
   productNotes    String?
   customImageUrl  String?
+  productDescription String?
+  categoryName       String?
+  chairType          String?
   quantity        Int       @default(1)
   basePrice       Float     @default(0.0) // Locked segment price set by SALES_MANAGER/ADMIN
   unitPrice       Float     @default(0.0)

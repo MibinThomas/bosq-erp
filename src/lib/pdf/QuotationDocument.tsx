@@ -164,12 +164,11 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
     alignItems: "flex-start", // Align columns to top
   },
-  colDesc: { width: "45%", paddingRight: 20 },
-  colImage: { width: "25%", alignItems: "flex-start", justifyContent: "flex-start", paddingRight: 10, overflow: "hidden" },
-  colRight: { width: "30%", flexDirection: "row", alignItems: "flex-start" },
-  colQty: { width: "25%", textAlign: "center" },
-  colPrice: { width: "37.5%", textAlign: "right" },
-  colAmount: { width: "37.5%", textAlign: "right" },
+  colDesc: { width: "40%", paddingRight: 15 },
+  colImage: { width: "33%", overflow: "hidden" },
+  colQty: { width: "7%", textAlign: "center" },
+  colPrice: { width: "10%", textAlign: "right" },
+  colAmount: { width: "10%", textAlign: "right" },
 
   itemTitle: {
     fontSize: 9.5,
@@ -504,6 +503,10 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   const sanitizeHtmlToText = (html: string) => {
     if (!html) return "";
     let text = html;
+    text = text.replace(/style="[^"]*"/gi, '');
+    text = text.replace(/style='[^']*'/gi, '');
+    text = text.replace(/size="[^"]*"/gi, '');
+    text = text.replace(/color="[^"]*"/gi, '');
     text = text.replace(/<br\s*\/?>/gi, '\n');
     text = text.replace(/<\/p>/gi, '\n');
     text = text.replace(/<\/div>/gi, '\n');
@@ -515,7 +518,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     text = text.replace(/&gt;/g, '>');
     text = text.replace(/&quot;/g, '"');
     text = text.replace(/&#39;/g, "'");
-    return text.trim();
+    return text
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line !== "")
+      .join('\n')
+      .trim();
   }
 
   const renderSpecifications = (specs: string | null | undefined, productNotes?: string | null) => {
@@ -755,16 +763,14 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         <View style={[styles.tableHeader, items.length === 1 ? { paddingVertical: 6 } : {}]}>
           <Text style={styles.colDesc}>Item Description</Text>
           <Text style={[styles.colImage, { textAlign: "center" }]}>Image</Text>
-          <View style={styles.colRight}>
-            <Text style={styles.colQty}>QTY</Text>
-            <Text style={styles.colPrice}>Price</Text>
-            <Text style={styles.colAmount}>Total</Text>
-          </View>
+          <Text style={styles.colQty}>QTY</Text>
+          <Text style={styles.colPrice}>Price</Text>
+          <Text style={styles.colAmount}>Total</Text>
         </View>
 
         {/* Item Rows */}
         {items.map((item, index) => (
-          <View key={index} style={[styles.tableRow, items.length === 1 ? { paddingVertical: 10 } : {}]}>
+          <View key={index} style={[styles.tableRow, items.length === 1 ? { paddingVertical: 10 } : {}]} wrap={false}>
             {/* Description */}
             <View style={styles.colDesc}>
               {/* 1. Product Name */}
@@ -785,7 +791,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
               {/* 3. Product Description */}
               {item.productDescription && (
-                <Text style={styles.itemDescText}>{item.productDescription}</Text>
+                <Text style={styles.itemDescText}>{sanitizeHtmlToText(item.productDescription)}</Text>
               )}
 
               {/* 4, 5, 6. Specs, Prod Time, Remarks */}
@@ -793,22 +799,20 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             </View>
 
             {/* Product Image */}
-            <View style={styles.colImage}>
+            <View style={[styles.colImage, { alignItems: "center", justifyContent: "center" }]}>
               {item.imageUrl ? (
                 <PdfImage src={item.imageUrl} style={styles.productImage} />
               ) : (
-                <View style={[styles.productImage, { alignItems: "center", justifyContent: "center", border: "1px solid #E6E7E8" }]}>
-                  <Text style={{ fontSize: 8.5, color: colors.lightText }}>No Image Available</Text>
+                <View style={{ width: "100%", height: 100, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                 </View>
               )}
             </View>
 
-            {/* Qty, Price, Total Grouped into 30% Column */}
-            <View style={styles.colRight}>
-              <Text style={styles.colQty}>{item.quantity}</Text>
-              <Text style={styles.colPrice}>{formatCurrency(item.unitPrice)}</Text>
-              <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
-            </View>
+            {/* Qty, Price, Total */}
+            <Text style={styles.colQty}>{item.quantity}</Text>
+            <Text style={styles.colPrice}>{formatCurrency(item.unitPrice)}</Text>
+            <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
           </View>
         ))}
 
