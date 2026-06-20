@@ -15,7 +15,9 @@ const SETTING_KEYS = [
   "sharepoint_site_id",
   "sharepoint_drive_id",
   "client_assign_to_uploader",
-  "client_allow_sales_executive_assignment"
+  "client_allow_sales_executive_assignment",
+  "quotation_header_logo",
+  "quotation_footer_logo"
 ]
 
 export async function GET() {

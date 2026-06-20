@@ -27,7 +27,8 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
+  Image as ImageIcon
 } from "lucide-react"
 
 // Types matching system models
@@ -78,6 +79,8 @@ export default function SettingsPage() {
   const [showSecret, setShowSecret] = useState(false)
   const [testingConnection, setTestingConnection] = useState(false)
   const [testResult, setTestResult] = useState<any>(null)
+  const [headerLogo, setHeaderLogo] = useState("")
+  const [footerLogo, setFooterLogo] = useState("")
 
   // 2. Users Tab State
   const [users, setUsers] = useState<SystemUser[]>([])
@@ -286,6 +289,8 @@ export default function SettingsPage() {
         setClientSecret(data.sharepoint_client_secret || "")
         setSiteId(data.sharepoint_site_id || "")
         setDriveId(data.sharepoint_drive_id || "")
+        setHeaderLogo(data.quotation_header_logo || "")
+        setFooterLogo(data.quotation_footer_logo || "")
       }
     } catch (err) {
       console.error(err)
@@ -337,7 +342,9 @@ export default function SettingsPage() {
           sharepoint_client_id: clientId,
           sharepoint_client_secret: clientSecret,
           sharepoint_site_id: siteId,
-          sharepoint_drive_id: driveId
+          sharepoint_drive_id: driveId,
+          quotation_header_logo: headerLogo,
+          quotation_footer_logo: footerLogo
         })
       })
 
@@ -702,6 +709,114 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
+
+                {userRole === "SUPER_ADMIN" && (
+                  <div className="pt-6 border-t border-slate-800 space-y-4">
+                    <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+                      <ImageIcon className="text-orange-500 h-5 w-5" />
+                      Quotation Document Branding
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Customize the branding assets loaded in the Quotation PDF headers and footers. Supported formats: PNG, JPG, WebP, SVG.
+                    </p>
+                    <div className="grid gap-6 md:grid-cols-2">
+                      {/* Header Logo Upload */}
+                      <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <Label className="text-sm font-semibold text-slate-200">Quotation Header Logo</Label>
+                          {headerLogo && (
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-xs text-red-500 hover:text-red-400 hover:bg-red-950/20 px-2"
+                              onClick={() => setHeaderLogo("")}
+                            >
+                              Reset to Default
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {headerLogo ? (
+                          <div className="h-24 w-full rounded-lg bg-slate-950 border border-slate-800 p-2 flex items-center justify-center overflow-hidden">
+                            <img src={headerLogo} alt="Quotation Header Logo" className="max-h-full max-w-full object-contain" />
+                          </div>
+                        ) : (
+                          <div className="h-24 w-full rounded-lg border border-dashed border-slate-800 flex flex-col items-center justify-center text-xs text-slate-500 bg-slate-950/20">
+                            <span>Using System Default Logo</span>
+                            <span className="text-[10px] text-slate-600 mt-0.5">(BOSQ Logo)</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            type="file" 
+                            accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                            className="bg-slate-950 border-slate-800 text-xs text-slate-400 file:bg-slate-800 file:text-slate-200 file:border-0 file:rounded file:px-2.5 file:py-1 file:mr-3 file:cursor-pointer cursor-pointer hover:border-slate-700"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) {
+                                const reader = new FileReader()
+                                reader.onloadend = () => {
+                                  setHeaderLogo(reader.result as string)
+                                }
+                                reader.readAsDataURL(file)
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Footer Logo Upload */}
+                      <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <Label className="text-sm font-semibold text-slate-200">Quotation Footer Logo</Label>
+                          {footerLogo && (
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-xs text-red-500 hover:text-red-400 hover:bg-red-950/20 px-2"
+                              onClick={() => setFooterLogo("")}
+                            >
+                              Reset to Default
+                            </Button>
+                          )}
+                        </div>
+
+                        {footerLogo ? (
+                          <div className="h-24 w-full rounded-lg bg-slate-950 border border-slate-800 p-2 flex items-center justify-center overflow-hidden">
+                            <img src={footerLogo} alt="Quotation Footer Logo" className="max-h-full max-w-full object-contain" />
+                          </div>
+                        ) : (
+                          <div className="h-24 w-full rounded-lg border border-dashed border-slate-800 flex flex-col items-center justify-center text-xs text-slate-500 bg-slate-950/20">
+                            <span>Using System Default Footer Logo</span>
+                            <span className="text-[10px] text-slate-600 mt-0.5">(AYN Musk Logo)</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            type="file" 
+                            accept="image/png, image/jpeg, image/webp, image/svg+xml"
+                            className="bg-slate-950 border-slate-800 text-xs text-slate-400 file:bg-slate-800 file:text-slate-200 file:border-0 file:rounded file:px-2.5 file:py-1 file:mr-3 file:cursor-pointer cursor-pointer hover:border-slate-700"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) {
+                                const reader = new FileReader()
+                                reader.onloadend = () => {
+                                  setFooterLogo(reader.result as string)
+                                }
+                                reader.readAsDataURL(file)
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="pt-4 border-t border-slate-800 flex justify-end">
                   <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white font-semibold flex items-center gap-2" disabled={loading}>
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}

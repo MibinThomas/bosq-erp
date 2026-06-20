@@ -1,11 +1,19 @@
 import fs from "fs"
 import path from "path"
+import { getSetting } from "@/lib/settings"
 
 let logoBase64Cache: string | null = null
 let watermarkBase64Cache: string | null = null
 let aynMuskLogoBase64Cache: string | null = null
 
 export async function getLogoBase64(): Promise<string> {
+  try {
+    const dbLogo = await getSetting("quotation_header_logo")
+    if (dbLogo) return dbLogo
+  } catch (err) {
+    console.error("Failed to fetch custom header logo from database settings:", err)
+  }
+
   if (logoBase64Cache) return logoBase64Cache
 
   try {
@@ -48,6 +56,13 @@ export async function getWatermarkBase64(): Promise<string> {
 }
 
 export async function getAynMuskLogoBase64(): Promise<string> {
+  try {
+    const dbFooterLogo = await getSetting("quotation_footer_logo")
+    if (dbFooterLogo) return dbFooterLogo
+  } catch (err) {
+    console.error("Failed to fetch custom footer logo from database settings:", err)
+  }
+
   if (aynMuskLogoBase64Cache) return aynMuskLogoBase64Cache
 
   try {
@@ -62,3 +77,4 @@ export async function getAynMuskLogoBase64(): Promise<string> {
 
   return aynMuskLogoBase64Cache || ""
 }
+
