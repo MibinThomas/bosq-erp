@@ -29,6 +29,12 @@ jobs:
             echo "VERCEL_PROJECT_ID=${{ secrets.PROD_VERCEL_PROJECT_ID }}" >> $GITHUB_ENV
             echo "IS_PROD=--prod" >> $GITHUB_ENV
             echo "ENV_NAME=production" >> $GITHUB_ENV
+          elif [ "${{ github.ref_name }}" = "master" ]; then
+            echo "VERCEL_TOKEN=${{ secrets.BETA_VERCEL_TOKEN }}" >> $GITHUB_ENV
+            echo "VERCEL_ORG_ID=${{ secrets.BETA_VERCEL_ORG_ID }}" >> $GITHUB_ENV
+            echo "VERCEL_PROJECT_ID=${{ secrets.BETA_VERCEL_PROJECT_ID }}" >> $GITHUB_ENV
+            echo "IS_PROD=--prod" >> $GITHUB_ENV
+            echo "ENV_NAME=production" >> $GITHUB_ENV
           else
             echo "VERCEL_TOKEN=${{ secrets.BETA_VERCEL_TOKEN }}" >> $GITHUB_ENV
             echo "VERCEL_ORG_ID=${{ secrets.BETA_VERCEL_ORG_ID }}" >> $GITHUB_ENV
