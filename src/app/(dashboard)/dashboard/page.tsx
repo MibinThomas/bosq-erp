@@ -15,7 +15,7 @@ import { DashboardTopPerformers } from "@/components/dashboard/top-performers"
 export default function DashboardPage() {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER"
 
   const [loadingKPIs, setLoadingKPIs] = useState(true)
   const [loadingCharts, setLoadingCharts] = useState(true)

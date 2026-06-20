@@ -47,6 +47,24 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role
         token.picture = user.image
       }
+      
+      // Dynamically query database to ensure role/details updates are synced instantly
+      if (token.id) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { role: true, name: true, image: true }
+          })
+          if (dbUser) {
+            token.role = dbUser.role
+            token.name = dbUser.name
+            token.picture = dbUser.image
+          }
+        } catch (e) {
+          console.error("Error fetching user in NextAuth jwt callback:", e)
+        }
+      }
+
       if (trigger === "update" && session) {
         if (session.name) token.name = session.name
         if (session.image) token.picture = session.image
@@ -57,6 +75,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
+        session.user.name = token.name;
         session.user.image = token.picture as string | null | undefined;
       }
       return session

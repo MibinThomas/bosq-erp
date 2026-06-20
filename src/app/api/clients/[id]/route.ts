@@ -35,11 +35,21 @@ export async function GET(
     const quotations = await prisma.quotation.findMany({
       where: { clientId: id, parentId: null }, // only root quotations; revisions are nested
       include: {
-        items: { orderBy: { itemNo: "asc" } },
+        items: {
+          orderBy: [
+            { sortOrder: "asc" },
+            { itemNo: "asc" }
+          ]
+        },
         preparedBy: { select: { id: true, name: true, role: true } },
         revisionsList: {
           include: {
-            items: { orderBy: { itemNo: "asc" } },
+            items: {
+              orderBy: [
+                { sortOrder: "asc" },
+                { itemNo: "asc" }
+              ]
+            },
             preparedBy: { select: { id: true, name: true, role: true } },
           },
           orderBy: { revisionNumber: "asc" }, // ASC for chronological display
@@ -219,8 +229,8 @@ export async function DELETE(
     const session = await getServerSession(authOptions)
     const userRole = (session?.user as any)?.role || ""
 
-    // Only ADMIN/SALES_MANAGER can delete clients
-    if (!["ADMIN", "SALES_MANAGER"].includes(userRole)) {
+    // Only SUPER_ADMIN, ADMIN, SALES_MANAGER, and MANAGER can delete clients
+    if (!["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
@@ -239,10 +249,27 @@ export async function DELETE(
     }
 
     if (client._count.quotations > 0) {
-      return NextResponse.json(
-        { error: "Cannot delete client. There are quotations associated with this client." },
-        { status: 400 }
-      )
+      if (userRole === "SUPER_ADMIN") {
+        // Cascade delete associated quotations, revisions list, and BOQs first
+        await prisma.quotation.updateMany({
+          where: { clientId: id },
+          data: { parentId: null }
+        })
+        await prisma.quotation.deleteMany({
+          where: { clientId: id }
+        })
+        await prisma.boq.deleteMany({
+          where: { clientId: id }
+        })
+        await prisma.clientAssignment.deleteMany({
+          where: { clientId: id }
+        })
+      } else {
+        return NextResponse.json(
+          { error: "Cannot delete client. There are quotations associated with this client." },
+          { status: 400 }
+        )
+      }
     }
 
     await prisma.client.update({

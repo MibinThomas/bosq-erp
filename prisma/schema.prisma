@@ -193,6 +193,11 @@ model Quotation {
   items           QuotationItem[]
   revisions       QuotationRevision[]
   assignments     QuotationAssignment[]
+
+  @@index([clientId])
+  @@index([preparedById])
+  @@index([parentId])
+  @@index([boqId])
 }
 
 model QuotationItem {
@@ -215,8 +220,11 @@ model QuotationItem {
   discount        Float     @default(0.0)
   margin          Float     @default(0.0)
   amount          Float     @default(0.0) // (unitPrice - discount) * quantity
+  sortOrder       Int       @default(0)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([sortOrder])
 }
 
 model QuotationRevision {
@@ -318,6 +326,10 @@ model Boq {
 
   items           BoqItem[]
   quotations      Quotation[]
+
+  @@index([clientId])
+  @@index([preparedById])
+  @@index([estimatorId])
 }
 
 model BoqItem {
@@ -445,6 +457,8 @@ model ClientAssignment {
   updatedAt DateTime @updatedAt
   
   @@unique([clientId, userId])
+  @@index([userId])
+  @@index([clientId])
 }
 
 model QuotationAssignment {

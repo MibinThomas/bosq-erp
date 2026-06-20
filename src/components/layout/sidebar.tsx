@@ -101,14 +101,25 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
         return "Super Administrator"
       case "ADMIN":
         return "Administrator"
+      case "MANAGER":
       case "SALES_MANAGER":
-        return "Sales Manager"
+        return "Manager"
       case "SALES_EXECUTIVE":
         return "Interior Design Consultant"
+      case "DESIGN_CONSULTANT":
+        return "Design Consultant"
       case "ESTIMATOR":
         return "Cost Estimator"
+      case "ACCOUNTS":
+        return "Finance & Accounts"
+      case "PROCUREMENT":
+        return "Procurement"
+      case "PRODUCTION":
+        return "Production"
+      case "VIEWER":
+        return "Viewer"
       default:
-        return "Interior Design Consultant"
+        return role ? role.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "User"
     }
   }
 

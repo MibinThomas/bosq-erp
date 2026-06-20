@@ -197,7 +197,23 @@ export default function ProfilePage() {
               </div>
               <div className="space-y-2">
                 <Label>Role <span className="text-xs text-muted-foreground ml-2">(Cannot be changed)</span></Label>
-                <Input value={profile.role || ""} disabled className="bg-muted" />
+                <Input 
+                  value={
+                    profile.role === "SUPER_ADMIN" ? "Super Administrator" :
+                    profile.role === "ADMIN" ? "Administrator" :
+                    (profile.role === "MANAGER" || profile.role === "SALES_MANAGER") ? "Manager" :
+                    profile.role === "SALES_EXECUTIVE" ? "Interior Design Consultant" :
+                    profile.role === "DESIGN_CONSULTANT" ? "Design Consultant" :
+                    profile.role === "ESTIMATOR" ? "Cost Estimator" :
+                    profile.role === "ACCOUNTS" ? "Finance & Accounts" :
+                    profile.role === "PROCUREMENT" ? "Procurement" :
+                    profile.role === "PRODUCTION" ? "Production" :
+                    profile.role === "VIEWER" ? "Viewer" :
+                    profile.role ? profile.role.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "User"
+                  } 
+                  disabled 
+                  className="bg-muted" 
+                />
               </div>
 
               <div className="space-y-2">

@@ -90,7 +90,7 @@ export default function SettingsPage() {
   const [newUserPassword, setNewUserPassword] = useState("")
   const [newUserPhone, setNewUserPhone] = useState("")
   const [newUserDepartment, setNewUserDepartment] = useState("")
-  const [newUserRole, setNewUserRole] = useState("SALES_EXECUTIVE")
+  const [newUserRole, setNewUserRole] = useState("")
   
   const [showEditUserModal, setShowEditUserModal] = useState(false)
   const [editUserData, setEditUserData] = useState<{id: string, name: string, email: string, role: string, phone?: string, department?: string, password?: string, designation?: string, isActive?: boolean, image?: string} | null>(null)
@@ -365,8 +365,12 @@ export default function SettingsPage() {
   // Handle adding new user profile
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newUserName || !newUserEmail || !newUserPassword || !newUserRole || !newUserPhone) {
-      toast.error("Name, email, password, role, and contact number are required")
+    if (!newUserRole) {
+      toast.error("Please select a system role")
+      return
+    }
+    if (!newUserName || !newUserEmail || !newUserPassword || !newUserPhone) {
+      toast.error("Name, email, password, and contact number are required")
       return
     }
     setLoading(true)
@@ -993,17 +997,27 @@ export default function SettingsPage() {
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
                             usr.role === "SUPER_ADMIN" ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" :
                             usr.role === "ADMIN" ? "bg-red-500/10 text-red-400 border border-red-500/20" :
-                            usr.role === "SALES_MANAGER" ? "bg-orange-500/10 text-orange-400 border border-orange-500/20" :
+                            (usr.role === "SALES_MANAGER" || usr.role === "MANAGER") ? "bg-orange-500/10 text-orange-400 border border-orange-500/20" :
                             "bg-slate-500/15 text-slate-300 border border-slate-500/10"
                           }`}>
-                            {usr.role === "SUPER_ADMIN" ? "Super Admin" : usr.role === "SALES_EXECUTIVE" ? "Interior Design Consultant (IDC)" : usr.role}
+                            {usr.role === "SUPER_ADMIN" ? "Super Admin" :
+                             usr.role === "ADMIN" ? "Administrator" :
+                             (usr.role === "SALES_MANAGER" || usr.role === "MANAGER") ? "Manager" :
+                             usr.role === "SALES_EXECUTIVE" ? "Interior Design Consultant (IDC)" :
+                             usr.role === "DESIGN_CONSULTANT" ? "Design Consultant" :
+                             usr.role === "ESTIMATOR" ? "Cost Estimator" :
+                             usr.role === "ACCOUNTS" ? "Finance & Accounts" :
+                             usr.role === "PROCUREMENT" ? "Procurement" :
+                             usr.role === "PRODUCTION" ? "Production" :
+                             usr.role === "VIEWER" ? "Viewer" :
+                             usr.role ? usr.role.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "User"}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-slate-400">
                           {new Date(usr.createdAt).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {(userRole === "SUPER_ADMIN" || (usr.role !== "SUPER_ADMIN" && usr.role !== "ADMIN" && usr.role !== "SALES_MANAGER")) && (
+                          {(userRole === "SUPER_ADMIN" || (usr.role !== "SUPER_ADMIN" && usr.role !== "ADMIN" && usr.role !== "SALES_MANAGER" && usr.role !== "MANAGER")) && (
                             <Button 
                               variant="ghost" 
                               size="icon" 
@@ -1016,7 +1030,7 @@ export default function SettingsPage() {
                               <Pencil className="h-4 w-4" />
                             </Button>
                           )}
-                          {(userRole === "SUPER_ADMIN" || (usr.role !== "SUPER_ADMIN" && usr.role !== "ADMIN" && usr.role !== "SALES_MANAGER")) && (
+                          {(userRole === "SUPER_ADMIN" || (usr.role !== "SUPER_ADMIN" && usr.role !== "ADMIN" && usr.role !== "SALES_MANAGER" && usr.role !== "MANAGER")) && (
                             <Button 
                               variant="ghost" 
                               size="icon" 
@@ -1465,24 +1479,38 @@ export default function SettingsPage() {
                     value={newUserRole}
                     onChange={(e) => setNewUserRole(e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600"
+                    required
                   >
+                    <option value="" disabled>-- Select System Role --</option>
                     {dbRoles.length > 0 ? (
                       dbRoles.map((r: any) => {
-                        const isProtected = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(r.name)
+                        const isProtected = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(r.name)
                         if (isProtected && userRole !== "SUPER_ADMIN") return null
+                        
+                        let label = r.name.replace(/_/g, " ")
+                        if (r.name === "SALES_EXECUTIVE") label = "Interior Design Consultant (IDC)"
+                        else if (r.name === "DESIGN_CONSULTANT") label = "Design Consultant"
+                        else if (r.name === "ESTIMATOR") label = "Cost Estimator"
+                        else if (r.name === "ACCOUNTS") label = "Finance & Accounts"
+                        else if (r.name === "SUPER_ADMIN") label = "Super Administrator"
+                        else if (r.name === "ADMIN") label = "Administrator"
+                        else if (r.name === "MANAGER" || r.name === "SALES_MANAGER") label = "Manager"
+                        else label = label.replace(/\b\w/g, (c: string) => c.toUpperCase())
+
                         return (
                           <option key={r.id} value={r.name}>
-                            {r.name.replace(/_/g, " ")}
+                            {label}
                           </option>
                         )
                       })
                     ) : (
                       <>
                         <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
-                        <option value="ESTIMATOR">Estimator</option>
+                        <option value="DESIGN_CONSULTANT">Design Consultant</option>
+                        <option value="ESTIMATOR">Cost Estimator</option>
                         {userRole === "SUPER_ADMIN" && (
                           <>
-                            <option value="SALES_MANAGER">Sales Manager</option>
+                            <option value="MANAGER">Manager</option>
                             <option value="ADMIN">Administrator</option>
                             <option value="SUPER_ADMIN">Super Administrator</option>
                           </>
@@ -1599,27 +1627,39 @@ export default function SettingsPage() {
                   <select 
                     id="editRole"
                     value={editUserData.role}
-                    disabled={userRole !== "SUPER_ADMIN" && (editUserData.role === "SUPER_ADMIN" || editUserData.role === "ADMIN" || editUserData.role === "SALES_MANAGER")}
+                    disabled={userRole !== "SUPER_ADMIN" && (editUserData.role === "SUPER_ADMIN" || editUserData.role === "ADMIN" || editUserData.role === "SALES_MANAGER" || editUserData.role === "MANAGER")}
                     onChange={(e) => setEditUserData({...editUserData, role: e.target.value})}
                     className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {dbRoles.length > 0 ? (
                       dbRoles.map((r: any) => {
-                        const isProtected = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(r.name)
+                        const isProtected = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(r.name)
                         // Allow if current user is Super Admin OR the target user already has this role (to avoid locking them out of options)
                         if (isProtected && userRole !== "SUPER_ADMIN" && editUserData.role !== r.name) return null
+                        
+                        let label = r.name.replace(/_/g, " ")
+                        if (r.name === "SALES_EXECUTIVE") label = "Interior Design Consultant (IDC)"
+                        else if (r.name === "DESIGN_CONSULTANT") label = "Design Consultant"
+                        else if (r.name === "ESTIMATOR") label = "Cost Estimator"
+                        else if (r.name === "ACCOUNTS") label = "Finance & Accounts"
+                        else if (r.name === "SUPER_ADMIN") label = "Super Administrator"
+                        else if (r.name === "ADMIN") label = "Administrator"
+                        else if (r.name === "MANAGER" || r.name === "SALES_MANAGER") label = "Manager"
+                        else label = label.replace(/\b\w/g, (c: string) => c.toUpperCase())
+
                         return (
                           <option key={r.id} value={r.name}>
-                            {r.name.replace(/_/g, " ")}
+                            {label}
                           </option>
                         )
                       })
                     ) : (
                       <>
                         <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
-                        <option value="ESTIMATOR">Estimator</option>
-                        {(userRole === "SUPER_ADMIN" || editUserData.role === "SALES_MANAGER") && (
-                          <option value="SALES_MANAGER">Sales Manager</option>
+                        <option value="DESIGN_CONSULTANT">Design Consultant</option>
+                        <option value="ESTIMATOR">Cost Estimator</option>
+                        {(userRole === "SUPER_ADMIN" || editUserData.role === "SALES_MANAGER" || editUserData.role === "MANAGER") && (
+                          <option value="MANAGER">Manager</option>
                         )}
                         {(userRole === "SUPER_ADMIN" || editUserData.role === "ADMIN") && (
                           <option value="ADMIN">Administrator</option>

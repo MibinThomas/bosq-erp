@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -363,6 +363,40 @@ function NewQuotationForm() {
   const [isCropperOpen, setIsCropperOpen] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
 
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    const target = e.target as HTMLElement
+    if (!target.closest('.drag-handle')) {
+      e.preventDefault()
+      return
+    }
+    e.dataTransfer.effectAllowed = 'move'
+    setDraggedIndex(index)
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (draggedIndex !== null && draggedIndex !== index) {
+      move(draggedIndex, index)
+    }
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+  }
+
   // Utility to convert Base64 Data URL to a File
   const dataURLtoFile = (dataurl: string, filename: string): File => {
     const arr = dataurl.split(",")
@@ -605,7 +639,7 @@ function NewQuotationForm() {
     }
   }, [initialClientId, clients])
 
-  const { fields, append, remove, update, insert } = useFieldArray({
+  const { fields, append, remove, update, insert, move } = useFieldArray({
     name: "items",
     control: form.control,
   })
@@ -1500,7 +1534,57 @@ function NewQuotationForm() {
                 {fields.map((field, index) => {
                   const showDetails = !!(watchItems[index]?.productId || watchItems[index]?.priceSource === "manual")
                   return (
-                    <div key={field.id} className="group relative p-6 border rounded-xl bg-card hover:shadow-md transition-all duration-300 border-muted-foreground/10 hover:border-primary/20 space-y-4">
+                    <div
+                      key={field.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, index)}
+                      onDragOver={(e) => handleDragOver(e, index)}
+                      onDrop={(e) => handleDrop(e, index)}
+                      onDragEnd={handleDragEnd}
+                      className={cn(
+                        "group relative p-6 border rounded-xl bg-card hover:shadow-md transition-all duration-300 border-muted-foreground/10 hover:border-primary/20 space-y-4",
+                        dragOverIndex === index && "border-primary bg-primary/5 scale-[1.01]",
+                        draggedIndex === index && "opacity-40"
+                      )}
+                    >
+                      {/* Drag Handle & Mobile Ordering Fallback Row */}
+                      <div className="flex items-center gap-2 border-b border-dashed pb-3 mb-2">
+                        <div
+                          className="drag-handle flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-muted-foreground/10"
+                          title="Click and drag to reorder item"
+                        >
+                          <GripVertical className="h-3.5 w-3.5 shrink-0" />
+                          <span>☰ Drag</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-md hover:bg-muted/80"
+                            disabled={index === 0}
+                            onClick={() => move(index, index - 1)}
+                            title="Move Up"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-md hover:bg-muted/80"
+                            disabled={index === fields.length - 1}
+                            onClick={() => move(index, index + 1)}
+                            title="Move Down"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <span className="text-xs text-muted-foreground/80 font-medium ml-auto bg-muted/40 px-2 py-0.5 rounded-md border border-muted-foreground/5">
+                          Item #{index + 1}
+                        </span>
+                      </div>
+
                       {/* Catalog Autopopulate Select Row */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
                         <div className="flex items-center gap-2 text-xs font-semibold text-primary shrink-0">

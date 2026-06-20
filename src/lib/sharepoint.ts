@@ -178,6 +178,66 @@ export async function ensureFolderStructure(
   }
 }
 
+async function uploadFileChunked(
+  client: any,
+  siteId: string,
+  driveId: string,
+  itemPath: string,
+  buffer: Buffer
+) {
+  if (buffer.length <= 4 * 1024 * 1024) {
+    return await client
+      .api(`/sites/${siteId}/drives/${driveId}/root:${itemPath}:/content`)
+      .put(buffer)
+  }
+
+  const payload = {
+    item: {
+      "@microsoft.graph.conflictBehavior": "replace",
+      name: itemPath.split("/").pop()
+    }
+  }
+
+  const sessionResult = await client
+    .api(`/sites/${siteId}/drives/${driveId}/root:${itemPath}:/createUploadSession`)
+    .post(payload)
+
+  const uploadUrl = sessionResult.uploadUrl
+  if (!uploadUrl) {
+    throw new Error("Failed to create upload session: no uploadUrl returned")
+  }
+
+  const chunkSize = 320 * 1024
+  let offset = 0
+  const totalLength = buffer.length
+  let lastResult: any = null
+
+  while (offset < totalLength) {
+    const end = Math.min(offset + chunkSize, totalLength)
+    const chunk = buffer.subarray(offset, end)
+    const contentRange = `bytes ${offset}-${end - 1}/${totalLength}`
+
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Length": chunk.length.toString(),
+        "Content-Range": contentRange
+      },
+      body: chunk as any
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to upload chunk ${contentRange}: ${response.statusText} - ${errorText}`)
+    }
+
+    lastResult = await response.json()
+    offset = end
+  }
+
+  return lastResult
+}
+
 export async function uploadQuotationPdf(companyName: string, filenameBase: string, pdfBuffer: Buffer) {
   const { config, hasCreds } = await getSharePointConfig()
   const sanitizedCompany = sanitizeClientName(companyName)
@@ -210,9 +270,13 @@ export async function uploadQuotationPdf(companyName: string, filenameBase: stri
       ? `/Clients/${sanitizedCompany}/Quotations/${quotationGroupFolder}/${fileName}`
       : `/Clients/${sanitizedCompany}/Quotations/${fileName}`
     
-    const result = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:${path}:/content`)
-      .put(pdfBuffer)
+    const result = await uploadFileChunked(
+      client,
+      config.sharepoint_site_id,
+      resolvedDrive,
+      path,
+      pdfBuffer
+    )
 
     return result.webUrl
   } catch (error) {
@@ -253,9 +317,13 @@ export async function uploadBoqExcel(companyName: string, filenameBase: string, 
       ? `/Clients/${sanitizedCompany}/Quotations/${cleanGroupFolder}/${fileName}`
       : `/Clients/${sanitizedCompany}/Quotations/${fileName}`
     
-    const result = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:${path}:/content`)
-      .put(excelBuffer)
+    const result = await uploadFileChunked(
+      client,
+      config.sharepoint_site_id,
+      resolvedDrive,
+      path,
+      excelBuffer
+    )
 
     return result.webUrl
   } catch (error) {
@@ -300,8 +368,7 @@ export async function renameClientFolder(oldCompanyName: string, newCompanyName:
     await client
       .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:/Clients/${oldSanitized}`)
       .patch({
-        name: newSanitized,
-        "@microsoft.graph.conflictBehavior": "fail"
+        name: newSanitized
       })
 
     return true
@@ -458,9 +525,13 @@ export async function uploadClientDocument(companyName: string, filename: string
     const cleanFilename = filename.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
     const path = `/Clients/${sanitizedCompany}/Documents/${cleanFilename}`
     
-    const result = await client
-      .api(`/sites/${config.sharepoint_site_id}/drives/${resolvedDrive}/root:${path}:/content`)
-      .put(fileBuffer)
+    const result = await uploadFileChunked(
+      client,
+      config.sharepoint_site_id,
+      resolvedDrive,
+      path,
+      fileBuffer
+    )
 
     return {
       webUrl: result.webUrl,

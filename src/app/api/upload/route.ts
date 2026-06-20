@@ -42,7 +42,14 @@ export async function POST(request: Request) {
       folder = "signatures"
     }
 
-    const ext = file.name ? path.extname(file.name).toLowerCase() : ".jpg"
+    const mimeToExt: Record<string, string> = {
+      "image/jpeg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+      "image/gif": ".gif",
+      "image/svg+xml": ".svg"
+    }
+    const ext = mimeToExt[file.type] || ".jpg"
     const randomId = crypto.randomBytes(16).toString("hex")
     const filename = `upload-${Date.now()}-${randomId}${ext}`
 

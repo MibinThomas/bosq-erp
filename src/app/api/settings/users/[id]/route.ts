@@ -32,7 +32,7 @@ export async function PATCH(
     }
 
     // Admins cannot edit Super Admin, Admin, or Manager accounts
-    if ((targetUser.role === "SUPER_ADMIN" || targetUser.role === "ADMIN" || targetUser.role === "SALES_MANAGER") && userRole !== "SUPER_ADMIN") {
+    if ((targetUser.role === "SUPER_ADMIN" || targetUser.role === "ADMIN" || targetUser.role === "SALES_MANAGER" || targetUser.role === "MANAGER") && userRole !== "SUPER_ADMIN") {
       return NextResponse.json(
         { error: "Forbidden: Only Super Admin can modify admin or manager accounts" },
         { status: 403 }
@@ -44,11 +44,20 @@ export async function PATCH(
 
     // Enforce role assignment rules: Only Super Admin can assign or change Super Admin, Admin, or Manager roles
     if (role !== undefined && role !== targetUser.role) {
-      if ((role === "SUPER_ADMIN" || role === "ADMIN" || role === "SALES_MANAGER") && userRole !== "SUPER_ADMIN") {
+      if ((role === "SUPER_ADMIN" || role === "ADMIN" || role === "SALES_MANAGER" || role === "MANAGER") && userRole !== "SUPER_ADMIN") {
         return NextResponse.json(
           { error: "Forbidden: Only Super Admin can assign Super Admin, Admin, or Manager roles" },
           { status: 403 }
         )
+      }
+    }
+
+    if (role) {
+      const roleRecord = await prisma.role.findUnique({
+        where: { name: role }
+      })
+      if (!roleRecord) {
+        return NextResponse.json({ error: `The assigned role '${role}' does not exist in the database system roles.` }, { status: 400 })
       }
     }
 

@@ -233,15 +233,17 @@ export default function BoqBuilderPage() {
         item.unitCost = mat + lab + inst + trans + ovh
         item.totalCost = item.unitCost * q
         
-        const margin = parseFloat(item.marginPercentage) || 0
-        item.unitSellingPrice = item.unitCost * (1 + (margin / 100))
+        const margin = Math.min(99.99, parseFloat(item.marginPercentage) || 0)
+        item.unitSellingPrice = item.unitCost / (1 - (margin / 100))
         item.totalSellingPrice = item.unitSellingPrice * q
       } else {
         // If they manually edit unit selling price, reverse calculate margin %
         const unitSell = parseFloat(item.unitSellingPrice) || 0
         item.totalSellingPrice = unitSell * q
-        if (item.unitCost > 0) {
-          item.marginPercentage = ((unitSell / item.unitCost) - 1) * 100
+        if (unitSell > 0) {
+          item.marginPercentage = item.unitCost > 0 ? (1 - item.unitCost / unitSell) * 100 : 100
+        } else {
+          item.marginPercentage = 0
         }
       }
     }

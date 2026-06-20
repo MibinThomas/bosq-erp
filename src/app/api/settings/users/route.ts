@@ -43,12 +43,19 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { name, email, password, role, phone, department } = body
 
-    if ((role === "SUPER_ADMIN" || role === "ADMIN" || role === "SALES_MANAGER") && creatorRole !== "SUPER_ADMIN") {
+    if ((role === "SUPER_ADMIN" || role === "ADMIN" || role === "SALES_MANAGER" || role === "MANAGER") && creatorRole !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden: Only Super Admin can assign Super Admin, Admin, or Manager roles" }, { status: 403 })
     }
 
     if (!name || !email || !password || !role || !phone) {
       return NextResponse.json({ error: "Name, email, password, role, and contact number are required" }, { status: 400 })
+    }
+
+    const roleRecord = await prisma.role.findUnique({
+      where: { name: role }
+    })
+    if (!roleRecord) {
+      return NextResponse.json({ error: `The assigned role '${role}' does not exist in the database system roles.` }, { status: 400 })
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -122,7 +129,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    if ((user.role === "SUPER_ADMIN" || user.role === "ADMIN" || user.role === "SALES_MANAGER") && deleterRole !== "SUPER_ADMIN") {
+    if ((user.role === "SUPER_ADMIN" || user.role === "ADMIN" || user.role === "SALES_MANAGER" || user.role === "MANAGER") && deleterRole !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden: Only Super Admin can delete admin or manager accounts" }, { status: 403 })
     }
 

@@ -61,6 +61,23 @@ export default function AccessControlPage() {
   const currentUserRole = (session?.user as any)?.role || ""
   const currentUserId = (session?.user as any)?.id || ""
 
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case "SUPER_ADMIN": return "Super Admin"
+      case "ADMIN": return "Administrator"
+      case "MANAGER":
+      case "SALES_MANAGER": return "Manager"
+      case "SALES_EXECUTIVE": return "Interior Design Consultant (IDC)"
+      case "DESIGN_CONSULTANT": return "Design Consultant"
+      case "ESTIMATOR": return "Cost Estimator"
+      case "ACCOUNTS": return "Finance & Accounts"
+      case "PROCUREMENT": return "Procurement"
+      case "PRODUCTION": return "Production"
+      case "VIEWER": return "Viewer"
+      default: return role ? role.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "User"
+    }
+  }
+
   const [activeTab, setActiveTab] = useState<"dashboard" | "roles" | "users" | "requests" | "logs">("dashboard")
   const [loading, setLoading] = useState(true)
   
@@ -808,7 +825,7 @@ export default function AccessControlPage() {
                 <div key={user.id} className="py-3 flex items-center justify-between text-xs">
                   <div className="min-w-0 pr-2">
                     <span className="block font-semibold text-zinc-800 dark:text-zinc-200 truncate">{user.name || user.email}</span>
-                    <span className="block text-[10px] text-zinc-400 truncate mt-0.5">{user.role} | {user.department || "No Dept"}</span>
+                    <span className="block text-[10px] text-zinc-400 truncate mt-0.5">{getRoleDisplayName(user.role)} | {user.department || "No Dept"}</span>
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                     user.status === "Active" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
@@ -977,7 +994,7 @@ export default function AccessControlPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <span className="block truncate font-bold text-xs">{u.name || u.email}</span>
-                    <span className="block text-[10px] text-zinc-400 truncate mt-0.5">{u.role}</span>
+                    <span className="block text-[10px] text-zinc-400 truncate mt-0.5">{getRoleDisplayName(u.role)}</span>
                   </div>
                   <span className={`ml-2 px-1.5 py-0.5 rounded text-[8px] font-bold ${
                     u.status === "Active" ? "bg-green-50 text-green-700 border border-green-200" :

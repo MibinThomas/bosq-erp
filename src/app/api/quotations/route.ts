@@ -480,11 +480,9 @@ export async function POST(request: Request) {
     let grandTotal = 0
 
     if (resolvedVatMode === "INCLUDING") {
-      // Exclude Tax
-      vatAmount = 0
+      vatAmount = (taxableAmount * 0.05) / 1.05
       grandTotal = taxableAmount
     } else {
-      // Include Tax
       vatAmount = taxableAmount * 0.05
       grandTotal = taxableAmount + vatAmount
     }
@@ -610,8 +608,9 @@ export async function POST(request: Request) {
         salesAgentName: salesAgentName || null,
         salesAgentContactNumber: salesAgentContactNumber || null,
         items: {
-          create: quotationItemsToCreate.map((item: any) => ({
+          create: quotationItemsToCreate.map((item: any, idx: number) => ({
             itemNo: item.itemNo,
+            sortOrder: idx + 1,
             productId: item.productId,
             description: item.description,
             specifications: item.specifications,

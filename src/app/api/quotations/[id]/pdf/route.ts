@@ -35,7 +35,10 @@ export async function GET(
         client: true,
         preparedBy: true,
         items: {
-          orderBy: { itemNo: "asc" },
+          orderBy: [
+            { sortOrder: "asc" },
+            { itemNo: "asc" }
+          ],
           include: {
             product: {
               include: {

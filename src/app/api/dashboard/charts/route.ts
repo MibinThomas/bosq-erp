@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "../../auth/[...nextauth]/route"
-import { format, parseISO, isSameDay } from "date-fns"
+import { format } from "date-fns"
 
 export async function GET(request: Request) {
   try {
@@ -18,21 +18,80 @@ export async function GET(request: Request) {
     const clientIdFilter = url.searchParams.get("clientId")
     const clientTypeFilter = url.searchParams.get("clientType")
     const statusFilter = url.searchParams.get("status")
-
     const projectNameFilter = url.searchParams.get("projectName")
     const minVal = url.searchParams.get("minVal")
     const maxVal = url.searchParams.get("maxVal")
 
-    const userRole = (session.user as any).role || "SALES_EXECUTIVE"
     const currentUserId = (session.user as any).id
 
-    let whereClause: any = {}
+    // Fetch user details to determine role and department
+    const dbSessionUser = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      include: { permissionOverrides: { where: { module: "DASHBOARD" } } }
+    })
 
-    // Role-based filtering
-    if (userRole === "SALES_EXECUTIVE") {
-      whereClause.preparedById = currentUserId
-    } else if (userIdFilter && userIdFilter !== "all") {
+    if (!dbSessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userRole = dbSessionUser.role
+
+    // Resolve ownership rule
+    let ownershipRule = "ALL"
+    if (userRole !== "SUPER_ADMIN") {
+      const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
+      if (override?.ownership) {
+        ownershipRule = override.ownership
+      } else {
+        const roleObj = await prisma.role.findFirst({
+          where: { name: userRole },
+          include: { permissions: { where: { module: "DASHBOARD" } } }
+        })
+        const rolePerm = roleObj?.permissions[0]
+        if (rolePerm?.ownership) {
+          ownershipRule = rolePerm.ownership
+        }
+      }
+    }
+
+    // Locate department users if rule is DEPARTMENT
+    let departmentUserIds: string[] = []
+    if (ownershipRule === "DEPARTMENT") {
+      const deptUsers = await prisma.user.findMany({
+        where: { department: dbSessionUser.department || "N/A", deletedAt: null },
+        select: { id: true }
+      })
+      departmentUserIds = deptUsers.map(u => u.id)
+    }
+
+    let whereClause: any = {
+      deletedAt: null
+    }
+
+    // Apply role-based dashboard filters
+    if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+      whereClause.OR = [
+        { preparedById: currentUserId },
+        { salesAgentId: currentUserId },
+        { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
+        { assignments: { some: { userId: currentUserId } } }
+      ]
+    } else if (ownershipRule === "DEPARTMENT") {
+      whereClause.OR = [
+        { preparedById: { in: departmentUserIds } },
+        { salesAgentId: { in: departmentUserIds } },
+        { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
+        { assignments: { some: { userId: { in: departmentUserIds } } } }
+      ]
+    } else if (ownershipRule === "NONE") {
+      whereClause.id = "none"
+    }
+
+    // Role-based filtering overrides
+    const isExcludedFromOwnershipLimit = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
+    if (isExcludedFromOwnershipLimit && userIdFilter && userIdFilter !== "all") {
       whereClause.preparedById = userIdFilter
+      delete whereClause.OR
     }
 
     // Date filtering
@@ -55,7 +114,7 @@ export async function GET(request: Request) {
     if (statusFilter && statusFilter !== "all") whereClause.status = statusFilter
     
     if (clientTypeFilter && clientTypeFilter !== "all") {
-      whereClause.client = { clientType: clientTypeFilter }
+      whereClause.client = { ...whereClause.client, clientType: clientTypeFilter }
     }
 
     if (projectNameFilter) {

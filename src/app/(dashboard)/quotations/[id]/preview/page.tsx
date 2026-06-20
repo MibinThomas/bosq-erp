@@ -719,11 +719,17 @@ export default function QuotationHtmlPreviewPage({
             )}
 
             {/* 6. VAT */}
-            {quotation.vatMode !== "INCLUDING" && (
+            {quotation.vatMode !== "INCLUDING" ? (
               <div className="flex items-end w-full text-slate-600 text-[11px]">
                 <span className="shrink-0">
                   VAT (5%)
                 </span>
+                <span className="flex-1 border-b border-dotted border-slate-300 mx-2 mb-[3px]"></span>
+                <span className="font-mono shrink-0">AED {formatCurrency(quotation.vatAmount)}</span>
+              </div>
+            ) : (
+              <div className="flex items-end w-full text-slate-600 text-[11px] italic">
+                <span className="shrink-0">Includes VAT (5%)</span>
                 <span className="flex-1 border-b border-dotted border-slate-300 mx-2 mb-[3px]"></span>
                 <span className="font-mono shrink-0">AED {formatCurrency(quotation.vatAmount)}</span>
               </div>

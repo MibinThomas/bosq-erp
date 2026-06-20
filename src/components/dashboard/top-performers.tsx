@@ -13,6 +13,8 @@ interface Consultant {
   role: string
   count: number
   value: number
+  clientCount?: number
+  conversionRate?: number
 }
 
 interface Client {
@@ -105,7 +107,13 @@ export function DashboardTopPerformers({ topConsultants = [], topClients = [], l
                       {/* Name and Relative performance bar */}
                       <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex justify-between items-baseline gap-2">
-                          <span className="font-bold text-sm text-foreground truncate">{consultant.name}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-bold text-sm text-foreground truncate">{consultant.name}</span>
+                            <span className="text-[10px] text-muted-foreground mt-0.5">
+                              {consultant.clientCount !== undefined ? `${consultant.clientCount} client(s)` : "0 client(s)"}
+                              {consultant.conversionRate !== undefined ? ` • ${consultant.conversionRate}% win rate` : " • 0% win rate"}
+                            </span>
+                          </div>
                           <span className="text-xs text-muted-foreground shrink-0">{consultant.count} quote(s)</span>
                         </div>
                         {/* Custom progress bar */}

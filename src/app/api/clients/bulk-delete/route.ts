@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     const role = (session?.user as any)?.role
-    if (!session || (role !== "ADMIN" && role !== "SALES_MANAGER" && role !== "SUPER_ADMIN")) {
+    if (!session || (role !== "ADMIN" && role !== "SALES_MANAGER" && role !== "SUPER_ADMIN" && role !== "MANAGER")) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
 
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Client IDs array is required" }, { status: 400 })
     }
 
-    // Identify which clients can be deleted (no quotations attached)
+    // Identify which clients can be deleted
     const clients = await prisma.client.findMany({
       where: { id: { in: ids } },
       include: {
@@ -28,11 +28,31 @@ export async function POST(request: Request) {
       }
     })
 
-    const deletableIds = clients
-      .filter((client) => client._count.quotations === 0)
-      .map((client) => client.id)
+    let deletableIds: string[] = []
+    let undeletableCount = 0
 
-    const undeletableCount = clients.length - deletableIds.length
+    if (role === "SUPER_ADMIN") {
+      // Cascade delete quotations, revisions list, and BOQs first
+      await prisma.quotation.updateMany({
+        where: { clientId: { in: ids } },
+        data: { parentId: null }
+      })
+      await prisma.quotation.deleteMany({
+        where: { clientId: { in: ids } }
+      })
+      await prisma.boq.deleteMany({
+        where: { clientId: { in: ids } }
+      })
+      await prisma.clientAssignment.deleteMany({
+        where: { clientId: { in: ids } }
+      })
+      deletableIds = ids
+    } else {
+      deletableIds = clients
+        .filter((client) => client._count.quotations === 0)
+        .map((client) => client.id)
+      undeletableCount = clients.length - deletableIds.length
+    }
 
     if (deletableIds.length === 0) {
        return NextResponse.json(
@@ -52,7 +72,9 @@ export async function POST(request: Request) {
         action: "DELETED_CLIENTS",
         entityType: "CLIENT",
         entityId: "BULK",
-        details: `Bulk deleted ${count} clients.`,
+        details: role === "SUPER_ADMIN" 
+          ? `Bulk deleted ${count} clients, their quotations, and BOQs (Super Admin override).`
+          : `Bulk deleted ${count} clients.`,
       },
     })
 

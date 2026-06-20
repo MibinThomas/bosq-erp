@@ -36,7 +36,10 @@ export async function GET(
       include: {
         client: true,
         items: {
-          orderBy: { itemNo: "asc" },
+          orderBy: [
+            { sortOrder: "asc" },
+            { itemNo: "asc" }
+          ],
           include: { 
             product: {
               include: { category: true }
@@ -390,6 +393,7 @@ export async function PUT(
 
         return {
           itemNo: idx + 1,
+          sortOrder: idx + 1,
           productId: item.productId || null,
           description: item.description,
           specifications: item.specifications || "",
@@ -437,11 +441,9 @@ export async function PUT(
       let grandTotal = 0
 
       if (resolvedVatMode === "INCLUDING") {
-        // Exclude Tax
-        vatAmount = 0
+        vatAmount = (taxableAmount * 0.05) / 1.05
         grandTotal = taxableAmount
       } else {
-        // Include Tax
         vatAmount = taxableAmount * 0.05
         grandTotal = taxableAmount + vatAmount
       }
@@ -619,6 +621,7 @@ export async function PUT(
             items: {
               create: quotationItemsToCreate.map((item: any) => ({
                 itemNo: item.itemNo,
+                sortOrder: item.sortOrder,
                 productId: item.productId,
                 description: item.description,
                 specifications: item.specifications,
@@ -734,6 +737,7 @@ export async function PUT(
 
         return {
           itemNo: idx + 1,
+          sortOrder: idx + 1,
           productId: item.productId || null,
           description: item.description,
           specifications: item.specifications || "",
@@ -781,11 +785,9 @@ export async function PUT(
       let grandTotal = 0
 
       if (resolvedVatMode === "INCLUDING") {
-        // Exclude Tax
-        vatAmount = 0
+        vatAmount = (taxableAmount * 0.05) / 1.05
         grandTotal = taxableAmount
       } else {
-        // Include Tax
         vatAmount = taxableAmount * 0.05
         grandTotal = taxableAmount + vatAmount
       }
@@ -928,6 +930,7 @@ export async function PUT(
             items: {
               create: quotationItemsToCreate.map((item: any) => ({
                 itemNo: item.itemNo,
+                sortOrder: item.sortOrder,
                 productId: item.productId,
                 description: item.description,
                 specifications: item.specifications,

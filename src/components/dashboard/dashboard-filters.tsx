@@ -29,7 +29,7 @@ interface DashboardFiltersProps {
 export function DashboardFilters({ filters, setFilters, onExport }: DashboardFiltersProps) {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER"
 
   const [users, setUsers] = useState<any[]>([])
 
