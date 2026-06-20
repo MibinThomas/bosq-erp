@@ -76,11 +76,11 @@ export default function LoginPage() {
 
             <CardHeader className="pb-4 pt-6 text-center space-y-3 relative z-10">
               <div className="flex flex-col items-center space-y-2.5">
-                <div className="p-3 bg-white/[0.03] backdrop-blur-md rounded-2xl border border-white/[0.08] shadow-inner w-16 h-16 flex items-center justify-center">
+                <div className="p-2.5 bg-white/[0.02] backdrop-blur-md rounded-2xl border border-white/[0.06] shadow-inner flex items-center justify-center">
                   <img 
-                    src="/assets/logo/bosq logo.jpg" 
+                    src="/assets/logo/bosq-login.jpg" 
                     alt="BOSQ Logo" 
-                    className="h-10 object-contain filter brightness-110 contrast-105 select-none rounded-sm"
+                    className="h-12 w-auto object-contain select-none rounded-md"
                   />
                 </div>
                 <div>
