@@ -36,6 +36,16 @@ A premium, cloud-native Enterprise Resource Planning (ERP) web application tailo
 - **Lightbox Gallery**: Fullscreen image zoom overlay with multi-image thumbnail slider navigation.
 - **Persistent Actions**: Clean fixed footer containing quantity adjustments and brand orange "Add to Quote" CTA button.
 
+### 6. Design Consultant Dashboard (Restricted Views & Onboarding)
+- **Role-Based Isolation**: Users with the `DESIGN_CONSULTANT` role are strictly limited to viewing data related to clients assigned to them.
+- **Tailored KPI Dashboard**: Displays metrics for Assigned Clients, Active/Draft/Approved Quotations, and Pending BOQs.
+- **BOQ Feeds**: Displays recent BOQ updates including billing/selling totals and progress states.
+- **Custom Onboarding State**: Shows a clean message advising the user to contact their administrator to assign clients, hiding creation shortcuts when no clients are assigned.
+
+### 7. Super Admin Client Filtering Options
+- **Multi-criteria Selection**: Super Admins can filter clients on the dashboard by client type/category (Direct, Interior, Dealer, Online) and by username.
+- **Dynamic User Resolution**: The usernames filter list is fetched dynamically from all active system users, matching clients based on either primary creator or assignment records.
+
 ---
 
 ## Technology Stack

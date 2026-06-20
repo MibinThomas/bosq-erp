@@ -12,6 +12,9 @@ export async function GET(request: Request) {
     }
 
     const userId = (session.user as any).id
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    const userRole = user?.role || "SALES_EXECUTIVE"
+
     const profile = await getPermissionsProfile(userId)
     if (!profile) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
@@ -37,73 +40,102 @@ export async function GET(request: Request) {
 
     let qWhere: any = {}
     let cWhere: any = {}
+    let boqWhere: any = {}
 
-    // Enforce Quotations Ownership
-    if (qOwnershipRule === "OWN") {
-      qWhere.OR = [
-        { preparedById: userId },
-        { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: userId } } }
-      ]
-    } else if (qOwnershipRule === "ASSIGNED") {
-      qWhere.OR = [
-        { preparedById: userId },
-        { salesAgentId: userId },
-        { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: userId } } }
-      ]
-    } else if (qOwnershipRule === "DEPARTMENT") {
-      const user = await prisma.user.findUnique({ where: { id: userId } })
-      if (user?.department) {
-        qWhere.OR = [
-          { preparedBy: { department: user.department } },
-          { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
-          { assignments: { some: { user: { department: user.department } } } }
-        ]
-      } else {
+    if (userRole === "DESIGN_CONSULTANT") {
+      cWhere = {
+        assignments: {
+          some: {
+            userId: userId
+          }
+        }
+      }
+      qWhere = {
+        client: {
+          assignments: {
+            some: {
+              userId: userId
+            }
+          }
+        }
+      }
+      boqWhere = {
+        client: {
+          assignments: {
+            some: {
+              userId: userId
+            }
+          }
+        }
+      }
+    } else {
+      // Enforce Quotations Ownership
+      if (qOwnershipRule === "OWN") {
         qWhere.OR = [
           { preparedById: userId },
           { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
           { assignments: { some: { userId: userId } } }
         ]
-      }
-    }
-
-    // Enforce Clients Ownership
-    if (cOwnershipRule === "OWN" || cOwnershipRule === "ASSIGNED") {
-      cWhere.OR = [
-        { salespersonId: userId },
-        { assignments: { some: { userId: userId } } }
-      ]
-    } else if (cOwnershipRule === "DEPARTMENT") {
-      const user = await prisma.user.findUnique({ where: { id: userId } })
-      if (user?.department) {
-        cWhere.OR = [
-          { salesperson: { department: user.department } },
-          { assignments: { some: { user: { department: user.department } } } }
+      } else if (qOwnershipRule === "ASSIGNED") {
+        qWhere.OR = [
+          { preparedById: userId },
+          { salesAgentId: userId },
+          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: userId } } }
         ]
-      } else {
+      } else if (qOwnershipRule === "DEPARTMENT") {
+        if (user?.department) {
+          qWhere.OR = [
+            { preparedBy: { department: user.department } },
+            { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
+            { assignments: { some: { user: { department: user.department } } } }
+          ]
+        } else {
+          qWhere.OR = [
+            { preparedById: userId },
+            { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
+            { assignments: { some: { userId: userId } } }
+          ]
+        }
+      }
+
+      // Enforce Clients Ownership
+      if (cOwnershipRule === "OWN" || cOwnershipRule === "ASSIGNED") {
         cWhere.OR = [
           { salespersonId: userId },
           { assignments: { some: { userId: userId } } }
         ]
+      } else if (cOwnershipRule === "DEPARTMENT") {
+        if (user?.department) {
+          cWhere.OR = [
+            { salesperson: { department: user.department } },
+            { assignments: { some: { user: { department: user.department } } } }
+          ]
+        } else {
+          cWhere.OR = [
+            { salespersonId: userId },
+            { assignments: { some: { userId: userId } } }
+          ]
+        }
       }
     }
-    // End of ownership logic
 
     // Apply Filters
     if (startDate || endDate) {
       qWhere.createdAt = {}
       cWhere.createdAt = {}
+      boqWhere.createdAt = {}
       if (startDate && startDate !== "null") {
         qWhere.createdAt.gte = new Date(startDate)
         cWhere.createdAt.gte = new Date(startDate)
+        boqWhere.createdAt.gte = new Date(startDate)
       }
       if (endDate && endDate !== "null") {
         const end = new Date(endDate)
         end.setHours(23, 59, 59, 999)
         qWhere.createdAt.lte = end
         cWhere.createdAt.lte = end
+        boqWhere.createdAt.lte = end
       }
     }
 
@@ -116,8 +148,9 @@ export async function GET(request: Request) {
     }
 
     if (clientTypeFilter && clientTypeFilter !== "all") {
-      qWhere.client = { clientType: clientTypeFilter }
+      qWhere.client = { ...qWhere.client, clientType: clientTypeFilter }
       cWhere.clientType = clientTypeFilter
+      boqWhere.client = { ...boqWhere.client, clientType: clientTypeFilter }
     }
 
     if (projectNameFilter) {
@@ -130,24 +163,35 @@ export async function GET(request: Request) {
       if (maxVal) qWhere.subtotal.lte = parseFloat(maxVal)
     }
 
-    const quotations = await prisma.quotation.findMany({
-      where: qWhere,
-      orderBy: { updatedAt: "desc" },
-      take: 20, // Limited to 20 for overview
-      include: {
-        client: {
-          select: { companyName: true }
+    const [quotations, clients, boqs] = await Promise.all([
+      prisma.quotation.findMany({
+        where: qWhere,
+        orderBy: { updatedAt: "desc" },
+        take: 20, // Limited to 20 for overview
+        include: {
+          client: {
+            select: { companyName: true }
+          }
         }
-      }
-    })
+      }),
+      prisma.client.findMany({
+        where: cWhere,
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+      }),
+      prisma.boq.findMany({
+        where: { ...boqWhere, status: { in: ["DRAFT", "SENT_TO_ESTIMATOR", "COSTING_COMPLETED"] } },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+        include: {
+          client: {
+            select: { companyName: true }
+          }
+        }
+      })
+    ])
 
-    const clients = await prisma.client.findMany({
-      where: cWhere,
-      orderBy: { updatedAt: "desc" },
-      take: 20,
-    })
-
-    return NextResponse.json({ quotations, clients })
+    return NextResponse.json({ quotations, clients, boqs })
   } catch (error) {
     console.error("Consultant Overview API Error:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })

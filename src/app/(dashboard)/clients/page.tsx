@@ -44,8 +44,10 @@ interface Client {
   sharepointFolder: string | null
   notes: string | null
   status: string
+  salespersonId?: string | null
   assignments?: {
     isPrimary: boolean
+    userId: string
     user: { name: string | null }
   }[]
 }
@@ -57,6 +59,7 @@ export default function ClientsPage() {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN"
+  const isSuperAdmin = userRole === "SUPER_ADMIN"
 
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
@@ -69,6 +72,9 @@ export default function ClientsPage() {
   const [deleting, setDeleting] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>("All")
   const [consultantFilter, setConsultantFilter] = useState<string>("All")
+  const [categoryFilter, setCategoryFilter] = useState<string>("All")
+  const [usernameFilter, setUsernameFilter] = useState<string>("All")
+  const [users, setUsers] = useState<any[]>([])
 
   async function fetchClients() {
     try {
@@ -88,6 +94,22 @@ export default function ClientsPage() {
   useEffect(() => {
     fetchClients()
   }, [])
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      fetch("/api/settings/users")
+        .then(res => {
+          if (res.ok) return res.json()
+          throw new Error("Failed to fetch users")
+        })
+        .then(data => {
+          if (Array.isArray(data)) {
+            setUsers(data)
+          }
+        })
+        .catch(err => console.error("Error fetching users for filter:", err))
+    }
+  }, [isSuperAdmin])
 
   async function handleBulkDelete() {
     if (selectedIds.length === 0) return
@@ -164,10 +186,23 @@ export default function ClientsPage() {
       return false
     }
 
-    if (consultantFilter !== "All") {
-      const primaryAssignment = client.assignments?.find(a => a.isPrimary)
-      if (primaryAssignment?.user.name !== consultantFilter) {
+    if (isSuperAdmin) {
+      if (categoryFilter !== "All" && client.clientType !== categoryFilter) {
         return false
+      }
+      if (usernameFilter !== "All") {
+        const matchesSalesperson = client.salespersonId === usernameFilter
+        const matchesAssignment = client.assignments?.some(a => a.userId === usernameFilter)
+        if (!matchesSalesperson && !matchesAssignment) {
+          return false
+        }
+      }
+    } else {
+      if (consultantFilter !== "All") {
+        const primaryAssignment = client.assignments?.find(a => a.isPrimary)
+        if (primaryAssignment?.user.name !== consultantFilter) {
+          return false
+        }
       }
     }
 
@@ -181,6 +216,8 @@ export default function ClientsPage() {
   })
 
   const uniqueConsultants = Array.from(new Set(clients.flatMap(c => c.assignments?.filter(a => a.isPrimary).map(a => a.user.name) || []))).filter(Boolean) as string[]
+  const standardCategories = ["Direct", "Interior", "Dealer", "Online"]
+  const allCategories = Array.from(new Set([...standardCategories, ...clients.map(c => c.clientType).filter(Boolean)])) as string[]
 
   return (
     <div className="space-y-6">
@@ -243,21 +280,62 @@ export default function ClientsPage() {
           />
         </div>
         
-        {isManagerOrAdmin && (
-          <div className="w-full sm:w-auto">
-            <Select value={consultantFilter} onValueChange={(val) => setConsultantFilter(val || "All")}>
-              <SelectTrigger className="w-full sm:w-[220px]">
-                <SelectValue placeholder="Filter by Consultant" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All Consultants</SelectItem>
-                {uniqueConsultants.map(c => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          {isSuperAdmin ? (
+            <>
+              <div className="w-full sm:w-[200px]">
+                <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val || "All")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Categories</SelectItem>
+                    {allCategories.map(cat => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat === "Direct" ? "Direct Client" :
+                         cat === "Interior" ? "Interior Designer" :
+                         cat === "Dealer" ? "Dealer" :
+                         cat === "Online" ? "Online / Ecommerce" : cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="w-full sm:w-[220px]">
+                <Select value={usernameFilter} onValueChange={(val) => setUsernameFilter(val || "All")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by Username" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[250px]">
+                    <SelectItem value="All">All Usernames</SelectItem>
+                    {users.map(u => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name || u.email} ({u.role.replace(/_/g, " ")})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          ) : (
+            isManagerOrAdmin && (
+              <div className="w-full sm:w-[220px]">
+                <Select value={consultantFilter} onValueChange={(val) => setConsultantFilter(val || "All")}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by Consultant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Consultants</SelectItem>
+                    {uniqueConsultants.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )
+          )}
+        </div>
       </div>
 
       {isManagerOrAdmin && (

@@ -12,6 +12,9 @@ export async function GET(request: Request) {
     }
 
     const userId = (session.user as any).id
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    const userRole = user?.role || "SALES_EXECUTIVE"
+
     const profile = await getPermissionsProfile(userId)
     if (!profile) return NextResponse.json({ error: "Access denied" }, { status: 403 })
 
@@ -32,34 +35,45 @@ export async function GET(request: Request) {
 
     let qWhere: any = {}
 
-    // Enforce Quotations Ownership
-    if (qOwnershipRule === "OWN") {
-      qWhere.OR = [
-        { preparedById: userId },
-        { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: userId } } }
-      ]
-    } else if (qOwnershipRule === "ASSIGNED") {
-      qWhere.OR = [
-        { preparedById: userId },
-        { salesAgentId: userId },
-        { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: userId } } }
-      ]
-    } else if (qOwnershipRule === "DEPARTMENT") {
-      const user = await prisma.user.findUnique({ where: { id: userId } })
-      if (user?.department) {
-        qWhere.OR = [
-          { preparedBy: { department: user.department } },
-          { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
-          { assignments: { some: { user: { department: user.department } } } }
-        ]
-      } else {
+    if (userRole === "DESIGN_CONSULTANT") {
+      qWhere = {
+        client: {
+          assignments: {
+            some: {
+              userId: userId
+            }
+          }
+        }
+      }
+    } else {
+      // Enforce Quotations Ownership
+      if (qOwnershipRule === "OWN") {
         qWhere.OR = [
           { preparedById: userId },
           { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
           { assignments: { some: { userId: userId } } }
         ]
+      } else if (qOwnershipRule === "ASSIGNED") {
+        qWhere.OR = [
+          { preparedById: userId },
+          { salesAgentId: userId },
+          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: userId } } }
+        ]
+      } else if (qOwnershipRule === "DEPARTMENT") {
+        if (user?.department) {
+          qWhere.OR = [
+            { preparedBy: { department: user.department } },
+            { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
+            { assignments: { some: { user: { department: user.department } } } }
+          ]
+        } else {
+          qWhere.OR = [
+            { preparedById: userId },
+            { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
+            { assignments: { some: { userId: userId } } }
+          ]
+        }
       }
     }
 
@@ -85,7 +99,7 @@ export async function GET(request: Request) {
     }
 
     if (clientTypeFilter && clientTypeFilter !== "all") {
-      qWhere.client = { clientType: clientTypeFilter }
+      qWhere.client = { ...qWhere.client, clientType: clientTypeFilter }
     }
 
     if (projectNameFilter) {
