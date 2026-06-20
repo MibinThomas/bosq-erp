@@ -24,7 +24,10 @@ import {
   EyeOff,
   Pencil,
   Tag,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle
 } from "lucide-react"
 
 // Types matching system models
@@ -73,6 +76,8 @@ export default function SettingsPage() {
   const [siteId, setSiteId] = useState("")
   const [driveId, setDriveId] = useState("")
   const [showSecret, setShowSecret] = useState(false)
+  const [testingConnection, setTestingConnection] = useState(false)
+  const [testResult, setTestResult] = useState<any>(null)
 
   // 2. Users Tab State
   const [users, setUsers] = useState<SystemUser[]>([])
@@ -226,6 +231,44 @@ export default function SettingsPage() {
       }
     } catch (err) {
       console.error(err)
+    }
+  }
+
+  const handleTestConnection = async () => {
+    if (!tenantId || !clientId || !clientSecret || !siteId) {
+      toast.error("Please fill in Tenant ID, Client ID, Client Secret, and Site ID before testing.")
+      return
+    }
+    setTestingConnection(true)
+    setTestResult(null)
+    try {
+      const res = await fetch("/api/settings/test-sharepoint", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantId,
+          clientId,
+          clientSecret,
+          siteId,
+          driveId
+        })
+      })
+      const data = await res.json()
+      setTestResult(data)
+      if (data.success) {
+        toast.success("SharePoint connection test succeeded!")
+      } else {
+        toast.error("SharePoint connection test failed.")
+      }
+    } catch (err: any) {
+      console.error(err)
+      setTestResult({
+        success: false,
+        error: err.message || "Failed to contact diagnostic API endpoint."
+      })
+      toast.error("SharePoint connection test failed.")
+    } finally {
+      setTestingConnection(false)
     }
   }
 
@@ -1040,7 +1083,76 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
-                <div className="pt-4 border-t border-slate-800 flex justify-end">
+
+                {testingConnection && (
+                  <div className="p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-3">
+                    <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
+                    <span className="text-sm text-slate-300">Testing connection to SharePoint & resolving document libraries...</span>
+                  </div>
+                )}
+
+                {testResult && (
+                  <div className={`p-4 rounded-lg border text-sm ${testResult.success ? "bg-emerald-950/20 border-emerald-800/60 text-emerald-300" : "bg-red-950/20 border-red-800/60 text-red-300"} space-y-3`}>
+                    <div className="flex items-start gap-2.5">
+                      {testResult.success ? (
+                        <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-slate-100">
+                          {testResult.success ? "Connection Test Succeeded" : "Connection Test Failed"}
+                        </h4>
+                        <p className="text-xs text-slate-300 mt-1">{testResult.message || testResult.error}</p>
+                      </div>
+                    </div>
+
+                    {!testResult.success && testResult.isSecretId && (
+                      <div className="p-3 rounded bg-red-950/40 border border-red-900/60 flex items-start gap-2 text-xs text-red-200">
+                        <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                        <div>
+                          <strong>Azure Client Secret mismatch detected:</strong> The Client Secret you entered matches a 36-character UUID format (Secret ID). In the Azure Portal, you must copy the <strong>Value</strong> of the client secret (which is a longer random string) rather than the Secret ID. Please generate a new secret in Azure App Registrations and copy its <strong>Value</strong>.
+                        </div>
+                      </div>
+                    )}
+
+                    {testResult.success && testResult.drives && (
+                      <div className="space-y-2 pt-2 border-t border-slate-800/60">
+                        <div className="text-xs font-semibold text-slate-400">Available Site Document Libraries:</div>
+                        <div className="max-h-36 overflow-y-auto space-y-1.5 pr-2 custom-scrollbar text-xs">
+                          {testResult.drives.map((d: any) => {
+                            const isResolved = d.id === testResult.resolvedDriveId;
+                            return (
+                              <div 
+                                key={d.id} 
+                                className={`flex items-center justify-between p-2 rounded ${isResolved ? "bg-emerald-950/50 border border-emerald-800/40 font-medium text-emerald-200" : "bg-slate-900/40 border border-slate-800/20 text-slate-400"}`}
+                              >
+                                <span>{d.name}</span>
+                                <span className="font-mono text-[10px] opacity-75">{d.id}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {testResult.resolutionLog && (
+                          <div className="text-[11px] text-slate-400 italic mt-1.5">
+                            <strong>Library Resolution:</strong> {testResult.resolutionLog}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+                  <Button 
+                    type="button" 
+                    onClick={handleTestConnection}
+                    disabled={testingConnection || loading}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold flex items-center gap-2"
+                  >
+                    {testingConnection && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Test Connection
+                  </Button>
                   <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white font-semibold flex items-center gap-2" disabled={loading}>
                     {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                     Save Integration Credentials
