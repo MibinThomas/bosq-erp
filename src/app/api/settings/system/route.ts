@@ -3,6 +3,7 @@ import { authOptions } from "../../auth/[...nextauth]/route"
 import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { getSettings } from "@/lib/settings"
+import { hasPermission } from "@/lib/rbac"
 
 const SETTING_KEYS = [
   "company_name",
@@ -23,9 +24,13 @@ const SETTING_KEYS = [
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    const role = (session?.user as any)?.role
-    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canView = await hasPermission(userId, "SETTINGS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view settings" }, { status: 403 })
     }
 
     const settings = await getSettings(SETTING_KEYS)
@@ -39,9 +44,13 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    const role = (session?.user as any)?.role
-    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canEdit = await hasPermission(userId, "SETTINGS", "edit")
+    if (!canEdit) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to edit settings" }, { status: 403 })
     }
 
     const body = await request.json()

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "../../auth/[...nextauth]/route"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET(request: Request) {
   try {
@@ -10,14 +11,74 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userRole = (session.user as any).role || "SALES_EXECUTIVE"
     const currentUserId = (session.user as any).id
 
-    let whereClause: any = {}
+    const canView = await hasPermission(currentUserId, "REPORTS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view reports" }, { status: 403 })
+    }
 
-    // Sales reps can only see their own quotations
-    if (userRole === "SALES_EXECUTIVE") {
-      whereClause.preparedById = currentUserId
+    // Fetch user details to determine role and department
+    const dbSessionUser = await prisma.user.findUnique({
+      where: { id: currentUserId },
+      include: { permissionOverrides: { where: { module: "REPORTS" } } }
+    })
+
+    if (!dbSessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userRole = dbSessionUser.role
+
+    // Resolve ownership rule
+    let ownershipRule = "ALL"
+    if (userRole !== "SUPER_ADMIN") {
+      const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
+      if (override?.ownership) {
+        ownershipRule = override.ownership
+      } else {
+        const roleObj = await prisma.role.findFirst({
+          where: { name: userRole },
+          include: { permissions: { where: { module: "REPORTS" } } }
+        })
+        const rolePerm = roleObj?.permissions[0]
+        if (rolePerm?.ownership) {
+          ownershipRule = rolePerm.ownership
+        }
+      }
+    }
+
+    // Locate department users if rule is DEPARTMENT
+    let departmentUserIds: string[] = []
+    if (ownershipRule === "DEPARTMENT") {
+      const deptUsers = await prisma.user.findMany({
+        where: { department: dbSessionUser.department || "N/A", deletedAt: null },
+        select: { id: true }
+      })
+      departmentUserIds = deptUsers.map(u => u.id)
+    }
+
+    let whereClause: any = {
+      deletedAt: null
+    }
+
+    // Apply role-based reports filters
+    if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+      whereClause.OR = [
+        { preparedById: currentUserId },
+        { salesAgentId: currentUserId },
+        { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
+        { assignments: { some: { userId: currentUserId } } }
+      ]
+    } else if (ownershipRule === "DEPARTMENT") {
+      whereClause.OR = [
+        { preparedById: { in: departmentUserIds } },
+        { salesAgentId: { in: departmentUserIds } },
+        { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
+        { assignments: { some: { userId: { in: departmentUserIds } } } }
+      ]
+    } else if (ownershipRule === "NONE") {
+      whereClause.id = "none"
     }
 
     const quotations = await prisma.quotation.findMany({

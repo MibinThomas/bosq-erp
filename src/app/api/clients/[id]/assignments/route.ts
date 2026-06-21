@@ -12,6 +12,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const canView = await hasPermission((session.user as any).id, "CLIENTS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view clients" }, { status: 403 })
+    }
+
     const assignments = await prisma.clientAssignment.findMany({
       where: { clientId: params.id },
       include: {

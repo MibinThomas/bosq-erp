@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { hashPassword } from "@/lib/auth"
+import { hasPermission } from "@/lib/rbac"
 
 export async function PATCH(
   request: Request,
@@ -16,10 +17,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const userId = (session.user as any).id
     const userRole = (session.user as any).role
-    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
+    const canEdit = await hasPermission(userId, "USER_MANAGEMENT", "edit")
+    if (!canEdit) {
       return NextResponse.json(
-        { error: "Forbidden: Only administrators can modify users" },
+        { error: "Forbidden: You do not have permission to modify users" },
         { status: 403 }
       )
     }

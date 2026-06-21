@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { renameClientFolder } from "@/lib/sharepoint"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET(
   request: Request,
@@ -29,6 +30,16 @@ export async function GET(
 
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 })
+    }
+
+    // Check GET permission
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const canView = await hasPermission((session.user as any).id, "CLIENTS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view clients" }, { status: 403 })
     }
 
     // Fetch all quotations for this client (including revised ones so history is complete)
@@ -92,11 +103,14 @@ export async function PUT(
     const body = await request.json()
 
     const session = await getServerSession(authOptions)
-    const userRole = (session?.user as any)?.role || ""
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const currentUserId = (session.user as any).id
 
-    // Only ADMIN/SALES_MANAGER/SUPER_ADMIN can edit clients
-    if (!["ADMIN", "SALES_MANAGER", "SUPER_ADMIN"].includes(userRole)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    const canEdit = await hasPermission(currentUserId, "CLIENTS", "edit")
+    if (!canEdit) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to edit clients" }, { status: 403 })
     }
 
     const { companyName, contactPerson, phone, email, address, trn, clientType, notes, status } = body
@@ -227,11 +241,15 @@ export async function DELETE(
     const { id } = await params
 
     const session = await getServerSession(authOptions)
-    const userRole = (session?.user as any)?.role || ""
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const userRole = (session.user as any).role || ""
 
-    // Only SUPER_ADMIN, ADMIN, SALES_MANAGER, and MANAGER can delete clients
-    if (!["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    const canDelete = await hasPermission(userId, "CLIENTS", "delete")
+    if (!canDelete) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to delete clients" }, { status: 403 })
     }
 
     // Check if client has associated quotations

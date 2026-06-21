@@ -3,12 +3,18 @@ import { authOptions } from "../../auth/[...nextauth]/route"
 import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { hashPassword } from "@/lib/auth"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canView = await hasPermission(userId, "USER_MANAGEMENT", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view users" }, { status: 403 })
     }
 
     const users = await prisma.user.findMany({
@@ -35,9 +41,15 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    const creatorRole = (session?.user as any)?.role
-    if (!session || (creatorRole !== "ADMIN" && creatorRole !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const creatorUserId = (session.user as any).id
+    const creatorRole = (session.user as any).role
+
+    const canCreate = await hasPermission(creatorUserId, "USER_MANAGEMENT", "create")
+    if (!canCreate) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to create users" }, { status: 403 })
     }
 
     const body = await request.json()
@@ -105,9 +117,15 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    const deleterRole = (session?.user as any)?.role
-    if (!session || (deleterRole !== "ADMIN" && deleterRole !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const deleterUserId = (session.user as any).id
+    const deleterRole = (session.user as any).role
+
+    const canDelete = await hasPermission(deleterUserId, "USER_MANAGEMENT", "delete")
+    if (!canDelete) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to delete users" }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 import { Client } from "@microsoft/microsoft-graph-client"
 import { TokenCredentialAuthenticationProvider } from "@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials"
 import { ClientSecretCredential } from "@azure/identity"
+import { hasPermission } from "@/lib/rbac"
 
 // Regex to check if secret matches a UUID format (Secret ID)
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
@@ -11,9 +12,13 @@ const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    const role = (session?.user as any)?.role
-    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canEdit = await hasPermission(userId, "SETTINGS", "edit")
+    if (!canEdit) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to modify settings" }, { status: 403 })
     }
 
     const body = await request.json()

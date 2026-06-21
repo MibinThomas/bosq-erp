@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { uploadClientDocument } from "@/lib/sharepoint"
 import path from "path"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET(
   request: Request,
@@ -14,6 +15,11 @@ export async function GET(
     const session = await getServerSession(authOptions)
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const canView = await hasPermission((session.user as any).id, "CLIENTS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view clients" }, { status: 403 })
     }
 
     const documents = await prisma.clientDocument.findMany({
@@ -39,9 +45,9 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userRole = (session.user as any).role
-    if (userRole !== "SUPER_ADMIN" && userRole !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden: Only Admin/Super Admin can upload documents" }, { status: 403 })
+    const canEdit = await hasPermission((session.user as any).id, "CLIENTS", "edit")
+    if (!canEdit) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to edit clients" }, { status: 403 })
     }
 
     const client = await prisma.client.findUnique({

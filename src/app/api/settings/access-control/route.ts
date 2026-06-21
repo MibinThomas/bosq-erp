@@ -330,11 +330,16 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: "Forbidden: Only Super Admin can modify SUPER_ADMIN permissions" }, { status: 403 })
       }
 
+      // Fetch pre-update permissions to compare diffs
+      const prePermissions = await prisma.rolePermission.findMany({
+        where: { roleId }
+      })
+
       // Bulk update permissions
+      const changesList: string[] = []
+
       for (const p of permissions) {
-        const existing = await prisma.rolePermission.findFirst({
-          where: { roleId, module: p.module }
-        })
+        const existing = prePermissions.find(ep => ep.module === p.module)
 
         const dataPayload = {
           view: p.view ?? false,
@@ -362,11 +367,23 @@ export async function PUT(request: Request) {
         }
 
         if (existing) {
+          const diffs: string[] = []
+          for (const [key, val] of Object.entries(dataPayload)) {
+            const oldVal = (existing as any)[key]
+            if (oldVal !== val) {
+              diffs.push(`${key}: ${oldVal} -> ${val}`)
+            }
+          }
+          if (diffs.length > 0) {
+            changesList.push(`${p.module} (${diffs.join(", ")})`)
+          }
+
           await prisma.rolePermission.update({
             where: { id: existing.id },
             data: dataPayload
           })
         } else {
+          changesList.push(`${p.module} (created new permission set)`)
           await prisma.rolePermission.create({
             data: {
               roleId,
@@ -377,11 +394,15 @@ export async function PUT(request: Request) {
         }
       }
 
+      const logDetails = changesList.length > 0
+        ? `Updated permissions for role ${role.name}. Changes: ${changesList.join("; ")}`
+        : `Updated permissions for role ${role.name} (no changes detected)`
+
       await prisma.accessControlLog.create({
         data: {
           userId: user.id,
           action: "UPDATE_ROLE_PERMISSIONS",
-          details: `Updated permissions for role ${role.name}`
+          details: logDetails.substring(0, 1000)
         }
       })
 
@@ -401,32 +422,47 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: "Forbidden: Only Super Admin can modify SUPER_ADMIN overrides" }, { status: 403 })
       }
 
+      // Fetch pre-update overrides to compare diffs
+      const preOverrides = await prisma.userPermissionOverride.findMany({
+        where: { userId: targetUserId }
+      })
+
       // Clear existing overrides for this user
       await prisma.userPermissionOverride.deleteMany({
         where: { userId: targetUserId }
       })
 
       // Insert new overrides
+      const newOverridesDetails: string[] = []
       for (const o of overrides) {
+        const dataPayload = {
+          userId: targetUserId,
+          module: o.module,
+          action: o.action,
+          value: o.value,
+          ownership: o.ownership || null,
+          approvalLimit: o.approvalLimit !== undefined && o.approvalLimit !== null && o.approvalLimit !== "" ? parseFloat(o.approvalLimit) : null,
+          maxDiscountPercent: o.maxDiscountPercent !== undefined && o.maxDiscountPercent !== null && o.maxDiscountPercent !== "" ? parseFloat(o.maxDiscountPercent) : null,
+        }
+
         await prisma.userPermissionOverride.create({
-          data: {
-            userId: targetUserId,
-            module: o.module,
-            action: o.action,
-            value: o.value,
-            ownership: o.ownership || null,
-            approvalLimit: o.approvalLimit !== undefined && o.approvalLimit !== null && o.approvalLimit !== "" ? parseFloat(o.approvalLimit) : null,
-            maxDiscountPercent: o.maxDiscountPercent !== undefined && o.maxDiscountPercent !== null && o.maxDiscountPercent !== "" ? parseFloat(o.maxDiscountPercent) : null,
-          }
+          data: dataPayload
         })
+
+        newOverridesDetails.push(`${o.module}.${o.action}=${o.value}`)
       }
+
+      // Compare old overrides with new overrides
+      const oldOverridesList = preOverrides.map(o => `${o.module}.${o.action}=${o.value}`).join(", ")
+      const newOverridesList = newOverridesDetails.join(", ")
+      const logDetails = `Updated overrides for ${targetUser.name || targetUser.email}. Previous: [${oldOverridesList || "none"}], New: [${newOverridesList || "none"}]`
 
       await prisma.accessControlLog.create({
         data: {
           userId: user.id,
           targetUserId: targetUserId,
           action: "UPDATE_USER_OVERRIDES",
-          details: `Updated permission overrides for user ${targetUser.name || targetUser.email}`
+          details: logDetails.substring(0, 1000)
         }
       })
 

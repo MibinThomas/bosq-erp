@@ -314,6 +314,7 @@ export default function AccessControlPage() {
 
       if (res.ok) {
         toast.success("Role permissions updated successfully")
+        window.dispatchEvent(new CustomEvent("visibility-refresh"))
         fetchData()
       } else {
         const errData = await res.json()
@@ -424,6 +425,7 @@ export default function AccessControlPage() {
 
       if (res.ok) {
         toast.success("User profile and assignments saved successfully")
+        window.dispatchEvent(new CustomEvent("visibility-refresh"))
         fetchData()
       } else {
         const errData = await res.json()

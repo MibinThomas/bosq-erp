@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { deleteClientDocument } from "@/lib/sharepoint"
+import { hasPermission } from "@/lib/rbac"
 
 export async function DELETE(
   request: Request,
@@ -15,9 +16,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userRole = (session.user as any).role
-    if (userRole !== "SUPER_ADMIN" && userRole !== "ADMIN") {
-      return NextResponse.json({ error: "Forbidden: Only Admin/Super Admin can delete documents" }, { status: 403 })
+    const canEdit = await hasPermission((session.user as any).id, "CLIENTS", "edit")
+    if (!canEdit) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to delete client documents" }, { status: 403 })
     }
 
     const document = await prisma.clientDocument.findUnique({

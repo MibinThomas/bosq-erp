@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
-import { getServerSession } from "next-auth/next"
+import { getServerSession } from "next-auth"
 import { authOptions } from "../../auth/[...nextauth]/route"
+import { hasPermission } from "@/lib/rbac"
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    const role = (session?.user as any)?.role
-    if (!session || (role !== "ADMIN" && role !== "SALES_MANAGER" && role !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canCreate = await hasPermission(userId, "PRODUCTS", "create")
+    if (!canCreate) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to import products" }, { status: 403 })
     }
 
     const body = await request.json()

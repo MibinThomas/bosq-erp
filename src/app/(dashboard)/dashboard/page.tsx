@@ -7,7 +7,7 @@ import { DashboardKPIs } from "@/components/dashboard/kpi-cards"
 import { DashboardSalesChart } from "@/components/dashboard/sales-chart"
 import { DashboardSegmentChart } from "@/components/dashboard/segment-pie-chart"
 import { DashboardTimeline } from "@/components/dashboard/activity-timeline"
-import { Download } from "lucide-react"
+import { Download, ShieldAlert } from "lucide-react"
 import { PendingClientApprovals } from "@/components/dashboard/pending-approvals"
 import { ConsultantDashboard } from "@/components/dashboard/consultant/consultant-dashboard"
 import { DashboardTopPerformers } from "@/components/dashboard/top-performers"
@@ -16,6 +16,34 @@ export default function DashboardPage() {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER"
+
+  const [profile, setProfile] = useState<any>(null)
+  const [loadingProfile, setLoadingProfile] = useState(true)
+
+  useEffect(() => {
+    const loadProfile = () => {
+      if (session?.user) {
+        setLoadingProfile(true)
+        fetch("/api/settings/access-control/profile")
+          .then(res => {
+            if (res.ok) return res.json()
+            throw new Error("Failed to load profile")
+          })
+          .then(data => {
+            setProfile(data)
+          })
+          .catch(err => console.error("Error loading permissions profile:", err))
+          .finally(() => setLoadingProfile(false))
+      }
+    }
+
+    loadProfile()
+
+    window.addEventListener("visibility-refresh", loadProfile)
+    return () => {
+      window.removeEventListener("visibility-refresh", loadProfile)
+    }
+  }, [session])
 
   const [loadingKPIs, setLoadingKPIs] = useState(true)
   const [loadingCharts, setLoadingCharts] = useState(true)
@@ -109,6 +137,29 @@ export default function DashboardPage() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+  }
+
+  if (loadingProfile) {
+    return (
+      <div className="py-20 text-center text-zinc-400 text-sm animate-pulse flex flex-col items-center justify-center space-y-2">
+        <ShieldAlert className="animate-bounce text-amber-500 h-6 w-6" />
+        <span>Loading dashboard panel, please wait...</span>
+      </div>
+    )
+  }
+
+  if (profile && !profile.isSuperAdmin && profile.permissions["DASHBOARD"]?.view === false) {
+    return (
+      <div className="flex flex-col items-center justify-center border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-card p-12 text-center max-w-2xl mx-auto my-12 shadow-lg space-y-4">
+        <div className="p-3 bg-red-100 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-full">
+          <ShieldAlert className="h-10 w-10" />
+        </div>
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Access Restricted</h2>
+        <p className="text-muted-foreground text-sm max-w-md">
+          You do not have the required permissions to view the overview dashboard statistics. Please request access from your Super Administrator.
+        </p>
+      </div>
+    )
   }
 
   if (userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT") {

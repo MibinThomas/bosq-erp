@@ -45,8 +45,6 @@ export async function GET(request: Request) {
       }
     }
 
-    const isExcludedFromOwnershipLimit = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(dbSessionUser.role)
-
     const { searchParams } = new URL(request.url)
     const all = searchParams.get("all") === "true"
 
@@ -57,35 +55,25 @@ export async function GET(request: Request) {
     if (all) {
       whereClause.status = "Approved"
     } else {
-      if (!isExcludedFromOwnershipLimit) {
+      if (ownershipRule === "ALL") {
+        // No limits, views all
+      } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
         whereClause.OR = [
           { salespersonId: dbSessionUser.id },
           { assignments: { some: { userId: dbSessionUser.id } } }
         ]
-      } else if (ownershipRule !== "ALL") {
-        if (ownershipRule === "OWN") {
-          whereClause.OR = [
-            { salespersonId: dbSessionUser.id },
-            { assignments: { some: { userId: dbSessionUser.id } } }
-          ]
-        } else if (ownershipRule === "DEPARTMENT") {
-          const deptUsers = await prisma.user.findMany({
-            where: { department: dbSessionUser.department || "N/A" },
-            select: { id: true }
-          })
-          const deptUserIds = deptUsers.map(u => u.id)
-          whereClause.OR = [
-            { salespersonId: { in: deptUserIds } },
-            { assignments: { some: { userId: { in: deptUserIds } } } }
-          ]
-        } else if (ownershipRule === "ASSIGNED") {
-          whereClause.OR = [
-            { salespersonId: dbSessionUser.id },
-            { assignments: { some: { userId: dbSessionUser.id } } }
-          ]
-        } else if (ownershipRule === "NONE") {
-          whereClause.id = "none"
-        }
+      } else if (ownershipRule === "DEPARTMENT") {
+        const deptUsers = await prisma.user.findMany({
+          where: { department: dbSessionUser.department || "N/A" },
+          select: { id: true }
+        })
+        const deptUserIds = deptUsers.map(u => u.id)
+        whereClause.OR = [
+          { salespersonId: { in: deptUserIds } },
+          { assignments: { some: { userId: { in: deptUserIds } } } }
+        ]
+      } else if (ownershipRule === "NONE") {
+        whereClause.id = "none"
       }
     }
 
@@ -123,19 +111,15 @@ export async function GET(request: Request) {
       const isClientUserAssigned = client.salespersonId === dbSessionUser.id || 
                                    client.assignments.some(a => a.userId === dbSessionUser.id)
 
-      if (isExcludedFromOwnershipLimit) {
-        if (ownershipRule === "ALL") {
-          isAssigned = true
-        } else if (ownershipRule === "DEPARTMENT") {
-          isAssigned = deptUserIds.includes(client.salespersonId || "") ||
-                       client.assignments.some(a => deptUserIds.includes(a.userId))
-        } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
-          isAssigned = isClientUserAssigned
-        } else if (ownershipRule === "NONE") {
-          isAssigned = false
-        }
-      } else {
+      if (ownershipRule === "ALL") {
+        isAssigned = true
+      } else if (ownershipRule === "DEPARTMENT") {
+        isAssigned = deptUserIds.includes(client.salespersonId || "") ||
+                     client.assignments.some(a => deptUserIds.includes(a.userId))
+      } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
         isAssigned = isClientUserAssigned
+      } else if (ownershipRule === "NONE") {
+        isAssigned = false
       }
 
       return {

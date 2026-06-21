@@ -21,7 +21,8 @@ export default withAuth(
     try {
       const host = req.headers.get("host") || "localhost:3000"
       const protocol = req.nextUrl.protocol || "http:"
-      const checkUrl = `${protocol}//${host}/api/settings/access-control/check?userId=${userId}&path=${encodeURIComponent(path)}`
+      const method = req.method
+      const checkUrl = `${protocol}//${host}/api/settings/access-control/check?userId=${userId}&path=${encodeURIComponent(path)}&method=${method}`
       
       const checkRes = await fetch(checkUrl)
       if (checkRes.ok) {
@@ -60,5 +61,12 @@ export const config = {
     "/quotations/:path*",
     "/reports/:path*",
     "/settings/:path*",
+    "/boq/:path*",
+    "/api/clients/:path*",
+    "/api/products/:path*",
+    "/api/quotations/:path*",
+    "/api/reports/:path*",
+    "/api/settings/:path*",
+    "/api/boq/:path*",
   ],
 }

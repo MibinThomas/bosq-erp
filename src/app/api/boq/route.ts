@@ -2,17 +2,71 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    
-    // Determine the role
-    const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-    
+    if (!session || !session.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const dbSessionUser = await prisma.user.findUnique({
+      where: { email: session.user.email },
+      include: { permissionOverrides: { where: { module: "BOQS" } } }
+    })
+
+    if (!dbSessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check view permission dynamically
+    const canView = await hasPermission(dbSessionUser.id, "BOQS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view BOQs" }, { status: 403 })
+    }
+
+    // Resolve ownership rule
+    let ownershipRule = "ALL"
+    if (dbSessionUser.role !== "SUPER_ADMIN") {
+      const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
+      if (override?.ownership) {
+        ownershipRule = override.ownership
+      } else {
+        const roleObj = await prisma.role.findFirst({
+          where: { name: dbSessionUser.role },
+          include: { permissions: { where: { module: "BOQS" } } }
+        })
+        const rolePerm = roleObj?.permissions[0]
+        if (rolePerm?.ownership) {
+          ownershipRule = rolePerm.ownership
+        }
+      }
+    }
+
     let whereClause: any = { deletedAt: null }
-    if (userRole === "SALES_EXECUTIVE") {
-      whereClause.preparedById = (session?.user as any)?.id
+    
+    if (ownershipRule === "ALL") {
+      // Views all
+    } else if (ownershipRule === "DEPARTMENT") {
+      const deptUsers = await prisma.user.findMany({
+        where: { department: dbSessionUser.department || "N/A", deletedAt: null },
+        select: { id: true }
+      })
+      const deptUserIds = deptUsers.map(u => u.id)
+      whereClause.OR = [
+        { preparedById: { in: deptUserIds } },
+        { estimatorId: { in: deptUserIds } },
+        { client: { assignments: { some: { userId: { in: deptUserIds } } } } }
+      ]
+    } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+      whereClause.OR = [
+        { preparedById: dbSessionUser.id },
+        { estimatorId: dbSessionUser.id },
+        { client: { assignments: { some: { userId: dbSessionUser.id } } } }
+      ]
+    } else if (ownershipRule === "NONE") {
+      whereClause.id = "none"
     }
 
     const { searchParams } = new URL(request.url)
@@ -63,10 +117,13 @@ export async function GET(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    const userRole = (session?.user as any)?.role
-
-    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canDelete = await hasPermission(userId, "BOQS", "delete")
+    if (!canDelete) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to delete BOQs" }, { status: 403 })
     }
 
     const body = await request.json()
@@ -87,7 +144,6 @@ export async function DELETE(request: Request) {
     })
 
     // Log the action
-    const userId = (session?.user as any)?.id
     if (userId) {
       await prisma.activityLog.create({
         data: {

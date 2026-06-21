@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "../../auth/[...nextauth]/route"
 import { format } from "date-fns"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET(request: Request) {
   try {
@@ -23,6 +24,11 @@ export async function GET(request: Request) {
     const maxVal = url.searchParams.get("maxVal")
 
     const currentUserId = (session.user as any).id
+
+    const canView = await hasPermission(currentUserId, "DASHBOARD", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view dashboard" }, { status: 403 })
+    }
 
     // Fetch user details to determine role and department
     const dbSessionUser = await prisma.user.findUnique({
@@ -88,7 +94,7 @@ export async function GET(request: Request) {
     }
 
     // Role-based filtering overrides
-    const isExcludedFromOwnershipLimit = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
+    const isExcludedFromOwnershipLimit = ownershipRule === "ALL"
     if (isExcludedFromOwnershipLimit && userIdFilter && userIdFilter !== "all") {
       whereClause.preparedById = userIdFilter
       delete whereClause.OR

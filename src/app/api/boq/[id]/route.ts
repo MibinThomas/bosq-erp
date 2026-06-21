@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { hasPermission, checkOwnership } from "@/lib/rbac"
 
 export async function GET(
   request: Request,
@@ -9,10 +10,25 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+
+    const canView = await hasPermission(userId, "BOQS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view BOQs" }, { status: 403 })
+    }
+
     const boq = await prisma.boq.findUnique({
       where: { id },
       include: {
-        client: true,
+        client: {
+          include: {
+            assignments: true
+          }
+        },
         preparedBy: true,
         items: true
       },
@@ -20,6 +36,18 @@ export async function GET(
 
     if (!boq) {
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 })
+    }
+
+    // Enforce ownership rule check
+    const isOwner = await checkOwnership(
+      userId,
+      "BOQS",
+      boq.preparedById,
+      boq.preparedBy?.department || undefined,
+      boq.client?.assignments?.map(a => a.userId) || undefined
+    )
+    if (!isOwner) {
+      return NextResponse.json({ error: "Forbidden: You do not have ownership access to this BOQ" }, { status: 403 })
     }
 
     return NextResponse.json(boq)
@@ -49,20 +77,44 @@ export async function PUT(
     } = body
 
     const session = await getServerSession(authOptions)
-    const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-    const userId = (session?.user as any)?.id || "system"
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+
+    const canEdit = await hasPermission(userId, "BOQS", "edit")
+    if (!canEdit) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to edit BOQs" }, { status: 403 })
+    }
 
     const existingBoq = await prisma.boq.findUnique({
       where: { id },
-      include: { items: true }
+      include: { 
+        items: true,
+        preparedBy: true,
+        client: {
+          include: {
+            assignments: true
+          }
+        }
+      }
     })
 
     if (!existingBoq) {
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 })
     }
 
-    // Role-based guarding logic is enforced more stringently on UI,
-    // but here we just process the values we receive. We could add strict checks.
+    // Enforce ownership check for edit operations
+    const isOwner = await checkOwnership(
+      userId,
+      "BOQS",
+      existingBoq.preparedById,
+      existingBoq.preparedBy?.department || undefined,
+      existingBoq.client?.assignments?.map(a => a.userId) || undefined
+    )
+    if (!isOwner) {
+      return NextResponse.json({ error: "Forbidden: You do not have ownership access to edit this BOQ" }, { status: 403 })
+    }
 
     let totalMaterialCost = 0
     let totalLaborCost = 0
@@ -182,6 +234,44 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+
+    const canDelete = await hasPermission(userId, "BOQS", "delete")
+    if (!canDelete) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to delete BOQs" }, { status: 403 })
+    }
+
+    const existingBoq = await prisma.boq.findUnique({
+      where: { id },
+      include: {
+        preparedBy: true,
+        client: {
+          include: {
+            assignments: true
+          }
+        }
+      }
+    })
+
+    if (!existingBoq) {
+      return NextResponse.json({ error: "BOQ not found" }, { status: 404 })
+    }
+
+    const isOwner = await checkOwnership(
+      userId,
+      "BOQS",
+      existingBoq.preparedById,
+      existingBoq.preparedBy?.department || undefined,
+      existingBoq.client?.assignments?.map(a => a.userId) || undefined
+    )
+    if (!isOwner) {
+      return NextResponse.json({ error: "Forbidden: You do not have ownership access to delete this BOQ" }, { status: 403 })
+    }
+
     await prisma.boq.delete({
       where: { id }
     })

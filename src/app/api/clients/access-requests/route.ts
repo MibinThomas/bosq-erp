@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { getSetting } from "@/lib/settings"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET(request: Request) {
   try {
@@ -15,7 +16,12 @@ export async function GET(request: Request) {
       where: { email: session.user.email }
     })
 
-    if (!dbSessionUser || !["ADMIN", "SUPER_ADMIN"].includes(dbSessionUser.role)) {
+    if (!dbSessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const canManage = await hasPermission(dbSessionUser.id, "CLIENTS", "edit")
+    if (!canManage) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -62,7 +68,12 @@ export async function POST(request: Request) {
       where: { email: session.user.email }
     })
 
-    if (!dbSessionUser || !["ADMIN", "SUPER_ADMIN"].includes(dbSessionUser.role)) {
+    if (!dbSessionUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const canManage = await hasPermission(dbSessionUser.id, "CLIENTS", "edit")
+    if (!canManage) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

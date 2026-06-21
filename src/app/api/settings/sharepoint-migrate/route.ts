@@ -3,14 +3,18 @@ import prisma from "@/lib/prisma"
 import { migrateClientFolderToClientsDir } from "@/lib/sharepoint"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { hasPermission } from "@/lib/rbac"
 
 export async function POST() {
   try {
     const session = await getServerSession(authOptions)
-    
-    // Ensure only super admin can trigger this
-    if ((session?.user as any)?.role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canManage = await hasPermission(userId, "SETTINGS", "manage")
+    if (!canManage) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to manage settings" }, { status: 403 })
     }
 
     const clients = await prisma.client.findMany({

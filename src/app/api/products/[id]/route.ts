@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "../../auth/[...nextauth]/route"
+import { hasPermission } from "@/lib/rbac"
 
 // Get single product
 export async function GET(
@@ -9,6 +10,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const canView = await hasPermission((session.user as any).id, "PRODUCTS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view products" }, { status: 403 })
+    }
+
     const { id } = await params
     const product = await prisma.product.findUnique({
       where: { 
@@ -39,9 +49,13 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const role = (session?.user as any)?.role
-    if (!session || (role !== "ADMIN" && role !== "SALES_MANAGER" && role !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canEdit = await hasPermission(userId, "PRODUCTS", "edit")
+    if (!canEdit) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to edit products" }, { status: 403 })
     }
 
     const { id } = await params
@@ -148,9 +162,13 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    const role = (session?.user as any)?.role
-    if (!session || (role !== "ADMIN" && role !== "SALES_MANAGER" && role !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canDelete = await hasPermission(userId, "PRODUCTS", "delete")
+    if (!canDelete) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to delete products" }, { status: 403 })
     }
 
     const { id } = await params

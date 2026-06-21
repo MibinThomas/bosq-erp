@@ -2,13 +2,18 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "../../auth/[...nextauth]/route"
 import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    const role = (session?.user as any)?.role
-    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canView = await hasPermission(userId, "SETTINGS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view settings" }, { status: 403 })
     }
 
     const [paymentTerms, termsConditions] = await Promise.all([
@@ -26,9 +31,13 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    const role = (session?.user as any)?.role
-    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canCreate = await hasPermission(userId, "SETTINGS", "create")
+    if (!canCreate) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to create terms/conditions" }, { status: 403 })
     }
 
     const body = await request.json()
@@ -85,9 +94,13 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getServerSession(authOptions)
-    const role = (session?.user as any)?.role
-    if (!session || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canDelete = await hasPermission(userId, "SETTINGS", "delete")
+    if (!canDelete) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to delete terms/conditions" }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)

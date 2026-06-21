@@ -39,18 +39,27 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
   const [profile, setProfile] = useState<any>(null)
 
   useEffect(() => {
-    if (session?.user) {
-      fetch("/api/settings/access-control/profile")
-        .then(res => {
-          if (res.ok) return res.json()
-          throw new Error("Failed to load profile")
-        })
-        .then(data => {
-          if (data && data.permissions) {
-            setProfile(data)
-          }
-        })
-        .catch(err => console.error("Error loading permissions profile:", err))
+    const loadProfile = () => {
+      if (session?.user) {
+        fetch("/api/settings/access-control/profile")
+          .then(res => {
+            if (res.ok) return res.json()
+            throw new Error("Failed to load profile")
+          })
+          .then(data => {
+            if (data && data.permissions) {
+              setProfile(data)
+            }
+          })
+          .catch(err => console.error("Error loading permissions profile:", err))
+      }
+    }
+
+    loadProfile()
+
+    window.addEventListener("visibility-refresh", loadProfile)
+    return () => {
+      window.removeEventListener("visibility-refresh", loadProfile)
     }
   }, [session])
 
@@ -61,15 +70,7 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
   // Filter items dynamically based on roles/profile permissions
   const filteredItems = navItems.filter((item) => {
     if (!profile) {
-      // Fallback while loading
-      if (userRole === "SUPER_ADMIN") return true
-      if (item.name === "Settings" && userRole !== "ADMIN") {
-        return false
-      }
-      if (item.name === "Reports" && userRole !== "ADMIN" && userRole !== "SALES_MANAGER") {
-        return false
-      }
-      return true
+      return false
     }
 
     if (profile.isSuperAdmin) return true

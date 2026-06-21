@@ -2,17 +2,19 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-    if (userRole !== "ADMIN" && userRole !== "SALES_MANAGER" && userRole !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Forbidden: Admin or Sales Manager access required" }, { status: 403 })
+    const userId = (session.user as any).id
+    const canApprove = await hasPermission(userId, "CLIENTS", "approve")
+    if (!canApprove) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to approve clients" }, { status: 403 })
     }
 
     const pendingClients = await prisma.client.findMany({
