@@ -79,7 +79,7 @@ interface Quotation {
 export default function QuotationsPage() {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
   const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN"
 
   const [quotations, setQuotations] = useState<Quotation[]>([])

@@ -60,9 +60,26 @@ export default function ProductsPage() {
   const router = useRouter()
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role
-  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER"
 
   const [products, setProducts] = useState<Product[]>([])
+  const [userPermissions, setUserPermissions] = useState<any>(null)
+
+  useEffect(() => {
+    fetch("/api/users/me/permissions")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.permissions) {
+          setUserPermissions(data.permissions.QUOTATIONS || {})
+        }
+      })
+      .catch(err => console.error("Failed to load permissions", err))
+  }, [])
+
+  const hasQuoteAccess = userRole === "SUPER_ADMIN" || 
+    (userPermissions 
+      ? userPermissions.create === true 
+      : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isBulkOpen, setIsBulkOpen] = useState(false)
@@ -386,7 +403,7 @@ export default function ProductsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Quote Cart Button */}
-          {(userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || isManagerOrAdmin) && (
+          {hasQuoteAccess && (
             <Button
               variant="outline"
               onClick={() => setIsCartOpen(true)}
@@ -604,7 +621,7 @@ export default function ProductsPage() {
                       )}
                       
                       {/* Add to Quote Button */}
-                      {(userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || isManagerOrAdmin) && (
+                      {hasQuoteAccess && (
                         <Button 
                           variant="default" 
                           size="sm" 
@@ -697,7 +714,7 @@ export default function ProductsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right flex items-center justify-end gap-2">
-                      {(userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || isManagerOrAdmin) && (
+                      {hasQuoteAccess && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1249,6 +1266,7 @@ export default function ProductsPage() {
         userRole={userRole}
         clients={clients}
         selectedClientId={selectedClientId}
+        canCreateQuotation={hasQuoteAccess}
       />
 
       {/* Floating Bulk Action Bar */}

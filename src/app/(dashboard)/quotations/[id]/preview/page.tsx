@@ -96,7 +96,7 @@ export default function QuotationHtmlPreviewPage({
   const [isRejecting, setIsRejecting] = useState(false)
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
   const isPending = quotation?.status === "PENDING_APPROVAL"
   const isSalesPerson = userRole === "SALES_EXECUTIVE"
   const disableDownload = isSalesPerson && isPending

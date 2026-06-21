@@ -573,7 +573,7 @@ export function ClientQuotationTimeline({
   const [conflictingQuoteNo, setConflictingQuoteNo] = useState("")
   const [targetQuoteId, setTargetQuoteId] = useState<string | null>(null)
 
-  const isAdminOrAbove = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(userRole)
+  const isAdminOrAbove = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
 
   // Collect unique executives for the filter dropdown
   const execOptions = useMemo(() => {

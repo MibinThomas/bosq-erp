@@ -272,7 +272,7 @@ export async function POST(request: Request) {
     if (initialStatus === "Pending Approval") {
       const managers = await prisma.user.findMany({
         where: {
-          role: { in: ["ADMIN", "SALES_MANAGER"] },
+          role: { in: ["ADMIN", "SALES_MANAGER", "MANAGER"] },
           isActive: true
         }
       })

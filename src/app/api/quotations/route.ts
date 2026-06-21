@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       }
     }
 
-    const isExcludedFromOwnershipLimit = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(dbSessionUser.role)
+    const isExcludedFromOwnershipLimit = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(dbSessionUser.role)
 
     let whereClause: any = {
       status: { not: "REVISED" },
@@ -246,8 +246,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to create quotations" }, { status: 403 })
     }
 
-    // Validate if the user is assigned to this client or has full access (Admin/Super Admin)
-    const isExcludedFromAssignmentCheck = ["SUPER_ADMIN", "ADMIN"].includes(dbSessionUser.role)
+    // Validate if the user is assigned to this client or has full access (Admin/Super Admin/Manager)
+    const isExcludedFromAssignmentCheck = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(dbSessionUser.role)
     if (!isExcludedFromAssignmentCheck) {
       let hasAccess = false
 
@@ -339,7 +339,7 @@ export async function POST(request: Request) {
       const userRole = (session.user as any).role || "SALES_EXECUTIVE"
       let finalId = (session.user as any).id
       
-      if ((userRole === "ADMIN" || userRole === "SALES_MANAGER") && body.preparedById) {
+      if (["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole) && body.preparedById) {
         finalId = body.preparedById
       }
 
@@ -652,7 +652,7 @@ export async function POST(request: Request) {
     // Notify Managers/Admins
     const managers = await prisma.user.findMany({
       where: {
-        role: { in: ["ADMIN", "SALES_MANAGER"] },
+        role: { in: ["ADMIN", "SALES_MANAGER", "MANAGER"] },
         isActive: true,
         id: { not: creatorUser.id }
       }

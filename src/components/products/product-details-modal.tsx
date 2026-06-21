@@ -35,6 +35,7 @@ interface ProductDetailsModalProps {
   userRole?: string
   clients?: any[]
   selectedClientId?: string
+  canCreateQuotation?: boolean
 }
 
 export function ProductDetailsModal({
@@ -45,6 +46,7 @@ export function ProductDetailsModal({
   userRole,
   clients,
   selectedClientId,
+  canCreateQuotation,
 }: ProductDetailsModalProps) {
   const [quantity, setQuantity] = useState<number>(1)
   const [activeImgIndex, setActiveImgIndex] = useState<number>(0)
@@ -97,7 +99,9 @@ export function ProductDetailsModal({
   else if (segment === "Direct") applicablePrice = product.directPrice ?? product.unitPrice
   else if (segment === "Online") applicablePrice = product.onlinePrice ?? product.unitPrice
 
-  const hasQuoteAccess = userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN"
+  const hasQuoteAccess = canCreateQuotation !== undefined
+    ? canCreateQuotation
+    : (userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER" || userRole === "SUPER_ADMIN")
 
   // HTML Spec Parser Helper
   const sanitizeHtmlToText = (html: string) => {

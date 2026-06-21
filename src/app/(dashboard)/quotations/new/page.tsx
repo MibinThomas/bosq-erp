@@ -335,7 +335,7 @@ function NewQuotationForm() {
   const initialClientId = searchParams.get("clientId") || ""
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN"
+  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
   const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN"
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)

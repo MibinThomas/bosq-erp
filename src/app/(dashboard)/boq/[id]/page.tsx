@@ -50,7 +50,7 @@ export default function BoqBuilderPage() {
   
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isIDC = userRole === "SALES_EXECUTIVE" || userRole === "SALES_MANAGER" || userRole === "ADMIN"
+  const isIDC = userRole === "SALES_EXECUTIVE" || userRole === "SALES_MANAGER" || userRole === "MANAGER" || userRole === "ADMIN" || userRole === "SUPER_ADMIN"
   const isEstimator = userRole === "ESTIMATOR"
 
   const [loading, setLoading] = useState(!isNew)
@@ -454,7 +454,7 @@ export default function BoqBuilderPage() {
     return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
   }
 
-  const canEditCosting = isEstimator || userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const canEditCosting = isEstimator || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
 
 
   return (

@@ -151,9 +151,9 @@ export default function ClientDetailPage() {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const userId = (session?.user as any)?.id || ""
-  const isManagerOrAdmin = ["ADMIN", "SALES_MANAGER", "SUPER_ADMIN"].includes(userRole)
+  const isManagerOrAdmin = ["ADMIN", "SALES_MANAGER", "SUPER_ADMIN", "MANAGER"].includes(userRole)
   const isAuthorizedToConfirm =
-    ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(userRole)
+    ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
 
   const [client, setClient] = useState<ClientDetail | null>(null)
   const [loading, setLoading] = useState(true)

@@ -316,7 +316,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
             </div>
             
             {/* Admin Manual Override Toggle */}
-            {(userRole === "ADMIN" || userRole === "SALES_MANAGER") && (
+            {["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole || "") && (
               <div className="col-span-2 flex items-center gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg mt-2">
                 <input 
                   type="checkbox"

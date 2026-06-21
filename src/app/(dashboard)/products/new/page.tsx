@@ -192,7 +192,7 @@ export default function NewProductPage() {
   const categoryLower = (formData.categoryName || "").toLowerCase()
   const isChair = categoryLower.includes("chair")
   const isWorkstation = categoryLower.includes("workstation")
-  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER"
+  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER"
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-24">

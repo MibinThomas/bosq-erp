@@ -21,7 +21,7 @@ export async function POST(request: Request) {
 
     // Check manage assignments permission (typically requires 'manage' or 'edit' on CLIENTS)
     // We'll enforce that the user must be ADMIN, SUPER_ADMIN, or SALES_MANAGER to bulk assign
-    const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(dbSessionUser.role)
+    const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(dbSessionUser.role)
     if (!isManagerOrAdmin) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to bulk assign clients" }, { status: 403 })
     }

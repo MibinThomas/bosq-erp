@@ -171,12 +171,12 @@ export async function PUT(
       }
 
       if (dbSessionUser) {
-        const isExcludedFromAssignmentCheck = ["SUPER_ADMIN", "ADMIN"].includes(dbSessionUser.role)
+        const isExcludedFromAssignmentCheck = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(dbSessionUser.role)
         if (!isExcludedFromAssignmentCheck) {
           let hasAccess = false
           let ownershipRule = "ASSIGNED"
 
-          if (dbSessionUser.role === "SALES_MANAGER") {
+          if (dbSessionUser.role === "SALES_MANAGER" || dbSessionUser.role === "MANAGER") {
             const clientsRoleObj = await prisma.role.findFirst({
               where: { name: dbSessionUser.role },
               include: { permissions: { where: { module: "CLIENTS" } } }
@@ -252,7 +252,7 @@ export async function PUT(
 
     // Determine the actual PreparedBy user (could be changed by admin/manager)
     let finalPreparedById = existingQuotation.preparedById
-    if ((logUserRole === "ADMIN" || logUserRole === "SALES_MANAGER" || logUserRole === "SUPER_ADMIN") && body.preparedById) {
+    if (["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(logUserRole) && body.preparedById) {
       finalPreparedById = body.preparedById
     }
     const finalPreparedByUser = await prisma.user.findUnique({
@@ -261,7 +261,7 @@ export async function PUT(
 
     // CASE 4: CLIENT CONFIRMS/APPROVES QUOTATION
     if (body.action === "CLIENT_CONFIRM" || body.status === "CLIENT_APPROVED") {
-      const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER"].includes(logUserRole)
+      const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(logUserRole)
       const isSalesExecutiveWithPermission = logUserRole === "SALES_EXECUTIVE" && (
         dbSessionUser?.permissionOverrides.find(o => o.action === "canConfirmQuotation")?.value ?? rolePerm?.canConfirmQuotation ?? false
       )
