@@ -78,7 +78,9 @@ export async function POST(request: Request) {
     }
 
     // Otherwise, upload to Vercel Blob
-    console.log("[UPLOAD API] Uploading to Vercel Blob...");
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const maskedToken = token ? `${token.slice(0, 12)}...${token.slice(-6)}` : "undefined";
+    console.log(`[UPLOAD API] Uploading to Vercel Blob... Token length: ${token?.length || 0}, Masked: ${maskedToken}`);
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
