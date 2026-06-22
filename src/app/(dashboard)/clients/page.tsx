@@ -62,6 +62,7 @@ export default function ClientsPage() {
   const isSuperAdmin = userRole === "SUPER_ADMIN"
 
   const [clients, setClients] = useState<Client[]>([])
+  const [userPermissions, setUserPermissions] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isBulkOpen, setIsBulkOpen] = useState(false)
@@ -93,7 +94,18 @@ export default function ClientsPage() {
 
   useEffect(() => {
     fetchClients()
+    fetch("/api/users/me/permissions")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.permissions) {
+          setUserPermissions(data.permissions.CLIENTS || {})
+        }
+      })
+      .catch(err => console.error("Failed to load permissions", err))
   }, [])
+
+  const canCreate = isSuperAdmin || (userPermissions ? userPermissions.create === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
+  const canBulkUpload = isSuperAdmin || (userPermissions ? userPermissions.uploadFiles === true : (userRole === "MANAGER" || userRole === "SALES_MANAGER" ? false : ["ADMIN", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole)))
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -254,18 +266,20 @@ export default function ClientsPage() {
               Assign Selected ({selectedIds.length})
             </Button>
           )}
-          {isManagerOrAdmin && (
+          {canBulkUpload && (
             <Button variant="outline" onClick={() => setIsBulkOpen(true)} className="border-primary/20 text-primary hover:bg-primary/5">
               <FileSpreadsheet className="mr-2 h-4 w-4" />
               Bulk Import
             </Button>
           )}
-          <Link href="/clients/new">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Client
-            </Button>
-          </Link>
+          {canCreate && (
+            <Link href="/clients/new">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Client
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 

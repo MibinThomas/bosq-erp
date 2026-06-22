@@ -64,6 +64,7 @@ export default function ProductsPage() {
 
   const [products, setProducts] = useState<Product[]>([])
   const [userPermissions, setUserPermissions] = useState<any>(null)
+  const [productPermissions, setProductPermissions] = useState<any>(null)
 
   useEffect(() => {
     fetch("/api/users/me/permissions")
@@ -71,10 +72,17 @@ export default function ProductsPage() {
       .then(data => {
         if (data && data.permissions) {
           setUserPermissions(data.permissions.QUOTATIONS || {})
+          setProductPermissions(data.permissions.PRODUCTS || {})
         }
       })
       .catch(err => console.error("Failed to load permissions", err))
   }, [])
+
+  const isSuperAdmin = userRole === "SUPER_ADMIN"
+  const canCreateProduct = isSuperAdmin || (productPermissions ? productPermissions.create === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
+  const canEditProduct = isSuperAdmin || (productPermissions ? productPermissions.edit === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
+  const canDeleteProduct = isSuperAdmin || (productPermissions ? productPermissions.delete === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
+  const canBulkUploadProduct = isSuperAdmin || (productPermissions ? productPermissions.uploadFiles === true : (userRole === "MANAGER" || userRole === "SALES_MANAGER" ? false : ["ADMIN", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole)))
 
   const hasQuoteAccess = userRole === "SUPER_ADMIN" || 
     (userPermissions 
@@ -419,31 +427,33 @@ export default function ProductsPage() {
             </Button>
           )}
 
-          {isManagerOrAdmin && (
-            <>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsCategoryModalOpen(true)}
-                className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4 text-primary" />
-                Add Category
+          {canCreateProduct && (
+            <Button 
+              variant="outline" 
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4 text-primary" />
+              Add Category
+            </Button>
+          )}
+          {canBulkUploadProduct && (
+            <Button 
+              variant="outline" 
+              onClick={() => setIsBulkOpen(true)}
+              className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+            >
+              <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+              Bulk Upload
+            </Button>
+          )}
+          {canCreateProduct && (
+            <Link href="/products/new">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Product
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsBulkOpen(true)}
-                className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
-              >
-                <Sparkles className="h-4 w-4 text-primary animate-pulse" />
-                Bulk Upload
-              </Button>
-              <Link href="/products/new">
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Product
-                </Button>
-              </Link>
-            </>
+            </Link>
           )}
         </div>
       </div>
@@ -519,7 +529,7 @@ export default function ProductsPage() {
                 }`}
               >
                 {/* Checkbox Overlay */}
-                {isManagerOrAdmin && (
+                {canDeleteProduct && (
                   <div className="absolute top-3 left-3 z-10 bg-white/85 dark:bg-black/75 p-1.5 rounded-lg border shadow-sm transition-opacity opacity-100 sm:opacity-0 group-hover:opacity-100 flex items-center justify-center">
                     <input 
                       type="checkbox"
@@ -605,7 +615,7 @@ export default function ProductsPage() {
                     </div>
                     
                     <div className="flex gap-2">
-                      {isManagerOrAdmin && (
+                      {canEditProduct && (
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -649,7 +659,7 @@ export default function ProductsPage() {
                 <TableHeader className="bg-muted/50">
                 <TableRow>
                   <TableHead className="w-12">
-                    {isManagerOrAdmin && (
+                    {canDeleteProduct && (
                       <input 
                         type="checkbox"
                         className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
@@ -679,7 +689,7 @@ export default function ProductsPage() {
                 {filteredProducts.map((product) => (
                   <TableRow key={product.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="w-12">
-                      {isManagerOrAdmin && (
+                      {canDeleteProduct && (
                         <input 
                           type="checkbox"
                           className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
@@ -738,7 +748,7 @@ export default function ProductsPage() {
                           }}>
                             View details
                           </DropdownMenuItem>
-                          {isManagerOrAdmin && (
+                          {canEditProduct && (
                             <DropdownMenuItem onClick={() => {
                               setEditingProduct(product)
                               setIsEditOpen(true)
@@ -1270,7 +1280,7 @@ export default function ProductsPage() {
       />
 
       {/* Floating Bulk Action Bar */}
-      {selectedIds.length > 0 && (
+      {selectedIds.length > 0 && canDeleteProduct && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-card text-card-foreground border shadow-2xl rounded-full px-6 py-3 flex items-center gap-6 animate-in slide-in-from-bottom duration-300">
           <span className="text-sm font-semibold text-primary">
             {selectedIds.length} {selectedIds.length === 1 ? "product" : "products"} selected

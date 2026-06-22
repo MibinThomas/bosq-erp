@@ -15,9 +15,9 @@ export async function POST(request: Request) {
     }
     const userId = (session.user as any).id
 
-    const canCreate = await hasPermission(userId, "CLIENTS", "create")
-    if (!canCreate) {
-      return NextResponse.json({ error: "Forbidden: You do not have permission to import clients" }, { status: 403 })
+    const canBulkUpload = await hasPermission(userId, "CLIENTS", "uploadFiles")
+    if (!canBulkUpload) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to bulk upload clients" }, { status: 403 })
     }
 
     const body = await request.json()

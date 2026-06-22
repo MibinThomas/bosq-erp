@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Loader2, Save, Building2, User, Mail, Phone, MapPin, FileText, Hash, UploadCloud, X, FileIcon } from "lucide-react"
+import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +24,12 @@ function ClientFormContent() {
   const searchParams = useSearchParams()
   const editId = searchParams.get("editId")
   
+  const { data: session } = useSession()
+  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const isSuperAdmin = userRole === "SUPER_ADMIN"
+  const [userPermissions, setUserPermissions] = useState<any>(null)
+  const [loadingPerms, setLoadingPerms] = useState(true)
+
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(!!editId)
   const [formData, setFormData] = useState({
@@ -38,6 +45,21 @@ function ClientFormContent() {
   
   const [documents, setDocuments] = useState<{ file: File; title: string; documentType: string }[]>([])
   const [docUploadProgress, setDocUploadProgress] = useState<{ current: number; total: number } | null>(null)
+
+  useEffect(() => {
+    fetch("/api/users/me/permissions")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.permissions) {
+          setUserPermissions(data.permissions.CLIENTS || {})
+        }
+        setLoadingPerms(false)
+      })
+      .catch(err => {
+        console.error("Failed to load permissions", err)
+        setLoadingPerms(false)
+      })
+  }, [])
 
   useEffect(() => {
     if (editId) {
@@ -151,11 +173,29 @@ function ClientFormContent() {
     setDocuments(prev => prev.filter((_, i) => i !== index))
   }
 
-  if (loading) {
+  const canCreate = isSuperAdmin || (userPermissions ? userPermissions.create === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
+  const canEdit = isSuperAdmin || (userPermissions ? userPermissions.edit === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
+
+  if (loadingPerms || loading) {
     return (
       <div className="flex flex-col items-center justify-center py-40 gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground font-medium">Loading client details...</p>
+        <p className="text-sm text-muted-foreground font-medium">
+          {loadingPerms ? "Verifying authorization..." : "Loading client details..."}
+        </p>
+      </div>
+    )
+  }
+
+  const hasAccess = editId ? canEdit : canCreate
+  if (!hasAccess) {
+    return (
+      <div className="flex flex-col items-center justify-center py-40 gap-3 text-center">
+        <p className="text-lg font-bold text-destructive">Access Denied</p>
+        <p className="text-sm text-muted-foreground">You do not have permission to access this page.</p>
+        <Link href="/clients">
+          <Button variant="outline" className="mt-4">Back to Clients</Button>
+        </Link>
       </div>
     )
   }

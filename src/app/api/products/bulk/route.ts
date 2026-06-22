@@ -11,9 +11,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
     const userId = (session.user as any).id
-    const canCreate = await hasPermission(userId, "PRODUCTS", "create")
-    if (!canCreate) {
-      return NextResponse.json({ error: "Forbidden: You do not have permission to import products" }, { status: 403 })
+    const canBulkUpload = await hasPermission(userId, "PRODUCTS", "uploadFiles")
+    if (!canBulkUpload) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to bulk upload products" }, { status: 403 })
     }
 
     const body = await request.json()

@@ -157,6 +157,7 @@ export default function ClientDetailPage() {
 
   const [client, setClient] = useState<ClientDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [userPermissions, setUserPermissions] = useState<any>(null)
   const [activeTab, setActiveTab] = useState<Tab>("quotations")
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [showAssignmentModal, setShowAssignmentModal] = useState(false)
@@ -194,7 +195,19 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     if (clientId) fetchClient()
+    fetch("/api/users/me/permissions")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.permissions) {
+          setUserPermissions(data.permissions.CLIENTS || {})
+        }
+      })
+      .catch(err => console.error("Failed to load permissions", err))
   }, [clientId, fetchClient])
+
+  const isSuperAdmin = userRole === "SUPER_ADMIN"
+  const canEdit = isSuperAdmin || (userPermissions ? userPermissions.edit === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
+  const canApprove = isSuperAdmin || (userPermissions ? userPermissions.approve === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
 
   // ── Lazy load BOQs when tab selected ──────────────────────────────────────
   useEffect(() => {
@@ -304,7 +317,7 @@ export default function ClientDetailPage() {
 
         {/* Header actions */}
         <div className="flex flex-wrap items-center gap-2">
-          {isManagerOrAdmin && client.status !== "Approved" && (
+          {canApprove && client.status !== "Approved" && (
             <Button
               onClick={() => handleStatusUpdate("Approved")}
               disabled={updatingStatus}
@@ -314,7 +327,7 @@ export default function ClientDetailPage() {
               Approve Client
             </Button>
           )}
-          {isManagerOrAdmin && client.status === "Pending Approval" && (
+          {canApprove && client.status === "Pending Approval" && (
             <Button
               onClick={() => handleStatusUpdate("Rejected")}
               disabled={updatingStatus}
@@ -324,7 +337,7 @@ export default function ClientDetailPage() {
               Reject
             </Button>
           )}
-          {isManagerOrAdmin && (
+          {canEdit && (
             <Link href={`/clients/new?editId=${client.id}`}>
               <Button variant="outline" className="border-primary/20 text-primary hover:bg-primary/5">
                 <Edit className="mr-2 h-4 w-4" /> Update Client

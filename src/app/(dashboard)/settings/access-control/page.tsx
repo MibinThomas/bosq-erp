@@ -52,6 +52,7 @@ const primaryActions = [
   { id: "delete", label: "Delete" },
   { id: "approve", label: "Approve" },
   { id: "export", label: "Export" },
+  { id: "uploadFiles", label: "Bulk Upload" },
 ]
 
 const territoriesList = ["UAE", "Dubai", "Abu Dhabi", "Sharhar", "Other Regions"]
@@ -238,6 +239,7 @@ export default function AccessControlPage() {
         delete: perm?.delete ?? false,
         approve: perm?.approve ?? false,
         export: perm?.export ?? false,
+        uploadFiles: perm?.uploadFiles ?? false,
       }
     })
     setEditingPermissions(matrix)
