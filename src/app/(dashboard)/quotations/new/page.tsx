@@ -37,6 +37,7 @@ import { QuickAddProductModal } from "@/components/products/quick-add-product-mo
 import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
 import { AssignmentModal } from "@/components/clients/assignment-modal"
 import { ImageCropper } from "@/components/ui/image-cropper"
+import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Image as ImageIcon, UploadCloud } from "lucide-react"
 
@@ -71,6 +72,7 @@ const quotationSchema = z.object({
       productDescription: z.string().optional(),
       categoryName: z.string().optional(),
       chairType: z.string().optional(),
+      saveToCatalog: z.boolean().optional(),
     })
   ).min(1, "At least one item is required"),
   vatMode: z.enum(["EXCLUDING", "INCLUDING"]).default("EXCLUDING"),
@@ -531,6 +533,7 @@ function NewQuotationForm() {
                   productDescription: item.product?.description || "",
                   categoryName: item.product?.category?.name || "Chairs",
                   chairType: item.product?.chairType || "",
+                  saveToCatalog: false,
                 }
               }),
               deliveryCharge: activeData.deliveryCharge || 0,
@@ -590,6 +593,7 @@ function NewQuotationForm() {
             productDescription: item.productDescription || item.shortDescription || item.description || "",
             categoryName: item.categoryName || "Chairs",
             chairType: item.chairType || "",
+            saveToCatalog: false,
           })),
           deliveryCharge: 0,
           notes: "",
@@ -621,7 +625,7 @@ function NewQuotationForm() {
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "" }],
+      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", saveToCatalog: false }],
       deliveryCharge: 0,
       notes: "",
       vatMode: "EXCLUDING",
@@ -886,7 +890,7 @@ function NewQuotationForm() {
             throw new Error(`Chair Type is required for custom chair "${item.description}".`)
           }
 
-          if (isManagerOrAdmin) {
+          if (isAdminOrSuperAdmin && item.saveToCatalog) {
             const prodRes = await fetch("/api/products", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -1612,6 +1616,7 @@ function NewQuotationForm() {
                                 form.setValue(`items.${index}.specifications`, "", { shouldValidate: true, shouldDirty: true })
                                 form.setValue(`items.${index}.productNotes`, "", { shouldValidate: true, shouldDirty: true })
                                 form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })
+                                form.setValue(`items.${index}.saveToCatalog`, false, { shouldValidate: true, shouldDirty: true })
                               }}
                             />
                           </div>
@@ -1797,6 +1802,30 @@ function NewQuotationForm() {
                                     />
                                   )}
                                 </div>
+
+                                {/* Save to Catalog Toggle */}
+                                {isAdminOrSuperAdmin && (
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.saveToCatalog`}
+                                    render={({ field }) => (
+                                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/10">
+                                        <div className="space-y-0.5 flex-1 pr-2">
+                                          <FormLabel className="text-xs font-semibold text-muted-foreground block">Save to Product Catalog</FormLabel>
+                                          <span className="text-[10px] text-muted-foreground block leading-tight">
+                                            Add this custom product to the standard catalog database.
+                                          </span>
+                                        </div>
+                                        <FormControl>
+                                          <Switch
+                                            checked={field.value || false}
+                                            onCheckedChange={field.onChange}
+                                          />
+                                        </FormControl>
+                                      </FormItem>
+                                    )}
+                                  />
+                                )}
 
                                 {/* Product Description */}
                                 <FormField
@@ -2033,7 +2062,7 @@ function NewQuotationForm() {
                                       variant="outline"
                                       size="sm"
                                       className="flex-1 h-8 text-[11px]"
-                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "" })}
+                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", saveToCatalog: false })}
                                     >
                                       <Plus className="h-3.5 w-3.5 mr-1" />
                                       Add Custom Item
@@ -2368,7 +2397,7 @@ function NewQuotationForm() {
                                       variant="outline"
                                       size="sm"
                                       className="flex-1 h-8 text-[11px]"
-                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "" })}
+                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", saveToCatalog: false })}
                                     >
                                       <Plus className="h-3.5 w-3.5 mr-1" />
                                       Add Custom Item
