@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { getPermissionsProfile } from "@/lib/rbac"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -33,15 +35,13 @@ export async function GET(request: Request) {
     const minVal = url.searchParams.get("minVal")
     const maxVal = url.searchParams.get("maxVal")
 
-    let qWhere: any = {}
+    let qWhere: any = { deletedAt: null }
 
     if (userRole === "DESIGN_CONSULTANT") {
-      qWhere = {
-        client: {
-          assignments: {
-            some: {
-              userId: userId
-            }
+      qWhere.client = {
+        assignments: {
+          some: {
+            userId: userId
           }
         }
       }

@@ -22,7 +22,7 @@ export default function ReportsPage() {
     async function fetchReports() {
       try {
         setLoading(true)
-        const res = await fetch("/api/reports/summary")
+        const res = await fetch(`/api/reports/summary?_t=${Date.now()}`, { cache: "no-store" })
         if (!res.ok) throw new Error("Failed to load reports summary")
         const json = await res.json()
         setData(json)

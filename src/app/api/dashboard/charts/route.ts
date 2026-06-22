@@ -5,6 +5,8 @@ import { authOptions } from "../../auth/[...nextauth]/route"
 import { format } from "date-fns"
 import { hasPermission } from "@/lib/rbac"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)

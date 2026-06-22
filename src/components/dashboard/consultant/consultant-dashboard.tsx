@@ -55,12 +55,13 @@ export function ConsultantDashboard() {
   async function fetchConsultantData() {
     setLoading(true)
     const qs = buildQueryString()
+    const t = Date.now()
     try {
       const [summaryRes, overviewRes, chartsRes, activityRes] = await Promise.all([
-        fetch(`/api/dashboard/consultant/summary?${qs}`),
-        fetch(`/api/dashboard/consultant/overview?${qs}`),
-        fetch(`/api/dashboard/consultant/charts?${qs}`),
-        fetch(`/api/dashboard/consultant/activity?${qs}`)
+        fetch(`/api/dashboard/consultant/summary?${qs}&_t=${t}`, { cache: "no-store" }),
+        fetch(`/api/dashboard/consultant/overview?${qs}&_t=${t}`, { cache: "no-store" }),
+        fetch(`/api/dashboard/consultant/charts?${qs}&_t=${t}`, { cache: "no-store" }),
+        fetch(`/api/dashboard/consultant/activity?${qs}&_t=${t}`, { cache: "no-store" })
       ])
 
       if (summaryRes.ok) setSummaryData(await summaryRes.json())

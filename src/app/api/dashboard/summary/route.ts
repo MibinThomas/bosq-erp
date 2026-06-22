@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "../../auth/[...nextauth]/route"
 import { hasPermission } from "@/lib/rbac"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -257,11 +259,11 @@ export async function GET(request: Request) {
 
     const [consultants, clients] = await Promise.all([
       prisma.user.findMany({
-        where: { id: { in: consultantIds } },
+        where: { id: { in: consultantIds }, deletedAt: null },
         select: { id: true, name: true, image: true, role: true }
       }),
       prisma.client.findMany({
-        where: { id: { in: clientIds } },
+        where: { id: { in: clientIds }, deletedAt: null },
         select: { id: true, companyName: true, clientType: true }
       })
     ])

@@ -30,7 +30,7 @@ export default function DashboardPage() {
     const loadProfile = () => {
       if (session?.user) {
         setLoadingProfile(true)
-        fetch("/api/settings/access-control/profile")
+        fetch(`/api/settings/access-control/profile?_t=${Date.now()}`, { cache: "no-store" })
           .then(res => {
             if (res.ok) return res.json()
             throw new Error("Failed to load profile")
@@ -94,10 +94,11 @@ export default function DashboardPage() {
 
   async function fetchDashboardData() {
     const qs = buildQueryString()
+    const t = Date.now()
     
     // Fetch Summary
     setLoadingKPIs(true)
-    fetch(`/api/dashboard/summary?${qs}`)
+    fetch(`/api/dashboard/summary?${qs}&_t=${t}`, { cache: "no-store" })
       .then(res => res.json())
       .then(data => setSummaryData(data))
       .catch(err => console.error(err))
@@ -105,7 +106,7 @@ export default function DashboardPage() {
 
     // Fetch Charts
     setLoadingCharts(true)
-    fetch(`/api/dashboard/charts?${qs}`)
+    fetch(`/api/dashboard/charts?${qs}&_t=${t}`, { cache: "no-store" })
       .then(res => res.json())
       .then(data => setChartData(data))
       .catch(err => console.error(err))
@@ -113,7 +114,7 @@ export default function DashboardPage() {
 
     // Fetch Timeline
     setLoadingTimeline(true)
-    fetch(`/api/dashboard/activities?${qs}`)
+    fetch(`/api/dashboard/activities?${qs}&_t=${t}`, { cache: "no-store" })
       .then(res => res.json())
       .then(data => setTimelineData(data))
       .catch(err => console.error(err))

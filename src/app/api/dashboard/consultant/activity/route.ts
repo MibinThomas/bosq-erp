@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { getPermissionsProfile } from "@/lib/rbac"
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -33,36 +35,34 @@ export async function GET(request: Request) {
     const minVal = url.searchParams.get("minVal")
     const maxVal = url.searchParams.get("maxVal")
 
-    let qWhere: any = {}
+    let qWhere: any = { deletedAt: null }
     let logWhere: any = { userId }
     if (dashboardAccess === "ALL") {
       logWhere = {} // Show all logs if full access
     }
 
     if (userRole === "DESIGN_CONSULTANT") {
-      qWhere = {
-        client: {
-          assignments: {
-            some: {
-              userId: userId
-            }
+      qWhere.client = {
+        assignments: {
+          some: {
+            userId: userId
           }
         }
       }
 
       const assignedAssignments = await prisma.clientAssignment.findMany({
-        where: { userId: userId },
+        where: { userId: userId, client: { deletedAt: null } },
         select: { clientId: true }
       })
       const assignedClientIds = assignedAssignments.map(a => a.clientId)
 
       const [assignedQuotations, assignedBoqs] = await Promise.all([
         prisma.quotation.findMany({
-          where: { clientId: { in: assignedClientIds } },
+          where: { clientId: { in: assignedClientIds }, deletedAt: null },
           select: { id: true }
         }),
         prisma.boq.findMany({
-          where: { clientId: { in: assignedClientIds } },
+          where: { clientId: { in: assignedClientIds }, deletedAt: null },
           select: { id: true }
         })
       ])
