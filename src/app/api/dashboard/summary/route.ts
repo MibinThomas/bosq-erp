@@ -171,7 +171,8 @@ export async function GET(request: Request) {
       pendingApprovalsCount,
       pendingFollowUpsCount,
       consultantStats,
-      clientStats
+      clientStats,
+      statusStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
         where: whereClause,
@@ -231,6 +232,16 @@ export async function GET(request: Request) {
           }
         },
         take: 5
+      }),
+      prisma.quotation.groupBy({
+        by: ["status"],
+        where: whereClause,
+        _count: {
+          id: true
+        },
+        _sum: {
+          subtotal: true
+        }
       })
     ])
 
@@ -415,6 +426,11 @@ export async function GET(request: Request) {
       pendingFollowUpsCount,
       topConsultants,
       topClients,
+      statusStats: statusStats.map(s => ({
+        status: s.status,
+        count: s._count.id,
+        value: s._sum.subtotal || 0
+      })),
       // 10 Team Overview KPIs
       totalDesignConsultants,
       totalAssignedClients,

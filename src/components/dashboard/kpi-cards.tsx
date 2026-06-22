@@ -1,20 +1,24 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { 
   FileText, 
   CheckCircle2, 
   DollarSign, 
   Clock, 
-  Percent, 
   Users, 
   UserCheck, 
   TrendingUp, 
+  TrendingDown,
   FileEdit, 
   RefreshCw, 
-  Layers 
+  Layers,
+  ArrowUpRight,
+  ChevronRight,
+  PieChart
 } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 interface KPIStats {
   totalQuotes: number
@@ -37,214 +41,383 @@ interface KPIStats {
   totalRevenuePipeline?: number
 }
 
-export function DashboardKPIs({ data, loading }: { data: KPIStats | null, loading: boolean }) {
+interface DashboardKPIsProps {
+  data: KPIStats | null
+  loading: boolean
+  onFilterChange?: (key: string, value: string) => void
+}
+
+export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsProps) {
   const { data: session } = useSession()
+  const router = useRouter()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER"
 
-  const formatCurrency = (val: number) => {
-    return new Intl.NumberFormat("en-AE", {
-      style: "currency",
-      currency: "AED",
+  const formatCurrencyParts = (val: number) => {
+    const formatted = new Intl.NumberFormat("en-AE", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(val)
+    }).format(val || 0)
+    return formatted
   }
 
   if (loading || !data) {
-    const cardCount = isManagerOrAdmin ? 10 : 4
-    const columnsClass = isManagerOrAdmin 
-      ? "grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 animate-pulse"
-      : "grid gap-4 md:grid-cols-2 lg:grid-cols-4 animate-pulse"
     return (
-      <div className={columnsClass}>
-        {Array.from({ length: cardCount }).map((_, i) => (
-          <Card key={i} className="h-[105px] bg-muted/20" />
-        ))}
+      <div className="space-y-6 animate-pulse">
+        <div className="space-y-2">
+          <div className="h-4 w-28 bg-muted rounded-md" />
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Card key={i} className="h-28 bg-muted/20 border-none shadow-none" />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="h-4 w-28 bg-muted rounded-md" />
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="h-28 bg-muted/20 border-none shadow-none" />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="h-4 w-28 bg-muted rounded-md" />
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="h-28 bg-muted/20 border-none shadow-none" />
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
 
-  if (isManagerOrAdmin) {
-    return (
-      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10">
-        {/* 1. Consultants */}
-        <Card className="hover:scale-[1.02] transition-transform duration-200 shadow-sm border border-muted/50 bg-card/65 backdrop-blur-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Consultants</CardTitle>
-            <Users className="h-4.5 w-4.5 text-purple-500" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-xl font-bold tracking-tight text-card-foreground">{data.totalDesignConsultants ?? 0}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Active team</p>
-          </CardContent>
-        </Card>
+  // Calculate pending revenue
+  const pendingRevenue = Math.max(0, (data.totalValue || 0) - (data.convertedValue || 0))
 
-        {/* 2. Assigned Clients */}
-        <Card className="hover:scale-[1.02] transition-transform duration-200 shadow-sm border border-muted/50 bg-card/65 backdrop-blur-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Clients</CardTitle>
-            <UserCheck className="h-4.5 w-4.5 text-indigo-500" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-xl font-bold tracking-tight text-card-foreground">{data.totalAssignedClients ?? 0}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Unique accounts</p>
-          </CardContent>
-        </Card>
-
-        {/* 3. Total Quotations */}
-        <Card className="hover:scale-[1.02] transition-transform duration-200 shadow-sm border border-muted/50 bg-card/65 backdrop-blur-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Quotes</CardTitle>
-            <FileText className="h-4.5 w-4.5 text-cyan-500" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-xl font-bold tracking-tight text-card-foreground">{data.totalQuotes}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Value: {formatCurrency(data.totalValue)}</p>
-          </CardContent>
-        </Card>
-
-        {/* 4. Active (In-Progress) Quotations */}
-        <Card className="hover:scale-[1.02] transition-transform duration-200 shadow-sm border border-muted/50 bg-card/65 backdrop-blur-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Active Quotes</CardTitle>
-            <TrendingUp className="h-4.5 w-4.5 text-blue-500" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-xl font-bold tracking-tight text-card-foreground">{data.totalActiveQuotations ?? 0}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">In-progress pipeline</p>
-          </CardContent>
-        </Card>
-
-        {/* 5. Draft Quotations */}
-        <Card className="hover:scale-[1.02] transition-transform duration-200 shadow-sm border border-muted/50 bg-card/65 backdrop-blur-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Draft Quotes</CardTitle>
-            <FileEdit className="h-4.5 w-4.5 text-slate-400" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-xl font-bold tracking-tight text-card-foreground">{data.totalDraftQuotations ?? 0}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Not sent yet</p>
-          </CardContent>
-        </Card>
-
-        {/* 6. Revised Quotations */}
-        <Card className="hover:scale-[1.02] transition-transform duration-200 shadow-sm border border-muted/50 bg-card/65 backdrop-blur-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Revised</CardTitle>
-            <RefreshCw className="h-4.5 w-4.5 text-amber-500" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-xl font-bold tracking-tight text-card-foreground">{data.totalRevisedQuotations ?? 0}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Awaiting updates</p>
-          </CardContent>
-        </Card>
-
-        {/* 7. Confirmed Quotations */}
-        <Card className="hover:scale-[1.02] transition-transform duration-200 shadow-sm border border-muted/50 bg-card/65 backdrop-blur-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Confirmed</CardTitle>
-            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-xl font-bold tracking-tight text-emerald-600">{data.totalClientConfirmedQuotations ?? 0}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Win: {formatCurrency(data.convertedValue)}</p>
-          </CardContent>
-        </Card>
-
-        {/* 8. Total BOQs */}
-        <Card className="hover:scale-[1.02] transition-transform duration-200 shadow-sm border border-muted/50 bg-card/65 backdrop-blur-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total BOQs</CardTitle>
-            <Layers className="h-4.5 w-4.5 text-teal-500" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-xl font-bold tracking-tight text-card-foreground">{data.totalBOQs ?? 0}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Estimations total</p>
-          </CardContent>
-        </Card>
-
-        {/* 9. Pending BOQs */}
-        <Card className="hover:scale-[1.02] transition-transform duration-200 shadow-sm border border-muted/50 bg-card/65 backdrop-blur-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pending BOQs</CardTitle>
-            <Clock className="h-4.5 w-4.5 text-orange-500" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-xl font-bold tracking-tight text-orange-600">{data.totalPendingBOQs ?? 0}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">In cost checks</p>
-          </CardContent>
-        </Card>
-
-        {/* 10. Revenue Pipeline */}
-        <Card className="hover:scale-[1.02] transition-transform duration-200 shadow-sm border border-muted/50 bg-card/65 backdrop-blur-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-            <CardTitle className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Revenue Pipe</CardTitle>
-            <DollarSign className="h-4.5 w-4.5 text-rose-500" />
-          </CardHeader>
-          <CardContent className="p-3 pt-0">
-            <div className="text-[14px] sm:text-base font-bold tracking-tight text-rose-600 truncate">{formatCurrency(data.totalRevenuePipeline ?? 0)}</div>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Active value</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  // Fallback / Standard View for other roles (e.g. Sales Executives or when not Admin/Manager)
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Quotations</CardTitle>
-          <FileText className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{data.totalQuotes}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Value: {formatCurrency(data.totalValue)}
-          </p>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      
+      {/* 1. SALES OVERVIEW SECTION */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest font-sans flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5 text-zinc-400" />
+            Sales Overview
+          </h3>
+          <span className="text-[10px] text-muted-foreground/80 bg-zinc-100 dark:bg-zinc-800/50 px-2 py-0.5 rounded-full font-sans">
+            Interactive metrics
+          </span>
+        </div>
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+          
+          {/* Total Quotes */}
+          <Card 
+            onClick={() => onFilterChange?.("status", "all")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Total Quotes</span>
+                <div className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
+                  <FileText className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalQuotes}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>Gross document volume</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Converted (Won)</CardTitle>
-          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-emerald-600">{data.convertedCount}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Value: {formatCurrency(data.convertedValue)}
-          </p>
-        </CardContent>
-      </Card>
+          {/* Active Quotes */}
+          <Card 
+            onClick={() => onFilterChange?.("status", "QUOTE_CREATED")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Active Quotes</span>
+                <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-500 dark:text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors duration-300">
+                  <Clock className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-blue-600 dark:text-blue-400">{data.totalActiveQuotations ?? 0}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span className="flex items-center gap-0.5 text-emerald-600 font-bold"><TrendingUp className="h-3 w-3" /> Active</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Win Rate</CardTitle>
-          <Percent className="h-4 w-4 text-blue-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-blue-600">{data.winRate.toFixed(1)}%</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Of total quotes generated
-          </p>
-        </CardContent>
-      </Card>
+          {/* Draft Quotes */}
+          <Card 
+            onClick={() => onFilterChange?.("status", "DRAFT")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Draft Quotes</span>
+                <div className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 group-hover:bg-zinc-500 group-hover:text-white transition-colors duration-300">
+                  <FileEdit className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalDraftQuotations ?? 0}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>Awaiting submission</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Pending Actions</CardTitle>
-          <Clock className="h-4 w-4 text-amber-500" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold text-amber-600">{data.pendingApprovalsCount + data.pendingFollowUpsCount}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {data.pendingApprovalsCount} Created &bull; {data.pendingFollowUpsCount} Draft/Revised
-          </p>
-        </CardContent>
-      </Card>
+          {/* Revised Quotes */}
+          <Card 
+            onClick={() => onFilterChange?.("status", "REVISED")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Revised</span>
+                <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-500 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white transition-colors duration-300">
+                  <RefreshCw className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-amber-600 dark:text-amber-400">{data.totalRevisedQuotations ?? 0}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>Requires action</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Confirmed Quotes */}
+          <Card 
+            onClick={() => onFilterChange?.("status", "CLIENT_APPROVED")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Confirmed</span>
+                <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-emerald-600 dark:text-emerald-400">{data.totalClientConfirmedQuotations ?? 0}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span className="font-bold text-emerald-600 font-mono">Win: {data.winRate.toFixed(0)}%</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+        </div>
+      </div>
+
+      {/* 2. BUSINESS OVERVIEW SECTION */}
+      <div className="space-y-2.5">
+        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest font-sans flex items-center gap-1.5">
+          <Users className="h-3.5 w-3.5 text-zinc-400" />
+          Business Overview
+        </h3>
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+          
+          {/* Total Clients */}
+          <Card 
+            onClick={() => router.push("/clients")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Total Clients</span>
+                <div className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 text-indigo-500 dark:text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors duration-300">
+                  <UserCheck className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalAssignedClients ?? 0}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>Unique accounts database</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Active Consultants */}
+          <Card 
+            onClick={() => router.push("/settings/access-control")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Active Consultants</span>
+                <div className="p-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/30 text-purple-500 dark:text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors duration-300">
+                  <Users className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalDesignConsultants ?? 0}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>Authorized team members</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Total BOQs */}
+          <Card 
+            onClick={() => router.push("/boq")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Total BOQs</span>
+                <div className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/30 text-teal-500 dark:text-teal-400 group-hover:bg-teal-500 group-hover:text-white transition-colors duration-300">
+                  <Layers className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalBOQs ?? 0}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>Estimations drafted</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pending BOQs */}
+          <Card 
+            onClick={() => router.push("/boq")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Pending BOQs</span>
+                <div className="p-1.5 rounded-lg bg-orange-50 dark:bg-orange-950/30 text-orange-500 dark:text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition-colors duration-300">
+                  <Clock className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-orange-600 dark:text-orange-400">{data.totalPendingBOQs ?? 0}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>In costing operations</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+        </div>
+      </div>
+
+      {/* 3. REVENUE OVERVIEW SECTION */}
+      <div className="space-y-2.5">
+        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest font-sans flex items-center gap-1.5">
+          <DollarSign className="h-3.5 w-3.5 text-zinc-400" />
+          Revenue Overview (AED)
+        </h3>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+          
+          {/* Quotation Value */}
+          <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Quotation Value</span>
+                <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-500 dark:text-blue-400">
+                  <DollarSign className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-baseline gap-1 truncate">
+                  <span className="text-xs font-bold text-muted-foreground">AED</span>
+                  <span className="text-2xl font-bold tracking-tight font-sans text-foreground">{formatCurrencyParts(data.totalValue)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>Gross pipeline sum</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Confirmed Revenue */}
+          <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Confirmed Revenue</span>
+                <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 dark:text-emerald-400">
+                  <CheckCircle2 className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-baseline gap-1 truncate">
+                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-500">AED</span>
+                  <span className="text-2xl font-bold tracking-tight font-sans text-emerald-600 dark:text-emerald-400">{formatCurrencyParts(data.convertedValue)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>Closed &amp; signed transactions</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Revenue Pipeline */}
+          <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Revenue Pipeline</span>
+                <div className="p-1.5 rounded-lg bg-pink-50 dark:bg-pink-950/30 text-pink-500 dark:text-pink-400">
+                  <TrendingUp className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-baseline gap-1 truncate">
+                  <span className="text-xs font-bold text-pink-600 dark:text-pink-500">AED</span>
+                  <span className="text-2xl font-bold tracking-tight font-sans text-pink-600 dark:text-pink-400">{formatCurrencyParts(data.totalRevenuePipeline ?? 0)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span className="text-pink-500 flex items-center font-bold gap-0.5">Unclosed value</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pending Revenue */}
+          <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Pending Revenue</span>
+                <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-500 dark:text-rose-400">
+                  <TrendingDown className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-baseline gap-1 truncate">
+                  <span className="text-xs font-bold text-rose-600 dark:text-rose-500">AED</span>
+                  <span className="text-2xl font-bold tracking-tight font-sans text-rose-600 dark:text-rose-400">{formatCurrencyParts(pendingRevenue)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>Outstanding quotation value</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+        </div>
+      </div>
+
     </div>
   )
 }

@@ -5,17 +5,23 @@ import { useSession } from "next-auth/react"
 import { DashboardFilters, DashboardFilterState } from "@/components/dashboard/dashboard-filters"
 import { DashboardKPIs } from "@/components/dashboard/kpi-cards"
 import { DashboardSalesChart } from "@/components/dashboard/sales-chart"
+import { DashboardRevenueTrendChart } from "@/components/dashboard/revenue-trend-chart"
+import { DashboardStatusChart } from "@/components/dashboard/status-chart"
 import { DashboardSegmentChart } from "@/components/dashboard/segment-pie-chart"
 import { DashboardTimeline } from "@/components/dashboard/activity-timeline"
-import { Download, ShieldAlert } from "lucide-react"
 import { PendingClientApprovals } from "@/components/dashboard/pending-approvals"
+import { ClientAccessRequests } from "@/components/dashboard/access-requests"
+import { DashboardPendingActions } from "@/components/dashboard/pending-actions"
 import { ConsultantDashboard } from "@/components/dashboard/consultant/consultant-dashboard"
 import { DashboardTopPerformers } from "@/components/dashboard/top-performers"
+import { ShieldAlert, RefreshCw } from "lucide-react"
+import { Card } from "@/components/ui/card"
 
 export default function DashboardPage() {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER"
+  const isSuperAdminOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN"
+  const isManagerOrAdmin = isSuperAdminOrAdmin || userRole === "SALES_MANAGER" || userRole === "MANAGER"
 
   const [profile, setProfile] = useState<any>(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
@@ -115,8 +121,6 @@ export default function DashboardPage() {
   }
 
   const handleExport = () => {
-    // In a real app, this would generate a CSV from the summary/chart data.
-    // We'll trigger a simple CSV download of the sales performance data for now.
     if (!chartData?.salesData?.length) return
     
     const headers = ["Date", "Converted Value (AED)", "Pending Value (AED)"]
@@ -139,10 +143,17 @@ export default function DashboardPage() {
     document.body.removeChild(link)
   }
 
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }))
+  }
+
   if (loadingProfile) {
     return (
-      <div className="py-20 text-center text-zinc-400 text-sm animate-pulse flex flex-col items-center justify-center space-y-2">
-        <ShieldAlert className="animate-bounce text-amber-500 h-6 w-6" />
+      <div className="py-20 text-center text-zinc-400 text-sm animate-pulse flex flex-col items-center justify-center space-y-2 font-sans">
+        <RefreshCw className="animate-spin text-primary h-6 w-6" />
         <span>Loading dashboard panel, please wait...</span>
       </div>
     )
@@ -150,7 +161,7 @@ export default function DashboardPage() {
 
   if (profile && !profile.isSuperAdmin && profile.permissions["DASHBOARD"]?.view === false) {
     return (
-      <div className="flex flex-col items-center justify-center border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-card p-12 text-center max-w-2xl mx-auto my-12 shadow-lg space-y-4">
+      <div className="flex flex-col items-center justify-center border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-card p-12 text-center max-w-2xl mx-auto my-12 shadow-lg space-y-4 font-sans">
         <div className="p-3 bg-red-100 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-full">
           <ShieldAlert className="h-10 w-10" />
         </div>
@@ -167,48 +178,99 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 pb-12 font-sans">
+      
+      {/* Title Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Advanced overview of your quotation and sales performance.
+        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">Executive Dashboard</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Real-time analytics and management dashboard for quotation workflows, pipelines, and team performance.
         </p>
       </div>
 
+      {/* Filter panel */}
       <DashboardFilters 
         filters={filters} 
         setFilters={setFilters} 
         onExport={handleExport} 
       />
 
-      <DashboardKPIs data={summaryData} loading={loadingKPIs} />
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <DashboardSalesChart data={chartData?.salesData || []} loading={loadingCharts} />
-        <DashboardSegmentChart data={chartData?.segmentData || []} loading={loadingCharts} />
-      </div>
-
-      <DashboardTopPerformers 
-        topConsultants={summaryData?.topConsultants || []}
-        topClients={summaryData?.topClients || []}
+      {/* Row 1: KPI Summary Cards */}
+      <DashboardKPIs 
+        data={summaryData} 
         loading={loadingKPIs} 
+        onFilterChange={handleFilterChange} 
       />
 
-      <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-5">
-        <div className="lg:col-span-3 h-full">
-          {isManagerOrAdmin ? (
-            <PendingClientApprovals onApprovalChanged={fetchDashboardData} />
-          ) : (
-            <div className="h-full border border-dashed rounded-xl bg-card flex items-center justify-center p-8 text-center text-muted-foreground min-h-[220px]">
-              <p className="text-xs">Advanced sales analytics and administrative operations are role-gated.</p>
-            </div>
-          )}
+      {/* Row 2: Revenue Trend & Sales Performance Charts */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <DashboardRevenueTrendChart 
+          data={chartData?.salesData || []} 
+          loading={loadingCharts} 
+        />
+        <DashboardSalesChart 
+          data={chartData?.salesData || []} 
+          loading={loadingCharts} 
+        />
+      </div>
+
+      {/* Row 3: Quotation Status & Client Segment Breakdown Charts */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <DashboardStatusChart 
+          data={summaryData?.statusStats || []} 
+          loading={loadingKPIs} 
+        />
+        <DashboardSegmentChart 
+          data={chartData?.segmentData || []} 
+          loading={loadingCharts} 
+        />
+      </div>
+
+      {/* Row 4: Top Performers & Recent Activity */}
+      <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-7">
+        <div className="lg:col-span-5 h-full">
+          <DashboardTopPerformers 
+            topConsultants={summaryData?.topConsultants || []}
+            topClients={summaryData?.topClients || []}
+            loading={loadingKPIs} 
+          />
         </div>
-        <DashboardTimeline 
-          activities={timelineData?.activities || []} 
+        <div className="lg:col-span-2 h-full">
+          <DashboardTimeline 
+            activities={timelineData?.activities || []} 
+            followUps={[]} // Extracted to pending actions in Row 5
+            loading={loadingTimeline} 
+          />
+        </div>
+      </div>
+
+      {/* Row 5: Pending Actions, Approval Queue & Client Access Requests */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+        
+        {/* Widget 1: Pending Actions (Followups) */}
+        <DashboardPendingActions 
           followUps={timelineData?.followUps || []} 
           loading={loadingTimeline} 
         />
+
+        {/* Widget 2: Approval Queue */}
+        {isManagerOrAdmin ? (
+          <PendingClientApprovals onApprovalChanged={fetchDashboardData} />
+        ) : (
+          <Card className="rounded-xl border shadow-sm p-8 flex items-center justify-center text-center text-muted-foreground min-h-[320px] bg-card/50">
+            <p className="text-xs">Client approval operations are role-gated.</p>
+          </Card>
+        )}
+
+        {/* Widget 3: Client Access Requests */}
+        {isSuperAdminOrAdmin ? (
+          <ClientAccessRequests onChanged={fetchDashboardData} />
+        ) : (
+          <Card className="rounded-xl border shadow-sm p-8 flex items-center justify-center text-center text-muted-foreground min-h-[320px] bg-card/50">
+            <p className="text-xs">Client assignment access requests are role-gated for administrators.</p>
+          </Card>
+        )}
+
       </div>
 
     </div>

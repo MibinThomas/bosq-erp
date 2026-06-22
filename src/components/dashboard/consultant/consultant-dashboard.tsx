@@ -99,7 +99,10 @@ export function ConsultantDashboard() {
 
       <DashboardFilters filters={filters} setFilters={setFilters} />
 
-      <ConsultantKPICards data={summaryData} />
+      <ConsultantKPICards 
+        data={summaryData} 
+        onFilterChange={(key, val) => setFilters(prev => ({ ...prev, [key]: val }))} 
+      />
 
       {!hasData ? (
         userRole === "DESIGN_CONSULTANT" ? (

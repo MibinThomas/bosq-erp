@@ -175,7 +175,9 @@ export async function GET(request: Request) {
       pendingClientApprovalsCount,
       activeQuotesCount,
       draftQuotesCount,
-      pendingBoqsCount
+      pendingBoqsCount,
+      convertedStats,
+      activeQuotesStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
         where: qWhere,
@@ -221,11 +223,36 @@ export async function GET(request: Request) {
       }),
       prisma.boq.count({
         where: { ...boqWhere, status: { in: ["DRAFT", "SENT_TO_ESTIMATOR", "COSTING_COMPLETED"] } }
+      }),
+      prisma.quotation.aggregate({
+        where: {
+          ...qWhere,
+          OR: [
+            { status: "PO_CONVERTED" },
+            { status: "PO_RECEIVED" },
+            { status: "CLIENT_APPROVED" },
+            { status: "CLIENT_CONFIRMED" },
+            { status: "APPROVED" },
+            { status: "UNDER_PRODUCTION" }
+          ]
+        },
+        _sum: { subtotal: true }
+      }),
+      prisma.quotation.aggregate({
+        where: {
+          ...qWhere,
+          status: {
+            notIn: ["REJECTED", "CANCELLED", "PO_RECEIVED", "CLIENT_CONFIRMED", "CLIENT_APPROVED", "APPROVED", "PO_CONVERTED", "UNDER_PRODUCTION"]
+          }
+        },
+        _sum: { subtotal: true }
       })
     ])
 
     const totalQuotes = totalStats._count || 0
     const totalValue = totalStats._sum.subtotal || 0
+    const convertedValue = convertedStats._sum.subtotal || 0
+    const totalRevenuePipeline = activeQuotesStats._sum.subtotal || 0
 
     return NextResponse.json({
       totalQuotes,
@@ -240,6 +267,8 @@ export async function GET(request: Request) {
       activeQuotesCount,
       draftQuotesCount,
       pendingBoqsCount,
+      convertedValue,
+      totalRevenuePipeline
     })
   } catch (error) {
     console.error("Consultant Summary API Error:", error)
