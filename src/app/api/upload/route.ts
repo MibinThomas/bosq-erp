@@ -83,12 +83,21 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(bytes);
     
     const blobPathname = `${folder}/${filename}`
-    const blob = await put(blobPathname, buffer, {
-      access: "public",
-      contentType: file.type,
-    })
-
-    return NextResponse.json({ url: blob.url })
+    try {
+      const blob = await put(blobPathname, buffer, {
+        access: "public",
+        contentType: file.type,
+      })
+      return NextResponse.json({ url: blob.url })
+    } catch (blobError: any) {
+      console.error("[UPLOAD API] Vercel Blob upload failed:", blobError)
+      if (blobError.message?.includes("store does not exist") || blobError.message?.includes("token") || blobError.message?.includes("unauthorized")) {
+        return NextResponse.json({ 
+          error: "Vercel Blob store is not linked or does not exist. Please go to your Vercel Project Dashboard, open the Storage tab, and link a Blob database to generate a valid BLOB_READ_WRITE_TOKEN." 
+        }, { status: 500 })
+      }
+      throw blobError;
+    }
   } catch (error: any) {
     console.error("Upload failed:", error)
     return NextResponse.json({ error: error.message || "Failed to upload image" }, { status: 500 })
