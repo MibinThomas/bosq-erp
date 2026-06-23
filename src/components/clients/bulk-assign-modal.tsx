@@ -37,7 +37,7 @@ export function BulkAssignModal({ isOpen, onClose, selectedIds, onSuccess }: Bul
   const fetchUsers = async () => {
     try {
       setFetchingUsers(true)
-      const res = await fetch("/api/settings/users")
+      const res = await fetch("/api/users/sales-agents")
       if (res.ok) {
         const data = await res.json()
         setUsers(data)

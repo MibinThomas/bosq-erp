@@ -48,7 +48,7 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
 
   useEffect(() => {
     if (isManagerOrAdmin) {
-      fetch("/api/settings/users")
+      fetch("/api/users/sales-agents")
         .then(res => res.json())
         .then(data => setUsers(Array.isArray(data) ? data : []))
         .catch(err => console.error("Error loading users for filters:", err))

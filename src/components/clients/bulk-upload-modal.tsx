@@ -161,7 +161,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       setExpandedRows({})
 
       // Fetch active users to validate assignments
-      fetch("/api/settings/users")
+      fetch("/api/users/sales-agents")
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {

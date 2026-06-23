@@ -359,6 +359,7 @@ function NewQuotationForm() {
 
   const [users, setUsers] = useState<any[]>([])
   const [userPermissions, setUserPermissions] = useState<any>(null)
+  const [canCreateClient, setCanCreateClient] = useState<boolean>(false)
 
   const [cropperLineIndex, setCropperLineIndex] = useState<number | null>(null)
   const [rawImageSrc, setRawImageSrc] = useState<string | null>(null)
@@ -451,7 +452,7 @@ function NewQuotationForm() {
 
   // Fetch users for selecting sales agent
   useEffect(() => {
-    fetch("/api/settings/users")
+    fetch("/api/users/sales-agents")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -465,6 +466,7 @@ function NewQuotationForm() {
       .then(data => {
         if (data && data.permissions) {
           setUserPermissions(data.permissions.QUOTATIONS || {})
+          setCanCreateClient(!!data.permissions.CLIENTS?.create)
         }
       })
       .catch(err => console.error("Failed to load permissions", err))
@@ -1160,44 +1162,92 @@ function NewQuotationForm() {
                                     <Plus className="h-4 w-4 text-primary" />
                                     <span>Quick Add Client...</span>
                                   </CommandItem>
-                                  {clients.filter(c => c.status === "Approved" || c.id === field.value).map((client) => {
-                                    const canSelect = client.isAssigned === true || isAdminOrSuperAdmin
-                                    const primaryAssignment = client.assignments?.find((a: any) => a.isPrimary)
-                                    const assignedConsultantText = primaryAssignment?.user?.name 
-                                      ? `Assigned to ${primaryAssignment.user.name}` 
-                                      : (client.assignments && client.assignments.length > 0)
-                                        ? `Assigned to ${client.assignments.map((a: any) => a.user?.name).filter(Boolean).join(", ")}`
-                                        : "Not Assigned"
+                                  {clients
+                                    .filter((client) => client.status === "Approved")
+                                    .map((client) => {
+                                      const isExcludedFromAssignmentCheck = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
+                                      const canSelect = client.isAssigned === true || isExcludedFromAssignmentCheck
+                                      const isUserAssigned = client.salespersonId === (session?.user as any)?.id || client.assignments?.some((a: any) => a.userId === (session?.user as any)?.id)
+                                      
+                                      const statusText = canSelect
+                                        ? (isUserAssigned ? "Assigned to You" : (client.assignments?.[0]?.user?.name ? `Assigned to ${client.assignments[0].user.name}` : "Assigned"))
+                                        : (() => {
+                                            const activeReq = client.accessRequests?.[0]
+                                            if (activeReq?.status === "Requested") return "Access Requested"
+                                            if (activeReq?.status === "Rejected") return "Request Rejected"
+                                            return "Not Assigned"
+                                          })()
+                                          
+                                      const isSelected = field.value === client.id
 
-                                    const searchValue = `${client.companyName} ${client.contactPerson || ""} ${client.email || ""} ${client.phone || ""} ${client.clientId || ""}`
-
-                                    return (
-                                      <CommandItem
-                                        value={searchValue}
-                                        key={client.id}
-                                        onSelect={() => {
-                                          if (canSelect) {
+                                      return (
+                                        <CommandItem
+                                          key={client.id}
+                                          value={client.companyName}
+                                          onSelect={() => {
+                                            if (!canSelect) return
                                             form.setValue("clientId", client.id)
                                             setIsClientPopoverOpen(false)
-                                          }
-                                        }}
-                                        className={cn(
-                                          "p-3 border-b last:border-b-0 border-muted/50 flex flex-col items-start gap-1 cursor-pointer",
-                                          !canSelect && "cursor-not-allowed opacity-90 hover:bg-transparent"
-                                        )}
-                                      >
-                                        <div className="flex items-center justify-between w-full">
-                                          <div className="flex items-center">
-                                            <Check
-                                              className={cn(
-                                                "mr-2 h-4 w-4 shrink-0",
-                                                client.id === field.value
-                                                  ? "opacity-100"
-                                                  : "opacity-0"
+                                          }}
+                                          className={cn(
+                                            "flex flex-col items-start p-2 border-b last:border-b-0 border-muted/50 aria-selected:bg-muted/40 cursor-pointer",
+                                            !canSelect && "opacity-75 cursor-default"
+                                          )}
+                                        >
+                                          <div className="flex items-center justify-between w-full">
+                                            <div className="flex items-center gap-2">
+                                              <Check
+                                                className={cn(
+                                                  "h-4 w-4 text-primary",
+                                                  isSelected ? "opacity-100" : "opacity-0"
+                                                )}
+                                              />
+                                              <span className="font-medium text-sm">{client.companyName}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                              {client.isAssigned && (
+                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-250 text-[10px] py-0 px-1.5 font-normal">
+                                                  Assigned
+                                                </Badge>
                                               )}
-                                            />
-                                            <span className="font-semibold text-sm">{client.companyName}</span>
+                                              {!canSelect && (
+                                                <>
+                                                  {(() => {
+                                                    const activeReq = client.accessRequests?.[0]
+                                                    const isRequested = activeReq?.status === "Requested"
+                                                    const isRejected = activeReq?.status === "Rejected"
+
+                                                    if (isRequested) {
+                                                      return (
+                                                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-250 text-[10px] py-0 px-1.5 font-normal">
+                                                          Access Requested
+                                                        </Badge>
+                                                      )
+                                                    }
+                                                    if (isRejected) {
+                                                      return (
+                                                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px] py-0 px-1.5 font-normal">
+                                                          Request Rejected
+                                                        </Badge>
+                                                      )
+                                                    }
+                                                    return (
+                                                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-250 text-[10px] py-0 px-1.5 font-normal">
+                                                        Not Assigned
+                                                      </Badge>
+                                                    )
+                                                  })()}
+                                                </>
+                                              )}
+                                            </div>
                                           </div>
+
+                                          <div className="text-[11px] text-muted-foreground ml-6 mt-0.5 flex items-center gap-1">
+                                            <span>{client.clientType || "Direct"}</span>
+                                            <span>·</span>
+                                            <span>{statusText}</span>
+                                          </div>
+
                                           {!canSelect && (() => {
                                             const activeReq = client.accessRequests?.[0]
                                             const isRequested = activeReq?.status === "Requested"
@@ -1205,127 +1255,96 @@ function NewQuotationForm() {
 
                                             if (isRequested) {
                                               return (
-                                                <Badge variant="outline" className="text-amber-500 border-amber-200 bg-amber-50 text-[10px] py-0 px-2 shrink-0">
-                                                  Access Requested
-                                                </Badge>
-                                              )
-                                            } else if (isRejected) {
-                                              return (
-                                                <Badge variant="outline" className="text-red-500 border-red-200 bg-red-50 text-[10px] py-0 px-2 shrink-0">
-                                                  Request Rejected
-                                                </Badge>
-                                              )
-                                            } else {
-                                              return (
-                                                <Badge variant="outline" className="text-red-500 border-red-200 bg-red-50 text-[10px] py-0 px-2 shrink-0">
-                                                  Not Assigned
-                                                </Badge>
+                                                <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                                     onClick={(e) => e.stopPropagation()}
+                                                >
+                                                  <div className="flex items-start gap-1">
+                                                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                    <span>Access request is pending Administrator approval.</span>
+                                                  </div>
+                                                  <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    disabled
+                                                    className="text-[10px] h-7 px-2 border-amber-200 bg-amber-100 text-amber-600 dark:bg-amber-950/40 shrink-0 self-end sm:self-auto opacity-75 cursor-not-allowed"
+                                                  >
+                                                    Requested
+                                                  </Button>
+                                                </div>
                                               )
                                             }
-                                          })()}
-                                        </div>
-                                        
-                                        <div className="text-xs text-muted-foreground ml-6">
-                                          {client.clientType || "Direct"} • {assignedConsultantText}
-                                        </div>
 
-                                        {!canSelect && (() => {
-                                          const activeReq = client.accessRequests?.[0]
-                                          const isRequested = activeReq?.status === "Requested"
-                                          const isRejected = activeReq?.status === "Rejected"
+                                            if (isRejected) {
+                                              return (
+                                                <div className="mt-2 ml-6 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg text-[11px] text-red-850 dark:text-red-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                                     onClick={(e) => e.stopPropagation()}
+                                                >
+                                                  <div className="flex items-start gap-1">
+                                                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                    <span>Access request rejected{activeReq.rejectionReason ? `: ${activeReq.rejectionReason}` : "."}</span>
+                                                  </div>
+                                                  <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="text-[10px] h-7 px-2 border-red-300 hover:bg-red-100 dark:hover:bg-red-950 text-red-900 dark:text-red-200 shrink-0 self-end sm:self-auto"
+                                                    onClick={async (e) => {
+                                                      e.stopPropagation()
+                                                      await handleRequestAccess(client.id, client.companyName)
+                                                    }}
+                                                  >
+                                                    Request Again
+                                                  </Button>
+                                                </div>
+                                              )
+                                            }
 
-                                          if (isRequested) {
                                             return (
                                               <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                                                    onClick={(e) => e.stopPropagation()}
                                               >
                                                 <div className="flex items-start gap-1">
                                                   <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                  <span>Access request is pending Administrator approval.</span>
+                                                  <span>You can view this client, but cannot create quotation unless assigned.</span>
                                                 </div>
                                                 <Button
                                                   type="button"
                                                   size="sm"
                                                   variant="outline"
-                                                  disabled
-                                                  className="text-[10px] h-7 px-2 border-amber-200 bg-amber-100 text-amber-600 dark:bg-amber-950/40 shrink-0 self-end sm:self-auto opacity-75 cursor-not-allowed"
-                                                >
-                                                  Requested
-                                                </Button>
-                                              </div>
-                                            )
-                                          }
-
-                                          if (isRejected) {
-                                            return (
-                                              <div className="mt-2 ml-6 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg text-[11px] text-red-850 dark:text-red-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                                                   onClick={(e) => e.stopPropagation()}
-                                              >
-                                                <div className="flex items-start gap-1">
-                                                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                  <span>Access request rejected{activeReq.rejectionReason ? `: ${activeReq.rejectionReason}` : "."}</span>
-                                                </div>
-                                                <Button
-                                                  type="button"
-                                                  size="sm"
-                                                  variant="outline"
-                                                  className="text-[10px] h-7 px-2 border-red-300 hover:bg-red-100 dark:hover:bg-red-950 text-red-900 dark:text-red-200 shrink-0 self-end sm:self-auto"
+                                                  className="text-[10px] h-7 px-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0 self-end sm:self-auto"
                                                   onClick={async (e) => {
                                                     e.stopPropagation()
                                                     await handleRequestAccess(client.id, client.companyName)
                                                   }}
                                                 >
-                                                  Request Again
+                                                  Request Access
                                                 </Button>
                                               </div>
                                             )
-                                          }
+                                          })()}
 
-                                          return (
-                                            <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                                                 onClick={(e) => e.stopPropagation()}
-                                            >
-                                              <div className="flex items-start gap-1">
-                                                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                <span>You can view this client, but cannot create quotation unless assigned.</span>
-                                              </div>
+                                          {isAdminOrSuperAdmin && (
+                                            <div className="mt-2 ml-6" onClick={(e) => e.stopPropagation()}>
                                               <Button
                                                 type="button"
                                                 size="sm"
-                                                variant="outline"
-                                                className="text-[10px] h-7 px-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0 self-end sm:self-auto"
-                                                onClick={async (e) => {
+                                                variant="ghost"
+                                                className="text-[10px] h-7 px-2 text-primary hover:bg-primary/10 flex items-center gap-1"
+                                                onClick={(e) => {
                                                   e.stopPropagation()
-                                                  await handleRequestAccess(client.id, client.companyName)
+                                                  setAssigningClient({ id: client.id, name: client.companyName })
+                                                  setIsAssignModalOpen(true)
                                                 }}
                                               >
-                                                Request Access
+                                                <UserPlus className="h-3 w-3" />
+                                                <span>Assign Consultant</span>
                                               </Button>
                                             </div>
-                                          )
-                                        })()}
-
-                                        {isAdminOrSuperAdmin && (
-                                          <div className="mt-2 ml-6" onClick={(e) => e.stopPropagation()}>
-                                            <Button
-                                              type="button"
-                                              size="sm"
-                                              variant="ghost"
-                                              className="text-[10px] h-7 px-2 text-primary hover:bg-primary/10 flex items-center gap-1"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                setAssigningClient({ id: client.id, name: client.companyName })
-                                                setIsAssignModalOpen(true)
-                                              }}
-                                            >
-                                              <UserPlus className="h-3 w-3" />
-                                              <span>Assign Consultant</span>
-                                            </Button>
-                                          </div>
-                                        )}
-                                      </CommandItem>
-                                    )
-                                  })}
+                                          )}
+                                        </CommandItem>
+                                      )
+                                    })}
                                 </CommandGroup>
                               </CommandList>
                             </Command>

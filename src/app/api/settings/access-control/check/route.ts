@@ -13,6 +13,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ authorized: false })
     }
 
+    if (path === "/api/users/sales-agents") {
+      return NextResponse.json({ authorized: true })
+    }
+
     // Resolve path and HTTP method to module and action
     let module = "DASHBOARD"
     let action = "view"

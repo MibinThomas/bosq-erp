@@ -24,6 +24,13 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    if (!["DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(dbSessionUser.role)) {
+      return NextResponse.json(
+        { error: "Only Design Consultants and Sales Executives can request client access." },
+        { status: 403 }
+      )
+    }
+
     const client = await prisma.client.findUnique({
       where: { id: clientId }
     })
@@ -44,6 +51,23 @@ export async function POST(
     if (isPrimarySalesperson || secondaryAssignmentCount > 0) {
       return NextResponse.json(
         { error: "You already have access/assignment to this client." },
+        { status: 400 }
+      )
+    }
+
+    // Check for duplicate pending requests
+    const existingRequest = await prisma.clientAccessRequest.findUnique({
+      where: {
+        clientId_userId: {
+          clientId: client.id,
+          userId: dbSessionUser.id
+        }
+      }
+    })
+
+    if (existingRequest && existingRequest.status === "Requested") {
+      return NextResponse.json(
+        { error: "A pending access request already exists for this client." },
         { status: 400 }
       )
     }
@@ -89,7 +113,7 @@ export async function POST(
         data: admins.map(admin => ({
           userId: admin.id,
           title: "Client Access Request",
-          message: `${dbSessionUser.name || dbSessionUser.email} has requested access to client "${client.companyName}" (${client.clientId}).`,
+          message: `${dbSessionUser.name || dbSessionUser.email} requested access to ${client.companyName}.`,
           type: "CLIENT_ACCESS_REQUEST",
           link: `/settings` // Redirects to settings console where requests tab resides
         }))
