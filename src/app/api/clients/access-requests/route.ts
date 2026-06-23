@@ -20,19 +20,46 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const canManage = await hasPermission(dbSessionUser.id, "CLIENTS", "edit")
-    if (!canManage) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(dbSessionUser.role)
+    
+    let requestsClause: any = {}
+    if (!isManagerOrAdmin) {
+      // Non-managers only see requests for clients they are assigned to
+      requestsClause = {
+        client: {
+          OR: [
+            { salespersonId: dbSessionUser.id },
+            {
+              assignments: {
+                some: { userId: dbSessionUser.id }
+              }
+            }
+          ]
+        }
+      }
     }
 
     const requests = await prisma.clientAccessRequest.findMany({
+      where: requestsClause,
       orderBy: { createdAt: "desc" },
       include: {
         client: {
           select: {
             id: true,
             companyName: true,
-            clientId: true
+            clientId: true,
+            salespersonId: true,
+            assignments: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    role: true
+                  }
+                }
+              }
+            }
           }
         },
         user: {
@@ -72,11 +99,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const canManage = await hasPermission(dbSessionUser.id, "CLIENTS", "edit")
-    if (!canManage) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    }
-
     const body = await request.json()
     const { requestId, action, rejectionReason, assignmentType } = body
 
@@ -90,11 +112,31 @@ export async function POST(request: Request) {
     // Fetch the access request details
     const accessRequest = await prisma.clientAccessRequest.findUnique({
       where: { id: requestId },
-      include: { client: true, user: true }
+      include: {
+        client: {
+          include: {
+            assignments: true
+          }
+        },
+        user: true
+      }
     })
 
     if (!accessRequest) {
       return NextResponse.json({ error: "Access request not found" }, { status: 404 })
+    }
+
+    // Authorize: Admin/Super Admin/Manager OR currently assigned primary/secondary consultant
+    const isAuthorized = 
+      ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(dbSessionUser.role) ||
+      accessRequest.client.salespersonId === dbSessionUser.id ||
+      accessRequest.client.assignments.some(a => a.userId === dbSessionUser.id)
+
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { error: "Forbidden. You are not authorized to process this access request." },
+        { status: 403 }
+      )
     }
 
     if (accessRequest.status !== "Requested") {

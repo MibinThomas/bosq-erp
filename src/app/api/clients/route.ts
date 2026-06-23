@@ -4,6 +4,7 @@ import { createClientFolder } from "@/lib/sharepoint"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { hasPermission } from "@/lib/rbac"
+import { getSetting } from "@/lib/settings"
 
 export async function GET(request: Request) {
   try {
@@ -106,6 +107,8 @@ export async function GET(request: Request) {
     const deptUserIds = deptUsers.map(u => u.id)
 
     // Map clients to add isAssigned flag
+    const allowRequestAgain = (await getSetting("client_allow_request_again")) !== "false"
+
     const clientsWithAccess = clients.map(client => {
       let isAssigned = false
       const isClientUserAssigned = client.salespersonId === dbSessionUser.id || 
@@ -124,7 +127,8 @@ export async function GET(request: Request) {
 
       return {
         ...client,
-        isAssigned
+        isAssigned,
+        allowRequestAgain
       }
     })
 

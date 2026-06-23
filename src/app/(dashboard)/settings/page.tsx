@@ -1327,6 +1327,8 @@ export default function SettingsPage() {
                         <th scope="col" className="px-6 py-4">Client Name</th>
                         <th scope="col" className="px-6 py-4">Requested By</th>
                         <th scope="col" className="px-6 py-4">User Role</th>
+                        <th scope="col" className="px-6 py-4">Current Owner</th>
+                        <th scope="col" className="px-6 py-4">Notes</th>
                         <th scope="col" className="px-6 py-4">Request Date</th>
                         <th scope="col" className="px-6 py-4">Status</th>
                         <th scope="col" className="px-6 py-4 text-right">Actions</th>
@@ -1351,6 +1353,12 @@ export default function SettingsPage() {
                             <span className="inline-flex px-2 py-0.5 rounded bg-slate-800 text-xs text-slate-300">
                               {req.user?.role?.replace(/_/g, " ")}
                             </span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-200">
+                            {req.client?.assignments?.find((a: any) => a.isPrimary)?.user?.name || "Unassigned"}
+                          </td>
+                          <td className="px-6 py-4 text-slate-400 max-w-[200px] truncate animate-none" title={req.notes || ""}>
+                            <span className="italic text-xs">{req.notes || "No note"}</span>
                           </td>
                           <td className="px-6 py-4 text-slate-400">
                             {new Date(req.createdAt).toLocaleString()}

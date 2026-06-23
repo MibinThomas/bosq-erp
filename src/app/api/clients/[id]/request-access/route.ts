@@ -32,7 +32,8 @@ export async function POST(
     }
 
     const client = await prisma.client.findUnique({
-      where: { id: clientId }
+      where: { id: clientId },
+      include: { assignments: true }
     })
 
     if (!client) {
@@ -99,7 +100,21 @@ export async function POST(
       }
     })
 
-    // 3. Fetch all Admin and Super Admin users to notify them
+    // 3. Notify currently assigned Design Consultants/Managers/Admins of that client
+    // Also notify Admins/Super Admins for visibility.
+    const notifyUserIds = new Set<string>()
+    
+    // Add primary salesperson if exists
+    if (client.salespersonId) {
+      notifyUserIds.add(client.salespersonId)
+    }
+    
+    // Add secondary assigned users
+    client.assignments.forEach(a => {
+      notifyUserIds.add(a.userId)
+    })
+
+    // Fetch active Admins and Super Admins
     const admins = await prisma.user.findMany({
       where: {
         role: { in: ["ADMIN", "SUPER_ADMIN"] },
@@ -107,11 +122,17 @@ export async function POST(
         deletedAt: null
       }
     })
+    admins.forEach(admin => {
+      notifyUserIds.add(admin.id)
+    })
 
-    if (admins.length > 0) {
+    // Exclude the requester themselves from the notification list
+    notifyUserIds.delete(dbSessionUser.id)
+
+    if (notifyUserIds.size > 0) {
       await prisma.notification.createMany({
-        data: admins.map(admin => ({
-          userId: admin.id,
+        data: Array.from(notifyUserIds).map(userId => ({
+          userId,
           title: "Client Access Request",
           message: `${dbSessionUser.name || dbSessionUser.email} requested access to ${client.companyName}.`,
           type: "CLIENT_ACCESS_REQUEST",

@@ -34,7 +34,12 @@ export async function POST(request: Request) {
     const creatorUserId: string = (session.user as any).id
 
     // Get settings configurations
-    const systemConfig = await getSettings(["client_assign_to_uploader", "client_allow_sales_executive_assignment"])
+    const systemConfig = await getSettings([
+      "client_assign_to_uploader",
+      "client_allow_sales_executive_assignment",
+      "client_allow_admin_assignment",
+      "client_default_admin_user_id"
+    ])
     const assignToUploader = systemConfig["client_assign_to_uploader"] !== "false"
     const allowSalesExec = systemConfig["client_allow_sales_executive_assignment"] !== "false"
 
@@ -47,6 +52,47 @@ export async function POST(request: Request) {
     const dbUsers = await prisma.user.findMany({
       where: { deletedAt: null }
     })
+
+    // Resolve fallback admin user ID based on priority list:
+    // 1. Uploading Admin user, if uploader is Admin
+    // 2. Default Admin user configured in Settings
+    // 3. First active Admin user
+    // 4. Super Admin (only if no Admin exists)
+    let fallbackAdminUserId: string | null = null
+
+    const creatorUser = dbUsers.find(u => u.id === creatorUserId)
+    if (creatorUser && creatorUser.role === "ADMIN" && creatorUser.isActive && !creatorUser.deletedAt) {
+      fallbackAdminUserId = creatorUser.id
+    }
+
+    if (!fallbackAdminUserId) {
+      const defaultAdminConfig = systemConfig["client_default_admin_user_id"]
+      if (defaultAdminConfig) {
+        const matchedConfigAdmin = dbUsers.find(u => 
+          (u.id === defaultAdminConfig || 
+           u.email?.toLowerCase() === defaultAdminConfig.toLowerCase() || 
+           u.name?.toLowerCase() === defaultAdminConfig.toLowerCase()) &&
+          u.role === "ADMIN" && u.isActive && !u.deletedAt
+        )
+        if (matchedConfigAdmin) {
+          fallbackAdminUserId = matchedConfigAdmin.id
+        }
+      }
+    }
+
+    if (!fallbackAdminUserId) {
+      const firstActiveAdmin = dbUsers.find(u => u.role === "ADMIN" && u.isActive && !u.deletedAt)
+      if (firstActiveAdmin) {
+        fallbackAdminUserId = firstActiveAdmin.id
+      }
+    }
+
+    if (!fallbackAdminUserId) {
+      const firstActiveSuperAdmin = dbUsers.find(u => u.role === "SUPER_ADMIN" && u.isActive && !u.deletedAt)
+      if (firstActiveSuperAdmin) {
+        fallbackAdminUserId = firstActiveSuperAdmin.id
+      }
+    }
 
     const clientByCompany = new Map(dbClients.map(c => [c.companyName.trim().toLowerCase(), c]))
     const clientByEmail = new Map()
@@ -216,14 +262,14 @@ export async function POST(request: Request) {
       // 6. Validate Design Consultant
       let assignedConsultantUserId: string | null = null
       if (!assignedConsultant || assignedConsultant.trim() === "") {
-        if (assignToUploader) {
-          assignedConsultantUserId = creatorUserId
-          cellIssues.push({
-            columnKey: "assignedConsultant",
-            type: "warning",
-            message: "Blank assigned consultant, assigned to uploading user by default"
-          })
-        }
+        assignedConsultantUserId = fallbackAdminUserId
+        const fallbackUser = dbUsers.find(u => u.id === fallbackAdminUserId)
+        const fallbackName = fallbackUser?.name || "Admin"
+        cellIssues.push({
+          columnKey: "assignedConsultant",
+          type: "warning",
+          message: `Blank assigned consultant, assigned to ${fallbackName} by default`
+        })
       } else {
         const matchedUser = userByName.get(assignedConsultant.trim().toLowerCase())
         if (!matchedUser) {
@@ -235,6 +281,14 @@ export async function POST(request: Request) {
           if (allowSalesExec) {
             allowedRoles.push("SALES_EXECUTIVE")
           }
+          // Always allow managers/admins as per the requirement
+          allowedRoles.push("SALES_MANAGER", "MANAGER")
+          
+          const allowAdminAssign = systemConfig["client_allow_admin_assignment"] !== "false"
+          if (allowAdminAssign) {
+            allowedRoles.push("ADMIN", "SUPER_ADMIN")
+          }
+
           if (!allowedRoles.includes(matchedUser.role)) {
             cellIssues.push({
               columnKey: "assignedConsultant",

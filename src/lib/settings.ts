@@ -13,6 +13,9 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   client_assign_to_uploader: "true",
   client_allow_sales_executive_assignment: "true",
   client_access_request_default_assignment: "secondary",
+  client_allow_request_again: "true",
+  client_allow_admin_assignment: "true",
+  client_default_admin_user_id: "",
 }
 
 export async function getSetting(key: string): Promise<string> {

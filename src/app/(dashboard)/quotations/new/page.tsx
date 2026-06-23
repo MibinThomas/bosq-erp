@@ -40,6 +40,14 @@ import { ImageCropper } from "@/components/ui/image-cropper"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Image as ImageIcon, UploadCloud } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 const quotationSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
@@ -101,6 +109,7 @@ interface Client {
   status: string
   isAssigned?: boolean
   salespersonId?: string | null
+  allowRequestAgain?: boolean
   assignments?: Array<{
     userId: string
     isPrimary: boolean
@@ -352,6 +361,10 @@ function NewQuotationForm() {
   const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false)
   const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false)
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
+
+  const [requestAccessClient, setRequestAccessClient] = useState<{ id: string; name: string } | null>(null)
+  const [requestNotes, setRequestNotes] = useState("")
+  const [requestingAccess, setRequestingAccess] = useState(false)
 
   const [isRevision, setIsRevision] = useState(false)
   const [isEdit, setIsEdit] = useState(false)
@@ -847,12 +860,12 @@ function NewQuotationForm() {
     }
   }
 
-  const handleRequestAccess = async (clientId: string, clientName: string) => {
+  const handleRequestAccess = async (clientId: string, clientName: string, notes?: string) => {
     try {
       const res = await fetch(`/api/clients/${clientId}/request-access`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: "Requested access to client via quotations page." })
+        body: JSON.stringify({ notes: notes || "Requested access to client via quotations page." })
       })
 
       if (!res.ok) {
@@ -864,6 +877,21 @@ function NewQuotationForm() {
       await fetchClientsList()
     } catch (error: any) {
       toast.error(error.message || "Failed to request access. Please try again.")
+      throw error
+    }
+  }
+
+  const handleRequestAccessSubmit = async () => {
+    if (!requestAccessClient) return
+    setRequestingAccess(true)
+    try {
+      await handleRequestAccess(requestAccessClient.id, requestAccessClient.name, requestNotes)
+      setRequestAccessClient(null)
+      setRequestNotes("")
+    } catch (err) {
+      // toast already handled
+    } finally {
+      setRequestingAccess(false)
     }
   }
 
@@ -1170,12 +1198,15 @@ function NewQuotationForm() {
                                       const canSelect = client.isAssigned === true || isExcludedFromAssignmentCheck
                                       const isUserAssigned = client.salespersonId === (session?.user as any)?.id || client.assignments?.some((a: any) => a.userId === (session?.user as any)?.id)
                                       
+                                      const activeReq = client.accessRequests?.[0]
+                                      const isRequested = activeReq?.status === "Requested"
+                                      const isRejected = activeReq?.status === "Rejected"
+
                                       const statusText = canSelect
                                         ? (isUserAssigned ? "Assigned to You" : (client.assignments?.[0]?.user?.name ? `Assigned to ${client.assignments[0].user.name}` : "Assigned"))
                                         : (() => {
-                                            const activeReq = client.accessRequests?.[0]
-                                            if (activeReq?.status === "Requested") return "Access Requested"
-                                            if (activeReq?.status === "Rejected") return "Request Rejected"
+                                            if (isRequested) return "Access Requested"
+                                            if (isRejected) return "Request Rejected"
                                             return "Not Assigned"
                                           })()
                                           
@@ -1206,38 +1237,29 @@ function NewQuotationForm() {
                                               <span className="font-medium text-sm">{client.companyName}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
-                                              {client.isAssigned && (
-                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-250 text-[10px] py-0 px-1.5 font-normal">
-                                                  Assigned
-                                                </Badge>
-                                              )}
-                                              {!canSelect && (
+                                              {canSelect ? (
+                                                isUserAssigned && (
+                                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-250 text-[10px] py-0 px-1.5 font-normal">
+                                                    Assigned
+                                                  </Badge>
+                                                )
+                                              ) : (
                                                 <>
-                                                  {(() => {
-                                                    const activeReq = client.accessRequests?.[0]
-                                                    const isRequested = activeReq?.status === "Requested"
-                                                    const isRejected = activeReq?.status === "Rejected"
-
-                                                    if (isRequested) {
-                                                      return (
-                                                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-250 text-[10px] py-0 px-1.5 font-normal">
-                                                          Access Requested
-                                                        </Badge>
-                                                      )
-                                                    }
-                                                    if (isRejected) {
-                                                      return (
-                                                        <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px] py-0 px-1.5 font-normal">
-                                                          Request Rejected
-                                                        </Badge>
-                                                      )
-                                                    }
-                                                    return (
-                                                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-250 text-[10px] py-0 px-1.5 font-normal">
-                                                        Not Assigned
-                                                      </Badge>
-                                                    )
-                                                  })()}
+                                                  {isRequested && (
+                                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-250 text-[10px] py-0 px-1.5 font-normal">
+                                                      Requested
+                                                    </Badge>
+                                                  )}
+                                                  {isRejected && (
+                                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px] py-0 px-1.5 font-normal">
+                                                      Rejected
+                                                    </Badge>
+                                                  )}
+                                                  {!isRequested && !isRejected && (
+                                                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-[10px] py-0 px-1.5 font-normal">
+                                                      Unassigned
+                                                    </Badge>
+                                                  )}
                                                 </>
                                               )}
                                             </div>
@@ -1250,10 +1272,6 @@ function NewQuotationForm() {
                                           </div>
 
                                           {!canSelect && (() => {
-                                            const activeReq = client.accessRequests?.[0]
-                                            const isRequested = activeReq?.status === "Requested"
-                                            const isRejected = activeReq?.status === "Rejected"
-
                                             if (isRequested) {
                                               return (
                                                 <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
@@ -1261,7 +1279,7 @@ function NewQuotationForm() {
                                                 >
                                                   <div className="flex items-start gap-1">
                                                     <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                    <span>Access request is pending Administrator approval.</span>
+                                                    <span>Access request is pending approval.</span>
                                                   </div>
                                                   <Button
                                                     type="button"
@@ -1277,6 +1295,7 @@ function NewQuotationForm() {
                                             }
 
                                             if (isRejected) {
+                                              const isRequestAgainAllowed = client.allowRequestAgain !== false
                                               return (
                                                 <div className="mt-2 ml-6 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg text-[11px] text-red-850 dark:text-red-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                                                      onClick={(e) => e.stopPropagation()}
@@ -1285,18 +1304,21 @@ function NewQuotationForm() {
                                                     <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                                                     <span>Access request rejected{activeReq.rejectionReason ? `: ${activeReq.rejectionReason}` : "."}</span>
                                                   </div>
-                                                  <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="text-[10px] h-7 px-2 border-red-300 hover:bg-red-100 dark:hover:bg-red-950 text-red-900 dark:text-red-200 shrink-0 self-end sm:self-auto"
-                                                    onClick={async (e) => {
-                                                      e.stopPropagation()
-                                                      await handleRequestAccess(client.id, client.companyName)
-                                                    }}
-                                                  >
-                                                    Request Again
-                                                  </Button>
+                                                  {isRequestAgainAllowed && (
+                                                    <Button
+                                                      type="button"
+                                                      size="sm"
+                                                      variant="outline"
+                                                      className="text-[10px] h-7 px-2 border-red-300 hover:bg-red-100 dark:hover:bg-red-950 text-red-900 dark:text-red-200 shrink-0 self-end sm:self-auto cursor-pointer"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        setRequestAccessClient({ id: client.id, name: client.companyName })
+                                                        setRequestNotes("")
+                                                      }}
+                                                    >
+                                                      Request Again
+                                                    </Button>
+                                                  )}
                                                 </div>
                                               )
                                             }
@@ -1313,10 +1335,11 @@ function NewQuotationForm() {
                                                   type="button"
                                                   size="sm"
                                                   variant="outline"
-                                                  className="text-[10px] h-7 px-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0 self-end sm:self-auto"
-                                                  onClick={async (e) => {
+                                                  className="text-[10px] h-7 px-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0 self-end sm:self-auto cursor-pointer"
+                                                  onClick={(e) => {
                                                     e.stopPropagation()
-                                                    await handleRequestAccess(client.id, client.companyName)
+                                                    setRequestAccessClient({ id: client.id, name: client.companyName })
+                                                    setRequestNotes("")
                                                   }}
                                                 >
                                                   Request Access
@@ -1324,25 +1347,6 @@ function NewQuotationForm() {
                                               </div>
                                             )
                                           })()}
-
-                                          {isAdminOrSuperAdmin && (
-                                            <div className="mt-2 ml-6" onClick={(e) => e.stopPropagation()}>
-                                              <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="ghost"
-                                                className="text-[10px] h-7 px-2 text-primary hover:bg-primary/10 flex items-center gap-1"
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  setAssigningClient({ id: client.id, name: client.companyName })
-                                                  setIsAssignModalOpen(true)
-                                                }}
-                                              >
-                                                <UserPlus className="h-3 w-3" />
-                                                <span>Assign Consultant</span>
-                                              </Button>
-                                            </div>
-                                          )}
                                         </CommandItem>
                                       )
                                     })}
@@ -2029,7 +2033,7 @@ function NewQuotationForm() {
                                               min="0"
                                               max="100"
                                               step="0.1"
-                                              className="h-8 text-xs font-mono text-destructive"
+                                              className="h-8 text-xs font-mono"
                                               value={field.value}
                                               onChange={(val) => field.onChange(val === "" ? "" : (parseFloat(val) || 0))}
                                             />
@@ -2898,6 +2902,63 @@ function NewQuotationForm() {
         imageSrc={rawImageSrc || ""}
         onCrop={handleCropSave}
       />
+
+      {/* Request Access Note Dialog */}
+      <Dialog open={requestAccessClient !== null} onOpenChange={(open) => !open && setRequestAccessClient(null)}>
+        <DialogContent className="sm:max-w-[425px] bg-slate-950 border-slate-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-white">
+              <UserPlus className="h-5 w-5 text-orange-500" />
+              Request Client Access
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              Provide an optional note to justify your request for "{requestAccessClient?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-300">Optional Note</label>
+              <Textarea
+                placeholder="e.g., Client wants to place a new quotation for chairs..."
+                value={requestNotes}
+                onChange={(e) => setRequestNotes(e.target.value)}
+                rows={3}
+                className="bg-slate-900 border-slate-800 text-xs text-white"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setRequestAccessClient(null)
+                setRequestNotes("")
+              }}
+              className="text-xs h-9 text-slate-400 hover:text-white"
+              disabled={requestingAccess}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleRequestAccessSubmit}
+              disabled={requestingAccess}
+              className="text-xs h-9 font-medium bg-orange-600 hover:bg-orange-500 text-white border-0"
+            >
+              {requestingAccess ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                  Submitting...
+                </>
+              ) : (
+                "Submit Request"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

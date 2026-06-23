@@ -18,10 +18,17 @@ interface AccessRequest {
   status: "Requested" | "Approved" | "Rejected"
   createdAt: string
   rejectionReason: string | null
+  notes: string | null
   client: {
     id: string
     companyName: string
     clientId: string
+    assignments?: Array<{
+      isPrimary: boolean
+      user: {
+        name: string | null
+      }
+    }>
   }
   user: {
     id: string
@@ -179,6 +186,8 @@ export function ClientAccessRequests({ onChanged }: ClientAccessRequestsProps) {
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="text-xs font-bold uppercase tracking-wider h-9">Consultant</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider h-9">Client Requested</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider h-9">Current Owner</TableHead>
+                  <TableHead className="text-xs font-bold uppercase tracking-wider h-9">Notes</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider h-9">Age</TableHead>
                   <TableHead className="text-xs font-bold uppercase tracking-wider h-9 text-right pr-6">Actions</TableHead>
                 </TableRow>
@@ -197,6 +206,16 @@ export function ClientAccessRequests({ onChanged }: ClientAccessRequestsProps) {
                         <span className="font-semibold text-xs text-foreground truncate max-w-[180px]">{req.client?.companyName}</span>
                         <span className="text-[10px] text-muted-foreground truncate font-mono mt-0.5">{req.client?.clientId}</span>
                       </div>
+                    </TableCell>
+                    <TableCell className="py-3 text-xs">
+                      <span className="font-medium text-slate-700 dark:text-slate-355 text-xs">
+                        {req.client?.assignments?.find(a => a.isPrimary)?.user?.name || "Unassigned"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-3 text-xs max-w-[200px] truncate" title={req.notes || ""}>
+                      <span className="text-slate-400 italic text-xs">
+                        {req.notes || "No note"}
+                      </span>
                     </TableCell>
                     <TableCell className="py-3 text-xs text-slate-400">
                       {formatDistanceToNow(new Date(req.createdAt), { addSuffix: true })}
