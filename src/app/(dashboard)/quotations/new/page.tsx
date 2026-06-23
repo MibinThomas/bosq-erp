@@ -1195,8 +1195,8 @@ function NewQuotationForm() {
                                     .filter((client) => client.status === "Approved")
                                     .map((client) => {
                                       const isExcludedFromAssignmentCheck = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
-                                      const canSelect = client.isAssigned === true || isExcludedFromAssignmentCheck
                                       const isUserAssigned = client.salespersonId === (session?.user as any)?.id || client.assignments?.some((a: any) => a.userId === (session?.user as any)?.id)
+                                      const canSelect = isUserAssigned || isExcludedFromAssignmentCheck
                                       
                                       const activeReq = client.accessRequests?.[0]
                                       const isRequested = activeReq?.status === "Requested"
