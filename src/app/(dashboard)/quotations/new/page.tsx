@@ -100,6 +100,7 @@ interface Client {
   clientType: string | null
   status: string
   isAssigned?: boolean
+  salespersonId?: string | null
   assignments?: Array<{
     userId: string
     isPrimary: boolean
