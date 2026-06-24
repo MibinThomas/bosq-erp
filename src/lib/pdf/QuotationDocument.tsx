@@ -990,8 +990,10 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             <View style={styles.signatureBox}>
               <View style={styles.signatureLine} />
               <Text style={styles.signatureLabel}>Prepared By</Text>
-              <Text style={styles.signatureCompany}>{preparedBy}</Text>
-              <Text style={styles.signatureCompany}>{preparedByDesignation || formatRole(preparedByRole) || "Sales Executive"}</Text>
+              <Text style={styles.signatureCompany}>
+                {preparedBy}
+                {preparedByDesignation || formatRole(preparedByRole) ? ` | ${preparedByDesignation || formatRole(preparedByRole)}` : ""}
+              </Text>
             </View>
             <View style={styles.signatureBox}>
               <View style={styles.signatureLine} />

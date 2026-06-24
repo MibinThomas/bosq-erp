@@ -762,9 +762,9 @@ export default function QuotationHtmlPreviewPage({
             <div className="border-b border-[#fab48a] h-10 w-full"></div>
             <div>
               <div className="font-bold text-slate-800">Prepared By</div>
-              <div className="text-slate-500 text-[10px]">{quotation.preparedBy?.name || "Sales Executive"}</div>
-              <div className="text-slate-400 text-[9px] mt-0.5">
-                {quotation.preparedBy?.designation || formatRole(quotation.preparedBy?.role) || "Sales Executive"}
+              <div className="text-slate-500 text-[10px]">
+                {quotation.preparedBy?.name || "Sales Executive"}
+                {quotation.preparedBy?.designation || formatRole(quotation.preparedBy?.role) ? ` | ${quotation.preparedBy?.designation || formatRole(quotation.preparedBy?.role)}` : ""}
               </div>
             </div>
           </div>
