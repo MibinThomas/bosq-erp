@@ -2471,169 +2471,181 @@ function NewQuotationForm() {
                     />
 
                     {/* Special Discount Type */}
-                    <FormField
-                      control={form.control}
-                      name="specialDiscountType"
-                      render={({ field }) => {
-                        const isSuperAdmin = userRole === "SUPER_ADMIN"
-                        const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
-                        const hasDiscountAccess = isSuperAdmin || allowedDiscount > 0
-                        return (
-                          <FormItem>
-                            <FormLabel className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                              Special Discount Type
-                              {!hasDiscountAccess && <Lock className="h-3 w-3 text-muted-foreground/50" />}
-                            </FormLabel>
-                            <Select
-                              onValueChange={(val) => {
-                                field.onChange(val === "none" ? null : val)
-                                if (val === "none") {
-                                  form.setValue("specialDiscountValue", 0)
-                                  form.setValue("specialDiscountReason", "")
-                                }
-                              }}
-                              value={field.value || "none"}
-                              disabled={!hasDiscountAccess}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="h-10 bg-background border-muted-foreground/20">
-                                  <SelectValue placeholder="No Discount" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="none">No Discount</SelectItem>
-                                <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
-                                <SelectItem value="FIXED">Fixed Amount (AED)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )
-                      }}
-                    />
+                    {(() => {
+                      const hasDiscountAccess = userRole === "SUPER_ADMIN" || (userPermissions?.canApplySpecialDiscount === true)
+                      const hasExistingDiscount = watchSpecialDiscountType !== null && 
+                                                  watchSpecialDiscountType !== "none" && 
+                                                  watchSpecialDiscountType !== undefined && 
+                                                  Number(watchSpecialDiscountValue) > 0
+                      const showDiscountFields = hasDiscountAccess || hasExistingDiscount
+                      const isDiscountFieldsDisabled = !hasDiscountAccess
 
-                    {/* Special Discount Value */}
-                    {watchSpecialDiscountType ? (
-                      <FormField
-                        control={form.control}
-                        name="specialDiscountValue"
-                        render={({ field }) => {
-                          const val = field.value === 0 ? "" : field.value
-                          return (
-                            <FormItem className="animate-in fade-in duration-200">
-                              <FormLabel className="text-xs font-semibold text-muted-foreground">
-                                Discount Value {watchSpecialDiscountType === "PERCENTAGE" ? "(%)" : "(AED)"}
-                              </FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  placeholder="0.00"
-                                  className="h-10 bg-background border-muted-foreground/20 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  value={val}
-                                  onChange={(e) => {
-                                    const rawVal = e.target.value
-                                    const numVal = rawVal === "" ? 0 : parseFloat(rawVal) || 0
-                                    field.onChange(rawVal === "" ? "" : numVal)
+                      if (!showDiscountFields) return null
+
+                      return (
+                        <>
+                          <FormField
+                            control={form.control}
+                            name="specialDiscountType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                                  Special Discount Type
+                                  {isDiscountFieldsDisabled && <Lock className="h-3 w-3 text-muted-foreground/50" />}
+                                </FormLabel>
+                                <Select
+                                  onValueChange={(val) => {
+                                    field.onChange(val === "none" ? null : val)
+                                    if (val === "none") {
+                                      form.setValue("specialDiscountValue", 0)
+                                      form.setValue("specialDiscountReason", "")
+                                    }
                                   }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )
-                        }}
-                      />
-                    ) : (
-                      <div className="h-[68px] hidden md:block"></div>
-                    )}
+                                  value={field.value || "none"}
+                                  disabled={isDiscountFieldsDisabled}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger className="h-10 bg-background border-muted-foreground/20">
+                                      <SelectValue placeholder="No Discount" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="none">No Discount</SelectItem>
+                                    <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
+                                    <SelectItem value="FIXED">Fixed Amount (AED)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
 
-                    {/* Preview / Reason Block */}
-                    {watchSpecialDiscountType && (
-                      <div className="md:col-span-1 space-y-2 animate-in fade-in duration-200 h-[68px] flex flex-col justify-end">
-                        {/* We could place the reason field here, or show a live preview of the discount amount */}
-                        {(() => {
-                          const isSuperAdmin = userRole === "SUPER_ADMIN"
-                          const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
-                          
-                          let currentAppliedDiscountPercent = 0
-                          const discValue = Number(watchSpecialDiscountValue) || 0
-                          if (discValue > 0) {
-                            if (watchSpecialDiscountType === "PERCENTAGE") {
-                              currentAppliedDiscountPercent = discValue
-                            } else if (watchSpecialDiscountType === "FIXED") {
-                              const baseForDiscount = subtotal + totalAdditionalCost
-                              currentAppliedDiscountPercent = baseForDiscount > 0 ? (discValue / baseForDiscount) * 100 : 0
-                            }
-                          }
-
-                          const isLimitExceeded = currentAppliedDiscountPercent > allowedDiscount
-
-                          return (
-                            <div className="flex flex-col gap-1 w-full text-right bg-muted/50 rounded p-2 border border-muted">
-                               <span className="text-[10px] text-muted-foreground font-semibold uppercase">Discount Applied</span>
-                               <span className={cn("text-sm font-bold font-mono", isLimitExceeded ? "text-destructive" : "text-emerald-600 dark:text-emerald-500")}>
-                                 - AED {specialDiscountAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                               </span>
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    )}
-                    
-                    {/* Discount Reason & Limit Exceeded Row */}
-                    {watchSpecialDiscountType && (
-                      <div className="md:col-span-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                        <FormField
-                          control={form.control}
-                          name="specialDiscountReason"
-                          render={({ field }) => (
-                            <FormItem className="animate-in fade-in duration-200">
-                              <FormLabel className="text-xs font-semibold text-muted-foreground">Discount Reason (Optional)</FormLabel>
-                              <FormControl>
-                                <Input
-                                  placeholder="e.g. Special Approval, Project Discount"
-                                  className="h-10 bg-background border-muted-foreground/20"
-                                  {...field}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
+                          {/* Special Discount Value */}
+                          {watchSpecialDiscountType ? (
+                            <FormField
+                              control={form.control}
+                              name="specialDiscountValue"
+                              render={({ field }) => {
+                                const val = field.value === 0 ? "" : field.value
+                                return (
+                                  <FormItem className="animate-in fade-in duration-200">
+                                    <FormLabel className="text-xs font-semibold text-muted-foreground">
+                                      Discount Value {watchSpecialDiscountType === "PERCENTAGE" ? "(%)" : "(AED)"}
+                                    </FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        className="h-10 bg-background border-muted-foreground/20 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        value={val}
+                                        disabled={isDiscountFieldsDisabled}
+                                        onChange={(e) => {
+                                          const rawVal = e.target.value
+                                          const numVal = rawVal === "" ? 0 : parseFloat(rawVal) || 0
+                                          field.onChange(rawVal === "" ? "" : numVal)
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )
+                              }}
+                            />
+                          ) : (
+                            <div className="h-[68px] hidden md:block"></div>
                           )}
-                        />
-                        {/* Limit Exceeded Warning */}
-                        {(() => {
-                          const isSuperAdmin = userRole === "SUPER_ADMIN"
-                          const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
-                          
-                          let currentAppliedDiscountPercent = 0
-                          const discValue = Number(watchSpecialDiscountValue) || 0
-                          if (discValue > 0) {
-                            if (watchSpecialDiscountType === "PERCENTAGE") {
-                              currentAppliedDiscountPercent = discValue
-                            } else if (watchSpecialDiscountType === "FIXED") {
-                              const baseForDiscount = subtotal + totalAdditionalCost
-                              currentAppliedDiscountPercent = baseForDiscount > 0 ? (discValue / baseForDiscount) * 100 : 0
-                            }
-                          }
 
-                          const isLimitExceeded = currentAppliedDiscountPercent > allowedDiscount
-                          if (isLimitExceeded) {
-                            return (
-                              <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-3 flex items-start gap-3 animate-in shake duration-300">
-                                <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                                <div>
-                                  <h5 className="font-semibold text-xs">Discount Limit Exceeded</h5>
-                                  <p className="text-[11px] mt-0.5">
-                                    Your role's max discount is **{allowedDiscount}%**. Currently applying **{currentAppliedDiscountPercent.toFixed(2)}%**. You will be blocked on submission.
-                                  </p>
-                                </div>
-                              </div>
-                            )
-                          }
-                          return null
-                        })()}
-                      </div>
-                    )}
+                          {/* Preview / Reason Block */}
+                          {watchSpecialDiscountType && (
+                            <div className="md:col-span-1 space-y-2 animate-in fade-in duration-200 h-[68px] flex flex-col justify-end">
+                              {(() => {
+                                const isSuperAdmin = userRole === "SUPER_ADMIN"
+                                const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
+                                
+                                let currentAppliedDiscountPercent = 0
+                                const discValue = Number(watchSpecialDiscountValue) || 0
+                                if (discValue > 0) {
+                                  if (watchSpecialDiscountType === "PERCENTAGE") {
+                                    currentAppliedDiscountPercent = discValue
+                                  } else if (watchSpecialDiscountType === "FIXED") {
+                                    const baseForDiscount = subtotal + totalAdditionalCost
+                                    currentAppliedDiscountPercent = baseForDiscount > 0 ? (discValue / baseForDiscount) * 100 : 0
+                                  }
+                                }
+
+                                const isLimitExceeded = currentAppliedDiscountPercent > allowedDiscount
+
+                                return (
+                                  <div className="flex flex-col gap-1 w-full text-right bg-muted/50 rounded p-2 border border-muted">
+                                     <span className="text-[10px] text-muted-foreground font-semibold uppercase">Discount Applied</span>
+                                     <span className={cn("text-sm font-bold font-mono", isLimitExceeded ? "text-destructive" : "text-emerald-600 dark:text-emerald-500")}>
+                                       - AED {specialDiscountAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                     </span>
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          )}
+                          
+                          {/* Discount Reason & Limit Exceeded Row */}
+                          {watchSpecialDiscountType && (
+                            <div className="md:col-span-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                              <FormField
+                                control={form.control}
+                                name="specialDiscountReason"
+                                render={({ field }) => (
+                                  <FormItem className="animate-in fade-in duration-200">
+                                    <FormLabel className="text-xs font-semibold text-muted-foreground">Discount Reason (Optional)</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        placeholder="e.g. Special Approval, Project Discount"
+                                        className="h-10 bg-background border-muted-foreground/20"
+                                        disabled={isDiscountFieldsDisabled}
+                                        {...field}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              {/* Limit Exceeded Warning */}
+                              {(() => {
+                                const isSuperAdmin = userRole === "SUPER_ADMIN"
+                                const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
+                                
+                                let currentAppliedDiscountPercent = 0
+                                const discValue = Number(watchSpecialDiscountValue) || 0
+                                if (discValue > 0) {
+                                  if (watchSpecialDiscountType === "PERCENTAGE") {
+                                    currentAppliedDiscountPercent = discValue
+                                  } else if (watchSpecialDiscountType === "FIXED") {
+                                    const baseForDiscount = subtotal + totalAdditionalCost
+                                    currentAppliedDiscountPercent = baseForDiscount > 0 ? (discValue / baseForDiscount) * 100 : 0
+                                  }
+                                }
+
+                                const isLimitExceeded = currentAppliedDiscountPercent > allowedDiscount
+                                if (isLimitExceeded) {
+                                  return (
+                                    <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-3 flex items-start gap-3 animate-in shake duration-300">
+                                      <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                                      <div>
+                                        <h5 className="font-semibold text-xs">Discount Limit Exceeded</h5>
+                                        <p className="text-[11px] mt-0.5">
+                                          Your role's max discount is **{allowedDiscount}%**. Currently applying **{currentAppliedDiscountPercent.toFixed(2)}%**. You will be blocked on submission.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )
+                                }
+                                return null
+                              })()}
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                 </div>
 

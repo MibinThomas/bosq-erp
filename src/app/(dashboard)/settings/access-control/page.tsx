@@ -55,9 +55,9 @@ const primaryActions = [
   { id: "uploadFiles", label: "Bulk Upload" },
   { id: "manage", label: "Manage / Category Mgmt" },
   { id: "share", label: "Share / Add to Quote" },
+  { id: "canApplySpecialDiscount", label: "Special Discount" },
 ]
 
-const territoriesList = ["UAE", "Dubai", "Abu Dhabi", "Sharhar", "Other Regions"]
 
 export default function AccessControlPage() {
   const { data: session } = useSession()
@@ -130,7 +130,6 @@ export default function AccessControlPage() {
     department: "",
     employeeId: "",
     status: "Active",
-    territories: [] as string[],
     clientAssignments: [] as string[]
   })
 
@@ -251,7 +250,6 @@ export default function AccessControlPage() {
 
   const loadUserProfile = (user: any) => {
     if (!user) return
-    const territoriesArr = user.territories ? user.territories.split(",").map((t: string) => t.trim()).filter(Boolean) : []
     const clientIds = user.clientAssignments ? user.clientAssignments.filter((ca: any) => !ca.isPrimary).map((ca: any) => ca.clientId) : []
     
     setEditingUserProfile({
@@ -261,7 +259,6 @@ export default function AccessControlPage() {
       department: user.department || "",
       employeeId: user.employeeId || "",
       status: user.status || "Active",
-      territories: territoriesArr,
       clientAssignments: clientIds
     })
   }
@@ -424,7 +421,6 @@ export default function AccessControlPage() {
           department: editingUserProfile.department,
           employeeId: editingUserProfile.employeeId,
           status: editingUserProfile.status,
-          territories: editingUserProfile.territories.join(","),
           clientAssignments: editingUserProfile.clientAssignments
         })
       })
@@ -947,17 +943,23 @@ export default function AccessControlPage() {
                         return (
                           <tr key={m.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 transition-all">
                             <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-200 border-r dark:border-zinc-800">{m.name}</td>
-                            {primaryActions.map((a) => (
-                              <td key={a.id} className="p-3 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={rowPerm[a.id] ?? false}
-                                  disabled={selectedRole.name === "SUPER_ADMIN"}
-                                  onChange={(e) => handleRolePermChange(m.id, a.id, e.target.checked)}
-                                  className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-amber-600 focus:ring-amber-500 dark:bg-zinc-800 cursor-pointer"
-                                />
-                              </td>
-                            ))}
+                            {primaryActions.map((a) => {
+                              const isSpecialDiscount = a.id === "canApplySpecialDiscount";
+                              const shouldRender = !isSpecialDiscount || m.id === "QUOTATIONS";
+                              return (
+                                <td key={a.id} className="p-3 text-center">
+                                  {shouldRender && (
+                                    <input
+                                      type="checkbox"
+                                      checked={rowPerm[a.id] ?? false}
+                                      disabled={selectedRole.name === "SUPER_ADMIN"}
+                                      onChange={(e) => handleRolePermChange(m.id, a.id, e.target.checked)}
+                                      className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-amber-600 focus:ring-amber-500 dark:bg-zinc-800 cursor-pointer"
+                                    />
+                                  )}
+                                </td>
+                              )
+                            })}
                           </tr>
                         )
                       })}
@@ -1115,39 +1117,6 @@ export default function AccessControlPage() {
                         <option value="Suspended">Suspended</option>
                         <option value="Pending Approval">Pending Approval</option>
                       </select>
-                    </div>
-                  </div>
-
-                  {/* Territories (Future Ready checkboxes) */}
-                  <div className="pt-2">
-                    <label className="block text-xs font-semibold text-zinc-500 mb-2">Assigned Territories</label>
-                    <div className="flex flex-wrap gap-4 bg-zinc-50 dark:bg-zinc-800/20 p-3 rounded-xl border dark:border-zinc-800">
-                      {territoriesList.map((t) => {
-                        const checked = editingUserProfile.territories.includes(t)
-                        return (
-                          <label key={t} className="inline-flex items-center gap-1.5 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer font-medium">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setEditingUserProfile(prev => ({
-                                    ...prev,
-                                    territories: [...prev.territories, t]
-                                  }))
-                                } else {
-                                  setEditingUserProfile(prev => ({
-                                    ...prev,
-                                    territories: prev.territories.filter(x => x !== t)
-                                  }))
-                                }
-                              }}
-                              className="h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-700 text-amber-600 focus:ring-amber-500"
-                            />
-                            {t}
-                          </label>
-                        )
-                      })}
                     </div>
                   </div>
                 </div>

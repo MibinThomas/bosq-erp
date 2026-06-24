@@ -404,6 +404,7 @@ model RolePermission {
   canOverrideVat      Boolean  @default(false)
   canAddCustomCharges Boolean  @default(false)
   canConfirmQuotation Boolean  @default(false)
+  canApplySpecialDiscount Boolean @default(false)
 }
 
 model UserPermissionOverride {
@@ -420,6 +421,7 @@ model UserPermissionOverride {
   canOverrideVat      Boolean  @default(false)
   canAddCustomCharges Boolean  @default(false)
   canConfirmQuotation Boolean  @default(false)
+  canApplySpecialDiscount Boolean @default(false)
 
   
   createdAt     DateTime @default(now())

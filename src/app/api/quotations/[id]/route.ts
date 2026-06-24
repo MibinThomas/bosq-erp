@@ -250,6 +250,28 @@ export async function PUT(
     const isRevision = body.isRevision === true || body.action === "REVISE"
     const allowedCanAddCustomCharges = isSuperAdmin || isCreator || isRevision ? true : (dbSessionUser?.permissionOverrides.find(o => o.action === "canAddCustomCharges")?.value ?? rolePerm?.canAddCustomCharges ?? false)
 
+    // Validate Special Discount Permission
+    const hasDiscountFields = body.specialDiscountType !== undefined || body.specialDiscountValue !== undefined
+    if (hasDiscountFields) {
+      const oldType = existingQuotation.specialDiscountType || null
+      const newType = (body.specialDiscountType === "none" || !body.specialDiscountType) ? null : body.specialDiscountType
+      
+      const oldVal = existingQuotation.specialDiscountValue || 0
+      const newVal = parseFloat(body.specialDiscountValue) || 0
+
+      const oldReason = existingQuotation.specialDiscountReason || null
+      const newReason = !body.specialDiscountReason ? null : body.specialDiscountReason
+
+      const isDiscountModified = oldType !== newType || oldVal !== newVal || oldReason !== newReason
+
+      if (isDiscountModified) {
+        const hasDiscountPermission = isSuperAdmin ? true : (dbSessionUser?.permissionOverrides.find(o => o.action === "canApplySpecialDiscount")?.value ?? rolePerm?.canApplySpecialDiscount ?? false)
+        if (!hasDiscountPermission) {
+          return NextResponse.json({ error: "You do not have permission to apply special discount." }, { status: 403 })
+        }
+      }
+    }
+
     // Determine the actual PreparedBy user (could be changed by admin/manager)
     let finalPreparedById = existingQuotation.preparedById
     if (["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(logUserRole) && body.preparedById) {

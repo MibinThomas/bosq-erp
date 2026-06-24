@@ -179,7 +179,7 @@ export async function getPermissionsProfile(userId: string) {
         export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true,
         ownership: "ALL", approvalLimit: null,
         costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true,
-        maxDiscountPercent: 100, canOverrideVat: true, canAddCustomCharges: true, canConfirmQuotation: true
+        maxDiscountPercent: 100, canOverrideVat: true, canAddCustomCharges: true, canConfirmQuotation: true, canApplySpecialDiscount: true
       }
     }
     return {
@@ -204,7 +204,7 @@ export async function getPermissionsProfile(userId: string) {
       export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false,
       ownership: "NONE", approvalLimit: null,
       costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false,
-      maxDiscountPercent: 0, canOverrideVat: false, canAddCustomCharges: false, canConfirmQuotation: false
+      maxDiscountPercent: 0, canOverrideVat: false, canAddCustomCharges: false, canConfirmQuotation: false, canApplySpecialDiscount: false
     }
   }
 
@@ -232,7 +232,8 @@ export async function getPermissionsProfile(userId: string) {
         maxDiscountPercent: perm.maxDiscountPercent,
         canOverrideVat: perm.canOverrideVat,
         canAddCustomCharges: perm.canAddCustomCharges,
-        canConfirmQuotation: perm.canConfirmQuotation
+        canConfirmQuotation: perm.canConfirmQuotation,
+        canApplySpecialDiscount: perm.canApplySpecialDiscount
       }
     }
   }
@@ -254,6 +255,8 @@ export async function getPermissionsProfile(userId: string) {
       profile[override.module].canAddCustomCharges = override.value
     } else if (action === "canConfirmQuotation") {
       profile[override.module].canConfirmQuotation = override.value
+    } else if (action === "canApplySpecialDiscount") {
+      profile[override.module].canApplySpecialDiscount = override.value
     } else {
       profile[override.module][action] = override.value
     }

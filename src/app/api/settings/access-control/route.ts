@@ -24,6 +24,16 @@ async function ensureDbSchema() {
       WHERE "status" IS NULL;
     `)
 
+    // 3. Add canApplySpecialDiscount column to RolePermission and UserPermissionOverride tables
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "RolePermission" 
+      ADD COLUMN IF NOT EXISTS "canApplySpecialDiscount" BOOLEAN DEFAULT false;
+    `)
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "UserPermissionOverride" 
+      ADD COLUMN IF NOT EXISTS "canApplySpecialDiscount" BOOLEAN DEFAULT false;
+    `)
+
     isMigrated = true
     console.log("Access control database migrations executed successfully.")
   } catch (error) {
@@ -280,6 +290,7 @@ export async function POST(request: Request) {
             profitVisible: basePerm ? basePerm.profitVisible : false,
             markupVisible: basePerm ? basePerm.markupVisible : false,
             canConfirmQuotation: basePerm ? basePerm.canConfirmQuotation : false,
+            canApplySpecialDiscount: basePerm ? basePerm.canApplySpecialDiscount : false,
             canOverrideVat: basePerm ? basePerm.canOverrideVat : false,
             canAddCustomCharges: basePerm ? basePerm.canAddCustomCharges : false,
             maxDiscountPercent: basePerm ? basePerm.maxDiscountPercent : 0,
@@ -361,6 +372,7 @@ export async function PUT(request: Request) {
           profitVisible: p.profitVisible ?? false,
           markupVisible: p.markupVisible ?? false,
           canConfirmQuotation: p.canConfirmQuotation ?? false,
+          canApplySpecialDiscount: p.canApplySpecialDiscount ?? false,
           canOverrideVat: p.canOverrideVat ?? false,
           canAddCustomCharges: p.canAddCustomCharges ?? false,
           maxDiscountPercent: p.maxDiscountPercent !== undefined ? (p.maxDiscountPercent === "" || p.maxDiscountPercent === null ? 0 : parseFloat(p.maxDiscountPercent)) : 0,
@@ -470,7 +482,7 @@ export async function PUT(request: Request) {
     }
 
     if (type === "update_user_profile") {
-      const { targetUserId, name, email, role, department, employeeId, status, territories, clientAssignments } = body
+      const { targetUserId, name, email, role, department, employeeId, status, clientAssignments } = body
 
       const targetUser = await prisma.user.findUnique({
         where: { id: targetUserId }
@@ -494,7 +506,6 @@ export async function PUT(request: Request) {
           department,
           employeeId,
           status,
-          territories,
           isActive: status === "Active",
         }
       })
