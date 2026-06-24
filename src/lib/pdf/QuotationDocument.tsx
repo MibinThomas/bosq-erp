@@ -404,6 +404,8 @@ export interface QuotationPdfItem {
   imageUrl?: string | null
   categoryName?: string | null
   chairType?: string | null
+  dimensions?: string | null
+  warranty?: string | null
 }
 
 export interface AdditionalCharge {
@@ -586,7 +588,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     });
   }
 
-  const renderSpecifications = (specs: string | null | undefined, productNotes?: string | null) => {
+  const renderSpecifications = (
+    specs: string | null | undefined,
+    productNotes?: string | null,
+    dimensions?: string | null,
+    warranty?: string | null
+  ) => {
     const parsed = parseSpecifications(specs);
     
     // Filter out remarks from specifications list
@@ -596,6 +603,14 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     const remarksLines = [...remarksFromSpecs];
     if (productNotes) {
       remarksLines.push(productNotes);
+    }
+
+    // Inject dimension and warranty dynamically if present
+    if (dimensions && dimensions.trim()) {
+      specsList.push({ key: "Dimension", value: dimensions.trim() });
+    }
+    if (warranty && warranty.trim()) {
+      specsList.push({ key: "Warranty", value: warranty.trim() });
     }
     
     if (specsList.length === 0 && remarksLines.length === 0) return null;
@@ -614,17 +629,17 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               if (!cleanVal) return null;
 
               return (
-                <View key={`spec-${idx}`} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 1.5, fontSize: 6.5, lineHeight: 1.25 }}>
+                <View key={`spec-${idx}`} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 1 }}>
                   {cleanKey ? (
                     <>
-                      <Text style={{ fontWeight: "bold", color: keyColor, marginRight: 3, flexShrink: 0 }}>{cleanKey}:</Text>
+                      <Text style={{ fontWeight: "bold", color: keyColor, marginRight: 3, flexShrink: 0, fontSize: 4.6, lineHeight: 1.2 }}>{cleanKey}:</Text>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: textColor }}>{cleanVal}</Text>
+                        <Text style={{ color: textColor, fontSize: 4.6, lineHeight: 1.2 }}>{cleanVal}</Text>
                       </View>
                     </>
                   ) : (
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: textColor }}>{cleanVal}</Text>
+                      <Text style={{ color: textColor, fontSize: 4.6, lineHeight: 1.2 }}>{cleanVal}</Text>
                     </View>
                   )}
                 </View>
@@ -635,13 +650,13 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         
         {remarksLines.length > 0 && (
           <View style={{ marginTop: 2, flexDirection: "row", alignItems: "flex-start" }}>
-            <Text style={{ fontWeight: "bold", fontSize: 6.5, color: colors.accent, marginRight: 4 }}>Remarks:</Text>
+            <Text style={{ fontWeight: "bold", fontSize: 4.6, color: colors.accent, marginRight: 4, lineHeight: 1.2 }}>Remarks:</Text>
             <View style={{ flex: 1 }}>
               {remarksLines.map((r, i) => {
                 const cleanRemark = r ? r.trim() : "";
                 if (!cleanRemark) return null;
                 return (
-                  <Text key={i} style={{ fontSize: 6.5, color: colors.secondary, marginBottom: 1, lineHeight: 1.25 }}>{cleanRemark}</Text>
+                  <Text key={i} style={{ fontSize: 4.6, color: colors.secondary, marginBottom: 1, lineHeight: 1.2 }}>{cleanRemark}</Text>
                 );
               })}
             </View>
@@ -823,8 +838,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 </Text>
               )}
 
-              {/* 4, 5, 6. Specs, Prod Time, Remarks */}
-              {renderSpecifications(item.specifications, item.productNotes)}
+              {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
+              {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
             </View>
 
             {/* Product Image */}

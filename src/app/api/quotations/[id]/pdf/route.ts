@@ -102,6 +102,8 @@ export async function GET(
       imageUrl: await resolveImageUrl(item.customImageUrl || item.product?.imageUrl),
       categoryName: item.categoryName || item.product?.category?.name || "OFFICE FURNITURE",
       chairType: item.chairType || item.product?.chairType || null,
+      dimensions: item.product?.dimensions || null,
+      warranty: item.product?.warranty || null,
     })))
 
     const companySettings = await getSettings([

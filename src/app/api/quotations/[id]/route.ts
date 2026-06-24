@@ -409,6 +409,8 @@ export async function PUT(
           categoryName: item.categoryName || matchedProd?.category?.name || "OFFICE FURNITURE",
           chairType: item.chairType || matchedProd?.chairType || null,
           productDescription: item.productDescription || matchedProd?.description || null,
+          dimensions: matchedProd?.dimensions || null,
+          warranty: matchedProd?.warranty || null,
         }
       }))
 
@@ -753,6 +755,8 @@ export async function PUT(
           categoryName: item.categoryName || matchedProd?.category?.name || "OFFICE FURNITURE",
           chairType: item.chairType || matchedProd?.chairType || null,
           productDescription: item.productDescription || matchedProd?.description || null,
+          dimensions: matchedProd?.dimensions || null,
+          warranty: matchedProd?.warranty || null,
         }
       }))
 
