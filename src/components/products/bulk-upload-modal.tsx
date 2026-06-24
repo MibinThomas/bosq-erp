@@ -1338,6 +1338,19 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                                 />
                               </div>
 
+                              {/* Stock */}
+                              <div className="w-16 shrink-0 space-y-1">
+                                <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Stock</label>
+                                <input 
+                                  id={`input-${idx}-stock`}
+                                  type="number"
+                                  min="0"
+                                  className="w-full border rounded-lg px-2 py-1 text-xs bg-zinc-55 dark:bg-zinc-805 border-zinc-200 dark:border-zinc-700 text-center font-mono font-bold focus:ring-amber-500"
+                                  value={p.stock ?? 0}
+                                  onChange={(e) => handleProductFieldChange(idx, "stock", e.target.value)}
+                                />
+                              </div>
+
                               {/* Status Badge */}
                               <div className="shrink-0 flex flex-col items-center justify-center space-y-1 w-14">
                                 <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wide">Status</span>
@@ -1412,17 +1425,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                                   />
                                 </div>
 
-                                <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide">Stock Quantity</label>
-                                  <input
-                                    id={`input-${idx}-stock`}
-                                    type="number"
-                                    min="0"
-                                    className="w-full border rounded-lg px-2.5 py-1.5 bg-white dark:bg-zinc-900 text-xs focus:ring-amber-500 font-mono font-bold"
-                                    value={p.stock ?? 0}
-                                    onChange={(e) => handleProductFieldChange(idx, "stock", e.target.value)}
-                                  />
-                                </div>
+
 
                                 <div className="space-y-1">
                                   <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide">Product Type (Finish/Material)</label>
