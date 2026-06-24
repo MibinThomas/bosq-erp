@@ -332,12 +332,7 @@ export async function POST(request: Request) {
     const allowedCanOverrideVat = isSuperAdmin ? true : (dbSessionUser.permissionOverrides.find(o => o.action === "canOverrideVat")?.value ?? rolePerm?.canOverrideVat ?? false)
     const allowedCanAddCustomCharges = true; // Always allow creator to add custom charges on new quotes
 
-    // Validate Special Discount Permission
-    const hasDiscountPermission = isSuperAdmin ? true : (dbSessionUser.permissionOverrides.find(o => o.action === "canApplySpecialDiscount")?.value ?? rolePerm?.canApplySpecialDiscount ?? false)
-    const isApplyingDiscount = specialDiscountType && specialDiscountType !== "none" && parseFloat(specialDiscountValue) > 0
-    if (isApplyingDiscount && !hasDiscountPermission) {
-      return NextResponse.json({ error: "You do not have permission to apply special discount." }, { status: 403 })
-    }
+    // Special discount permission validation check removed to allow all roles to apply unlimited discount
 
     // Validate VAT Mode Override
     const resolvedVatMode = vatMode || "EXCLUDING"

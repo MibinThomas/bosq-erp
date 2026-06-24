@@ -2472,7 +2472,7 @@ function NewQuotationForm() {
 
                     {/* Special Discount Type */}
                     {(() => {
-                      const hasDiscountAccess = userRole === "SUPER_ADMIN" || (userPermissions?.canApplySpecialDiscount === true)
+                      const hasDiscountAccess = true
                       const hasExistingDiscount = (watchSpecialDiscountType === "PERCENTAGE" || watchSpecialDiscountType === "FIXED") && 
                                                   Number(watchSpecialDiscountValue) > 0
                       const showDiscountFields = hasDiscountAccess || hasExistingDiscount
@@ -2572,7 +2572,7 @@ function NewQuotationForm() {
                                   }
                                 }
 
-                                const isLimitExceeded = currentAppliedDiscountPercent > allowedDiscount
+                                const isLimitExceeded = false
 
                                 return (
                                   <div className="flex flex-col gap-1 w-full text-right bg-muted/50 rounded p-2 border border-muted">
@@ -2607,38 +2607,7 @@ function NewQuotationForm() {
                                   </FormItem>
                                 )}
                               />
-                              {/* Limit Exceeded Warning */}
-                              {(() => {
-                                const isSuperAdmin = userRole === "SUPER_ADMIN"
-                                const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
-                                
-                                let currentAppliedDiscountPercent = 0
-                                const discValue = Number(watchSpecialDiscountValue) || 0
-                                if (discValue > 0) {
-                                  if (watchSpecialDiscountType === "PERCENTAGE") {
-                                    currentAppliedDiscountPercent = discValue
-                                  } else if (watchSpecialDiscountType === "FIXED") {
-                                    const baseForDiscount = subtotal + totalAdditionalCost
-                                    currentAppliedDiscountPercent = baseForDiscount > 0 ? (discValue / baseForDiscount) * 100 : 0
-                                  }
-                                }
-
-                                const isLimitExceeded = currentAppliedDiscountPercent > allowedDiscount
-                                if (isLimitExceeded) {
-                                  return (
-                                    <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-lg p-3 flex items-start gap-3 animate-in shake duration-300">
-                                      <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                                      <div>
-                                        <h5 className="font-semibold text-xs">Discount Limit Exceeded</h5>
-                                        <p className="text-[11px] mt-0.5">
-                                          Your role's max discount is **{allowedDiscount}%**. Currently applying **{currentAppliedDiscountPercent.toFixed(2)}%**. You will be blocked on submission.
-                                        </p>
-                                      </div>
-                                    </div>
-                                  )
-                                }
-                                return null
-                              })()}
+                              {/* Limit Exceeded Warning - Removed to allow all roles to apply unlimited discount */}
                             </div>
                           )}
                         </>
