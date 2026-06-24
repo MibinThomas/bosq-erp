@@ -214,7 +214,7 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
               <div>
                 <div className="text-2xl font-bold tracking-tight font-sans text-emerald-600 dark:text-emerald-400">{data.totalClientConfirmedQuotations ?? 0}</div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
-                  <span className="font-bold text-emerald-600 font-mono">Win: {data.winRate.toFixed(0)}%</span>
+                  <span className="font-bold text-emerald-600 font-mono">Win: {(data.winRate ?? 0).toFixed(0)}%</span>
                   <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>

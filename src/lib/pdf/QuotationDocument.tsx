@@ -51,8 +51,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   logoImageLeft: {
-    width: 280,
-    height: 90,
+    width: 152,
+    height: 48.8,
     objectFit: "contain",
     objectPositionX: "left",
   },

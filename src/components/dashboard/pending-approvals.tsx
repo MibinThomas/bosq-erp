@@ -27,14 +27,21 @@ export function PendingClientApprovals({ onApprovalChanged }: PendingClientAppro
   const [pending, setPending] = useState<PendingClient[]>([])
   const [loading, setLoading] = useState(true)
   const [processingId, setProcessingId] = useState<string | null>(null)
+  const [hasPermission, setHasPermission] = useState(true)
 
   async function fetchPendingClients() {
     try {
       setLoading(true)
       const res = await fetch("/api/clients/pending")
+      if (res.status === 403) {
+        setHasPermission(false)
+        setPending([])
+        return
+      }
       if (!res.ok) throw new Error("Failed to fetch pending approvals")
       const data = await res.json()
       setPending(data)
+      setHasPermission(true)
     } catch (err) {
       console.error(err)
       toast.error("Failed to load pending client approvals.")
@@ -90,6 +97,18 @@ export function PendingClientApprovals({ onApprovalChanged }: PendingClientAppro
           <Loader2 className="h-7 w-7 animate-spin text-primary" />
           <span className="text-xs text-muted-foreground font-medium">Checking approvals...</span>
         </div>
+      </Card>
+    )
+  }
+
+  if (!hasPermission) {
+    return (
+      <Card className="rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm p-8 flex flex-col items-center justify-center text-center text-muted-foreground min-h-[320px] bg-card/50 gap-2.5">
+        <AlertCircle className="h-6 w-6 text-muted-foreground/60" />
+        <span className="text-xs font-semibold text-foreground">Access Restricted</span>
+        <span className="text-[10px] text-muted-foreground max-w-[220px]">
+          Your user profile does not have permission to approve client registrations.
+        </span>
       </Card>
     )
   }
