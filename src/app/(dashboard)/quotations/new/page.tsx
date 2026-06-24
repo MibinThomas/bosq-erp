@@ -2473,9 +2473,7 @@ function NewQuotationForm() {
                     {/* Special Discount Type */}
                     {(() => {
                       const hasDiscountAccess = userRole === "SUPER_ADMIN" || (userPermissions?.canApplySpecialDiscount === true)
-                      const hasExistingDiscount = watchSpecialDiscountType !== null && 
-                                                  watchSpecialDiscountType !== "none" && 
-                                                  watchSpecialDiscountType !== undefined && 
+                      const hasExistingDiscount = (watchSpecialDiscountType === "PERCENTAGE" || watchSpecialDiscountType === "FIXED") && 
                                                   Number(watchSpecialDiscountValue) > 0
                       const showDiscountFields = hasDiscountAccess || hasExistingDiscount
                       const isDiscountFieldsDisabled = !hasDiscountAccess
