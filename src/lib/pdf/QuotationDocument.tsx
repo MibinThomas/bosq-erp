@@ -183,16 +183,16 @@ const styles = StyleSheet.create({
   itemCategory: {
     fontSize: 6,
     fontWeight: "bold",
-    color: "#0f4c81",
+    color: "#58595B",
     textTransform: "uppercase",
-    marginBottom: 3,
+    marginBottom: 1,
     letterSpacing: 0.8,
   },
   itemDescText: {
     fontSize: 6.5,
     color: "#444444",
-    marginBottom: 4,
-    lineHeight: 1.35,
+    marginBottom: 3,
+    lineHeight: 1.25,
     width: "100%",
   },
   
@@ -601,25 +601,30 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     if (specsList.length === 0 && remarksLines.length === 0) return null;
 
     return (
-      <View style={{ marginTop: 6 }}>
+      <View style={{ marginTop: 2 }}>
         {specsList.length > 0 && (
-          <View style={{ marginBottom: 4 }}>
+          <View style={{ marginBottom: 0 }}>
             {specsList.map((spec, idx) => {
               const isProdTime = spec.key?.toLowerCase() === "production time";
               const textColor = isProdTime ? "#1e3a8a" : "#444444";
               const keyColor = isProdTime ? "#1e3a8a" : colors.primary;
+              
+              const cleanKey = spec.key ? spec.key.trim() : "";
+              const cleanVal = spec.value ? spec.value.trim() : "";
+              if (!cleanVal) return null;
+
               return (
-                <View key={`spec-${idx}`} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 2, fontSize: 6.5, lineHeight: 1.35 }}>
-                  {spec.key ? (
+                <View key={`spec-${idx}`} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 1.5, fontSize: 6.5, lineHeight: 1.25 }}>
+                  {cleanKey ? (
                     <>
-                      <Text style={{ fontWeight: "bold", color: keyColor, marginRight: 3, flexShrink: 0 }}>{spec.key}:</Text>
+                      <Text style={{ fontWeight: "bold", color: keyColor, marginRight: 3, flexShrink: 0 }}>{cleanKey}:</Text>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: textColor }}>{spec.value}</Text>
+                        <Text style={{ color: textColor }}>{cleanVal}</Text>
                       </View>
                     </>
                   ) : (
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: textColor }}>{spec.value}</Text>
+                      <Text style={{ color: textColor }}>{cleanVal}</Text>
                     </View>
                   )}
                 </View>
@@ -632,9 +637,13 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           <View style={{ marginTop: 2, flexDirection: "row", alignItems: "flex-start" }}>
             <Text style={{ fontWeight: "bold", fontSize: 6.5, color: colors.accent, marginRight: 4 }}>Remarks:</Text>
             <View style={{ flex: 1 }}>
-              {remarksLines.map((r, i) => (
-                <Text key={i} style={{ fontSize: 6.5, color: colors.secondary, marginBottom: 1 }}>{r}</Text>
-              ))}
+              {remarksLines.map((r, i) => {
+                const cleanRemark = r ? r.trim() : "";
+                if (!cleanRemark) return null;
+                return (
+                  <Text key={i} style={{ fontSize: 6.5, color: colors.secondary, marginBottom: 1, lineHeight: 1.25 }}>{cleanRemark}</Text>
+                );
+              })}
             </View>
           </View>
         )}
@@ -801,7 +810,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
               {/* 2.5 Chair Type (if applicable) */}
               {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
-                <View style={{ flexDirection: "row", marginTop: -2, marginBottom: 4, fontSize: 6.5 }}>
+                <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
                   <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
                   <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
                 </View>
@@ -809,7 +818,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
               {/* 3. Product Description */}
               {item.productDescription && (
-                <Text style={styles.itemDescText}>{sanitizeHtmlToText(item.productDescription)}</Text>
+                <Text style={styles.itemDescText}>
+                  {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
+                </Text>
               )}
 
               {/* 4, 5, 6. Specs, Prod Time, Remarks */}
