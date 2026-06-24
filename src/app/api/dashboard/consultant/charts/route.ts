@@ -39,11 +39,11 @@ export async function GET(request: Request) {
 
     if (userRole === "DESIGN_CONSULTANT") {
       qWhere.client = {
-        assignments: {
-          some: {
-            userId: userId
-          }
-        }
+        deletedAt: null,
+        OR: [
+          { salespersonId: userId },
+          { assignments: { some: { userId } } }
+        ]
       }
     } else {
       // Enforce Quotations Ownership

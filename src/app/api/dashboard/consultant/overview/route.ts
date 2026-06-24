@@ -45,24 +45,23 @@ export async function GET(request: Request) {
     let boqWhere: any = { deletedAt: null }
 
     if (userRole === "DESIGN_CONSULTANT") {
-      cWhere.assignments = {
-        some: {
-          userId: userId
-        }
-      }
+      cWhere.OR = [
+        { salespersonId: userId },
+        { assignments: { some: { userId } } }
+      ]
       qWhere.client = {
-        assignments: {
-          some: {
-            userId: userId
-          }
-        }
+        deletedAt: null,
+        OR: [
+          { salespersonId: userId },
+          { assignments: { some: { userId } } }
+        ]
       }
       boqWhere.client = {
-        assignments: {
-          some: {
-            userId: userId
-          }
-        }
+        deletedAt: null,
+        OR: [
+          { salespersonId: userId },
+          { assignments: { some: { userId } } }
+        ]
       }
     } else {
       // Enforce Quotations Ownership

@@ -43,18 +43,24 @@ export async function GET(request: Request) {
 
     if (userRole === "DESIGN_CONSULTANT") {
       qWhere.client = {
-        assignments: {
-          some: {
-            userId: userId
-          }
-        }
+        deletedAt: null,
+        OR: [
+          { salespersonId: userId },
+          { assignments: { some: { userId } } }
+        ]
       }
 
-      const assignedAssignments = await prisma.clientAssignment.findMany({
-        where: { userId: userId, client: { deletedAt: null } },
-        select: { clientId: true }
+      const assignedClients = await prisma.client.findMany({
+        where: {
+          deletedAt: null,
+          OR: [
+            { salespersonId: userId },
+            { assignments: { some: { userId } } }
+          ]
+        },
+        select: { id: true }
       })
-      const assignedClientIds = assignedAssignments.map(a => a.clientId)
+      const assignedClientIds = assignedClients.map(c => c.id)
 
       const [assignedQuotations, assignedBoqs] = await Promise.all([
         prisma.quotation.findMany({

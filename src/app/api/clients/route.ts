@@ -58,7 +58,7 @@ export async function GET(request: Request) {
     }
 
     const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(dbSessionUser.role)
-    if (!isUnrestricted) {
+    if (!isUnrestricted && !all) {
       if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
         whereClause.OR = [
           { salespersonId: dbSessionUser.id },

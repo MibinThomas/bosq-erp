@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { Plus, Search, MoreHorizontal, Loader2, Package, Sparkles, LayoutGrid, List, Edit, ShoppingCart, Trash2, X, ChevronRight } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Loader2, Package, Sparkles, LayoutGrid, List, Edit, ShoppingCart, Trash2, X, ChevronRight, UserPlus, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { ProductDetailsModal } from "@/components/products/product-details-modal"
+import { cn } from "@/lib/utils"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -155,10 +157,56 @@ export default function ProductsPage() {
   const [newClientNotes, setNewClientNotes] = useState("")
   const [clientSubmitting, setClientSubmitting] = useState(false)
 
+  // Access Request States
+  const [requestAccessClient, setRequestAccessClient] = useState<{ id: string; name: string } | null>(null)
+  const [requestNotes, setRequestNotes] = useState("")
+  const [requestingAccess, setRequestingAccess] = useState(false)
+
+  const handleRequestAccess = async (clientId: string, clientName: string, notes?: string) => {
+    try {
+      const res = await fetch(`/api/clients/${clientId}/request-access`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: notes || "Requested access to client via products page." })
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to request access")
+      }
+
+      toast.success(`Access request submitted for "${clientName}"! Admin will be notified.`)
+      
+      // Refresh clients list
+      const clientsRes = await fetch("/api/clients?all=true")
+      if (clientsRes.ok) {
+        const data = await clientsRes.json()
+        setClients(data)
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to request access. Please try again.")
+      throw error
+    }
+  }
+
+  const handleRequestAccessSubmit = async () => {
+    if (!requestAccessClient) return
+    setRequestingAccess(true)
+    try {
+      await handleRequestAccess(requestAccessClient.id, requestAccessClient.name, requestNotes)
+      setRequestAccessClient(null)
+      setRequestNotes("")
+    } catch (err) {
+      // toast handled
+    } finally {
+      setRequestingAccess(false)
+    }
+  }
+
   useEffect(() => {
     async function loadClients() {
       try {
-        const res = await fetch("/api/clients")
+        const res = await fetch("/api/clients?all=true")
         if (res.ok) {
           const data = await res.json()
           setClients(data)
@@ -1314,26 +1362,165 @@ export default function ProductsPage() {
                                 </div>
                               </CommandEmpty>
                               <CommandGroup>
-                                {clients.map((c) => (
-                                  <CommandItem
-                                    key={c.id}
-                                    value={`${c.companyName} ${c.clientType} ${c.status}`}
-                                    onSelect={() => {
-                                      if (c.status && c.status !== "Approved") return;
-                                      setSelectedClientId(c.id === selectedClientId ? "" : c.id)
-                                      setIsClientComboboxOpen(false)
-                                    }}
-                                    disabled={c.status && c.status !== "Approved"}
-                                    className={`text-xs ${c.status && c.status !== "Approved" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                                  >
-                                    <Check
-                                      className={`mr-2 h-3.5 w-3.5 ${
-                                        selectedClientId === c.id ? "opacity-100" : "opacity-0"
-                                      }`}
-                                    />
-                                    {c.companyName} ({c.clientType || "Direct"}){c.status && c.status !== "Approved" ? ` [${c.status}]` : ""}
-                                  </CommandItem>
-                                ))}
+                                {clients
+                                  .filter((client) => client.status === "Approved")
+                                  .map((client) => {
+                                    const isExcludedFromAssignmentCheck = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
+                                    const isUserAssigned = client.isAssigned
+                                    const canSelect = isUserAssigned || isExcludedFromAssignmentCheck
+
+                                    const activeReq = client.accessRequests?.[0]
+                                    const isRequested = activeReq?.status === "Requested"
+                                    const isRejected = activeReq?.status === "Rejected"
+
+                                    const statusText = canSelect
+                                      ? (isUserAssigned ? "Assigned to You" : "Assigned")
+                                      : (() => {
+                                          if (isRequested) return "Access Requested"
+                                          if (isRejected) return "Request Rejected"
+                                          return "Not Assigned"
+                                        })()
+
+                                    const isSelected = selectedClientId === client.id
+
+                                    return (
+                                      <CommandItem
+                                        key={client.id}
+                                        value={client.companyName}
+                                        onSelect={() => {
+                                          if (!canSelect) return
+                                          setSelectedClientId(client.id === selectedClientId ? "" : client.id)
+                                          setIsClientComboboxOpen(false)
+                                        }}
+                                        className={cn(
+                                          "flex flex-col items-start p-2 border-b last:border-b-0 border-muted/50 aria-selected:bg-muted/40 cursor-pointer",
+                                          !canSelect && "opacity-75 cursor-default"
+                                        )}
+                                      >
+                                        <div className="flex items-center justify-between w-full">
+                                          <div className="flex items-center gap-2">
+                                            <Check
+                                              className={cn(
+                                                "h-4 w-4 text-primary",
+                                                isSelected ? "opacity-100" : "opacity-0"
+                                              )}
+                                            />
+                                            <span className="font-medium text-sm">{client.companyName}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1.5">
+                                            {canSelect ? (
+                                              isUserAssigned && (
+                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-250 text-[10px] py-0 px-1.5 font-normal">
+                                                  Assigned
+                                                </Badge>
+                                              )
+                                            ) : (
+                                              <>
+                                                {isRequested && (
+                                                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-250 text-[10px] py-0 px-1.5 font-normal">
+                                                    Requested
+                                                  </Badge>
+                                                )}
+                                                {isRejected && (
+                                                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px] py-0 px-1.5 font-normal">
+                                                    Rejected
+                                                  </Badge>
+                                                )}
+                                                {!isRequested && !isRejected && (
+                                                  <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-[10px] py-0 px-1.5 font-normal">
+                                                    Unassigned
+                                                  </Badge>
+                                                )}
+                                              </>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        <div className="text-[11px] text-muted-foreground ml-6 mt-0.5 flex items-center gap-1">
+                                          <span>{client.clientType || "Direct"}</span>
+                                          <span>·</span>
+                                          <span>{statusText}</span>
+                                        </div>
+
+                                        {!canSelect && (() => {
+                                          if (isRequested) {
+                                            return (
+                                              <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                                   onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <div className="flex items-start gap-1">
+                                                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                  <span>Access request is pending approval.</span>
+                                                </div>
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  variant="outline"
+                                                  disabled
+                                                  className="text-[10px] h-7 px-2 border-amber-200 bg-amber-100 text-amber-600 dark:bg-amber-950/40 shrink-0 self-end sm:self-auto opacity-75 cursor-not-allowed"
+                                                >
+                                                  Requested
+                                                </Button>
+                                              </div>
+                                            )
+                                          }
+
+                                          if (isRejected) {
+                                            const isRequestAgainAllowed = client.allowRequestAgain !== false
+                                            return (
+                                              <div className="mt-2 ml-6 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg text-[11px] text-red-850 dark:text-red-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                                   onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <div className="flex items-start gap-1">
+                                                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                  <span>Access request rejected{activeReq.rejectionReason ? `: ${activeReq.rejectionReason}` : "."}</span>
+                                                </div>
+                                                {isRequestAgainAllowed && (
+                                                  <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="text-[10px] h-7 px-2 border-red-300 hover:bg-red-100 dark:hover:bg-red-950 text-red-900 dark:text-red-200 shrink-0 self-end sm:self-auto cursor-pointer"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation()
+                                                      setRequestAccessClient({ id: client.id, name: client.companyName })
+                                                      setRequestNotes("")
+                                                    }}
+                                                  >
+                                                    Request Again
+                                                  </Button>
+                                                )}
+                                              </div>
+                                            )
+                                          }
+
+                                          return (
+                                            <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                                 onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <div className="flex items-start gap-1">
+                                                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                                <span>You cannot select this client unless access is requested and approved.</span>
+                                              </div>
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                className="text-[10px] h-7 px-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0 self-end sm:self-auto cursor-pointer"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  setRequestAccessClient({ id: client.id, name: client.companyName })
+                                                  setRequestNotes("")
+                                                }}
+                                              >
+                                                Request Access
+                                              </Button>
+                                            </div>
+                                          )
+                                        })()}
+                                      </CommandItem>
+                                    )
+                                  })}
                               </CommandGroup>
                             </CommandList>
                           </Command>
@@ -1468,6 +1655,62 @@ export default function ProductsPage() {
           </div>
         </div>
       )}
+      {/* Request Access Note Dialog */}
+      <Dialog open={requestAccessClient !== null} onOpenChange={(open) => !open && setRequestAccessClient(null)}>
+        <DialogContent className="sm:max-w-[425px] bg-slate-950 border-slate-800 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-white">
+              <UserPlus className="h-5 w-5 text-orange-500" />
+              Request Client Access
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              Provide an optional note to justify your request for "{requestAccessClient?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-3">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-300">Optional Note</label>
+              <Textarea
+                placeholder="e.g., Client wants to place a new quotation for chairs..."
+                value={requestNotes}
+                onChange={(e) => setRequestNotes(e.target.value)}
+                rows={3}
+                className="bg-slate-900 border-slate-800 text-xs text-white"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setRequestAccessClient(null)
+                setRequestNotes("")
+              }}
+              className="text-xs h-9 text-slate-400 hover:text-white"
+              disabled={requestingAccess}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleRequestAccessSubmit}
+              disabled={requestingAccess}
+              className="text-xs h-9 font-medium bg-orange-600 hover:bg-orange-500 text-white border-0"
+            >
+              {requestingAccess ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                  Submitting...
+                </>
+              ) : (
+                "Submit Request"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
