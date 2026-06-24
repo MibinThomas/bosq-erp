@@ -22,6 +22,7 @@ interface Product {
   status: string
   imageUrl: string | null
   imageUrls?: string[] | null
+  stock: number
   category: {
     name: string
   }
@@ -358,6 +359,23 @@ export function ProductDetailsModal({
                     <span className="text-[9px] font-bold text-slate-400 uppercase block">Base Price</span>
                     <span className="text-base font-bold font-mono text-slate-500 block mt-0.5">
                       AED {product.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[9px] font-bold text-slate-400 uppercase block">Stock Status</span>
+                    <span className={`text-xs font-bold block mt-1 px-2.5 py-0.5 rounded-full ${
+                      (product.stock ?? 0) >= 5
+                        ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 w-fit"
+                        : (product.stock ?? 0) > 0
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 w-fit"
+                        : "bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 w-fit"
+                    }`}>
+                      {(product.stock ?? 0) >= 5
+                        ? `In Stock (${product.stock} items)`
+                        : (product.stock ?? 0) > 0
+                        ? `Low Stock (${product.stock} remaining)`
+                        : "Out of Stock"}
                     </span>
                   </div>
 

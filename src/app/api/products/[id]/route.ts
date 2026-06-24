@@ -79,6 +79,7 @@ export async function PUT(
       legType,
       storageOptions,
       finishMaterial,
+      stock,
     } = body
 
     if (!productName || !categoryName) {
@@ -127,6 +128,7 @@ export async function PUT(
         legType: legType !== undefined ? legType : undefined,
         storageOptions: storageOptions !== undefined ? storageOptions : undefined,
         finishMaterial: finishMaterial !== undefined ? finishMaterial : undefined,
+        stock: stock !== undefined ? parseInt(stock) || 0 : undefined,
         status: status || "ACTIVE",
       },
       include: {
@@ -148,6 +150,61 @@ export async function PUT(
     return NextResponse.json(updatedProduct)
   } catch (error) {
     console.error("Failed to update product:", error)
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    )
+  }
+}
+
+// Partial update single product (e.g. stock)
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const userId = (session.user as any).id
+    const canEdit = await hasPermission(userId, "PRODUCTS", "edit")
+    if (!canEdit) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to edit products" }, { status: 403 })
+    }
+
+    const { id } = await params
+    const body = await request.json()
+    const { stock } = body
+
+    if (stock === undefined) {
+      return NextResponse.json({ error: "Stock value is required for this operation" }, { status: 400 })
+    }
+
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: {
+        stock: parseInt(stock, 10) || 0,
+      },
+      include: {
+        category: true,
+      },
+    })
+
+    // Log Activity
+    await prisma.activityLog.create({
+      data: {
+        userId,
+        action: "UPDATED_PRODUCT_STOCK",
+        entityType: "PRODUCT",
+        entityId: id,
+        details: `Updated product stock for ${updatedProduct.productName} (${updatedProduct.productCode}) to ${updatedProduct.stock}`,
+      },
+    })
+
+    return NextResponse.json(updatedProduct)
+  } catch (error) {
+    console.error("Failed to patch product stock:", error)
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

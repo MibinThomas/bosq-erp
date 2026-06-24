@@ -54,6 +54,7 @@ export async function POST(request: Request) {
         legType,
         storageOptions,
         finishMaterial,
+        stock,
       } = prod
 
       if (!productName || !categoryName) {
@@ -117,6 +118,7 @@ export async function POST(request: Request) {
           legType: legType !== undefined ? legType : undefined,
           storageOptions: storageOptions !== undefined ? storageOptions : undefined,
           finishMaterial: finishMaterial !== undefined ? finishMaterial : undefined,
+          stock: stock !== undefined ? parseInt(stock) || 0 : undefined,
         },
         create: {
           productCode: finalCode,
@@ -140,6 +142,7 @@ export async function POST(request: Request) {
           legType: legType || null,
           storageOptions: storageOptions || null,
           finishMaterial: finishMaterial || null,
+          stock: parseInt(stock) || 0,
         },
         include: {
           category: true,

@@ -51,6 +51,7 @@ interface Product {
   description?: string | null
   status: string
   imageUrl: string | null
+  stock: number
   category: {
     name: string
   }
@@ -94,6 +95,36 @@ export default function ProductsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [deleting, setDeleting] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
+
+  // Inline Stock Edit states
+  const [editingStockId, setEditingStockId] = useState<string | null>(null)
+  const [draftStockVal, setDraftStockVal] = useState<number>(0)
+  const [updatingStockId, setUpdatingStockId] = useState<string | null>(null)
+
+  const handleSaveStock = async (productId: string, newStock: number) => {
+    try {
+      setUpdatingStockId(productId)
+      const res = await fetch(`/api/products/${productId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stock: newStock }),
+      })
+
+      if (!res.ok) throw new Error("Failed to update stock")
+      
+      const updated = await res.json()
+      
+      // Update local state
+      setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: updated.stock } : p))
+      toast.success(`Stock level updated to ${updated.stock} successfully!`)
+      setEditingStockId(null)
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to update stock. Please try again.")
+    } finally {
+      setUpdatingStockId(null)
+    }
+  }
   const [selectedCategory, setSelectedCategory] = useState("")
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
@@ -585,9 +616,24 @@ export default function ProductsPage() {
                     <h3 className="font-bold text-base mt-2 line-clamp-1 group-hover:text-primary transition-colors">
                       {product.productName}
                     </h3>
-                    <p className="text-xs text-muted-foreground font-medium mt-1">
-                      Category: <span className="text-foreground">{product.category.name}</span>
-                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-muted-foreground font-medium">
+                        Category: <span className="text-foreground">{product.category.name}</span>
+                      </p>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        (product.stock ?? 0) >= 5
+                          ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                          : (product.stock ?? 0) > 0
+                          ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+                          : "bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400"
+                      }`}>
+                        {(product.stock ?? 0) >= 5
+                          ? `${product.stock} In Stock`
+                          : (product.stock ?? 0) > 0
+                          ? `Low Stock (${product.stock})`
+                          : "Out of Stock"}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="h-px bg-border my-1" />
@@ -681,6 +727,7 @@ export default function ProductsPage() {
                   <TableHead>Dimensions</TableHead>
                   <TableHead>Warranty</TableHead>
                   <TableHead className="text-right">Unit Price (AED)</TableHead>
+                  <TableHead className="text-center">Stock</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -717,6 +764,66 @@ export default function ProductsPage() {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
                       })}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {updatingStockId === product.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-primary mx-auto" />
+                      ) : editingStockId === product.id ? (
+                        <div className="flex items-center gap-1 justify-center animate-in zoom-in duration-155" onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setDraftStockVal(v => Math.max(0, v - 1)) }} 
+                            className="h-6 w-6 text-xs flex items-center justify-center hover:bg-muted border rounded-md cursor-pointer font-bold select-none"
+                            title="Decrement"
+                          >
+                            -
+                          </button>
+                          <input 
+                            type="number" 
+                            min="0"
+                            value={draftStockVal} 
+                            onChange={(e) => setDraftStockVal(parseInt(e.target.value) || 0)} 
+                            className="w-12 text-center h-6 text-xs border rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono font-bold" 
+                            onClick={(e) => e.stopPropagation()} 
+                          />
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setDraftStockVal(v => v + 1) }} 
+                            className="h-6 w-6 text-xs flex items-center justify-center hover:bg-muted border rounded-md cursor-pointer font-bold select-none"
+                            title="Increment"
+                          >
+                            +
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleSaveStock(product.id, draftStockVal) }} 
+                            className="h-6 w-6 text-xs flex items-center justify-center text-green-600 hover:bg-green-50 border border-green-200 rounded-md cursor-pointer select-none font-bold"
+                            title="Save"
+                          >
+                            ✓
+                          </button>
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setEditingStockId(null) }} 
+                            className="h-6 w-6 text-xs flex items-center justify-center text-slate-555 hover:bg-slate-50 border rounded-md cursor-pointer select-none font-bold"
+                            title="Cancel"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : canEditProduct ? (
+                        <button 
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setEditingStockId(product.id); setDraftStockVal(product.stock || 0) }} 
+                          className="group/stock flex items-center gap-1.5 mx-auto font-bold font-mono px-2.5 py-0.5 rounded-full bg-secondary/80 hover:bg-primary/10 hover:text-primary transition-all duration-200 cursor-pointer"
+                          title="Click to edit stock level"
+                        >
+                          <span>{product.stock || 0}</span>
+                          <Edit className="h-3 w-3 opacity-0 group-hover/stock:opacity-100 transition-opacity" />
+                        </button>
+                      ) : (
+                        <span className="font-mono font-bold text-center block">{product.stock || 0}</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge variant={product.status === "ACTIVE" ? "default" : "destructive"}>

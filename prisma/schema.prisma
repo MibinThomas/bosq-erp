@@ -132,6 +132,7 @@ model Product {
   warranty        String?
   availableColors String?
   dimensions      String?
+  stock           Int       @default(0)
   status          String    @default("ACTIVE") // ACTIVE, DISCONTINUED
   deletedAt       DateTime?
   createdAt       DateTime  @default(now())

@@ -70,6 +70,7 @@ export default function NewProductPage() {
     directPrice: "",
     onlinePrice: "",
     warranty: "5 Years",
+    stock: "0",
     
     chairType: "",
     availableColors: "",
@@ -164,6 +165,7 @@ export default function NewProductPage() {
       const payload = {
         ...formData,
         imageUrl: formData.imageUrls.length > 0 ? formData.imageUrls[0] : undefined,
+        stock: parseInt(formData.stock, 10) || 0,
       }
 
       const res = await fetch("/api/products", {
@@ -263,7 +265,7 @@ export default function NewProductPage() {
               <Info className="h-5 w-5 text-primary" /> Basic Information
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                   Product Name <span className="text-red-500">*</span>
@@ -286,7 +288,20 @@ export default function NewProductPage() {
                 />
               </div>
 
-              <div className="space-y-2 md:col-span-2 relative">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Initial Stock Quantity
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="e.g. 0"
+                  value={formData.stock}
+                  onChange={(e) => setFormData(prev => ({ ...prev, stock: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-3 relative">
                 <div className="flex justify-between items-end mb-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     Product Description

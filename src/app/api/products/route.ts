@@ -63,6 +63,7 @@ export async function POST(request: Request) {
       legType,
       storageOptions,
       finishMaterial,
+      stock,
     } = body
 
     if (!productName || !categoryName) {
@@ -129,6 +130,7 @@ export async function POST(request: Request) {
         legType: legType || null,
         storageOptions: storageOptions || null,
         finishMaterial: finishMaterial || null,
+        stock: parseInt(stock) || 0,
         status: "ACTIVE",
       },
       include: {

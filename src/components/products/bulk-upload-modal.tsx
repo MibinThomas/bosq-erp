@@ -58,6 +58,7 @@ interface ParsedProduct {
   finishMaterial?: string
   availableColors?: string
   dimensions?: string
+  stock?: number
 }
 
 export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalProps) {
@@ -275,7 +276,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       { key: "storageOptions", synonyms: ["storage options (for workstations)", "storage options", "storageoptions"] },
       { key: "specifications", synonyms: ["specifications / details", "specifications", "details", "specs", "specification", "technical"] },
       { key: "dimensions", synonyms: ["dimensions", "dimension", "size"] },
-      { key: "imageFilename", synonyms: ["image filename", "image", "photo", "filename", "imagename", "imagefilename", "picture"] }
+      { key: "imageFilename", synonyms: ["image filename", "image", "photo", "filename", "imagename", "imagefilename", "picture"] },
+      { key: "stock", synonyms: ["stock", "quantity", "qty", "stock level", "inventory", "stockquantity", "available"] }
     ]
 
     fileHeaders.forEach(header => {
@@ -326,6 +328,9 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return Number((basePrice / (1 - (pct / 100))).toFixed(2))
       }
 
+      const stockVal = parseInt(getVal("stock").replace(/[^0-9]/g, ""), 10)
+      const stock = isNaN(stockVal) ? 0 : stockVal
+
       return {
         productCode: getVal("productCode"),
         productName: getVal("productName"),
@@ -347,6 +352,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         storageOptions: getVal("storageOptions"),
         dimensions: getVal("dimensions"),
         imageFilename: getVal("imageFilename"),
+        stock: stock,
         status: "ACTIVE"
       }
     })
@@ -584,6 +590,9 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return Number((basePrice / (1 - (pct / 100))).toFixed(2))
       }
 
+      const stockVal = parseInt(getVal("stock").replace(/[^0-9]/g, ""), 10)
+      const stock = isNaN(stockVal) ? 0 : stockVal
+
       return {
         productCode: getVal("productCode"),
         productName: getVal("productName"),
@@ -605,6 +614,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         storageOptions: getVal("storageOptions"),
         dimensions: getVal("dimensions"),
         imageFilename: getVal("imageFilename"),
+        stock: stock,
         status: "ACTIVE"
       }
     })
@@ -730,6 +740,11 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     if (key === "costPrice") {
       const parsed = parseFloat(value)
       parsedValue = isNaN(parsed) ? 0.0 : parsed
+    }
+    
+    if (key === "stock") {
+      const parsed = parseInt(value, 10)
+      parsedValue = isNaN(parsed) ? 0 : parsed
     }
     
     updated[index] = { ...updated[index], [key]: parsedValue }
@@ -1394,6 +1409,18 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                                     value={p.dimensions || ""}
                                     placeholder="e.g. 600 x 600 x 750 mm"
                                     onChange={(e) => handleProductFieldChange(idx, "dimensions", e.target.value)}
+                                  />
+                                </div>
+
+                                <div className="space-y-1">
+                                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide">Stock Quantity</label>
+                                  <input
+                                    id={`input-${idx}-stock`}
+                                    type="number"
+                                    min="0"
+                                    className="w-full border rounded-lg px-2.5 py-1.5 bg-white dark:bg-zinc-900 text-xs focus:ring-amber-500 font-mono font-bold"
+                                    value={p.stock ?? 0}
+                                    onChange={(e) => handleProductFieldChange(idx, "stock", e.target.value)}
                                   />
                                 </div>
 

@@ -26,6 +26,7 @@ interface Product {
   description?: string | null
   status: string
   imageUrl: string | null
+  stock: number
   category: {
     name: string
   }
@@ -49,6 +50,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
   const [directPrice, setDirectPrice] = useState("")
   const [onlinePrice, setOnlinePrice] = useState("")
   const [warranty, setWarranty] = useState("")
+  const [stock, setStock] = useState<number | string>(0)
   const [specifications, setSpecifications] = useState("")
   const [description, setDescription] = useState("")
   const [status, setStatus] = useState("ACTIVE")
@@ -100,6 +102,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
       setDirectPrice(product.directPrice?.toString() || "")
       setOnlinePrice(product.onlinePrice?.toString() || "")
       setWarranty(product.warranty || "5 Years")
+      setStock(product.stock || 0)
       setSpecifications(product.specifications || "")
       setDescription(product.description || "")
       setStatus(product.status)
@@ -222,7 +225,8 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
           description,
           specifications,
           status,
-          imageUrl: base64Image || undefined
+          imageUrl: base64Image || undefined,
+          stock: parseInt(stock.toString(), 10) || 0,
         })
       })
 
@@ -374,6 +378,17 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
                 value={warranty} 
                 onChange={(e) => setWarranty(e.target.value)} 
                 placeholder="E.g., 5 Years" 
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold">Stock Quantity</label>
+              <Input 
+                type="number"
+                min="0"
+                value={stock} 
+                onChange={(e) => setStock(e.target.value)} 
+                placeholder="e.g. 0" 
               />
             </div>
 

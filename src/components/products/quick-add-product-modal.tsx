@@ -19,6 +19,7 @@ interface Product {
   onlinePrice?: number
   specifications: string | null
   imageUrl: string | null
+  stock?: number
 }
 
 interface QuickAddProductModalProps {
