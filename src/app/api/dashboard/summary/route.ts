@@ -75,23 +75,34 @@ export async function GET(request: Request) {
       deletedAt: null
     }
 
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
+
     // Apply role-based dashboard filters
-    if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+    if (!isUnrestricted) {
       whereClause.OR = [
         { preparedById: currentUserId },
         { salesAgentId: currentUserId },
         { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
         { assignments: { some: { userId: currentUserId } } }
       ]
-    } else if (ownershipRule === "DEPARTMENT") {
-      whereClause.OR = [
-        { preparedById: { in: departmentUserIds } },
-        { salesAgentId: { in: departmentUserIds } },
-        { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: { in: departmentUserIds } } } }
-      ]
-    } else if (ownershipRule === "NONE") {
-      whereClause.id = "none"
+    } else {
+      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+        whereClause.OR = [
+          { preparedById: currentUserId },
+          { salesAgentId: currentUserId },
+          { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: currentUserId } } }
+        ]
+      } else if (ownershipRule === "DEPARTMENT") {
+        whereClause.OR = [
+          { preparedById: { in: departmentUserIds } },
+          { salesAgentId: { in: departmentUserIds } },
+          { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: { in: departmentUserIds } } } }
+        ]
+      } else if (ownershipRule === "NONE") {
+        whereClause.id = "none"
+      }
     }
 
     // Role-based filtering overrides
@@ -134,20 +145,31 @@ export async function GET(request: Request) {
       deletedAt: null
     }
 
-    if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+    if (!isUnrestricted) {
       boqWhereClause.OR = [
         { preparedById: currentUserId },
         { estimatorId: currentUserId },
+        { client: { salespersonId: currentUserId } },
         { client: { assignments: { some: { userId: currentUserId } } } }
       ]
-    } else if (ownershipRule === "DEPARTMENT") {
-      boqWhereClause.OR = [
-        { preparedById: { in: departmentUserIds } },
-        { estimatorId: { in: departmentUserIds } },
-        { client: { assignments: { some: { userId: { in: departmentUserIds } } } } }
-      ]
-    } else if (ownershipRule === "NONE") {
-      boqWhereClause.id = "none"
+    } else {
+      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+        boqWhereClause.OR = [
+          { preparedById: currentUserId },
+          { estimatorId: currentUserId },
+          { client: { salespersonId: currentUserId } },
+          { client: { assignments: { some: { userId: currentUserId } } } }
+        ]
+      } else if (ownershipRule === "DEPARTMENT") {
+        boqWhereClause.OR = [
+          { preparedById: { in: departmentUserIds } },
+          { estimatorId: { in: departmentUserIds } },
+          { client: { salespersonId: { in: departmentUserIds } } },
+          { client: { assignments: { some: { userId: { in: departmentUserIds } } } } }
+        ]
+      } else if (ownershipRule === "NONE") {
+        boqWhereClause.id = "none"
+      }
     }
 
     if (isExcludedFromOwnershipLimit && userIdFilter && userIdFilter !== "all") {
@@ -284,16 +306,25 @@ export async function GET(request: Request) {
 
     // 2. totalAssignedClients
     const clientWhere: any = { deletedAt: null }
-    if (ownershipRule === "DEPARTMENT") {
-      clientWhere.OR = [
-        { salespersonId: { in: departmentUserIds } },
-        { assignments: { some: { userId: { in: departmentUserIds } } } }
-      ]
-    } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+    if (!isUnrestricted) {
       clientWhere.OR = [
         { salespersonId: currentUserId },
         { assignments: { some: { userId: currentUserId } } }
       ]
+    } else {
+      if (ownershipRule === "DEPARTMENT") {
+        clientWhere.OR = [
+          { salespersonId: { in: departmentUserIds } },
+          { assignments: { some: { userId: { in: departmentUserIds } } } }
+        ]
+      } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+        clientWhere.OR = [
+          { salespersonId: currentUserId },
+          { assignments: { some: { userId: currentUserId } } }
+        ]
+      } else if (ownershipRule === "NONE") {
+        clientWhere.id = "none"
+      }
     }
     const totalAssignedClients = await prisma.client.count({ where: clientWhere })
 

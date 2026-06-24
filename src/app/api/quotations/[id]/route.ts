@@ -57,11 +57,43 @@ export async function GET(
       )
     }
 
-    if ((session.user as any).role === "SALES_EXECUTIVE" && quotation.preparedById !== (session.user as any).id) {
-      return NextResponse.json(
-        { error: "Unauthorized access to this quotation" },
-        { status: 403 }
-      )
+    const userRole = (session.user as any).role || ""
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
+    if (!isUnrestricted) {
+      const currentUserId = (session.user as any).id
+      
+      let hasAccess = false
+      if (quotation.preparedById === currentUserId) {
+        hasAccess = true
+      } else {
+        const quotationAssignment = await prisma.quotationAssignment.findFirst({
+          where: { quotationId: quotation.id, userId: currentUserId }
+        })
+        if (quotationAssignment) {
+          hasAccess = true
+        } else {
+          const clientAssignment = await prisma.clientAssignment.findFirst({
+            where: { clientId: quotation.clientId, userId: currentUserId }
+          })
+          if (clientAssignment) {
+            if (userRole === "DESIGN_CONSULTANT") {
+              hasAccess = true
+            } else if (clientAssignment.allowAllQuotations) {
+              hasAccess = true
+            }
+          }
+          if (!hasAccess && quotation.client.salespersonId === currentUserId) {
+            hasAccess = true
+          }
+        }
+      }
+
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: "Forbidden: You do not have access to view this quotation" },
+          { status: 403 }
+        )
+      }
     }
 
     const rootId = quotation.parentId || quotation.id

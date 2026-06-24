@@ -42,6 +42,17 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden: You do not have permission to view clients" }, { status: 403 })
     }
 
+    const userRole = (session.user as any).role || ""
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
+    if (!isUnrestricted) {
+      const currentUserId = (session.user as any).id
+      const isAssigned = client.salespersonId === currentUserId ||
+                         client.assignments.some(a => a.userId === currentUserId)
+      if (!isAssigned) {
+        return NextResponse.json({ error: "Forbidden: You do not have access to this client" }, { status: 403 })
+      }
+    }
+
     // Fetch all quotations for this client (including revised ones so history is complete)
     const quotations = await prisma.quotation.findMany({
       where: { clientId: id, parentId: null }, // only root quotations; revisions are nested
@@ -137,9 +148,22 @@ export async function PUT(
       )
     }
 
-    const currentClient = await prisma.client.findUnique({ where: { id } })
+    const currentClient = await prisma.client.findUnique({ 
+      where: { id },
+      include: { assignments: true }
+    })
     if (!currentClient) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 })
+    }
+
+    const userRole = (session.user as any).role || ""
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
+    if (!isUnrestricted) {
+      const isAssigned = currentClient.salespersonId === currentUserId ||
+                         currentClient.assignments.some(a => a.userId === currentUserId)
+      if (!isAssigned) {
+        return NextResponse.json({ error: "Forbidden: You do not have access to this client" }, { status: 403 })
+      }
     }
 
     const oldCompanyName = currentClient.companyName
@@ -258,12 +282,22 @@ export async function DELETE(
       include: {
         _count: {
           select: { quotations: true }
-        }
+        },
+        assignments: true
       }
     })
 
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 })
+    }
+
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
+    if (!isUnrestricted) {
+      const isAssigned = client.salespersonId === userId ||
+                         client.assignments.some(a => a.userId === userId)
+      if (!isAssigned) {
+        return NextResponse.json({ error: "Forbidden: You do not have access to this client" }, { status: 403 })
+      }
     }
 
     if (client._count.quotations > 0) {

@@ -92,6 +92,7 @@ export default function ProductsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [deleting, setDeleting] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
+  const [sortBy, setSortBy] = useState<string>("productCode")
 
   // Inline Stock Edit states
   const [editingStockId, setEditingStockId] = useState<string | null>(null)
@@ -426,6 +427,26 @@ export default function ProductsPage() {
     return matchesSearch && matchesCategory
   })
 
+  // Sort products dynamically
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (sortBy === "stock-desc") {
+      return b.stock - a.stock
+    }
+    if (sortBy === "stock-asc") {
+      return a.stock - b.stock
+    }
+    if (sortBy === "productName") {
+      return a.productName.localeCompare(b.productName)
+    }
+    if (sortBy === "unitPrice-desc") {
+      return b.unitPrice - a.unitPrice
+    }
+    if (sortBy === "unitPrice-asc") {
+      return a.unitPrice - b.unitPrice
+    }
+    return a.productCode.localeCompare(b.productCode)
+  })
+
 
 
   return (
@@ -509,6 +530,19 @@ export default function ProductsPage() {
               </option>
             ))}
           </select>
+
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer hover:bg-muted/40 transition-colors max-w-[200px]"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+          >
+            <option value="productCode">Sort by Code</option>
+            <option value="productName">Sort by Name</option>
+            <option value="stock-desc">Stock: High to Low</option>
+            <option value="stock-asc">Stock: Low to High</option>
+            <option value="unitPrice-desc">Price: High to Low</option>
+            <option value="unitPrice-asc">Price: Low to High</option>
+          </select>
         </div>
 
         {/* View Mode Toggle Buttons */}
@@ -549,7 +583,7 @@ export default function ProductsPage() {
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
-            {filteredProducts.map((product) => (
+            {sortedProducts.map((product) => (
               <div 
                 key={product.id} 
                 className={`relative border rounded-2xl bg-card text-card-foreground shadow-sm hover:shadow-xl hover:border-primary/30 transition-all flex flex-col group overflow-hidden ${
@@ -743,7 +777,7 @@ export default function ProductsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map((product) => (
+                {sortedProducts.map((product) => (
                   <TableRow key={product.id} className="hover:bg-muted/30 transition-colors">
                     <TableCell className="w-12">
                       {canDeleteProduct && (

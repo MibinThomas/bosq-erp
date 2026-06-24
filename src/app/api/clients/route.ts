@@ -55,10 +55,11 @@ export async function GET(request: Request) {
 
     if (all) {
       whereClause.status = "Approved"
-    } else {
-      if (ownershipRule === "ALL") {
-        // No limits, views all
-      } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+    }
+
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(dbSessionUser.role)
+    if (!isUnrestricted) {
+      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
         whereClause.OR = [
           { salespersonId: dbSessionUser.id },
           { assignments: { some: { userId: dbSessionUser.id } } }
@@ -75,6 +76,27 @@ export async function GET(request: Request) {
         ]
       } else if (ownershipRule === "NONE") {
         whereClause.id = "none"
+      }
+    } else {
+      if (!all) {
+        if (ownershipRule === "DEPARTMENT") {
+          const deptUsers = await prisma.user.findMany({
+            where: { department: dbSessionUser.department || "N/A" },
+            select: { id: true }
+          })
+          const deptUserIds = deptUsers.map(u => u.id)
+          whereClause.OR = [
+            { salespersonId: { in: deptUserIds } },
+            { assignments: { some: { userId: { in: deptUserIds } } } }
+          ]
+        } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+          whereClause.OR = [
+            { salespersonId: dbSessionUser.id },
+            { assignments: { some: { userId: dbSessionUser.id } } }
+          ]
+        } else if (ownershipRule === "NONE") {
+          whereClause.id = "none"
+        }
       }
     }
 

@@ -78,32 +78,47 @@ export async function GET(request: Request) {
       deletedAt: null
     }
 
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
+
     // Apply role-based dashboard filters for Activities
-    if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+    if (!isUnrestricted) {
       whereClause.userId = currentUserId
-    } else if (ownershipRule === "DEPARTMENT") {
-      whereClause.userId = { in: departmentUserIds }
-    } else if (ownershipRule === "NONE") {
-      whereClause.id = "none"
+    } else {
+      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+        whereClause.userId = currentUserId
+      } else if (ownershipRule === "DEPARTMENT") {
+        whereClause.userId = { in: departmentUserIds }
+      } else if (ownershipRule === "NONE") {
+        whereClause.id = "none"
+      }
     }
 
     // Apply role-based dashboard filters for follow-ups
-    if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+    if (!isUnrestricted) {
       followUpWhere.OR = [
         { preparedById: currentUserId },
         { salesAgentId: currentUserId },
         { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
         { assignments: { some: { userId: currentUserId } } }
       ]
-    } else if (ownershipRule === "DEPARTMENT") {
-      followUpWhere.OR = [
-        { preparedById: { in: departmentUserIds } },
-        { salesAgentId: { in: departmentUserIds } },
-        { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: { in: departmentUserIds } } } }
-      ]
-    } else if (ownershipRule === "NONE") {
-      followUpWhere.id = "none"
+    } else {
+      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+        followUpWhere.OR = [
+          { preparedById: currentUserId },
+          { salesAgentId: currentUserId },
+          { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: currentUserId } } }
+        ]
+      } else if (ownershipRule === "DEPARTMENT") {
+        followUpWhere.OR = [
+          { preparedById: { in: departmentUserIds } },
+          { salesAgentId: { in: departmentUserIds } },
+          { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: { in: departmentUserIds } } } }
+        ]
+      } else if (ownershipRule === "NONE") {
+        followUpWhere.id = "none"
+      }
     }
 
     // Role-based filtering overrides

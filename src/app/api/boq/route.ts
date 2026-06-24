@@ -46,27 +46,39 @@ export async function GET(request: Request) {
 
     let whereClause: any = { deletedAt: null }
     
-    if (ownershipRule === "ALL") {
-      // Views all
-    } else if (ownershipRule === "DEPARTMENT") {
-      const deptUsers = await prisma.user.findMany({
-        where: { department: dbSessionUser.department || "N/A", deletedAt: null },
-        select: { id: true }
-      })
-      const deptUserIds = deptUsers.map(u => u.id)
-      whereClause.OR = [
-        { preparedById: { in: deptUserIds } },
-        { estimatorId: { in: deptUserIds } },
-        { client: { assignments: { some: { userId: { in: deptUserIds } } } } }
-      ]
-    } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(dbSessionUser.role)
+    if (!isUnrestricted) {
       whereClause.OR = [
         { preparedById: dbSessionUser.id },
         { estimatorId: dbSessionUser.id },
+        { client: { salespersonId: dbSessionUser.id } },
         { client: { assignments: { some: { userId: dbSessionUser.id } } } }
       ]
-    } else if (ownershipRule === "NONE") {
-      whereClause.id = "none"
+    } else {
+      if (ownershipRule === "ALL") {
+        // Views all
+      } else if (ownershipRule === "DEPARTMENT") {
+        const deptUsers = await prisma.user.findMany({
+          where: { department: dbSessionUser.department || "N/A", deletedAt: null },
+          select: { id: true }
+        })
+        const deptUserIds = deptUsers.map(u => u.id)
+        whereClause.OR = [
+          { preparedById: { in: deptUserIds } },
+          { estimatorId: { in: deptUserIds } },
+          { client: { salespersonId: { in: deptUserIds } } },
+          { client: { assignments: { some: { userId: { in: deptUserIds } } } } }
+        ]
+      } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+        whereClause.OR = [
+          { preparedById: dbSessionUser.id },
+          { estimatorId: dbSessionUser.id },
+          { client: { salespersonId: dbSessionUser.id } },
+          { client: { assignments: { some: { userId: dbSessionUser.id } } } }
+        ]
+      } else if (ownershipRule === "NONE") {
+        whereClause.id = "none"
+      }
     }
 
     const { searchParams } = new URL(request.url)

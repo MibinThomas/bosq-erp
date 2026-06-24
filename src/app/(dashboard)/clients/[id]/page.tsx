@@ -176,6 +176,11 @@ export default function ClientDetailPage() {
     try {
       const res = await fetch(`/api/clients/${clientId}`)
       if (!res.ok) {
+        if (res.status === 403) {
+          toast.error("Forbidden: You do not have access to this client")
+          router.push("/403")
+          return
+        }
         if (res.status === 404) {
           toast.error("Client not found")
           router.push("/clients")

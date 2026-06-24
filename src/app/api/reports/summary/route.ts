@@ -64,23 +64,34 @@ export async function GET(request: Request) {
       deletedAt: null
     }
 
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
+
     // Apply role-based reports filters
-    if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+    if (!isUnrestricted) {
       whereClause.OR = [
         { preparedById: currentUserId },
         { salesAgentId: currentUserId },
         { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
         { assignments: { some: { userId: currentUserId } } }
       ]
-    } else if (ownershipRule === "DEPARTMENT") {
-      whereClause.OR = [
-        { preparedById: { in: departmentUserIds } },
-        { salesAgentId: { in: departmentUserIds } },
-        { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: { in: departmentUserIds } } } }
-      ]
-    } else if (ownershipRule === "NONE") {
-      whereClause.id = "none"
+    } else {
+      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+        whereClause.OR = [
+          { preparedById: currentUserId },
+          { salesAgentId: currentUserId },
+          { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: currentUserId } } }
+        ]
+      } else if (ownershipRule === "DEPARTMENT") {
+        whereClause.OR = [
+          { preparedById: { in: departmentUserIds } },
+          { salesAgentId: { in: departmentUserIds } },
+          { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
+          { assignments: { some: { userId: { in: departmentUserIds } } } }
+        ]
+      } else if (ownershipRule === "NONE") {
+        whereClause.id = "none"
+      }
     }
 
     const quotations = await prisma.quotation.findMany({

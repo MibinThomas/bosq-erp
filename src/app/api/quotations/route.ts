@@ -62,11 +62,21 @@ export async function GET(request: Request) {
     }
 
     if (!isExcludedFromOwnershipLimit) {
-      whereClause.OR = [
-        { preparedById: dbSessionUser.id },
-        { client: { assignments: { some: { userId: dbSessionUser.id, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: dbSessionUser.id } } }
-      ]
+      if (dbSessionUser.role === "DESIGN_CONSULTANT") {
+        whereClause.OR = [
+          { preparedById: dbSessionUser.id },
+          { assignments: { some: { userId: dbSessionUser.id } } },
+          { client: { salespersonId: dbSessionUser.id } },
+          { client: { assignments: { some: { userId: dbSessionUser.id } } } }
+        ]
+      } else {
+        whereClause.OR = [
+          { preparedById: dbSessionUser.id },
+          { assignments: { some: { userId: dbSessionUser.id } } },
+          { client: { salespersonId: dbSessionUser.id } },
+          { client: { assignments: { some: { userId: dbSessionUser.id, allowAllQuotations: true } } } }
+        ]
+      }
     } else if (ownershipRule !== "ALL") {
       if (ownershipRule === "OWN") {
         whereClause.OR = [
