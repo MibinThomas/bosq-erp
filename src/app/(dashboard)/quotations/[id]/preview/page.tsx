@@ -47,6 +47,8 @@ interface Quotation {
     name: string | null
     email: string
     phone: string | null
+    designation?: string | null
+    role?: string | null
   }
   deliveryDate: string | null
   paymentTerms: string | null
@@ -80,6 +82,14 @@ interface Quotation {
   companyLogoUrl?: string | null
   aynMuskLogoUrl?: string | null
   barcodeBase64?: string | null
+}
+
+const formatRole = (role?: string | null) => {
+  if (!role) return ""
+  return role
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ")
 }
 
 export default function QuotationHtmlPreviewPage({
@@ -752,8 +762,9 @@ export default function QuotationHtmlPreviewPage({
             <div className="border-b border-[#fab48a] h-10 w-full"></div>
             <div>
               <div className="font-bold text-slate-800">Prepared By</div>
-              <div className="text-slate-500 text-[10px]">
-                {quotation.preparedBy?.name || "Sales Executive"} | AYN MUSK FOR FURNITURE
+              <div className="text-slate-500 text-[10px]">{quotation.preparedBy?.name || "Sales Executive"}</div>
+              <div className="text-slate-400 text-[9px] mt-0.5">
+                {quotation.preparedBy?.designation || formatRole(quotation.preparedBy?.role) || "Sales Executive"}
               </div>
             </div>
           </div>

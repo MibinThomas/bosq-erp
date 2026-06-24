@@ -435,6 +435,8 @@ export interface QuotationPdfProps {
   grandTotal: number
   preparedBy: string
   preparedByContact?: string | null
+  preparedByDesignation?: string | null
+  preparedByRole?: string | null
   salesAgentName?: string | null
   termsConditions: string[]
   companyLogoUrl?: string | null // Base64 logo png
@@ -473,6 +475,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   grandTotal,
   preparedBy,
   preparedByContact,
+  preparedByDesignation,
+  preparedByRole,
   salesAgentName,
   termsConditions,
   companyLogoUrl,
@@ -494,6 +498,14 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })
+  }
+
+  const formatRole = (role?: string | null) => {
+    if (!role) return ""
+    return role
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ")
   }
 
   const hasAdditionalCost = Number(deliveryCharge) > 0
@@ -978,7 +990,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             <View style={styles.signatureBox}>
               <View style={styles.signatureLine} />
               <Text style={styles.signatureLabel}>Prepared By</Text>
-              <Text style={styles.signatureCompany}>{preparedBy} | {companyName}</Text>
+              <Text style={styles.signatureCompany}>{preparedBy}</Text>
+              <Text style={styles.signatureCompany}>{preparedByDesignation || formatRole(preparedByRole) || "Sales Executive"}</Text>
             </View>
             <View style={styles.signatureBox}>
               <View style={styles.signatureLine} />

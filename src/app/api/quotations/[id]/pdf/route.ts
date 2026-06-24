@@ -135,6 +135,8 @@ export async function GET(
       grandTotal: quotation.grandTotal,
       preparedBy: quotation.preparedBy?.name || "Sales Executive",
       preparedByContact: quotation.preparedBy?.phone || null,
+      preparedByDesignation: quotation.preparedBy?.designation || null,
+      preparedByRole: quotation.preparedBy?.role || null,
       salesAgentName: quotation.salesAgentName || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
