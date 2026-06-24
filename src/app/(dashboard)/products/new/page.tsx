@@ -28,6 +28,9 @@ export default function NewProductPage() {
   const [newCategoryDesc, setNewCategoryDesc] = useState("")
   const [creatingCategory, setCreatingCategory] = useState(false)
 
+  const [checkingPermission, setCheckingPermission] = useState(true)
+  const [canManageCategory, setCanManageCategory] = useState(false)
+
   // Fetch categories list
   async function fetchCategories(selectNewName?: string) {
     try {
@@ -44,7 +47,7 @@ export default function NewProductPage() {
     }
   }
 
-  // Fetch margins and categories on mount
+  // Fetch margins and categories on mount, plus check permissions
   useEffect(() => {
     fetch("/api/settings/pricing")
       .then(res => res.json())
@@ -55,7 +58,55 @@ export default function NewProductPage() {
       })
       .catch(console.error)
     fetchCategories()
-  }, [])
+
+    // Check permissions
+    fetch("/api/users/me/permissions")
+      .then(res => res.json())
+      .then(data => {
+        const role = (session?.user as any)?.role || ""
+        const isSuperAdmin = role === "SUPER_ADMIN"
+        
+        if (data && data.permissions) {
+          const prodPerms = data.permissions.PRODUCTS || {}
+          const allowedCreate = isSuperAdmin || prodPerms.create === true || (prodPerms.create === undefined && ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(role))
+          const allowedManage = isSuperAdmin || prodPerms.manage === true || (prodPerms.manage === undefined && ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(role))
+          
+          setCanManageCategory(allowedManage)
+          
+          if (!allowedCreate) {
+            router.push("/403")
+          } else {
+            setCheckingPermission(false)
+          }
+        } else {
+          const allowedCreate = isSuperAdmin || ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(role)
+          const allowedManage = isSuperAdmin || ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(role)
+          
+          setCanManageCategory(allowedManage)
+          
+          if (!allowedCreate) {
+            router.push("/403")
+          } else {
+            setCheckingPermission(false)
+          }
+        }
+      })
+      .catch(err => {
+        console.error("Failed to load permissions", err)
+        const role = (session?.user as any)?.role || ""
+        const isSuperAdmin = role === "SUPER_ADMIN"
+        const allowedCreate = isSuperAdmin || ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(role)
+        const allowedManage = isSuperAdmin || ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(role)
+        
+        setCanManageCategory(allowedManage)
+        
+        if (!allowedCreate) {
+          router.push("/403")
+        } else {
+          setCheckingPermission(false)
+        }
+      })
+  }, [session, router])
 
   const [formData, setFormData] = useState({
     productCode: "",
@@ -194,7 +245,15 @@ export default function NewProductPage() {
   const categoryLower = (formData.categoryName || "").toLowerCase()
   const isChair = categoryLower.includes("chair")
   const isWorkstation = categoryLower.includes("workstation")
-  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER"
+
+  if (checkingPermission) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Checking permissions...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-24">
@@ -246,7 +305,7 @@ export default function NewProductPage() {
                   </div>
                 ))}
                 
-                {isManagerOrAdmin && (
+                {canManageCategory && (
                   <div 
                     onClick={() => setIsCategoryModalOpen(true)}
                     className="cursor-pointer border border-dashed border-primary/45 hover:border-primary rounded-xl p-4 flex flex-col items-center justify-center text-center hover:bg-primary/5 transition-all text-primary"

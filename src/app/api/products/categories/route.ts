@@ -35,9 +35,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
     const userId = (session.user as any).id
-    const canCreate = await hasPermission(userId, "PRODUCTS", "create")
+    const canCreate = await hasPermission(userId, "PRODUCTS", "manage")
     if (!canCreate) {
-      return NextResponse.json({ error: "Forbidden: You do not have permission to create product categories" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden: You do not have permission to manage product categories" }, { status: 403 })
     }
 
     const body = await request.json()

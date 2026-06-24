@@ -53,6 +53,8 @@ const primaryActions = [
   { id: "approve", label: "Approve" },
   { id: "export", label: "Export" },
   { id: "uploadFiles", label: "Bulk Upload" },
+  { id: "manage", label: "Manage / Category Mgmt" },
+  { id: "share", label: "Share / Add to Quote" },
 ]
 
 const territoriesList = ["UAE", "Dubai", "Abu Dhabi", "Sharhar", "Other Regions"]
@@ -240,6 +242,8 @@ export default function AccessControlPage() {
         approve: perm?.approve ?? false,
         export: perm?.export ?? false,
         uploadFiles: perm?.uploadFiles ?? false,
+        manage: perm?.manage ?? false,
+        share: perm?.share ?? false,
       }
     })
     setEditingPermissions(matrix)

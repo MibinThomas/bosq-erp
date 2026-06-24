@@ -99,12 +99,32 @@ export async function GET(request: Request) {
     else if (path.startsWith("/products") || path.startsWith("/api/products")) {
       module = "PRODUCTS"
       if (isApi) {
-        if (method === "POST" || path.includes("/bulk")) action = "create"
-        else if (method === "PUT" || method === "PATCH") action = "edit"
-        else if (method === "DELETE" || path.includes("/bulk-delete")) action = "delete"
-        else action = "view"
+        if (path.startsWith("/api/products/categories")) {
+          if (method === "GET") action = "view"
+          else action = "manage"
+        } else if (path.startsWith("/api/products/bulk-delete")) {
+          action = "delete"
+        } else if (path.startsWith("/api/products/bulk")) {
+          action = "uploadFiles"
+        } else if (method === "POST") {
+          action = "create"
+        } else if (method === "PUT" || method === "PATCH") {
+          action = "edit"
+        } else if (method === "DELETE") {
+          action = "delete"
+        } else {
+          action = "view"
+        }
       } else {
-        action = "view"
+        if (path === "/products/new" || path.startsWith("/products/new/")) {
+          action = "create"
+        } else if (path === "/products/bulk-upload" || path.startsWith("/products/bulk-upload/")) {
+          action = "uploadFiles"
+        } else if (path === "/products/categories" || path.startsWith("/products/categories/")) {
+          action = "manage"
+        } else {
+          action = "view"
+        }
       }
     } 
     // 7. QUOTATIONS

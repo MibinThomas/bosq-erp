@@ -80,15 +80,12 @@ export default function ProductsPage() {
   }, [])
 
   const isSuperAdmin = userRole === "SUPER_ADMIN"
-  const canCreateProduct = isSuperAdmin || (productPermissions ? productPermissions.create === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
-  const canEditProduct = isSuperAdmin || (productPermissions ? productPermissions.edit === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
+  const canCreateProduct = isSuperAdmin || (productPermissions ? productPermissions.create === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
+  const canEditProduct = isSuperAdmin || (productPermissions ? productPermissions.edit === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
   const canDeleteProduct = isSuperAdmin || (productPermissions ? productPermissions.delete === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
-  const canBulkUploadProduct = isSuperAdmin || (productPermissions ? productPermissions.uploadFiles === true : (userRole === "MANAGER" || userRole === "SALES_MANAGER" ? false : ["ADMIN", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole)))
-
-  const hasQuoteAccess = userRole === "SUPER_ADMIN" || 
-    (userPermissions 
-      ? userPermissions.create === true 
-      : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
+  const canBulkUploadProduct = isSuperAdmin || (productPermissions ? productPermissions.uploadFiles === true : ["ADMIN"].includes(userRole))
+  const canManageCategory = isSuperAdmin || (productPermissions ? productPermissions.manage === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
+  const hasQuoteAccess = isSuperAdmin || (productPermissions ? productPermissions.share === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isBulkOpen, setIsBulkOpen] = useState(false)
@@ -458,7 +455,7 @@ export default function ProductsPage() {
             </Button>
           )}
 
-          {canCreateProduct && (
+          {canManageCategory && (
             <Button 
               variant="outline" 
               onClick={() => setIsCategoryModalOpen(true)}
@@ -661,7 +658,7 @@ export default function ProductsPage() {
                     </div>
                     
                     <div className="flex gap-2">
-                      {canEditProduct && (
+                      {canEditProduct ? (
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -673,6 +670,19 @@ export default function ProductsPage() {
                           className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-8 rounded-full px-3"
                         >
                           <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedDetailProduct(product)
+                            setIsDetailOpen(true)
+                          }}
+                          className="border-muted-foreground/20 hover:border-muted-foreground/45 hover:bg-muted/5 text-muted-foreground text-xs shrink-0 cursor-pointer h-8 rounded-full px-3"
+                        >
+                          View Details
                         </Button>
                       )}
                       
