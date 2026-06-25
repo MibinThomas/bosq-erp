@@ -147,15 +147,19 @@ export async function GET(request: Request) {
       }),
       prisma.quotation.count({
         where: {
-          ...qWhere,
-          status: { not: "REVISED" },
-          OR: [
-            { status: "PO_CONVERTED" },
-            { status: "PO_RECEIVED" },
-            { status: "CLIENT_APPROVED" },
-            { status: "CLIENT_CONFIRMED" },
-            { status: "APPROVED" },
-            { status: "UNDER_PRODUCTION" }
+          AND: [
+            qWhere,
+            { status: { not: "REVISED" } },
+            {
+              OR: [
+                { status: "PO_CONVERTED" },
+                { status: "PO_RECEIVED" },
+                { status: "CLIENT_APPROVED" },
+                { status: "CLIENT_CONFIRMED" },
+                { status: "APPROVED" },
+                { status: "UNDER_PRODUCTION" }
+              ]
+            }
           ]
         }
       }),
@@ -179,15 +183,19 @@ export async function GET(request: Request) {
       }),
       prisma.quotation.aggregate({
         where: {
-          ...qWhere,
-          status: { not: "REVISED" },
-          OR: [
-            { status: "PO_CONVERTED" },
-            { status: "PO_RECEIVED" },
-            { status: "CLIENT_APPROVED" },
-            { status: "CLIENT_CONFIRMED" },
-            { status: "APPROVED" },
-            { status: "UNDER_PRODUCTION" }
+          AND: [
+            qWhere,
+            { status: { not: "REVISED" } },
+            {
+              OR: [
+                { status: "PO_CONVERTED" },
+                { status: "PO_RECEIVED" },
+                { status: "CLIENT_APPROVED" },
+                { status: "CLIENT_CONFIRMED" },
+                { status: "APPROVED" },
+                { status: "UNDER_PRODUCTION" }
+              ]
+            }
           ]
         },
         _sum: { subtotal: true }

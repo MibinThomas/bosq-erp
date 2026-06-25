@@ -241,16 +241,20 @@ export async function GET(request: Request) {
       }),
       prisma.quotation.aggregate({
         where: {
-          ...whereClause,
-          status: { not: "REVISED" },
-          OR: [
-            { poStatus: "RECEIVED" },
-            { status: "PO_RECEIVED" },
-            { status: "CLIENT_CONFIRMED" },
-            { status: "CLIENT_APPROVED" },
-            { status: "APPROVED" },
-            { status: "PO_CONVERTED" },
-            { status: "UNDER_PRODUCTION" }
+          AND: [
+            whereClause,
+            { status: { not: "REVISED" } },
+            {
+              OR: [
+                { poStatus: "RECEIVED" },
+                { status: "PO_RECEIVED" },
+                { status: "CLIENT_CONFIRMED" },
+                { status: "CLIENT_APPROVED" },
+                { status: "APPROVED" },
+                { status: "PO_CONVERTED" },
+                { status: "UNDER_PRODUCTION" }
+              ]
+            }
           ]
         },
         _count: true,
@@ -424,13 +428,19 @@ export async function GET(request: Request) {
     // 4. totalActiveQuotations (in-progress)
     const activeQuotesStats = await prisma.quotation.aggregate({
       where: {
-        ...whereClause,
-        status: {
-          notIn: ["REVISED", "REJECTED", "CANCELLED", "PO_RECEIVED", "CLIENT_CONFIRMED", "CLIENT_APPROVED", "APPROVED", "PO_CONVERTED", "UNDER_PRODUCTION"]
-        },
-        OR: [
-          { poStatus: { not: "RECEIVED" } },
-          { poStatus: null }
+        AND: [
+          whereClause,
+          {
+            status: {
+              notIn: ["REVISED", "REJECTED", "CANCELLED", "PO_RECEIVED", "CLIENT_CONFIRMED", "CLIENT_APPROVED", "APPROVED", "PO_CONVERTED", "UNDER_PRODUCTION"]
+            }
+          },
+          {
+            OR: [
+              { poStatus: { not: "RECEIVED" } },
+              { poStatus: null }
+            ]
+          }
         ]
       },
       _count: true,
