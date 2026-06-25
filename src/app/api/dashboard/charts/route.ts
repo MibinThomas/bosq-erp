@@ -45,8 +45,10 @@ export async function GET(request: Request) {
     const userRole = dbSessionUser.role
 
     // Resolve ownership rule
-    let ownershipRule = "ALL"
-    if (userRole !== "SUPER_ADMIN") {
+    let ownershipRule = "ASSIGNED" // default to safest
+    if (userRole === "SUPER_ADMIN" || userRole === "ADMIN") {
+      ownershipRule = "ALL"
+    } else {
       const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
       if (override?.ownership) {
         ownershipRule = override.ownership
@@ -62,6 +64,17 @@ export async function GET(request: Request) {
       }
     }
 
+    // Strict boundaries for Manager/Sales Manager and Consultant/Sales Executive
+    if (["MANAGER", "SALES_MANAGER"].includes(userRole)) {
+      if (ownershipRule === "ALL") {
+        ownershipRule = "DEPARTMENT"
+      }
+    } else if (["DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(userRole)) {
+      if (ownershipRule === "ALL" || ownershipRule === "DEPARTMENT") {
+        ownershipRule = "ASSIGNED"
+      }
+    }
+
     // Locate department users if rule is DEPARTMENT
     let departmentUserIds: string[] = []
     if (ownershipRule === "DEPARTMENT") {
@@ -73,44 +86,65 @@ export async function GET(request: Request) {
     }
 
     let whereClause: any = {
-      deletedAt: null
+      deletedAt: null,
+      status: { not: "REVISED" } // Exclude revised quotations from charts to prevent duplicate metrics
     }
 
-    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
-
-    // Apply role-based dashboard filters
-    if (!isUnrestricted) {
+    // Set ownership filter for Quotations
+    if (ownershipRule === "ALL") {
+      // Unrestricted
+    } else if (ownershipRule === "DEPARTMENT") {
+      whereClause.OR = [
+        { preparedById: { in: departmentUserIds } },
+        { salesAgentId: { in: departmentUserIds } },
+        { assignments: { some: { userId: { in: departmentUserIds } } } },
+        { client: {
+            OR: [
+              { salespersonId: { in: departmentUserIds } },
+              { assignments: { some: { userId: { in: departmentUserIds } } } }
+            ]
+          }
+        }
+      ]
+    } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
       whereClause.OR = [
         { preparedById: currentUserId },
         { salesAgentId: currentUserId },
-        { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: currentUserId } } }
+        { assignments: { some: { userId: currentUserId } } },
+        { client: {
+            OR: [
+              { salespersonId: currentUserId },
+              { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } }
+            ]
+          }
+        }
       ]
     } else {
-      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
-        whereClause.OR = [
-          { preparedById: currentUserId },
-          { salesAgentId: currentUserId },
-          { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: currentUserId } } }
-        ]
-      } else if (ownershipRule === "DEPARTMENT") {
-        whereClause.OR = [
-          { preparedById: { in: departmentUserIds } },
-          { salesAgentId: { in: departmentUserIds } },
-          { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: { in: departmentUserIds } } } }
-        ]
-      } else if (ownershipRule === "NONE") {
-        whereClause.id = "none"
-      }
+      whereClause.id = "none"
     }
 
-    // Role-based filtering overrides
-    const isExcludedFromOwnershipLimit = ownershipRule === "ALL"
-    if (isExcludedFromOwnershipLimit && userIdFilter && userIdFilter !== "all") {
-      whereClause.preparedById = userIdFilter
-      delete whereClause.OR
+    // Apply userId filter dropdown parameter safely within boundaries
+    if (userIdFilter && userIdFilter !== "all") {
+      if (ownershipRule === "ALL") {
+        whereClause.preparedById = userIdFilter
+        delete whereClause.OR
+      } else if (ownershipRule === "DEPARTMENT") {
+        if (departmentUserIds.includes(userIdFilter)) {
+          whereClause.preparedById = userIdFilter
+          delete whereClause.OR
+        } else {
+          whereClause.id = "none"
+          delete whereClause.OR
+        }
+      } else {
+        if (userIdFilter === currentUserId) {
+          whereClause.preparedById = currentUserId
+          delete whereClause.OR
+        } else {
+          whereClause.id = "none"
+          delete whereClause.OR
+        }
+      }
     }
 
     // Date filtering
@@ -206,6 +240,10 @@ export async function GET(request: Request) {
     return NextResponse.json({
       salesData,
       segmentData
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+      }
     })
   } catch (error) {
     console.error("Dashboard charts error:", error)

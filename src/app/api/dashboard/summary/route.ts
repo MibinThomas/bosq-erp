@@ -44,8 +44,10 @@ export async function GET(request: Request) {
     const userRole = dbSessionUser.role
 
     // Resolve ownership rule
-    let ownershipRule = "ALL"
-    if (userRole !== "SUPER_ADMIN") {
+    let ownershipRule = "ASSIGNED" // default to safest
+    if (userRole === "SUPER_ADMIN" || userRole === "ADMIN") {
+      ownershipRule = "ALL"
+    } else {
       const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
       if (override?.ownership) {
         ownershipRule = override.ownership
@@ -58,6 +60,17 @@ export async function GET(request: Request) {
         if (rolePerm?.ownership) {
           ownershipRule = rolePerm.ownership
         }
+      }
+    }
+
+    // Strict boundaries for Manager/Sales Manager and Consultant/Sales Executive
+    if (["MANAGER", "SALES_MANAGER"].includes(userRole)) {
+      if (ownershipRule === "ALL") {
+        ownershipRule = "DEPARTMENT"
+      }
+    } else if (["DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(userRole)) {
+      if (ownershipRule === "ALL" || ownershipRule === "DEPARTMENT") {
+        ownershipRule = "ASSIGNED"
       }
     }
 
@@ -75,41 +88,105 @@ export async function GET(request: Request) {
       deletedAt: null
     }
 
-    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
-
-    // Apply role-based dashboard filters
-    if (!isUnrestricted) {
+    // Set ownership filter for Quotations
+    if (ownershipRule === "ALL") {
+      // Unrestricted
+    } else if (ownershipRule === "DEPARTMENT") {
+      whereClause.OR = [
+        { preparedById: { in: departmentUserIds } },
+        { salesAgentId: { in: departmentUserIds } },
+        { assignments: { some: { userId: { in: departmentUserIds } } } },
+        { client: {
+            OR: [
+              { salespersonId: { in: departmentUserIds } },
+              { assignments: { some: { userId: { in: departmentUserIds } } } }
+            ]
+          }
+        }
+      ]
+    } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
       whereClause.OR = [
         { preparedById: currentUserId },
         { salesAgentId: currentUserId },
-        { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: currentUserId } } }
+        { assignments: { some: { userId: currentUserId } } },
+        { client: {
+            OR: [
+              { salespersonId: currentUserId },
+              { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } }
+            ]
+          }
+        }
       ]
     } else {
-      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
-        whereClause.OR = [
-          { preparedById: currentUserId },
-          { salesAgentId: currentUserId },
-          { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: currentUserId } } }
-        ]
-      } else if (ownershipRule === "DEPARTMENT") {
-        whereClause.OR = [
-          { preparedById: { in: departmentUserIds } },
-          { salesAgentId: { in: departmentUserIds } },
-          { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: { in: departmentUserIds } } } }
-        ]
-      } else if (ownershipRule === "NONE") {
-        whereClause.id = "none"
-      }
+      whereClause.id = "none"
     }
 
-    // Role-based filtering overrides
-    const isExcludedFromOwnershipLimit = ownershipRule === "ALL"
-    if (isExcludedFromOwnershipLimit && userIdFilter && userIdFilter !== "all") {
-      whereClause.preparedById = userIdFilter
-      delete whereClause.OR
+    // Construct BOQ ownership whereClause
+    let boqWhereClause: any = {
+      deletedAt: null
+    }
+    if (ownershipRule === "ALL") {
+      // Unrestricted
+    } else if (ownershipRule === "DEPARTMENT") {
+      boqWhereClause.OR = [
+        { preparedById: { in: departmentUserIds } },
+        { estimatorId: { in: departmentUserIds } },
+        { client: {
+            OR: [
+              { salespersonId: { in: departmentUserIds } },
+              { assignments: { some: { userId: { in: departmentUserIds } } } }
+            ]
+          }
+        }
+      ]
+    } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+      boqWhereClause.OR = [
+        { preparedById: currentUserId },
+        { estimatorId: currentUserId },
+        { client: {
+            OR: [
+              { salespersonId: currentUserId },
+              { assignments: { some: { userId: currentUserId } } }
+            ]
+          }
+        }
+      ]
+    } else {
+      boqWhereClause.id = "none"
+    }
+
+    // Apply userId filter dropdown parameter safely within boundaries
+    if (userIdFilter && userIdFilter !== "all") {
+      if (ownershipRule === "ALL") {
+        whereClause.preparedById = userIdFilter
+        delete whereClause.OR
+        boqWhereClause.preparedById = userIdFilter
+        delete boqWhereClause.OR
+      } else if (ownershipRule === "DEPARTMENT") {
+        if (departmentUserIds.includes(userIdFilter)) {
+          whereClause.preparedById = userIdFilter
+          delete whereClause.OR
+          boqWhereClause.preparedById = userIdFilter
+          delete boqWhereClause.OR
+        } else {
+          whereClause.id = "none"
+          delete whereClause.OR
+          boqWhereClause.id = "none"
+          delete boqWhereClause.OR
+        }
+      } else {
+        if (userIdFilter === currentUserId) {
+          whereClause.preparedById = currentUserId
+          delete whereClause.OR
+          boqWhereClause.preparedById = currentUserId
+          delete boqWhereClause.OR
+        } else {
+          whereClause.id = "none"
+          delete whereClause.OR
+          boqWhereClause.id = "none"
+          delete boqWhereClause.OR
+        }
+      }
     }
 
     // Date filtering
@@ -140,43 +217,6 @@ export async function GET(request: Request) {
       if (maxVal) whereClause.subtotal.lte = parseFloat(maxVal)
     }
 
-    // Construct BOQ ownership whereClause
-    let boqWhereClause: any = {
-      deletedAt: null
-    }
-
-    if (!isUnrestricted) {
-      boqWhereClause.OR = [
-        { preparedById: currentUserId },
-        { estimatorId: currentUserId },
-        { client: { salespersonId: currentUserId } },
-        { client: { assignments: { some: { userId: currentUserId } } } }
-      ]
-    } else {
-      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
-        boqWhereClause.OR = [
-          { preparedById: currentUserId },
-          { estimatorId: currentUserId },
-          { client: { salespersonId: currentUserId } },
-          { client: { assignments: { some: { userId: currentUserId } } } }
-        ]
-      } else if (ownershipRule === "DEPARTMENT") {
-        boqWhereClause.OR = [
-          { preparedById: { in: departmentUserIds } },
-          { estimatorId: { in: departmentUserIds } },
-          { client: { salespersonId: { in: departmentUserIds } } },
-          { client: { assignments: { some: { userId: { in: departmentUserIds } } } } }
-        ]
-      } else if (ownershipRule === "NONE") {
-        boqWhereClause.id = "none"
-      }
-    }
-
-    if (isExcludedFromOwnershipLimit && userIdFilter && userIdFilter !== "all") {
-      boqWhereClause.preparedById = userIdFilter
-      delete boqWhereClause.OR
-    }
-
     if (clientIdFilter && clientIdFilter !== "all") boqWhereClause.clientId = clientIdFilter
     if (startDate || endDate) {
       boqWhereClause.createdAt = {}
@@ -199,13 +239,14 @@ export async function GET(request: Request) {
       statusStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
-        where: whereClause,
+        where: { ...whereClause, status: { not: "REVISED" } },
         _count: true,
         _sum: { subtotal: true }
       }),
       prisma.quotation.aggregate({
         where: {
           ...whereClause,
+          status: { not: "REVISED" },
           OR: [
             { poStatus: "RECEIVED" },
             { status: "PO_RECEIVED" },
@@ -227,7 +268,7 @@ export async function GET(request: Request) {
       }),
       prisma.quotation.groupBy({
         by: ["preparedById"],
-        where: whereClause,
+        where: { ...whereClause, status: { not: "REVISED" } },
         _count: {
           id: true
         },
@@ -243,7 +284,7 @@ export async function GET(request: Request) {
       }),
       prisma.quotation.groupBy({
         by: ["clientId"],
-        where: whereClause,
+        where: { ...whereClause, status: { not: "REVISED" } },
         _count: {
           id: true
         },
@@ -259,7 +300,7 @@ export async function GET(request: Request) {
       }),
       prisma.quotation.groupBy({
         by: ["status"],
-        where: whereClause,
+        where: { ...whereClause, status: { not: "REVISED" } },
         _count: {
           id: true
         },
@@ -279,9 +320,19 @@ export async function GET(request: Request) {
     const consultantIds = consultantStats.map(stat => stat.preparedById)
     const clientIds = clientStats.map(stat => stat.clientId)
 
+    const activeConsultantsWhere: any = {
+      id: { in: consultantIds },
+      deletedAt: null
+    }
+    if (ownershipRule === "DEPARTMENT") {
+      activeConsultantsWhere.department = dbSessionUser.department || "N/A"
+    } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+      activeConsultantsWhere.id = currentUserId
+    }
+
     const [consultants, clients] = await Promise.all([
       prisma.user.findMany({
-        where: { id: { in: consultantIds }, deletedAt: null },
+        where: activeConsultantsWhere,
         select: { id: true, name: true, image: true, role: true }
       }),
       prisma.client.findMany({
@@ -292,39 +343,34 @@ export async function GET(request: Request) {
 
     // Calculate the 10 required Team Overview KPIs
     // 1. totalDesignConsultants
-    const activeConsultantsWhere: any = {
+    const activeConsultantsCountWhere: any = {
       role: { in: ["DESIGN_CONSULTANT", "SALES_EXECUTIVE"] },
       isActive: true,
       deletedAt: null
     }
     if (ownershipRule === "DEPARTMENT") {
-      activeConsultantsWhere.department = dbSessionUser.department || "N/A"
+      activeConsultantsCountWhere.department = dbSessionUser.department || "N/A"
     } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
-      activeConsultantsWhere.id = currentUserId
+      activeConsultantsCountWhere.id = currentUserId
     }
-    const totalDesignConsultants = await prisma.user.count({ where: activeConsultantsWhere })
+    const totalDesignConsultants = await prisma.user.count({ where: activeConsultantsCountWhere })
 
     // 2. totalAssignedClients
     const clientWhere: any = { deletedAt: null }
-    if (!isUnrestricted) {
+    if (ownershipRule === "ALL") {
+      // Unrestricted
+    } else if (ownershipRule === "DEPARTMENT") {
+      clientWhere.OR = [
+        { salespersonId: { in: departmentUserIds } },
+        { assignments: { some: { userId: { in: departmentUserIds } } } }
+      ]
+    } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
       clientWhere.OR = [
         { salespersonId: currentUserId },
         { assignments: { some: { userId: currentUserId } } }
       ]
     } else {
-      if (ownershipRule === "DEPARTMENT") {
-        clientWhere.OR = [
-          { salespersonId: { in: departmentUserIds } },
-          { assignments: { some: { userId: { in: departmentUserIds } } } }
-        ]
-      } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
-        clientWhere.OR = [
-          { salespersonId: currentUserId },
-          { assignments: { some: { userId: currentUserId } } }
-        ]
-      } else if (ownershipRule === "NONE") {
-        clientWhere.id = "none"
-      }
+      clientWhere.id = "none"
     }
     const totalAssignedClients = await prisma.client.count({ where: clientWhere })
 
@@ -334,7 +380,7 @@ export async function GET(request: Request) {
       where: {
         ...whereClause,
         status: {
-          notIn: ["REJECTED", "CANCELLED", "PO_RECEIVED", "CLIENT_CONFIRMED", "CLIENT_APPROVED", "APPROVED", "PO_CONVERTED", "UNDER_PRODUCTION"]
+          notIn: ["REVISED", "REJECTED", "CANCELLED", "PO_RECEIVED", "CLIENT_CONFIRMED", "CLIENT_APPROVED", "APPROVED", "PO_CONVERTED", "UNDER_PRODUCTION"]
         },
         OR: [
           { poStatus: { not: "RECEIVED" } },
@@ -376,78 +422,87 @@ export async function GET(request: Request) {
     const totalRevenuePipeline = activeQuotesStats._sum.subtotal || 0
 
     // Enrich topConsultants leaderboard
-    const consultantIdsForClients = consultants.map(c => c.id)
-    const [clientAssignedCounts, conversionRates] = await Promise.all([
-      Promise.all(
-        consultantIdsForClients.map(async (cid) => {
-          const count = await prisma.client.count({
-            where: {
-              deletedAt: null,
-              OR: [
-                { salespersonId: cid },
-                { assignments: { some: { userId: cid } } }
-              ]
-            }
-          })
-          return { userId: cid, count }
-        })
-      ),
-      Promise.all(
-        consultantIdsForClients.map(async (cid) => {
-          const [total, won] = await Promise.all([
-            prisma.quotation.count({
-              where: { preparedById: cid, deletedAt: null }
-            }),
-            prisma.quotation.count({
+    let topConsultants: any[] = []
+    let topClients: any[] = []
+
+    if (["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole)) {
+      const consultantIdsForClients = consultants.map(c => c.id)
+      const [clientAssignedCounts, conversionRates] = await Promise.all([
+        Promise.all(
+          consultantIdsForClients.map(async (cid) => {
+            const count = await prisma.client.count({
               where: {
-                preparedById: cid,
                 deletedAt: null,
                 OR: [
-                  { poStatus: "RECEIVED" },
-                  { status: "PO_RECEIVED" },
-                  { status: "CLIENT_CONFIRMED" },
-                  { status: "CLIENT_APPROVED" },
-                  { status: "APPROVED" },
-                  { status: "PO_CONVERTED" },
-                  { status: "UNDER_PRODUCTION" }
+                  { salespersonId: cid },
+                  { assignments: { some: { userId: cid } } }
                 ]
               }
             })
-          ])
+            return { userId: cid, count }
+          })
+        ),
+        Promise.all(
+          consultantIdsForClients.map(async (cid) => {
+            const [total, won] = await Promise.all([
+              prisma.quotation.count({
+                where: { preparedById: cid, deletedAt: null, status: { not: "REVISED" } }
+              }),
+              prisma.quotation.count({
+                where: {
+                  preparedById: cid,
+                  deletedAt: null,
+                  status: { not: "REVISED" },
+                  OR: [
+                    { poStatus: "RECEIVED" },
+                    { status: "PO_RECEIVED" },
+                    { status: "CLIENT_CONFIRMED" },
+                    { status: "CLIENT_APPROVED" },
+                    { status: "APPROVED" },
+                    { status: "PO_CONVERTED" },
+                    { status: "UNDER_PRODUCTION" }
+                  ]
+                }
+              })
+            ])
+            return {
+              userId: cid,
+              conversionRate: total > 0 ? (won / total) * 100 : 0
+            }
+          })
+        )
+      ])
+
+      topConsultants = consultantStats
+        .map(stat => {
+          const user = consultants.find(u => u.id === stat.preparedById)
+          if (!user) return null // Filter out consultants not belonging to the department if DEPARTMENT rule
+          const clientsAssigned = clientAssignedCounts.find(c => c.userId === stat.preparedById)?.count || 0
+          const convRate = conversionRates.find(c => c.userId === stat.preparedById)?.conversionRate || 0
           return {
-            userId: cid,
-            conversionRate: total > 0 ? (won / total) * 100 : 0
+            id: stat.preparedById,
+            name: user.name || "Unknown",
+            image: user.image || null,
+            role: user.role || "SALES_EXECUTIVE",
+            count: stat._count.id,
+            value: stat._sum.subtotal || 0,
+            clientCount: clientsAssigned,
+            conversionRate: Math.round(convRate * 100) / 100
           }
         })
-      )
-    ])
+        .filter(Boolean)
 
-    const topConsultants = consultantStats.map(stat => {
-      const user = consultants.find(u => u.id === stat.preparedById)
-      const clientsAssigned = clientAssignedCounts.find(c => c.userId === stat.preparedById)?.count || 0
-      const convRate = conversionRates.find(c => c.userId === stat.preparedById)?.conversionRate || 0
-      return {
-        id: stat.preparedById,
-        name: user?.name || "Unknown",
-        image: user?.image || null,
-        role: user?.role || "SALES_EXECUTIVE",
-        count: stat._count.id,
-        value: stat._sum.subtotal || 0,
-        clientCount: clientsAssigned,
-        conversionRate: Math.round(convRate * 100) / 100
-      }
-    })
-
-    const topClients = clientStats.map(stat => {
-      const client = clients.find(c => c.id === stat.clientId)
-      return {
-        id: stat.clientId,
-        companyName: client?.companyName || "Unknown Client",
-        clientType: client?.clientType || "Direct",
-        count: stat._count.id,
-        value: stat._sum.subtotal || 0
-      }
-    })
+      topClients = clientStats.map(stat => {
+        const client = clients.find(c => c.id === stat.clientId)
+        return {
+          id: stat.clientId,
+          companyName: client?.companyName || "Unknown Client",
+          clientType: client?.clientType || "Direct",
+          count: stat._count.id,
+          value: stat._sum.subtotal || 0
+        }
+      })
+    }
 
     return NextResponse.json({
       totalQuotes,
@@ -474,6 +529,10 @@ export async function GET(request: Request) {
       totalBOQs,
       totalPendingBOQs,
       totalRevenuePipeline
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+      }
     })
   } catch (error) {
     console.error("Dashboard summary error:", error)

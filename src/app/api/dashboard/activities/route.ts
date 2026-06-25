@@ -46,8 +46,10 @@ export async function GET(request: Request) {
     const userRole = dbSessionUser.role
 
     // Resolve ownership rule
-    let ownershipRule = "ALL"
-    if (userRole !== "SUPER_ADMIN") {
+    let ownershipRule = "ASSIGNED" // default to safest
+    if (userRole === "SUPER_ADMIN" || userRole === "ADMIN") {
+      ownershipRule = "ALL"
+    } else {
       const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
       if (override?.ownership) {
         ownershipRule = override.ownership
@@ -63,6 +65,17 @@ export async function GET(request: Request) {
       }
     }
 
+    // Strict boundaries for Manager/Sales Manager and Consultant/Sales Executive
+    if (["MANAGER", "SALES_MANAGER"].includes(userRole)) {
+      if (ownershipRule === "ALL") {
+        ownershipRule = "DEPARTMENT"
+      }
+    } else if (["DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(userRole)) {
+      if (ownershipRule === "ALL" || ownershipRule === "DEPARTMENT") {
+        ownershipRule = "ASSIGNED"
+      }
+    }
+
     // Locate department users if rule is DEPARTMENT
     let departmentUserIds: string[] = []
     if (ownershipRule === "DEPARTMENT") {
@@ -75,58 +88,81 @@ export async function GET(request: Request) {
 
     let whereClause: any = {}
     let followUpWhere: any = {
-      deletedAt: null
+      deletedAt: null,
+      status: { not: "REVISED" } // Exclude revised quotations from followups to prevent duplicates
     }
 
-    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
-
-    // Apply role-based dashboard filters for Activities
-    if (!isUnrestricted) {
+    // Apply role-based dashboard filters for Activities (ActivityLog)
+    if (ownershipRule === "ALL") {
+      // Unrestricted
+    } else if (ownershipRule === "DEPARTMENT") {
+      whereClause.userId = { in: departmentUserIds }
+    } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
       whereClause.userId = currentUserId
     } else {
-      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
-        whereClause.userId = currentUserId
-      } else if (ownershipRule === "DEPARTMENT") {
-        whereClause.userId = { in: departmentUserIds }
-      } else if (ownershipRule === "NONE") {
-        whereClause.id = "none"
-      }
+      whereClause.id = "none"
     }
 
-    // Apply role-based dashboard filters for follow-ups
-    if (!isUnrestricted) {
+    // Apply role-based dashboard filters for follow-ups (Quotation)
+    if (ownershipRule === "ALL") {
+      // Unrestricted
+    } else if (ownershipRule === "DEPARTMENT") {
+      followUpWhere.OR = [
+        { preparedById: { in: departmentUserIds } },
+        { salesAgentId: { in: departmentUserIds } },
+        { assignments: { some: { userId: { in: departmentUserIds } } } },
+        { client: {
+            OR: [
+              { salespersonId: { in: departmentUserIds } },
+              { assignments: { some: { userId: { in: departmentUserIds } } } }
+            ]
+          }
+        }
+      ]
+    } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
       followUpWhere.OR = [
         { preparedById: currentUserId },
         { salesAgentId: currentUserId },
-        { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: currentUserId } } }
+        { assignments: { some: { userId: currentUserId } } },
+        { client: {
+            OR: [
+              { salespersonId: currentUserId },
+              { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } }
+            ]
+          }
+        }
       ]
     } else {
-      if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
-        followUpWhere.OR = [
-          { preparedById: currentUserId },
-          { salesAgentId: currentUserId },
-          { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: currentUserId } } }
-        ]
-      } else if (ownershipRule === "DEPARTMENT") {
-        followUpWhere.OR = [
-          { preparedById: { in: departmentUserIds } },
-          { salesAgentId: { in: departmentUserIds } },
-          { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: { in: departmentUserIds } } } }
-        ]
-      } else if (ownershipRule === "NONE") {
-        followUpWhere.id = "none"
-      }
+      followUpWhere.id = "none"
     }
 
-    // Role-based filtering overrides
-    const isExcludedFromOwnershipLimit = ownershipRule === "ALL"
-    if (isExcludedFromOwnershipLimit && userIdFilter && userIdFilter !== "all") {
-      whereClause.userId = userIdFilter
-      followUpWhere.preparedById = userIdFilter
-      delete followUpWhere.OR
+    // Apply userId filter dropdown parameter safely within boundaries
+    if (userIdFilter && userIdFilter !== "all") {
+      if (ownershipRule === "ALL") {
+        whereClause.userId = userIdFilter
+        followUpWhere.preparedById = userIdFilter
+        delete followUpWhere.OR
+      } else if (ownershipRule === "DEPARTMENT") {
+        if (departmentUserIds.includes(userIdFilter)) {
+          whereClause.userId = userIdFilter
+          followUpWhere.preparedById = userIdFilter
+          delete followUpWhere.OR
+        } else {
+          whereClause.id = "none"
+          followUpWhere.id = "none"
+          delete followUpWhere.OR
+        }
+      } else {
+        if (userIdFilter === currentUserId) {
+          whereClause.userId = currentUserId
+          followUpWhere.preparedById = currentUserId
+          delete followUpWhere.OR
+        } else {
+          whereClause.id = "none"
+          followUpWhere.id = "none"
+          delete followUpWhere.OR
+        }
+      }
     }
 
     // Date filtering
@@ -191,6 +227,10 @@ export async function GET(request: Request) {
     return NextResponse.json({
       activities,
       followUps
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+      }
     })
   } catch (error) {
     console.error("Dashboard activities error:", error)

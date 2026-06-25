@@ -35,85 +35,22 @@ export async function GET(request: Request) {
     const minVal = url.searchParams.get("minVal")
     const maxVal = url.searchParams.get("maxVal")
 
-    let qWhere: any = { deletedAt: null }
+    let qWhere: any = { deletedAt: null, status: { not: "REVISED" } } // Exclude revised from followups
     let logWhere: any = { userId }
-    if (dashboardAccess === "ALL") {
-      logWhere = {} // Show all logs if full access
-    }
 
-    if (userRole === "DESIGN_CONSULTANT") {
-      qWhere.client = {
-        deletedAt: null,
-        OR: [
-          { salespersonId: userId },
-          { assignments: { some: { userId } } }
-        ]
-      }
-
-      const assignedClients = await prisma.client.findMany({
-        where: {
-          deletedAt: null,
+    // Enforce strict personal performance boundaries for Design Consultants and Sales Executives
+    qWhere.OR = [
+      { preparedById: userId },
+      { salesAgentId: userId },
+      { assignments: { some: { userId } } },
+      { client: {
           OR: [
             { salespersonId: userId },
-            { assignments: { some: { userId } } }
-          ]
-        },
-        select: { id: true }
-      })
-      const assignedClientIds = assignedClients.map(c => c.id)
-
-      const [assignedQuotations, assignedBoqs] = await Promise.all([
-        prisma.quotation.findMany({
-          where: { clientId: { in: assignedClientIds }, deletedAt: null },
-          select: { id: true }
-        }),
-        prisma.boq.findMany({
-          where: { clientId: { in: assignedClientIds }, deletedAt: null },
-          select: { id: true }
-        })
-      ])
-      const assignedQuotationIds = assignedQuotations.map(q => q.id)
-      const assignedBoqIds = assignedBoqs.map(b => b.id)
-
-      logWhere = {
-        OR: [
-          { userId: userId },
-          { AND: [{ entityType: "CLIENT" }, { entityId: { in: assignedClientIds } }] },
-          { AND: [{ entityType: "QUOTATION" }, { entityId: { in: assignedQuotationIds } }] },
-          { AND: [{ entityType: "BOQ" }, { entityId: { in: assignedBoqIds } }] }
-        ]
-      }
-    } else {
-      // Enforce Quotations Ownership
-      if (qOwnershipRule === "OWN") {
-        qWhere.OR = [
-          { preparedById: userId },
-          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: userId } } }
-        ]
-      } else if (qOwnershipRule === "ASSIGNED") {
-        qWhere.OR = [
-          { preparedById: userId },
-          { salesAgentId: userId },
-          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: userId } } }
-        ]
-      } else if (qOwnershipRule === "DEPARTMENT") {
-        if (user?.department) {
-          qWhere.OR = [
-            { preparedBy: { department: user.department } },
-            { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
-            { assignments: { some: { user: { department: user.department } } } }
-          ]
-        } else {
-          qWhere.OR = [
-            { preparedById: userId },
-            { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-            { assignments: { some: { userId: userId } } }
+            { assignments: { some: { userId, allowAllQuotations: true } } }
           ]
         }
       }
-    }
+    ]
 
     // Apply Filters
     if (startDate || endDate) {
@@ -178,6 +115,10 @@ export async function GET(request: Request) {
     return NextResponse.json({
       followUps,
       activities
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+      }
     })
   } catch (error) {
     console.error("Consultant Activity API Error:", error)

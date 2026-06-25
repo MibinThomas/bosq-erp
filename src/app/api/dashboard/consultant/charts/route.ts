@@ -35,47 +35,21 @@ export async function GET(request: Request) {
     const minVal = url.searchParams.get("minVal")
     const maxVal = url.searchParams.get("maxVal")
 
-    let qWhere: any = { deletedAt: null }
+    let qWhere: any = { deletedAt: null, status: { not: "REVISED" } } // Exclude revised from charts
 
-    if (userRole === "DESIGN_CONSULTANT") {
-      qWhere.client = {
-        deletedAt: null,
-        OR: [
-          { salespersonId: userId },
-          { assignments: { some: { userId } } }
-        ]
-      }
-    } else {
-      // Enforce Quotations Ownership
-      if (qOwnershipRule === "OWN") {
-        qWhere.OR = [
-          { preparedById: userId },
-          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: userId } } }
-        ]
-      } else if (qOwnershipRule === "ASSIGNED") {
-        qWhere.OR = [
-          { preparedById: userId },
-          { salesAgentId: userId },
-          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: userId } } }
-        ]
-      } else if (qOwnershipRule === "DEPARTMENT") {
-        if (user?.department) {
-          qWhere.OR = [
-            { preparedBy: { department: user.department } },
-            { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
-            { assignments: { some: { user: { department: user.department } } } }
-          ]
-        } else {
-          qWhere.OR = [
-            { preparedById: userId },
-            { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-            { assignments: { some: { userId: userId } } }
+    // Enforce strict personal performance boundaries for Design Consultants and Sales Executives
+    qWhere.OR = [
+      { preparedById: userId },
+      { salesAgentId: userId },
+      { assignments: { some: { userId } } },
+      { client: {
+          OR: [
+            { salespersonId: userId },
+            { assignments: { some: { userId, allowAllQuotations: true } } }
           ]
         }
       }
-    }
+    ]
 
     // Apply Filters
     if (startDate || endDate) {
@@ -166,6 +140,10 @@ export async function GET(request: Request) {
       statusBreakdown,
       segmentBreakdown,
       categoryBreakdown
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+      }
     })
   } catch (error) {
     console.error("Consultant Charts API Error:", error)

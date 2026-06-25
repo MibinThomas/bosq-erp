@@ -40,80 +40,38 @@ export async function GET(request: Request) {
     const minVal = url.searchParams.get("minVal")
     const maxVal = url.searchParams.get("maxVal")
 
-    let qWhere: any = { deletedAt: null }
+    let qWhere: any = { deletedAt: null, status: { not: "REVISED" } } // Exclude revised from listings
     let cWhere: any = { deletedAt: null }
     let boqWhere: any = { deletedAt: null }
 
-    if (userRole === "DESIGN_CONSULTANT") {
-      cWhere.OR = [
-        { salespersonId: userId },
-        { assignments: { some: { userId } } }
-      ]
-      qWhere.client = {
-        deletedAt: null,
-        OR: [
-          { salespersonId: userId },
-          { assignments: { some: { userId } } }
-        ]
-      }
-      boqWhere.client = {
-        deletedAt: null,
-        OR: [
-          { salespersonId: userId },
-          { assignments: { some: { userId } } }
-        ]
-      }
-    } else {
-      // Enforce Quotations Ownership
-      if (qOwnershipRule === "OWN") {
-        qWhere.OR = [
-          { preparedById: userId },
-          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: userId } } }
-        ]
-      } else if (qOwnershipRule === "ASSIGNED") {
-        qWhere.OR = [
-          { preparedById: userId },
-          { salesAgentId: userId },
-          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: userId } } }
-        ]
-      } else if (qOwnershipRule === "DEPARTMENT") {
-        if (user?.department) {
-          qWhere.OR = [
-            { preparedBy: { department: user.department } },
-            { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
-            { assignments: { some: { user: { department: user.department } } } }
-          ]
-        } else {
-          qWhere.OR = [
-            { preparedById: userId },
-            { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-            { assignments: { some: { userId: userId } } }
-          ]
-        }
-      }
-
-      // Enforce Clients Ownership
-      if (cOwnershipRule === "OWN" || cOwnershipRule === "ASSIGNED") {
-        cWhere.OR = [
-          { salespersonId: userId },
-          { assignments: { some: { userId: userId } } }
-        ]
-      } else if (cOwnershipRule === "DEPARTMENT") {
-        if (user?.department) {
-          cWhere.OR = [
-            { salesperson: { department: user.department } },
-            { assignments: { some: { user: { department: user.department } } } }
-          ]
-        } else {
-          cWhere.OR = [
+    // Enforce strict personal performance boundaries for Design Consultants and Sales Executives
+    cWhere.OR = [
+      { salespersonId: userId },
+      { assignments: { some: { userId } } }
+    ]
+    qWhere.OR = [
+      { preparedById: userId },
+      { salesAgentId: userId },
+      { assignments: { some: { userId } } },
+      { client: {
+          OR: [
             { salespersonId: userId },
-            { assignments: { some: { userId: userId } } }
+            { assignments: { some: { userId, allowAllQuotations: true } } }
           ]
         }
       }
-    }
+    ]
+    boqWhere.OR = [
+      { preparedById: userId },
+      { estimatorId: userId },
+      { client: {
+          OR: [
+            { salespersonId: userId },
+            { assignments: { some: { userId } } }
+          ]
+        }
+      }
+    ]
 
     // Apply Filters
     if (startDate || endDate) {
@@ -186,7 +144,11 @@ export async function GET(request: Request) {
       })
     ])
 
-    return NextResponse.json({ quotations, clients, boqs })
+    return NextResponse.json({ quotations, clients, boqs }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+      }
+    })
   } catch (error) {
     console.error("Consultant Overview API Error:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })

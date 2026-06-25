@@ -52,6 +52,22 @@ export function ConsultantDashboard() {
     }
   }, [filters, session])
 
+  useEffect(() => {
+    const handleRefresh = () => {
+      if (session) {
+        fetchConsultantData()
+      }
+    }
+    window.addEventListener("focus", handleRefresh)
+    document.addEventListener("visibilitychange", handleRefresh)
+    window.addEventListener("dashboard-refresh", handleRefresh)
+    return () => {
+      window.removeEventListener("focus", handleRefresh)
+      document.removeEventListener("visibilitychange", handleRefresh)
+      window.removeEventListener("dashboard-refresh", handleRefresh)
+    }
+  }, [filters, session])
+
   async function fetchConsultantData() {
     setLoading(true)
     const qs = buildQueryString()

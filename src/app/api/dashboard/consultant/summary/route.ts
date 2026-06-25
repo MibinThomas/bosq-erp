@@ -44,76 +44,34 @@ export async function GET(request: Request) {
     let cWhere: any = { deletedAt: null }
     let boqWhere: any = { deletedAt: null }
 
-    if (userRole === "DESIGN_CONSULTANT") {
-      cWhere.OR = [
-        { salespersonId: userId },
-        { assignments: { some: { userId } } }
-      ]
-      qWhere.client = {
-        deletedAt: null,
-        OR: [
-          { salespersonId: userId },
-          { assignments: { some: { userId } } }
-        ]
-      }
-      boqWhere.client = {
-        deletedAt: null,
-        OR: [
-          { salespersonId: userId },
-          { assignments: { some: { userId } } }
-        ]
-      }
-    } else {
-      // Enforce Quotations Ownership
-      if (qOwnershipRule === "OWN") {
-        qWhere.OR = [
-          { preparedById: userId },
-          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: userId } } }
-        ]
-      } else if (qOwnershipRule === "ASSIGNED") {
-        qWhere.OR = [
-          { preparedById: userId },
-          { salesAgentId: userId },
-          { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: userId } } }
-        ]
-      } else if (qOwnershipRule === "DEPARTMENT") {
-        if (user?.department) {
-          qWhere.OR = [
-            { preparedBy: { department: user.department } },
-            { client: { assignments: { some: { user: { department: user.department }, allowAllQuotations: true } } } },
-            { assignments: { some: { user: { department: user.department } } } }
-          ]
-        } else {
-          qWhere.OR = [
-            { preparedById: userId },
-            { client: { assignments: { some: { userId: userId, allowAllQuotations: true } } } },
-            { assignments: { some: { userId: userId } } }
-          ]
-        }
-      }
-
-      // Enforce Clients Ownership
-      if (cOwnershipRule === "OWN" || cOwnershipRule === "ASSIGNED") {
-        cWhere.OR = [
-          { salespersonId: userId },
-          { assignments: { some: { userId: userId } } }
-        ]
-      } else if (cOwnershipRule === "DEPARTMENT") {
-        if (user?.department) {
-          cWhere.OR = [
-            { salesperson: { department: user.department } },
-            { assignments: { some: { user: { department: user.department } } } }
-          ]
-        } else {
-          cWhere.OR = [
+    // Enforce strict personal performance boundaries for Design Consultants and Sales Executives
+    cWhere.OR = [
+      { salespersonId: userId },
+      { assignments: { some: { userId } } }
+    ]
+    qWhere.OR = [
+      { preparedById: userId },
+      { salesAgentId: userId },
+      { assignments: { some: { userId } } },
+      { client: {
+          OR: [
             { salespersonId: userId },
-            { assignments: { some: { userId: userId } } }
+            { assignments: { some: { userId, allowAllQuotations: true } } }
           ]
         }
       }
-    }
+    ]
+    boqWhere.OR = [
+      { preparedById: userId },
+      { estimatorId: userId },
+      { client: {
+          OR: [
+            { salespersonId: userId },
+            { assignments: { some: { userId } } }
+          ]
+        }
+      }
+    ]
 
     // Apply Filters
     if (startDate || endDate) {
@@ -175,7 +133,7 @@ export async function GET(request: Request) {
       activeQuotesStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
-        where: qWhere,
+        where: { ...qWhere, status: { not: "REVISED" } },
         _count: true,
         _sum: { subtotal: true }
       }),
@@ -183,7 +141,7 @@ export async function GET(request: Request) {
         where: { ...qWhere, status: { in: ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "APPROVED"] } }
       }),
       prisma.quotation.count({
-        where: { ...qWhere, status: { in: ["DRAFT", "QUOTE_CREATED", "REVISED"] } }
+        where: { ...qWhere, status: { in: ["DRAFT", "QUOTE_CREATED"] } } // Exclude revised from pending
       }),
       prisma.quotation.count({
         where: { ...qWhere, status: { in: ["REJECTED", "CANCELLED"] } }
@@ -191,6 +149,7 @@ export async function GET(request: Request) {
       prisma.quotation.count({
         where: {
           ...qWhere,
+          status: { not: "REVISED" },
           OR: [
             { status: "PO_CONVERTED" },
             { status: "PO_RECEIVED" },
@@ -222,6 +181,7 @@ export async function GET(request: Request) {
       prisma.quotation.aggregate({
         where: {
           ...qWhere,
+          status: { not: "REVISED" },
           OR: [
             { status: "PO_CONVERTED" },
             { status: "PO_RECEIVED" },
@@ -237,7 +197,7 @@ export async function GET(request: Request) {
         where: {
           ...qWhere,
           status: {
-            notIn: ["REJECTED", "CANCELLED", "PO_RECEIVED", "CLIENT_CONFIRMED", "CLIENT_APPROVED", "APPROVED", "PO_CONVERTED", "UNDER_PRODUCTION"]
+            notIn: ["REVISED", "REJECTED", "CANCELLED", "PO_RECEIVED", "CLIENT_CONFIRMED", "CLIENT_APPROVED", "APPROVED", "PO_CONVERTED", "UNDER_PRODUCTION"]
           }
         },
         _sum: { subtotal: true }
@@ -264,6 +224,10 @@ export async function GET(request: Request) {
       pendingBoqsCount,
       convertedValue,
       totalRevenuePipeline
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+      }
     })
   } catch (error) {
     console.error("Consultant Summary API Error:", error)

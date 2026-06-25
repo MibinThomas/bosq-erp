@@ -92,6 +92,22 @@ export default function DashboardPage() {
     }
   }, [filters, session])
 
+  useEffect(() => {
+    const handleRefresh = () => {
+      if (session) {
+        fetchDashboardData()
+      }
+    }
+    window.addEventListener("focus", handleRefresh)
+    document.addEventListener("visibilitychange", handleRefresh)
+    window.addEventListener("dashboard-refresh", handleRefresh)
+    return () => {
+      window.removeEventListener("focus", handleRefresh)
+      document.removeEventListener("visibilitychange", handleRefresh)
+      window.removeEventListener("dashboard-refresh", handleRefresh)
+    }
+  }, [filters, session])
+
   async function fetchDashboardData() {
     const qs = buildQueryString()
     const t = Date.now()
@@ -229,14 +245,16 @@ export default function DashboardPage() {
 
       {/* Row 4: Top Performers & Recent Activity */}
       <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-7">
-        <div className="lg:col-span-5 h-full">
-          <DashboardTopPerformers 
-            topConsultants={summaryData?.topConsultants || []}
-            topClients={summaryData?.topClients || []}
-            loading={loadingKPIs} 
-          />
-        </div>
-        <div className="lg:col-span-2 h-full">
+        {isManagerOrAdmin && (
+          <div className="lg:col-span-5 h-full">
+            <DashboardTopPerformers 
+              topConsultants={summaryData?.topConsultants || []}
+              topClients={summaryData?.topClients || []}
+              loading={loadingKPIs} 
+            />
+          </div>
+        )}
+        <div className={isManagerOrAdmin ? "lg:col-span-2 h-full" : "lg:col-span-7 h-full"}>
           <DashboardTimeline 
             activities={timelineData?.activities || []} 
             followUps={[]} // Extracted to pending actions in Row 5
