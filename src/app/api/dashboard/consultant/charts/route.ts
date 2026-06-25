@@ -32,9 +32,6 @@ export async function GET(request: Request) {
     const clientTypeFilter = url.searchParams.get("clientType")
     const statusFilter = url.searchParams.get("status")
     const projectNameFilter = url.searchParams.get("projectName")
-    const minVal = url.searchParams.get("minVal")
-    const maxVal = url.searchParams.get("maxVal")
-
     let qWhere: any = { deletedAt: null, status: { not: "REVISED" } } // Exclude revised from charts
 
     // Enforce strict personal performance boundaries for Design Consultants and Sales Executives
@@ -76,11 +73,7 @@ export async function GET(request: Request) {
       qWhere.projectName = { contains: projectNameFilter, mode: "insensitive" }
     }
 
-    if (minVal || maxVal) {
-      qWhere.subtotal = {}
-      if (minVal) qWhere.subtotal.gte = parseFloat(minVal)
-      if (maxVal) qWhere.subtotal.lte = parseFloat(maxVal)
-    }
+
 
     const quotations = await prisma.quotation.findMany({
       where: qWhere,
@@ -102,7 +95,7 @@ export async function GET(request: Request) {
     quotations.forEach(q => {
       const d = new Date(q.createdAt)
       const month = d.toLocaleString("default", { month: "short", year: "2-digit" })
-      monthlyValueMap.set(month, (monthlyValueMap.get(month) || 0) + (q.subtotal || 0))
+      monthlyValueMap.set(month, (monthlyValueMap.get(month) || 0) + (q.grandTotal || 0))
     })
     const monthlyValue = Array.from(monthlyValueMap, ([name, value]) => ({ name, value }))
 

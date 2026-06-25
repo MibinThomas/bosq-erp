@@ -32,9 +32,6 @@ export async function GET(request: Request) {
     const clientTypeFilter = url.searchParams.get("clientType")
     const statusFilter = url.searchParams.get("status")
     const projectNameFilter = url.searchParams.get("projectName")
-    const minVal = url.searchParams.get("minVal")
-    const maxVal = url.searchParams.get("maxVal")
-
     let qWhere: any = { deletedAt: null, status: { not: "REVISED" } } // Exclude revised from followups
     let logWhere: any = { userId }
 
@@ -83,11 +80,7 @@ export async function GET(request: Request) {
       qWhere.projectName = { contains: projectNameFilter, mode: "insensitive" }
     }
 
-    if (minVal || maxVal) {
-      qWhere.subtotal = {}
-      if (minVal) qWhere.subtotal.gte = parseFloat(minVal)
-      if (maxVal) qWhere.subtotal.lte = parseFloat(maxVal)
-    }
+
 
     // 1. Pending Follow-ups (Quotations marked FOLLOW_UP)
     const followUps = await prisma.quotation.findMany({

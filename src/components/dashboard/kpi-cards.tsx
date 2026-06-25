@@ -15,7 +15,8 @@ import {
   Layers,
   ArrowUpRight,
   ChevronRight,
-  PieChart
+  PieChart,
+  Wrench
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
@@ -41,6 +42,8 @@ interface KPIStats {
   totalBOQs?: number
   totalPendingBOQs?: number
   totalRevenuePipeline?: number
+  underProductionCount?: number
+  underProductionValue?: number
 }
 
 interface DashboardKPIsProps {
@@ -69,16 +72,16 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
       <div className="space-y-6 animate-pulse">
         <div className="space-y-2">
           <div className="h-4 w-28 bg-muted rounded-md" />
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-            {Array.from({ length: 5 }).map((_, i) => (
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i} className="h-28 bg-muted/20 border-none shadow-none" />
             ))}
           </div>
         </div>
         <div className="space-y-2">
           <div className="h-4 w-28 bg-muted rounded-md" />
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+            {Array.from({ length: 2 }).map((_, i) => (
               <Card key={i} className="h-28 bg-muted/20 border-none shadow-none" />
             ))}
           </div>
@@ -114,7 +117,7 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
             Interactive metrics
           </span>
         </div>
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
           
           {/* Total Quotes */}
           <Card 
@@ -226,6 +229,28 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
             </CardContent>
           </Card>
 
+          {/* Under Production Quotes */}
+          <Card 
+            onClick={() => onFilterChange?.("status", "UNDER_PRODUCTION")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Under Production</span>
+                <div className="p-1.5 rounded-lg bg-orange-50 dark:bg-orange-950/30 text-orange-500 dark:text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition-colors duration-300">
+                  <Wrench className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-orange-600 dark:text-orange-400">{data.underProductionCount ?? 0}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span className="font-bold text-orange-600 font-mono">AED {formatCurrencyParts(data.underProductionValue ?? 0)}</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
         </div>
       </div>
 
@@ -235,7 +260,7 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
           <Users className="h-3.5 w-3.5 text-zinc-400" />
           Business Overview
         </h3>
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           
           {/* Total Clients */}
           <Card 
@@ -277,50 +302,6 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
                 <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalAssignedClients ?? 0}</div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
                   <span>{isAdminOrSuperAdmin ? "All Company Accounts" : "Assigned / Managed Accounts"}</span>
-                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Total BOQs */}
-          <Card 
-            onClick={() => router.push("/boq")}
-            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
-          >
-            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Total BOQs</span>
-                <div className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/30 text-teal-500 dark:text-teal-400 group-hover:bg-teal-500 group-hover:text-white transition-colors duration-300">
-                  <Layers className="h-4 w-4" />
-                </div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalBOQs ?? 0}</div>
-                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
-                  <span>Estimations drafted</span>
-                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Pending BOQs */}
-          <Card 
-            onClick={() => router.push("/boq")}
-            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
-          >
-            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Pending BOQs</span>
-                <div className="p-1.5 rounded-lg bg-orange-50 dark:bg-orange-950/30 text-orange-500 dark:text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition-colors duration-300">
-                  <Clock className="h-4 w-4" />
-                </div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold tracking-tight font-sans text-orange-600 dark:text-orange-400">{data.totalPendingBOQs ?? 0}</div>
-                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
-                  <span>In costing operations</span>
                   <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>

@@ -22,8 +22,6 @@ export async function GET(request: Request) {
     const clientTypeFilter = url.searchParams.get("clientType")
     const statusFilter = url.searchParams.get("status")
     const projectNameFilter = url.searchParams.get("projectName")
-    const minVal = url.searchParams.get("minVal")
-    const maxVal = url.searchParams.get("maxVal")
 
     const currentUserId = (session.user as any).id
 
@@ -170,11 +168,7 @@ export async function GET(request: Request) {
       whereClause.projectName = { contains: projectNameFilter, mode: "insensitive" }
     }
 
-    if (minVal || maxVal) {
-      whereClause.subtotal = {}
-      if (minVal) whereClause.subtotal.gte = parseFloat(minVal)
-      if (maxVal) whereClause.subtotal.lte = parseFloat(maxVal)
-    }
+
 
     const quotations = await prisma.quotation.findMany({
       where: whereClause,
@@ -199,7 +193,7 @@ export async function GET(request: Request) {
       if (!timeSeriesMap.has(dateStr)) return
       
       const record = timeSeriesMap.get(dateStr)!
-      const value = q.subtotal || 0
+      const value = q.grandTotal || 0
       
       const isConverted = q.poStatus === "RECEIVED" || q.status === "PO_RECEIVED" || q.status === "CLIENT_CONFIRMED" || q.status === "CLIENT_APPROVED" || q.status === "APPROVED" || q.status === "PO_CONVERTED" || q.status === "UNDER_PRODUCTION"
       
@@ -221,7 +215,7 @@ export async function GET(request: Request) {
 
     quotations.forEach(q => {
       const segment = q.customerSegment || q.client?.clientType || "Direct"
-      const val = q.subtotal || 0
+      const val = q.grandTotal || 0
       if (segmentMap.has(segment)) {
         segmentMap.set(segment, segmentMap.get(segment)! + val)
       } else {

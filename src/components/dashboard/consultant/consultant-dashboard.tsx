@@ -28,9 +28,7 @@ export function ConsultantDashboard() {
     clientId: "all",
     clientType: "all",
     status: "all",
-    projectName: "",
-    minVal: "",
-    maxVal: ""
+    projectName: ""
   })
 
   const buildQueryString = () => {
@@ -41,8 +39,6 @@ export function ConsultantDashboard() {
     if (filters.clientType && filters.clientType !== "all") params.append("clientType", filters.clientType)
     if (filters.status && filters.status !== "all") params.append("status", filters.status)
     if (filters.projectName) params.append("projectName", filters.projectName)
-    if (filters.minVal) params.append("minVal", filters.minVal)
-    if (filters.maxVal) params.append("maxVal", filters.maxVal)
     return params.toString()
   }
 

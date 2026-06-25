@@ -37,9 +37,6 @@ export async function GET(request: Request) {
     const clientTypeFilter = url.searchParams.get("clientType")
     const statusFilter = url.searchParams.get("status")
     const projectNameFilter = url.searchParams.get("projectName")
-    const minVal = url.searchParams.get("minVal")
-    const maxVal = url.searchParams.get("maxVal")
-
     let qWhere: any = { deletedAt: null, status: { not: "REVISED" } } // Exclude revised from listings
     let cWhere: any = { deletedAt: null }
     let boqWhere: any = { deletedAt: null }
@@ -107,11 +104,7 @@ export async function GET(request: Request) {
       qWhere.projectName = { contains: projectNameFilter, mode: "insensitive" }
     }
 
-    if (minVal || maxVal) {
-      qWhere.subtotal = {}
-      if (minVal) qWhere.subtotal.gte = parseFloat(minVal)
-      if (maxVal) qWhere.subtotal.lte = parseFloat(maxVal)
-    }
+
 
     const [quotations, clients, boqs] = await Promise.all([
       prisma.quotation.findMany({

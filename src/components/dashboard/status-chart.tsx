@@ -20,6 +20,7 @@ const STATUS_COLORS: { [key: string]: string } = {
   REVISED: "#f59e0b", // Amber
   CLIENT_APPROVED: "#10b981", // Emerald
   PO_CONVERTED: "#059669", // Dark Green
+  UNDER_PRODUCTION: "#ea580c", // Orange
   REJECTED: "#ef4444", // Rose
   CANCELLED: "#94a3b8" // Slate
 }
@@ -30,6 +31,7 @@ const STATUS_LABELS: { [key: string]: string } = {
   REVISED: "Revised",
   CLIENT_APPROVED: "Client Approved",
   PO_CONVERTED: "Converted to PO",
+  UNDER_PRODUCTION: "Under Production",
   REJECTED: "Rejected",
   CANCELLED: "Cancelled"
 }

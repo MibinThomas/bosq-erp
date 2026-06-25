@@ -37,9 +37,6 @@ export async function GET(request: Request) {
     const clientTypeFilter = url.searchParams.get("clientType")
     const statusFilter = url.searchParams.get("status")
     const projectNameFilter = url.searchParams.get("projectName")
-    const minVal = url.searchParams.get("minVal")
-    const maxVal = url.searchParams.get("maxVal")
-
     let qWhere: any = { deletedAt: null }
     let cWhere: any = { deletedAt: null }
     let boqWhere: any = { deletedAt: null }
@@ -107,11 +104,7 @@ export async function GET(request: Request) {
       qWhere.projectName = { contains: projectNameFilter, mode: "insensitive" }
     }
 
-    if (minVal || maxVal) {
-      qWhere.subtotal = {}
-      if (minVal) qWhere.subtotal.gte = parseFloat(minVal)
-      if (maxVal) qWhere.subtotal.lte = parseFloat(maxVal)
-    }
+
 
     // Optimized Aggregation Queries
     const [
@@ -127,12 +120,13 @@ export async function GET(request: Request) {
       draftQuotesCount,
       pendingBoqsCount,
       convertedStats,
-      activeQuotesStats
+      activeQuotesStats,
+      underProductionStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
         where: { ...qWhere, status: { not: "REVISED" } },
         _count: true,
-        _sum: { subtotal: true }
+        _sum: { grandTotal: true }
       }),
       prisma.quotation.count({
         where: { ...qWhere, status: { in: ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "APPROVED"] } }
@@ -143,7 +137,7 @@ export async function GET(request: Request) {
       prisma.quotation.aggregate({
         where: { ...qWhere, status: { in: ["REJECTED", "CANCELLED"] } },
         _count: true,
-        _sum: { subtotal: true }
+        _sum: { grandTotal: true }
       }),
       prisma.quotation.count({
         where: {
@@ -198,7 +192,7 @@ export async function GET(request: Request) {
             }
           ]
         },
-        _sum: { subtotal: true }
+        _sum: { grandTotal: true }
       }),
       prisma.quotation.aggregate({
         where: {
@@ -207,17 +201,30 @@ export async function GET(request: Request) {
             notIn: ["REVISED", "REJECTED", "CANCELLED", "PO_RECEIVED", "CLIENT_CONFIRMED", "CLIENT_APPROVED", "APPROVED", "PO_CONVERTED", "UNDER_PRODUCTION"]
           }
         },
-        _sum: { subtotal: true }
+        _sum: { grandTotal: true }
+      }),
+      prisma.quotation.aggregate({
+        where: {
+          AND: [
+            qWhere,
+            { status: "UNDER_PRODUCTION" }
+          ]
+        },
+        _count: true,
+        _sum: { grandTotal: true }
       })
     ])
 
     const totalQuotes = totalStats._count || 0
-    const totalValue = totalStats._sum.subtotal || 0
-    const convertedValue = convertedStats._sum.subtotal || 0
-    const totalRevenuePipeline = activeQuotesStats._sum.subtotal || 0
+    const totalValue = totalStats._sum.grandTotal || 0
+    const convertedValue = convertedStats._sum.grandTotal || 0
+    const totalRevenuePipeline = activeQuotesStats._sum.grandTotal || 0
     
     const rejectedCount = rejectedStats._count || 0
-    const rejectedValue = rejectedStats._sum.subtotal || 0
+    const rejectedValue = rejectedStats._sum.grandTotal || 0
+
+    const underProductionCount = underProductionStats._count || 0
+    const underProductionValue = underProductionStats._sum.grandTotal || 0
 
     return NextResponse.json({
       totalQuotes,
@@ -234,7 +241,9 @@ export async function GET(request: Request) {
       draftQuotesCount,
       pendingBoqsCount,
       convertedValue,
-      totalRevenuePipeline
+      totalRevenuePipeline,
+      underProductionCount,
+      underProductionValue
     }, {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"

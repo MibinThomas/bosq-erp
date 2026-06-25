@@ -16,8 +16,6 @@ export interface DashboardFilterState {
   clientType: string
   status: string
   projectName: string
-  minVal: string
-  maxVal: string
 }
 
 interface DashboardFiltersProps {
@@ -132,9 +130,7 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
       clientId: "all",
       clientType: "all",
       status: "all",
-      projectName: "",
-      minVal: "",
-      maxVal: ""
+      projectName: ""
     }
     setLocalFilters(defaults)
     setFilters(defaults)
@@ -167,12 +163,7 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
         startDate: start,
         endDate: end
       }
-    } else if (presetName === "high_value") {
-      presetFilters = {
-        ...presetFilters,
-        minVal: "100000",
-        maxVal: ""
-      }
+
     } else if (presetName === "pending_approvals") {
       presetFilters = {
         ...presetFilters,
@@ -222,16 +213,7 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
       summaryParts.push(`Project: "${filters.projectName}"`)
     }
 
-    // Value Range description
-    if (filters.minVal || filters.maxVal) {
-      if (filters.minVal && filters.maxVal) {
-        summaryParts.push(`Value: ${filters.minVal}-${filters.maxVal} AED`)
-      } else if (filters.minVal) {
-        summaryParts.push(`Value: >${filters.minVal} AED`)
-      } else if (filters.maxVal) {
-        summaryParts.push(`Value: <${filters.maxVal} AED`)
-      }
-    }
+
 
     return summaryParts.length > 0 ? summaryParts.join(" • ") : "No active filters"
   }
@@ -267,7 +249,6 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
           <div className="hidden lg:flex items-center gap-1 bg-zinc-100/50 dark:bg-zinc-800/40 p-0.5 rounded-lg border border-border/40 mr-2">
             <Button variant="ghost" size="sm" onClick={() => applyPreset("this_month")} className="h-7 text-[10px] px-2 font-medium hover:bg-card">This Month</Button>
             <Button variant="ghost" size="sm" onClick={() => applyPreset("last_30_days")} className="h-7 text-[10px] px-2 font-medium hover:bg-card">Last 30 Days</Button>
-            <Button variant="ghost" size="sm" onClick={() => applyPreset("high_value")} className="h-7 text-[10px] px-2 font-medium hover:bg-card flex items-center gap-0.5"><Sparkles className="h-2.5 w-2.5 text-amber-500" /> High Value</Button>
             <Button variant="ghost" size="sm" onClick={() => applyPreset("pending_approvals")} className="h-7 text-[10px] px-2 font-medium hover:bg-card">Needs Approval</Button>
           </div>
 
@@ -349,6 +330,7 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
                   <SelectItem value="REVISED">Revised</SelectItem>
                   <SelectItem value="CLIENT_APPROVED">Client Approved</SelectItem>
                   <SelectItem value="PO_CONVERTED">Converted to PO</SelectItem>
+                  <SelectItem value="UNDER_PRODUCTION">Under Production</SelectItem>
                   <SelectItem value="REJECTED">Rejected</SelectItem>
                   <SelectItem value="CANCELLED">Cancelled</SelectItem>
                 </SelectContent>
@@ -418,28 +400,7 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
               />
             </div>
 
-            {/* 7. Value Range */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <DollarSign className="h-3 w-3" /> Value Range (AED)
-              </label>
-              <div className="flex gap-2">
-                <Input 
-                  type="number" 
-                  placeholder="Min Value"
-                  value={localFilters.minVal || ""} 
-                  onChange={e => setLocalFilters(p => ({ ...p, minVal: e.target.value }))}
-                  className="h-9 text-xs flex-1 border-zinc-200 dark:border-zinc-800"
-                />
-                <Input 
-                  type="number" 
-                  placeholder="Max Value"
-                  value={localFilters.maxVal || ""} 
-                  onChange={e => setLocalFilters(p => ({ ...p, maxVal: e.target.value }))}
-                  className="h-9 text-xs flex-1 border-zinc-200 dark:border-zinc-800"
-                />
-              </div>
-            </div>
+
 
           </div>
 

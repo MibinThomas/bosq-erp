@@ -23,9 +23,6 @@ export async function GET(request: Request) {
     const clientTypeFilter = url.searchParams.get("clientType")
     const statusFilter = url.searchParams.get("status")
     const projectNameFilter = url.searchParams.get("projectName")
-    const minVal = url.searchParams.get("minVal")
-    const maxVal = url.searchParams.get("maxVal")
-
     const currentUserId = (session.user as any).id
 
     const canView = await hasPermission(currentUserId, "DASHBOARD", "view")
@@ -194,11 +191,7 @@ export async function GET(request: Request) {
       followUpWhere.projectName = { contains: projectNameFilter, mode: "insensitive" }
     }
 
-    if (minVal || maxVal) {
-      followUpWhere.subtotal = {}
-      if (minVal) followUpWhere.subtotal.gte = parseFloat(minVal)
-      if (maxVal) followUpWhere.subtotal.lte = parseFloat(maxVal)
-    }
+
 
     // Fetch Recent Activity Logs
     const activities = await prisma.activityLog.findMany({

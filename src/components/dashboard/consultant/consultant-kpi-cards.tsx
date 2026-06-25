@@ -13,7 +13,8 @@ import {
   MessageSquare,
   AlertCircle,
   DollarSign,
-  ChevronRight
+  ChevronRight,
+  Wrench
 } from "lucide-react"
 import { useSession } from "next-auth/react"
 
@@ -50,7 +51,9 @@ export function ConsultantKPICards({ data, onFilterChange }: ConsultantKPIsProps
     draftQuotesCount: 0,
     pendingBoqsCount: 0,
     convertedValue: 0,
-    totalRevenuePipeline: 0
+    totalRevenuePipeline: 0,
+    underProductionCount: 0,
+    underProductionValue: 0
   }
 
   return (
@@ -67,7 +70,7 @@ export function ConsultantKPICards({ data, onFilterChange }: ConsultantKPIsProps
             Interactive metrics
           </span>
         </div>
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-5">
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
           
           {/* Total Quotes */}
           <Card 
@@ -157,6 +160,28 @@ export function ConsultantKPICards({ data, onFilterChange }: ConsultantKPIsProps
             </CardContent>
           </Card>
 
+          {/* Under Production */}
+          <Card 
+            onClick={() => onFilterChange?.("status", "UNDER_PRODUCTION")}
+            className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
+          >
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Under Production</span>
+                <div className="p-1.5 rounded-lg bg-orange-50 dark:bg-orange-950/30 text-orange-500 dark:text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition-colors duration-300">
+                  <Wrench className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-orange-600 dark:text-orange-400">{stats.underProductionCount ?? 0}</div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span className="font-bold text-orange-600 font-mono">AED {formatCurrencyParts(stats.underProductionValue ?? 0)}</span>
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Pending Approvals */}
           <Card 
             onClick={() => onFilterChange?.("status", "QUOTE_CREATED")}
@@ -188,7 +213,7 @@ export function ConsultantKPICards({ data, onFilterChange }: ConsultantKPIsProps
           <Users className="h-3.5 w-3.5 text-zinc-400" />
           My Business Overview
         </h3>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           
           {/* Active Clients */}
           <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
@@ -203,24 +228,6 @@ export function ConsultantKPICards({ data, onFilterChange }: ConsultantKPIsProps
                 <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{stats.activeClientsCount}</div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
                   <span>Clients assigned to account</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Pending BOQs */}
-          <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
-            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Pending BOQs</span>
-                <div className="p-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/30 text-teal-500 dark:text-teal-400">
-                  <Briefcase className="h-4 w-4" />
-                </div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{stats.pendingBoqsCount}</div>
-                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
-                  <span>Awaiting estimation costs</span>
                 </div>
               </div>
             </CardContent>

@@ -20,8 +20,6 @@ export async function GET(request: Request) {
     const clientIdFilter = url.searchParams.get("clientId")
     const clientTypeFilter = url.searchParams.get("clientType")
     const statusFilter = url.searchParams.get("status")
-    const minVal = url.searchParams.get("minVal")
-    const maxVal = url.searchParams.get("maxVal")
     const projectNameFilter = url.searchParams.get("projectName")
 
     const currentUserId = (session.user as any).id
@@ -207,11 +205,7 @@ export async function GET(request: Request) {
       whereClause.projectName = { contains: projectNameFilter, mode: "insensitive" }
     }
 
-    if (minVal || maxVal) {
-      whereClause.subtotal = {}
-      if (minVal) whereClause.subtotal.gte = parseFloat(minVal)
-      if (maxVal) whereClause.subtotal.lte = parseFloat(maxVal)
-    }
+
 
     if (clientIdFilter && clientIdFilter !== "all") boqWhereClause.clientId = clientIdFilter
     if (startDate || endDate) {
@@ -232,12 +226,13 @@ export async function GET(request: Request) {
       pendingFollowUpsCount,
       consultantStats,
       clientStats,
-      statusStats
+      statusStats,
+      underProductionStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
         where: { ...whereClause, status: { not: "REVISED" } },
         _count: true,
-        _sum: { subtotal: true }
+        _sum: { grandTotal: true }
       }),
       prisma.quotation.aggregate({
         where: {
@@ -258,7 +253,7 @@ export async function GET(request: Request) {
           ]
         },
         _count: true,
-        _sum: { subtotal: true }
+        _sum: { grandTotal: true }
       }),
       prisma.quotation.count({
         where: { ...whereClause, status: "QUOTE_CREATED" }
@@ -273,11 +268,11 @@ export async function GET(request: Request) {
           id: true
         },
         _sum: {
-          subtotal: true
+          grandTotal: true
         },
         orderBy: {
           _sum: {
-            subtotal: "desc"
+            grandTotal: "desc"
           }
         },
         take: 5
@@ -289,11 +284,11 @@ export async function GET(request: Request) {
           id: true
         },
         _sum: {
-          subtotal: true
+          grandTotal: true
         },
         orderBy: {
           _sum: {
-            subtotal: "desc"
+            grandTotal: "desc"
           }
         },
         take: 5
@@ -305,16 +300,29 @@ export async function GET(request: Request) {
           id: true
         },
         _sum: {
-          subtotal: true
+          grandTotal: true
         }
+      }),
+      prisma.quotation.aggregate({
+        where: {
+          AND: [
+            whereClause,
+            { status: "UNDER_PRODUCTION" }
+          ]
+        },
+        _count: true,
+        _sum: { grandTotal: true }
       })
     ])
 
     const totalQuotes = totalStats._count || 0
-    const totalValue = totalStats._sum.subtotal || 0
+    const totalValue = totalStats._sum.grandTotal || 0
     
     const convertedCount = convertedStats._count || 0
-    const convertedValue = convertedStats._sum.subtotal || 0
+    const convertedValue = convertedStats._sum.grandTotal || 0
+
+    const underProductionCount = underProductionStats._count || 0
+    const underProductionValue = underProductionStats._sum.grandTotal || 0
 
     // Fetch user and client details in parallel
     const consultantIds = consultantStats.map(stat => stat.preparedById)
@@ -444,7 +452,7 @@ export async function GET(request: Request) {
         ]
       },
       _count: true,
-      _sum: { subtotal: true }
+      _sum: { grandTotal: true }
     })
     const totalActiveQuotations = activeQuotesStats._count || 0
 
@@ -474,8 +482,8 @@ export async function GET(request: Request) {
       }
     })
 
-    // 10. totalRevenuePipeline (sum of subtotal for active quotations)
-    const totalRevenuePipeline = activeQuotesStats._sum.subtotal || 0
+    // 10. totalRevenuePipeline (sum of grandTotal for active quotations)
+    const totalRevenuePipeline = activeQuotesStats._sum.grandTotal || 0
 
     // Enrich topConsultants leaderboard
     let topConsultants: any[] = []
@@ -541,7 +549,7 @@ export async function GET(request: Request) {
             image: user.image || null,
             role: user.role || "SALES_EXECUTIVE",
             count: stat._count.id,
-            value: stat._sum.subtotal || 0,
+            value: stat._sum.grandTotal || 0,
             clientCount: clientsAssigned,
             conversionRate: Math.round(convRate * 100) / 100
           }
@@ -555,7 +563,7 @@ export async function GET(request: Request) {
           companyName: client?.companyName || "Unknown Client",
           clientType: client?.clientType || "Direct",
           count: stat._count.id,
-          value: stat._sum.subtotal || 0
+          value: stat._sum.grandTotal || 0
         }
       })
     }
@@ -573,7 +581,7 @@ export async function GET(request: Request) {
       statusStats: statusStats.map(s => ({
         status: s.status,
         count: s._count.id,
-        value: s._sum.subtotal || 0
+        value: s._sum.grandTotal || 0
       })),
       // 10 Team Overview KPIs
       totalDesignConsultants,
@@ -585,7 +593,9 @@ export async function GET(request: Request) {
       totalClientConfirmedQuotations,
       totalBOQs,
       totalPendingBOQs,
-      totalRevenuePipeline
+      totalRevenuePipeline,
+      underProductionCount,
+      underProductionValue
     }, {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
