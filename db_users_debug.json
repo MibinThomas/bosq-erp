@@ -1,0 +1,58 @@
+[
+  {
+    "id": "cmqp0hybn000004jvuhtyffj2",
+    "name": "Muhammad Faizaan",
+    "email": "faizaan@bosq.ae",
+    "role": "INTERIOR_DESIGN_CONSULTANT",
+    "department": "SALES"
+  },
+  {
+    "id": "cmqlfmo2e003edobmbzd5id1l",
+    "name": "Jipsa Abraham",
+    "email": "jipsa@bosq.ae",
+    "role": "INTERIOR_DESIGN_CONSULTANT",
+    "department": "SALES"
+  },
+  {
+    "id": "cmqma5ru7001ulsbmrg3gb4sw",
+    "name": "Abdul Raaz",
+    "email": "abdulraaz@bosq.ae",
+    "role": "INTERIOR_DESIGN_CONSULTANT",
+    "department": "SALES"
+  },
+  {
+    "id": "cmqqamjc4000004l489un8hyu",
+    "name": "Thanveer Rayyan",
+    "email": "thanveer@bosq.ae",
+    "role": "MANAGER",
+    "department": "SALES"
+  },
+  {
+    "id": "cmqlfmnpx003cdobm56wiowz3",
+    "name": "Super Admin User",
+    "email": "superadmin@bosq.ae",
+    "role": "SUPER_ADMIN",
+    "department": null
+  },
+  {
+    "id": "cmqlfmnw1003ddobmin9exv75",
+    "name": "Admin User",
+    "email": "admin@bosq.ae",
+    "role": "ADMIN",
+    "department": "Admin"
+  },
+  {
+    "id": "cmqmaa203000004l2futlnrzy",
+    "name": "Anju Shaji",
+    "email": "anjushaji@bosq.ae",
+    "role": "ADMIN",
+    "department": "Sales"
+  },
+  {
+    "id": "cmqmbp1il000c04jxzcpjd1nc",
+    "name": "Muammar Khan",
+    "email": "muammar@bosq.ae",
+    "role": "MANAGER",
+    "department": "Sales"
+  }
+]

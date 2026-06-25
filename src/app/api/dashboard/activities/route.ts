@@ -131,15 +131,21 @@ export async function GET(request: Request) {
 
     // Apply userId filter dropdown parameter safely within boundaries
     if (userIdFilter && userIdFilter !== "all") {
+      const targetUserFilter = [
+        { preparedById: userIdFilter },
+        { salesAgentId: userIdFilter },
+        { assignments: { some: { userId: userIdFilter } } },
+        { client: { salespersonId: userIdFilter } },
+        { client: { assignments: { some: { userId: userIdFilter } } } }
+      ]
+
       if (ownershipRule === "ALL") {
         whereClause.userId = userIdFilter
-        followUpWhere.preparedById = userIdFilter
-        delete followUpWhere.OR
+        followUpWhere.OR = targetUserFilter
       } else if (ownershipRule === "DEPARTMENT") {
         if (departmentUserIds.includes(userIdFilter)) {
           whereClause.userId = userIdFilter
-          followUpWhere.preparedById = userIdFilter
-          delete followUpWhere.OR
+          followUpWhere.OR = targetUserFilter
         } else {
           whereClause.id = "none"
           followUpWhere.id = "none"
@@ -148,8 +154,7 @@ export async function GET(request: Request) {
       } else {
         if (userIdFilter === currentUserId) {
           whereClause.userId = currentUserId
-          followUpWhere.preparedById = currentUserId
-          delete followUpWhere.OR
+          followUpWhere.OR = targetUserFilter
         } else {
           whereClause.id = "none"
           followUpWhere.id = "none"
@@ -190,8 +195,6 @@ export async function GET(request: Request) {
     if (projectNameFilter) {
       followUpWhere.projectName = { contains: projectNameFilter, mode: "insensitive" }
     }
-
-
 
     // Fetch Recent Activity Logs
     const activities = await prisma.activityLog.findMany({

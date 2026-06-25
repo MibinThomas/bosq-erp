@@ -119,21 +119,26 @@ export async function GET(request: Request) {
 
     // Apply userId filter dropdown parameter safely within boundaries
     if (userIdFilter && userIdFilter !== "all") {
+      const targetUserFilter = [
+        { preparedById: userIdFilter },
+        { salesAgentId: userIdFilter },
+        { assignments: { some: { userId: userIdFilter } } },
+        { client: { salespersonId: userIdFilter } },
+        { client: { assignments: { some: { userId: userIdFilter } } } }
+      ]
+
       if (ownershipRule === "ALL") {
-        whereClause.preparedById = userIdFilter
-        delete whereClause.OR
+        whereClause.OR = targetUserFilter
       } else if (ownershipRule === "DEPARTMENT") {
         if (departmentUserIds.includes(userIdFilter)) {
-          whereClause.preparedById = userIdFilter
-          delete whereClause.OR
+          whereClause.OR = targetUserFilter
         } else {
           whereClause.id = "none"
           delete whereClause.OR
         }
       } else {
         if (userIdFilter === currentUserId) {
-          whereClause.preparedById = currentUserId
-          delete whereClause.OR
+          whereClause.OR = targetUserFilter
         } else {
           whereClause.id = "none"
           delete whereClause.OR
@@ -167,8 +172,6 @@ export async function GET(request: Request) {
     if (projectNameFilter) {
       whereClause.projectName = { contains: projectNameFilter, mode: "insensitive" }
     }
-
-
 
     const quotations = await prisma.quotation.findMany({
       where: whereClause,

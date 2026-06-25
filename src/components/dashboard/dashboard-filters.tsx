@@ -213,8 +213,6 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
       summaryParts.push(`Project: "${filters.projectName}"`)
     }
 
-
-
     return summaryParts.length > 0 ? summaryParts.join(" • ") : "No active filters"
   }
 
@@ -361,7 +359,7 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
               </label>
               <Select value={localFilters.clientId} onValueChange={v => setLocalFilters(p => ({ ...p, clientId: v as string }))}>
                 <SelectTrigger className="h-9 text-xs border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Clients" /></SelectTrigger>
-                <SelectContent>
+                <SelectContent className="min-w-[280px]">
                   <SelectItem value="all">All Clients</SelectItem>
                   {clients.map(c => (
                     <SelectItem key={c.id} value={c.id}>{c.companyName}</SelectItem>
@@ -377,12 +375,18 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
                   <Users className="h-3 w-3" /> Consultant
                 </label>
                 <Select value={localFilters.userId} onValueChange={v => setLocalFilters(p => ({ ...p, userId: v as string }))}>
-                  <SelectTrigger className="h-9 text-xs border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Consultants" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Consultants</SelectItem>
-                    {users.map(u => (
-                      <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                    ))}
+                  <SelectTrigger className="h-9 text-xs border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Users" /></SelectTrigger>
+                  <SelectContent className="min-w-[280px]">
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map(u => {
+                      const roleLabel = u.role ? u.role.split("_").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ") : "";
+                      return (
+                        <SelectItem key={u.id} value={u.id} label={u.name || u.email}>
+                          <span className="font-medium">{u.name || u.email}</span>
+                          {roleLabel && <span className="text-[10px] text-muted-foreground ml-1.5 font-normal">({roleLabel})</span>}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
@@ -399,8 +403,6 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
                 className="h-9 text-xs border-zinc-200 dark:border-zinc-800"
               />
             </div>
-
-
 
           </div>
 

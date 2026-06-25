@@ -22,18 +22,24 @@ export async function GET() {
     const userRole = dbSessionUser.role
 
     let whereClause: any = {
-      role: {
-        in: ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"]
-      },
       isActive: true,
       deletedAt: null
     }
 
-    // Managers/Sales Managers can only view/filter agents in their own department
-    if (["MANAGER", "SALES_MANAGER"].includes(userRole)) {
+    // Apply role-based query permissions
+    if (userRole === "SUPER_ADMIN") {
+      // Super Admin can view all active users except themselves
+      whereClause.role = { not: "SUPER_ADMIN" }
+      whereClause.id = { not: dbSessionUser.id }
+    } else if (userRole === "ADMIN") {
+      // Admin can view all active users except Super Admin
+      whereClause.role = { not: "SUPER_ADMIN" }
+    } else if (["MANAGER", "SALES_MANAGER"].includes(userRole)) {
+      // Managers can view only users within their reporting department/team
+      whereClause.role = { not: "SUPER_ADMIN" }
       whereClause.department = dbSessionUser.department || "N/A"
-    } else if (["DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(userRole)) {
-      // Consultants can only see themselves
+    } else {
+      // Design Consultants and other standard users are locked to their own account
       whereClause.id = dbSessionUser.id
     }
 
