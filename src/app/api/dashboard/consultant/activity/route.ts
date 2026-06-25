@@ -43,13 +43,9 @@ export async function GET(request: Request) {
       { preparedById: userId },
       { salesAgentId: userId },
       { assignments: { some: { userId } } },
-      { client: {
-          OR: [
-            { salespersonId: userId },
-            { assignments: { some: { userId, allowAllQuotations: true } } }
-          ]
-        }
-      }
+      { client: { salespersonId: userId } },
+      { client: { assignments: { some: { userId } } } },
+      { client: { accessRequests: { some: { userId, status: "Approved" } } } }
     ]
 
     // Apply Filters

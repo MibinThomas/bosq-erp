@@ -76,14 +76,18 @@ export async function GET(
             where: { clientId: quotation.clientId, userId: currentUserId }
           })
           if (clientAssignment) {
-            if (userRole === "DESIGN_CONSULTANT") {
-              hasAccess = true
-            } else if (clientAssignment.allowAllQuotations) {
-              hasAccess = true
-            }
+            hasAccess = true
           }
           if (!hasAccess && quotation.client.salespersonId === currentUserId) {
             hasAccess = true
+          }
+          if (!hasAccess) {
+            const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+              where: { clientId: quotation.clientId, userId: currentUserId, status: "Approved" }
+            })
+            if (hasApprovedRequest) {
+              hasAccess = true
+            }
           }
         }
       }
@@ -257,7 +261,10 @@ export async function PUT(
                 userId: dbSessionUser.id
               }
             })
-            hasAccess = clientObj.salespersonId === dbSessionUser.id || assignmentCount > 0
+            const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+              where: { clientId: targetClientId, userId: dbSessionUser.id, status: "Approved" }
+            })
+            hasAccess = clientObj.salespersonId === dbSessionUser.id || assignmentCount > 0 || !!hasApprovedRequest
           }
 
           if (!hasAccess) {

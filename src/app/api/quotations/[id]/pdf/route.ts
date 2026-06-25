@@ -68,8 +68,39 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const isPreview = searchParams.get("preview") === "true"
 
-    if (userRole === "SALES_EXECUTIVE") {
-      if (quotation.preparedById !== userId) {
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
+    if (!isUnrestricted) {
+      let hasAccess = false
+      if (quotation.preparedById === userId || quotation.salesAgentId === userId) {
+        hasAccess = true
+      } else {
+        const quotationAssignment = await prisma.quotationAssignment.findFirst({
+          where: { quotationId: quotation.id, userId: userId }
+        })
+        if (quotationAssignment) {
+          hasAccess = true
+        } else {
+          const clientAssignment = await prisma.clientAssignment.findFirst({
+            where: { clientId: quotation.clientId, userId: userId }
+          })
+          if (clientAssignment) {
+            hasAccess = true
+          }
+          if (!hasAccess && quotation.client.salespersonId === userId) {
+            hasAccess = true
+          }
+          if (!hasAccess) {
+            const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+              where: { clientId: quotation.clientId, userId: userId, status: "Approved" }
+            })
+            if (hasApprovedRequest) {
+              hasAccess = true
+            }
+          }
+        }
+      }
+
+      if (!hasAccess) {
         return new Response("Unauthorized access to this quotation", { status: 403 })
       }
     }

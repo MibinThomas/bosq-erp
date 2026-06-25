@@ -124,13 +124,9 @@ export async function GET(request: Request) {
         { preparedById: currentUserId },
         { salesAgentId: currentUserId },
         { assignments: { some: { userId: currentUserId } } },
-        { client: {
-            OR: [
-              { salespersonId: currentUserId },
-              { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } }
-            ]
-          }
-        }
+        { client: { salespersonId: currentUserId } },
+        { client: { assignments: { some: { userId: currentUserId } } } },
+        { client: { accessRequests: { some: { userId: currentUserId, status: "Approved" } } } }
       ]
     } else {
       followUpWhere.id = "none"

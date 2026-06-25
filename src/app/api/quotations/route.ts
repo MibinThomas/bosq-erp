@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+// Force turbopack recompile
 import React from "react"
 import { renderToBuffer } from "@react-pdf/renderer"
 import prisma from "@/lib/prisma"
@@ -62,21 +63,14 @@ export async function GET(request: Request) {
     }
 
     if (!isExcludedFromOwnershipLimit) {
-      if (dbSessionUser.role === "DESIGN_CONSULTANT") {
-        whereClause.OR = [
-          { preparedById: dbSessionUser.id },
-          { assignments: { some: { userId: dbSessionUser.id } } },
-          { client: { salespersonId: dbSessionUser.id } },
-          { client: { assignments: { some: { userId: dbSessionUser.id } } } }
-        ]
-      } else {
-        whereClause.OR = [
-          { preparedById: dbSessionUser.id },
-          { assignments: { some: { userId: dbSessionUser.id } } },
-          { client: { salespersonId: dbSessionUser.id } },
-          { client: { assignments: { some: { userId: dbSessionUser.id, allowAllQuotations: true } } } }
-        ]
-      }
+      whereClause.OR = [
+        { preparedById: dbSessionUser.id },
+        { salesAgentId: dbSessionUser.id },
+        { assignments: { some: { userId: dbSessionUser.id } } },
+        { client: { salespersonId: dbSessionUser.id } },
+        { client: { assignments: { some: { userId: dbSessionUser.id } } } },
+        { client: { accessRequests: { some: { userId: dbSessionUser.id, status: "Approved" } } } }
+      ]
     } else if (ownershipRule !== "ALL") {
       if (ownershipRule === "OWN") {
         whereClause.OR = [
@@ -311,7 +305,10 @@ export async function POST(request: Request) {
             userId: dbSessionUser.id
           }
         })
-        hasAccess = clientObj.salespersonId === dbSessionUser.id || assignmentCount > 0
+        const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+          where: { clientId: clientObj.id, userId: dbSessionUser.id, status: "Approved" }
+        })
+        hasAccess = clientObj.salespersonId === dbSessionUser.id || assignmentCount > 0 || !!hasApprovedRequest
       }
 
       if (!hasAccess) {

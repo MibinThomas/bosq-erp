@@ -28,6 +28,7 @@ interface KPIStats {
   winRate: number
   pendingApprovalsCount: number
   pendingFollowUpsCount: number
+  statusStats?: Array<{ status: string; count: number; value: number }>
   
   // 10 Team Overview KPIs
   totalDesignConsultants?: number

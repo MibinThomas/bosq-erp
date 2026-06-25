@@ -71,23 +71,33 @@ export async function GET(request: Request) {
       whereClause.OR = [
         { preparedById: currentUserId },
         { salesAgentId: currentUserId },
-        { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
-        { assignments: { some: { userId: currentUserId } } }
+        { assignments: { some: { userId: currentUserId } } },
+        { client: { salespersonId: currentUserId } },
+        { client: { assignments: { some: { userId: currentUserId } } } },
+        { client: { accessRequests: { some: { userId: currentUserId, status: "Approved" } } } }
       ]
     } else {
       if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
         whereClause.OR = [
           { preparedById: currentUserId },
           { salesAgentId: currentUserId },
-          { client: { assignments: { some: { userId: currentUserId, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: currentUserId } } }
+          { assignments: { some: { userId: currentUserId } } },
+          { client: { salespersonId: currentUserId } },
+          { client: { assignments: { some: { userId: currentUserId } } } },
+          { client: { accessRequests: { some: { userId: currentUserId, status: "Approved" } } } }
         ]
       } else if (ownershipRule === "DEPARTMENT") {
         whereClause.OR = [
           { preparedById: { in: departmentUserIds } },
           { salesAgentId: { in: departmentUserIds } },
-          { client: { assignments: { some: { userId: { in: departmentUserIds }, allowAllQuotations: true } } } },
-          { assignments: { some: { userId: { in: departmentUserIds } } } }
+          { assignments: { some: { userId: { in: departmentUserIds } } } },
+          { client: {
+              OR: [
+                { salespersonId: { in: departmentUserIds } },
+                { assignments: { some: { userId: { in: departmentUserIds } } } }
+              ]
+            }
+          }
         ]
       } else if (ownershipRule === "NONE") {
         whereClause.id = "none"
