@@ -47,7 +47,8 @@ export async function GET(request: Request) {
     // Enforce strict personal performance boundaries for Design Consultants and Sales Executives
     cWhere.OR = [
       { salespersonId: userId },
-      { assignments: { some: { userId } } }
+      { assignments: { some: { userId } } },
+      { accessRequests: { some: { userId, status: "Approved" } } }
     ]
     qWhere.OR = [
       { preparedById: userId },

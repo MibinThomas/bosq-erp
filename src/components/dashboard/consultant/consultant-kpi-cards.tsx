@@ -41,6 +41,7 @@ export function ConsultantKPICards({ data, onFilterChange }: ConsultantKPIsProps
     approvedCount: 0,
     pendingCount: 0,
     rejectedCount: 0,
+    rejectedValue: 0,
     convertedCount: 0,
     pendingClientApprovalsCount: 0,
     followUpsCount: 0,
@@ -51,8 +52,6 @@ export function ConsultantKPICards({ data, onFilterChange }: ConsultantKPIsProps
     convertedValue: 0,
     totalRevenuePipeline: 0
   }
-
-  const pendingRevenue = Math.max(0, (stats.totalValue || 0) - (stats.convertedValue || 0))
 
   return (
     <div className="space-y-6">
@@ -319,11 +318,11 @@ export function ConsultantKPICards({ data, onFilterChange }: ConsultantKPIsProps
             </CardContent>
           </Card>
 
-          {/* Own Pending Revenue */}
+          {/* Own Lost / Rejected */}
           <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
             <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
               <div className="flex justify-between items-start">
-                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Pending Revenue</span>
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Lost / Rejected</span>
                 <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-500 dark:text-rose-400">
                   <TrendingDown className="h-4 w-4" />
                 </div>
@@ -331,10 +330,10 @@ export function ConsultantKPICards({ data, onFilterChange }: ConsultantKPIsProps
               <div>
                 <div className="flex items-baseline gap-1 truncate">
                   <span className="text-xs font-bold text-rose-600 dark:text-rose-500">AED</span>
-                  <span className="text-2xl font-bold tracking-tight font-sans text-rose-600 dark:text-rose-400">{formatCurrencyParts(pendingRevenue)}</span>
+                  <span className="text-2xl font-bold tracking-tight font-sans text-rose-600 dark:text-rose-400">{formatCurrencyParts(stats.rejectedValue ?? 0)}</span>
                 </div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
-                  <span>My outstanding quotation sum</span>
+                  <span>{stats.rejectedCount ?? 0} quote(s) lost/rejected</span>
                 </div>
               </div>
             </CardContent>

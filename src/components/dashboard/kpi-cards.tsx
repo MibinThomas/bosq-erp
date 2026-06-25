@@ -32,6 +32,7 @@ interface KPIStats {
   // 10 Team Overview KPIs
   totalDesignConsultants?: number
   totalAssignedClients?: number
+  totalGlobalClients?: number
   totalActiveQuotations?: number
   totalDraftQuotations?: number
   totalRevisedQuotations?: number
@@ -52,6 +53,7 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
   const router = useRouter()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER"
+  const isAdminOrSuperAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN"
 
   const formatCurrencyParts = (val: number) => {
     const formatted = new Intl.NumberFormat("en-AE", {
@@ -92,8 +94,10 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
     )
   }
 
-  // Calculate pending revenue
-  const pendingRevenue = Math.max(0, (data.totalValue || 0) - (data.convertedValue || 0))
+  // Calculate lost/rejected quotations
+  const rejectedStats = data.statusStats?.filter((s: any) => ["REJECTED", "CANCELLED"].includes(s.status)) || []
+  const lostQuotesCount = rejectedStats.reduce((sum: number, s: any) => sum + s.count, 0)
+  const lostQuotesValue = rejectedStats.reduce((sum: number, s: any) => sum + s.value, 0)
 
   return (
     <div className="space-y-6">
@@ -245,7 +249,7 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
                 </div>
               </div>
               <div>
-                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalAssignedClients ?? 0}</div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalGlobalClients ?? 0}</div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
                   <span>Unique accounts database</span>
                   <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -254,22 +258,24 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
             </CardContent>
           </Card>
 
-          {/* Active Consultants */}
+          {/* My Clients / Total Clients for admin */}
           <Card 
-            onClick={() => router.push("/settings/access-control")}
+            onClick={() => router.push("/clients")}
             className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
           >
             <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
               <div className="flex justify-between items-start">
-                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Active Consultants</span>
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">
+                  {isAdminOrSuperAdmin ? "Total Clients" : "My Clients"}
+                </span>
                 <div className="p-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/30 text-purple-500 dark:text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors duration-300">
                   <Users className="h-4 w-4" />
                 </div>
               </div>
               <div>
-                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalDesignConsultants ?? 0}</div>
+                <div className="text-2xl font-bold tracking-tight font-sans text-foreground">{data.totalAssignedClients ?? 0}</div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
-                  <span>Authorized team members</span>
+                  <span>{isAdminOrSuperAdmin ? "All Company Accounts" : "Assigned / Managed Accounts"}</span>
                   <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
@@ -394,11 +400,11 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
             </CardContent>
           </Card>
 
-          {/* Pending Revenue */}
+          {/* Lost / Rejected */}
           <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
             <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
               <div className="flex justify-between items-start">
-                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Pending Revenue</span>
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Lost / Rejected</span>
                 <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-500 dark:text-rose-400">
                   <TrendingDown className="h-4 w-4" />
                 </div>
@@ -406,10 +412,10 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
               <div>
                 <div className="flex items-baseline gap-1 truncate">
                   <span className="text-xs font-bold text-rose-600 dark:text-rose-500">AED</span>
-                  <span className="text-2xl font-bold tracking-tight font-sans text-rose-600 dark:text-rose-400">{formatCurrencyParts(pendingRevenue)}</span>
+                  <span className="text-2xl font-bold tracking-tight font-sans text-rose-600 dark:text-rose-400">{formatCurrencyParts(lostQuotesValue)}</span>
                 </div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
-                  <span>Outstanding quotation value</span>
+                  <span>{lostQuotesCount} quote(s) lost/rejected</span>
                 </div>
               </div>
             </CardContent>

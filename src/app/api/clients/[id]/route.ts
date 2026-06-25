@@ -43,11 +43,15 @@ export async function GET(
     }
 
     const userRole = (session.user as any).role || ""
-    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole)
     if (!isUnrestricted) {
       const currentUserId = (session.user as any).id
+      const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+        where: { clientId: id, userId: currentUserId, status: "Approved" }
+      })
       const isAssigned = client.salespersonId === currentUserId ||
-                         client.assignments.some(a => a.userId === currentUserId)
+                         client.assignments.some(a => a.userId === currentUserId) ||
+                         !!hasApprovedRequest
       if (!isAssigned) {
         return NextResponse.json({ error: "Forbidden: You do not have access to this client" }, { status: 403 })
       }
@@ -157,10 +161,14 @@ export async function PUT(
     }
 
     const userRole = (session.user as any).role || ""
-    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole)
     if (!isUnrestricted) {
+      const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+        where: { clientId: id, userId: currentUserId, status: "Approved" }
+      })
       const isAssigned = currentClient.salespersonId === currentUserId ||
-                         currentClient.assignments.some(a => a.userId === currentUserId)
+                         currentClient.assignments.some(a => a.userId === currentUserId) ||
+                         !!hasApprovedRequest
       if (!isAssigned) {
         return NextResponse.json({ error: "Forbidden: You do not have access to this client" }, { status: 403 })
       }
@@ -291,10 +299,14 @@ export async function DELETE(
       return NextResponse.json({ error: "Client not found" }, { status: 404 })
     }
 
-    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER"].includes(userRole)
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole)
     if (!isUnrestricted) {
+      const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+        where: { clientId: id, userId: userId, status: "Approved" }
+      })
       const isAssigned = client.salespersonId === userId ||
-                         client.assignments.some(a => a.userId === userId)
+                         client.assignments.some(a => a.userId === userId) ||
+                         !!hasApprovedRequest
       if (!isAssigned) {
         return NextResponse.json({ error: "Forbidden: You do not have access to this client" }, { status: 403 })
       }

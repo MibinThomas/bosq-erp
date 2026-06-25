@@ -63,15 +63,15 @@ export async function GET(request: Request) {
       }
     }
 
-    // Strict boundaries for Manager/Sales Manager and Consultant/Sales Executive
-    if (["MANAGER", "SALES_MANAGER"].includes(userRole)) {
+    // Strict boundaries for Manager/Sales Manager and other roles
+    if (userRole === "SUPER_ADMIN" || userRole === "ADMIN") {
+      // Unrestricted
+    } else if (["MANAGER", "SALES_MANAGER"].includes(userRole)) {
       if (ownershipRule === "ALL") {
         ownershipRule = "DEPARTMENT"
       }
-    } else if (["DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(userRole)) {
-      if (ownershipRule === "ALL" || ownershipRule === "DEPARTMENT") {
-        ownershipRule = "ASSIGNED"
-      }
+    } else {
+      ownershipRule = "ASSIGNED"
     }
 
     // Locate department users if rule is DEPARTMENT
@@ -362,17 +362,67 @@ export async function GET(request: Request) {
     } else if (ownershipRule === "DEPARTMENT") {
       clientWhere.OR = [
         { salespersonId: { in: departmentUserIds } },
-        { assignments: { some: { userId: { in: departmentUserIds } } } }
+        { assignments: { some: { userId: { in: departmentUserIds } } } },
+        { accessRequests: { some: { userId: { in: departmentUserIds }, status: "Approved" } } }
       ]
     } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
       clientWhere.OR = [
         { salespersonId: currentUserId },
-        { assignments: { some: { userId: currentUserId } } }
+        { assignments: { some: { userId: currentUserId } } },
+        { accessRequests: { some: { userId: currentUserId, status: "Approved" } } }
       ]
     } else {
       clientWhere.id = "none"
     }
+
+    // Apply active dashboard filters to client count
+    if (clientIdFilter && clientIdFilter !== "all") {
+      clientWhere.id = clientIdFilter
+    }
+    if (clientTypeFilter && clientTypeFilter !== "all") {
+      clientWhere.clientType = clientTypeFilter
+    }
+    if (userIdFilter && userIdFilter !== "all") {
+      const isAllowedUser = ownershipRule === "ALL" || 
+                            (ownershipRule === "DEPARTMENT" && departmentUserIds.includes(userIdFilter)) ||
+                            (ownershipRule === "OWN" && userIdFilter === currentUserId) ||
+                            (ownershipRule === "ASSIGNED" && userIdFilter === currentUserId)
+
+      if (isAllowedUser) {
+        clientWhere.OR = [
+          { salespersonId: userIdFilter },
+          { assignments: { some: { userId: userIdFilter } } },
+          { accessRequests: { some: { userId: userIdFilter, status: "Approved" } } }
+        ]
+      } else {
+        clientWhere.id = "none"
+        delete clientWhere.OR
+      }
+    }
+    if (startDate || endDate) {
+      clientWhere.createdAt = {}
+      if (startDate && startDate !== "null") clientWhere.createdAt.gte = new Date(startDate)
+      if (endDate && endDate !== "null") {
+        const end = new Date(endDate)
+        end.setHours(23, 59, 59, 999)
+        clientWhere.createdAt.lte = end
+      }
+    }
+
     const totalAssignedClients = await prisma.client.count({ where: clientWhere })
+
+    // Calculate total global clients matching the active filters
+    const totalGlobalClients = await prisma.client.count({ 
+      where: { 
+        deletedAt: null,
+        id: (clientIdFilter && clientIdFilter !== "all") ? clientIdFilter : undefined,
+        clientType: (clientTypeFilter && clientTypeFilter !== "all") ? clientTypeFilter : undefined,
+        createdAt: (startDate || endDate) ? {
+          gte: (startDate && startDate !== "null") ? new Date(startDate) : undefined,
+          lte: (endDate && endDate !== "null") ? (() => { const end = new Date(endDate); end.setHours(23, 59, 59, 999); return end; })() : undefined
+        } : undefined
+      } 
+    })
 
     // 3. totalQuotes = totalQuotes
     // 4. totalActiveQuotations (in-progress)
@@ -522,6 +572,7 @@ export async function GET(request: Request) {
       // 10 Team Overview KPIs
       totalDesignConsultants,
       totalAssignedClients,
+      totalGlobalClients,
       totalActiveQuotations,
       totalDraftQuotations,
       totalRevisedQuotations,

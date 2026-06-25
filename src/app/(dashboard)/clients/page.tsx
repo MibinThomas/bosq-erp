@@ -76,6 +76,8 @@ export default function ClientsPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("All")
   const [usernameFilter, setUsernameFilter] = useState<string>("All")
   const [users, setUsers] = useState<any[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 15
 
   async function fetchClients() {
     try {
@@ -226,6 +228,16 @@ export default function ClientsPage() {
       (client.email && client.email.toLowerCase().includes(term))
     )
   })
+
+  // Reset to first page when search/filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, statusFilter, consultantFilter, categoryFilter, usernameFilter])
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const paginatedClients = filteredClients.slice(startIndex, endIndex)
+  const totalPages = Math.ceil(filteredClients.length / ITEMS_PER_PAGE) || 1
 
   const uniqueConsultants = Array.from(new Set(clients.flatMap(c => c.assignments?.filter(a => a.isPrimary).map(a => a.user.name) || []))).filter(Boolean) as string[]
   const standardCategories = ["Direct", "Interior", "Dealer", "Online"]
@@ -388,7 +400,8 @@ export default function ClientsPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto w-full">
+          <>
+            <div className="overflow-x-auto w-full">
             <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
@@ -420,7 +433,7 @@ export default function ClientsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredClients.map((client) => (
+              {paginatedClients.map((client) => (
                 <TableRow key={client.id} className="hover:bg-muted/30 transition-colors">
                   {isManagerOrAdmin && (
                     <TableCell className="text-center">
@@ -493,8 +506,48 @@ export default function ClientsPage() {
             </TableBody>
           </Table>
         </div>
-        )}
-      </div>
+        
+        {/* Pagination Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-border bg-muted/20">
+          <div className="text-sm text-muted-foreground text-center sm:text-left">
+            Showing <span className="font-medium text-foreground">{filteredClients.length > 0 ? startIndex + 1 : 0}</span> to{" "}
+            <span className="font-medium text-foreground">
+              {Math.min(endIndex, filteredClients.length)}
+            </span>{" "}
+            of <span className="font-medium text-foreground">{filteredClients.length}</span> clients
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-6">
+              <span className="text-sm text-muted-foreground">
+                Page <span className="font-medium text-foreground">{currentPage}</span> of{" "}
+                <span className="font-medium text-foreground">{totalPages}</span>
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="h-9 border-primary/20 text-primary hover:bg-primary/5 cursor-pointer disabled:opacity-50"
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="h-9 border-primary/20 text-primary hover:bg-primary/5 cursor-pointer disabled:opacity-50"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </>
+    )}
+  </div>
 
       <BulkUploadModal 
         isOpen={isBulkOpen}

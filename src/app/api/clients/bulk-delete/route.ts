@@ -25,6 +25,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Client IDs array is required" }, { status: 400 })
     }
 
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(role)
+    if (!isUnrestricted) {
+      const accessibleClients = await prisma.client.findMany({
+        where: {
+          id: { in: ids },
+          deletedAt: null,
+          OR: [
+            { salespersonId: userId },
+            { assignments: { some: { userId } } },
+            { accessRequests: { some: { userId, status: "Approved" } } }
+          ]
+        },
+        select: { id: true }
+      })
+      const accessibleIds = accessibleClients.map(c => c.id)
+      const unauthorizedIds = ids.filter(id => !accessibleIds.includes(id))
+      if (unauthorizedIds.length > 0) {
+        return NextResponse.json(
+          { error: "Forbidden: You do not have permission to delete one or more of the selected clients" },
+          { status: 403 }
+        )
+      }
+    }
+
     // Identify which clients can be deleted
     const clients = await prisma.client.findMany({
       where: { id: { in: ids } },

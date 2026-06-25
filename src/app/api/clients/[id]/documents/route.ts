@@ -17,7 +17,29 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const canView = await hasPermission((session.user as any).id, "CLIENTS", "view")
+    const currentUserId = (session.user as any).id
+    const userRole = (session.user as any).role || ""
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole)
+    if (!isUnrestricted) {
+      const client = await prisma.client.findUnique({
+        where: { id, deletedAt: null },
+        include: { assignments: true }
+      })
+      if (!client) {
+        return NextResponse.json({ error: "Client not found" }, { status: 404 })
+      }
+      const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+        where: { clientId: id, userId: currentUserId, status: "Approved" }
+      })
+      const isAssigned = client.salespersonId === currentUserId ||
+                         client.assignments.some(a => a.userId === currentUserId) ||
+                         !!hasApprovedRequest
+      if (!isAssigned) {
+        return NextResponse.json({ error: "Forbidden: You do not have access to this client" }, { status: 403 })
+      }
+    }
+
+    const canView = await hasPermission(currentUserId, "CLIENTS", "view")
     if (!canView) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to view clients" }, { status: 403 })
     }
@@ -45,17 +67,34 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const canEdit = await hasPermission((session.user as any).id, "CLIENTS", "edit")
-    if (!canEdit) {
-      return NextResponse.json({ error: "Forbidden: You do not have permission to edit clients" }, { status: 403 })
-    }
-
+    const currentUserId = (session.user as any).id
+    const userRole = (session.user as any).role || ""
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole)
+    
     const client = await prisma.client.findUnique({
-      where: { id }
+      where: { id, deletedAt: null },
+      include: { assignments: true }
     })
 
     if (!client) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 })
+    }
+
+    if (!isUnrestricted) {
+      const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+        where: { clientId: id, userId: currentUserId, status: "Approved" }
+      })
+      const isAssigned = client.salespersonId === currentUserId ||
+                         client.assignments.some(a => a.userId === currentUserId) ||
+                         !!hasApprovedRequest
+      if (!isAssigned) {
+        return NextResponse.json({ error: "Forbidden: You do not have access to this client" }, { status: 403 })
+      }
+    }
+
+    const canEdit = await hasPermission(currentUserId, "CLIENTS", "edit")
+    if (!canEdit) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to edit clients" }, { status: 403 })
     }
 
     const formData = await request.formData()

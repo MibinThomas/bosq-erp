@@ -47,7 +47,8 @@ export async function GET(request: Request) {
     // Enforce strict personal performance boundaries for Design Consultants and Sales Executives
     cWhere.OR = [
       { salespersonId: userId },
-      { assignments: { some: { userId } } }
+      { assignments: { some: { userId } } },
+      { accessRequests: { some: { userId, status: "Approved" } } }
     ]
     qWhere.OR = [
       { preparedById: userId },
@@ -121,7 +122,7 @@ export async function GET(request: Request) {
       totalStats,
       approvedCount,
       pendingCount,
-      rejectedCount,
+      rejectedStats,
       convertedCount,
       followUpsCount,
       activeClientsCount,
@@ -143,8 +144,10 @@ export async function GET(request: Request) {
       prisma.quotation.count({
         where: { ...qWhere, status: { in: ["DRAFT", "QUOTE_CREATED"] } } // Exclude revised from pending
       }),
-      prisma.quotation.count({
-        where: { ...qWhere, status: { in: ["REJECTED", "CANCELLED"] } }
+      prisma.quotation.aggregate({
+        where: { ...qWhere, status: { in: ["REJECTED", "CANCELLED"] } },
+        _count: true,
+        _sum: { subtotal: true }
       }),
       prisma.quotation.count({
         where: {
@@ -208,6 +211,9 @@ export async function GET(request: Request) {
     const totalValue = totalStats._sum.subtotal || 0
     const convertedValue = convertedStats._sum.subtotal || 0
     const totalRevenuePipeline = activeQuotesStats._sum.subtotal || 0
+    
+    const rejectedCount = rejectedStats._count || 0
+    const rejectedValue = rejectedStats._sum.subtotal || 0
 
     return NextResponse.json({
       totalQuotes,
@@ -215,6 +221,7 @@ export async function GET(request: Request) {
       approvedCount,
       pendingCount,
       rejectedCount,
+      rejectedValue,
       convertedCount,
       pendingClientApprovalsCount,
       followUpsCount,
