@@ -143,7 +143,7 @@ export default function QuotationsPage() {
 
       if (!res.ok) {
         if (data.error === "ALREADY_CONFIRMED") {
-          const conflictingQuote = quotations.find(q => q.id === quoteId) || (historyQuote?.seriesQuotations?.find((q: any) => q.id === quoteId))
+          const conflictingQuote = quotations.find(q => q.id === quoteId) || { id: quoteId, quotationNumber: data.confirmedQuotationNumber }
           if (conflictingQuote) {
             setTargetQuoteToConfirm(conflictingQuote)
           }
@@ -158,15 +158,6 @@ export default function QuotationsPage() {
       setQuotations((prev) =>
         prev.map((q) => (q.id === quoteId ? { ...q, ...data } : q))
       )
-
-      if (historyQuote && (historyQuote.id === quoteId || historyQuote.parentId === data.parentId || historyQuote.id === data.parentId)) {
-        // Re-fetch details to sync the revisions modal state
-        const hRes = await fetch(`/api/quotations/${historyQuote.id}`)
-        if (hRes.ok) {
-          const hData = await hRes.json()
-          setHistoryQuote(hData)
-        }
-      }
 
       setIsReplaceDialogOpen(false)
       setTargetQuoteToConfirm(null)
