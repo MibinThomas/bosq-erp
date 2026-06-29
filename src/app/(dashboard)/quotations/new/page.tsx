@@ -2466,18 +2466,84 @@ function NewQuotationForm() {
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200">
                               {/* Left Column: Image & Title */}
                               <div className="xl:col-span-4 space-y-4 flex flex-col">
-                                <div className="flex gap-4">
-                                  {/* Thumbnail Image */}
+                                  {/* Thumbnail Image & Crop Controls */}
                                   {(() => {
                                     const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
-                                    const imageUrl = selectedProd ? (selectedProd.imageUrl || "") : (watchItems[index]?.customImageUrl || "")
+                                    const imageUrl = watchItems[index]?.customImageUrl || (selectedProd ? (selectedProd.imageUrl || "") : "")
                                     return (
-                                      <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-sm">
-                                        {imageUrl ? (
-                                          <img src={imageUrl} alt="Preview" className="object-contain h-full w-full" />
-                                        ) : (
-                                          <span className="text-[10px] text-muted-foreground text-center px-1 font-medium">No Image</span>
-                                        )}
+                                      <div className="flex flex-col gap-2 p-3 border rounded-xl bg-muted/30 w-full">
+                                        <div className="flex items-center gap-4">
+                                          <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-sm">
+                                            {imageUrl ? (
+                                              <img src={imageUrl} alt="Preview" className="object-contain h-full w-full" />
+                                            ) : (
+                                              <span className="text-[10px] text-muted-foreground text-center px-1 font-medium">No Image</span>
+                                            )}
+                                            {uploadingImage && cropperLineIndex === index && (
+                                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                <Loader2 className="h-4 w-4 animate-spin text-white" />
+                                              </div>
+                                            )}
+                                          </div>
+                                          <div className="flex flex-wrap gap-2">
+                                            {imageUrl && (
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                  setCropperLineIndex(index)
+                                                  setRawImageSrc(imageUrl)
+                                                  setIsCropperOpen(true)
+                                                }}
+                                                className="text-xs py-1 h-8 cursor-pointer"
+                                              >
+                                                Crop / Adjust
+                                              </Button>
+                                            )}
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => {
+                                                const input = document.getElementById(`catalog-image-upload-input-${index}`)
+                                                input?.click()
+                                              }}
+                                              className="text-xs py-1 h-8 cursor-pointer"
+                                            >
+                                              Upload Custom
+                                            </Button>
+                                            <input
+                                              id={`catalog-image-upload-input-${index}`}
+                                              type="file"
+                                              accept="image/*"
+                                              className="hidden"
+                                              onChange={(e) => {
+                                                const file = e.target.files?.[0]
+                                                if (file) {
+                                                  setCropperLineIndex(index)
+                                                  const reader = new FileReader()
+                                                  reader.onloadend = () => {
+                                                    setRawImageSrc(reader.result as string)
+                                                    setIsCropperOpen(true)
+                                                  }
+                                                  reader.readAsDataURL(file)
+                                                }
+                                              }}
+                                            />
+                                            {watchItems[index]?.customImageUrl && (
+                                              <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
+                                                className="text-xs py-1 h-8 text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                                              >
+                                                Reset
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
                                       </div>
                                     )
                                   })()}
@@ -2536,7 +2602,6 @@ function NewQuotationForm() {
                                       )
                                     })()}
                                   </div>
-                                </div>
                               </div>
 
                               {/* Middle Column: Specs & Notes */}

@@ -50,9 +50,32 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
       setOffset({ x: 0, y: 0 })
       setAspectRatio("1:1")
       setCroppedPreview(null)
-      setCurrentImageSrc(imageSrc)
+
+      if (imageSrc && (imageSrc.startsWith("http") || imageSrc.startsWith("/"))) {
+        // It's a remote URL, convert it to a blob URL to prevent canvas tainting!
+        fetch(imageSrc)
+          .then(res => res.blob())
+          .then(blob => {
+            const blobUrl = URL.createObjectURL(blob)
+            setCurrentImageSrc(blobUrl)
+          })
+          .catch(err => {
+            console.error("Failed to fetch image for cropper CORS:", err)
+            setCurrentImageSrc(imageSrc)
+          })
+      } else {
+        setCurrentImageSrc(imageSrc)
+      }
     }
   }, [isOpen, imageSrc])
+
+  useEffect(() => {
+    return () => {
+      if (currentImageSrc && currentImageSrc.startsWith("blob:")) {
+        URL.revokeObjectURL(currentImageSrc)
+      }
+    }
+  }, [currentImageSrc])
 
   // Crop frame dimensions based on aspect ratio
   // Centered in a 380px x 300px viewport
