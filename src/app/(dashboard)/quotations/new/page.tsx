@@ -80,6 +80,7 @@ const quotationSchema = z.object({
       productDescription: z.string().optional(),
       categoryName: z.string().optional(),
       chairType: z.string().optional(),
+      batchHeading: z.string().optional(),
       saveToCatalog: z.boolean().optional(),
     })
   ).min(1, "At least one item is required"),
@@ -137,6 +138,13 @@ interface Product {
   specifications: string | null
   imageUrl: string | null
   description?: string | null
+  category?: {
+    id: string
+    name: string
+  }
+  chairType?: string | null
+  warranty?: string | null
+  dimensions?: string | null
 }
 interface ProductSearchSelectProps {
   productId: string | null | undefined
@@ -341,6 +349,46 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 )
 NumericInput.displayName = "NumericInput"
 
+interface BatchHeadingInputProps {
+  value: string
+  onChange: (value: string) => void
+}
+
+const BatchHeadingInput: React.FC<BatchHeadingInputProps> = ({ value, onChange }) => {
+  const [localValue, setLocalValue] = useState(value)
+
+  useEffect(() => {
+    setLocalValue(value)
+  }, [value])
+
+  return (
+    <Input
+      placeholder="e.g. MD Cabin, Reception Area, Meeting Room (Leave empty to ungroup)"
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={() => {
+        if (localValue !== value) {
+          onChange(localValue)
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault()
+          e.currentTarget.blur()
+        }
+      }}
+      className="h-9 text-xs bg-white font-medium border-muted-foreground/20 focus-visible:ring-primary"
+    />
+  )
+}
+
+const formatCurrency = (val: number) => {
+  return val.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
 function NewQuotationForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -380,6 +428,12 @@ function NewQuotationForm() {
   const [isCropperOpen, setIsCropperOpen] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
 
+  const [batches, setBatches] = useState<{ id: string; name: string }[]>([
+    { id: "default", name: "General Items" }
+  ])
+  const [draggedBatchId, setDraggedBatchId] = useState<string | null>(null)
+  const [dragOverBatchId, setDragOverBatchId] = useState<string | null>(null)
+
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
@@ -404,6 +458,13 @@ function NewQuotationForm() {
     e.preventDefault()
     if (draggedIndex !== null && draggedIndex !== index) {
       move(draggedIndex, index)
+      setTimeout(() => {
+        const currentItems = form.getValues("items")
+        const targetHeading = index > 0 
+          ? currentItems[index - 1]?.batchHeading 
+          : (currentItems[index + 1]?.batchHeading || "")
+        form.setValue(`items.${index}.batchHeading`, targetHeading || "", { shouldValidate: true, shouldDirty: true })
+      }, 50)
     }
     setDraggedIndex(null)
     setDragOverIndex(null)
@@ -517,6 +578,15 @@ function NewQuotationForm() {
               setIsEdit(true)
             }
 
+            const headings = Array.from(
+              new Set((activeData.items || []).map((item: any) => item.batchHeading || "").filter(Boolean))
+            ) as string[]
+            if (headings.length > 0) {
+              setBatches(headings.map(h => ({ id: Math.random().toString(), name: h })))
+            } else {
+              setBatches([{ id: "default", name: "General Items" }])
+            }
+
             // Populate form values
             form.reset({
               clientId: activeData.clientId,
@@ -549,6 +619,7 @@ function NewQuotationForm() {
                   productDescription: item.product?.description || "",
                   categoryName: item.product?.category?.name || "Chairs",
                   chairType: item.product?.chairType || "",
+                  batchHeading: item.batchHeading || "",
                   saveToCatalog: false,
                 }
               }),
@@ -581,6 +652,15 @@ function NewQuotationForm() {
         const data = JSON.parse(cachedCart)
         localStorage.removeItem("quoteCartItems")
 
+        const headings = Array.from(
+          new Set((data.items || []).map((item: any) => item.batchHeading || "").filter(Boolean))
+        ) as string[]
+        if (headings.length > 0) {
+          setBatches(headings.map(h => ({ id: Math.random().toString(), name: h })))
+        } else {
+          setBatches([{ id: "default", name: "General Items" }])
+        }
+
         form.reset({
           clientId: data.clientId,
           customerSegment: data.customerSegment || "Direct",
@@ -609,6 +689,7 @@ function NewQuotationForm() {
             productDescription: item.productDescription || item.shortDescription || item.description || "",
             categoryName: item.categoryName || "Chairs",
             chairType: item.chairType || "",
+            batchHeading: item.batchHeading || "",
             saveToCatalog: false,
           })),
           deliveryCharge: 0,
@@ -641,7 +722,7 @@ function NewQuotationForm() {
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", saveToCatalog: false }],
+      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: "", saveToCatalog: false }],
       deliveryCharge: 0,
       notes: "",
       vatMode: "EXCLUDING",
@@ -679,6 +760,171 @@ function NewQuotationForm() {
   const selectedClientObj = clients.find((c) => c.id === watchClientId)
 
   const watchSegment = form.watch("customerSegment") || "Direct"
+
+  const handleAddBatch = () => {
+    const newName = `Section ${batches.length + 1}`
+    let finalName = newName
+    let counter = 1
+    while (batches.some((b) => b.name.toLowerCase() === finalName.toLowerCase())) {
+      finalName = `Section ${batches.length + 1} (${counter})`
+      counter++
+    }
+    setBatches([...batches, { id: Math.random().toString(), name: finalName }])
+    toast.success(`Created section "${finalName}"`)
+  }
+
+  const handleRenameBatch = (batchId: string, newName: string) => {
+    if (!newName.trim()) return
+    if (batches.some((b) => b.id !== batchId && b.name.toLowerCase() === newName.trim().toLowerCase())) {
+      toast.error("A section with this name already exists!")
+      return
+    }
+
+    const oldBatch = batches.find((b) => b.id === batchId)
+    if (!oldBatch) return
+    const oldName = oldBatch.name
+
+    setBatches(batches.map((b) => (b.id === batchId ? { ...b, name: newName.trim() } : b)))
+
+    const currentItems = form.getValues("items") || []
+    currentItems.forEach((item, index) => {
+      if (item.batchHeading === oldName) {
+        form.setValue(`items.${index}.batchHeading`, newName.trim(), { shouldDirty: true, shouldValidate: true })
+      }
+    })
+  }
+
+  const handleDeleteBatch = (batchId: string) => {
+    const batch = batches.find((b) => b.id === batchId)
+    if (!batch) return
+
+    const hasItems = watchItems.some((item) => item.batchHeading === batch.name)
+    if (hasItems) {
+      toast.error("Cannot delete a section that contains items. Move or delete the products first.")
+      return
+    }
+
+    if (batches.length <= 1) {
+      toast.error("Quotation must have at least one section.")
+      return
+    }
+
+    setBatches(batches.filter((b) => b.id !== batchId))
+    toast.success(`Section "${batch.name}" removed.`)
+  }
+
+  const handleAddItemToBatch = (batchName: string, isCustom: boolean = false) => {
+    const currentItems = form.getValues("items") || []
+    let insertIndex = currentItems.length
+    for (let i = currentItems.length - 1; i >= 0; i--) {
+      if (currentItems[i]?.batchHeading === batchName) {
+        insertIndex = i + 1
+        break
+      }
+    }
+
+    insert(insertIndex, {
+      productId: "",
+      priceSource: isCustom ? "manual" : "standard",
+      description: "",
+      specifications: "",
+      productNotes: "",
+      quantity: 1,
+      basePrice: 0,
+      unitPrice: 0,
+      discount: 0,
+      margin: 0,
+      manualMargin: "",
+      customImageUrl: "",
+      productDescription: "",
+      categoryName: "Chairs",
+      chairType: "",
+      batchHeading: batchName,
+      saveToCatalog: false,
+    })
+    toast.success(`Product added to ${batchName}`)
+  }
+
+  const handleMoveItemInBatch = (fromIndex: number, direction: "up" | "down") => {
+    const currentItems = form.getValues("items") || []
+    const currentBatchName = currentItems[fromIndex]?.batchHeading
+
+    let siblingIndex = -1
+    if (direction === "up") {
+      for (let i = fromIndex - 1; i >= 0; i--) {
+        if (currentItems[i]?.batchHeading === currentBatchName) {
+          siblingIndex = i
+          break
+        }
+      }
+    } else {
+      for (let i = fromIndex + 1; i < currentItems.length; i++) {
+        if (currentItems[i]?.batchHeading === currentBatchName) {
+          siblingIndex = i
+          break
+        }
+      }
+    }
+
+    if (siblingIndex !== -1) {
+      move(fromIndex, siblingIndex)
+    }
+  }
+
+  const reorderFlatItemsByBatches = (newBatches: typeof batches) => {
+    const currentItems = form.getValues("items") || []
+    const reordered: typeof currentItems = []
+
+    newBatches.forEach((batch) => {
+      const itemsInBatch = currentItems.filter((item) => item.batchHeading === batch.name)
+      reordered.push(...itemsInBatch)
+    })
+
+    form.setValue("items", reordered, { shouldDirty: true })
+  }
+
+  // Ensure all items are assigned to a valid batch in batches state
+  useEffect(() => {
+    if (batches.length > 0 && watchItems && watchItems.length > 0) {
+      const batchNames = new Set(batches.map((b) => b.name))
+      watchItems.forEach((item, index) => {
+        if (!item?.batchHeading || !batchNames.has(item.batchHeading)) {
+          form.setValue(`items.${index}.batchHeading`, batches[0].name, { shouldValidate: true })
+        }
+      })
+    }
+  }, [batches, watchItems])
+
+  const handleBatchDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedBatchId(id)
+    e.dataTransfer.effectAllowed = "move"
+  }
+
+  const handleBatchDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault()
+    if (draggedBatchId !== id) {
+      setDragOverBatchId(id)
+    }
+  }
+
+  const handleBatchDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault()
+    if (!draggedBatchId || draggedBatchId === targetId) return
+
+    const fromIdx = batches.findIndex((b) => b.id === draggedBatchId)
+    const toIdx = batches.findIndex((b) => b.id === targetId)
+    if (fromIdx === -1 || toIdx === -1) return
+
+    const newBatches = [...batches]
+    const [movedBatch] = newBatches.splice(fromIdx, 1)
+    newBatches.splice(toIdx, 0, movedBatch)
+
+    setBatches(newBatches)
+    reorderFlatItemsByBatches(newBatches)
+
+    setDraggedBatchId(null)
+    setDragOverBatchId(null)
+  }
 
   // Automatically select segment based on client type
   useEffect(() => {
@@ -774,6 +1020,9 @@ function NewQuotationForm() {
       form.setValue(`items.${index}.manualMargin`, 0, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.unitPrice`, basePrice, { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.categoryName`, matchedProduct.category?.name || "General", { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.chairType`, matchedProduct.chairType || "", { shouldValidate: true, shouldDirty: true })
 
       toast.info(`Populated ${matchedProduct.productName} for ${watchSegment} segment at base price AED ${basePrice}!`)
     }
@@ -1557,57 +1806,166 @@ function NewQuotationForm() {
                 <CardTitle className="text-lg flex items-center gap-2">
                   Line Items Catalog
                 </CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddBatch}
+                  className="flex items-center gap-2 cursor-pointer border-primary/30 text-primary hover:bg-primary/5"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Section / Batch
+                </Button>
               </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                {fields.map((field, index) => {
-                  const showDetails = !!(watchItems[index]?.productId || watchItems[index]?.priceSource === "manual")
+              <CardContent className="p-6 space-y-8">
+                {batches.map((batch, batchIdx) => {
+                  const batchItems = fields
+                    .map((field, index) => ({ field, index, item: watchItems[index] }))
+                    .filter(x => x.item?.batchHeading === batch.name)
+
+                  const batchSubtotal = batchItems.reduce((acc, { item }) => {
+                    if (!item) return acc
+                    const qty = Number(item.quantity) || 0
+                    const price = Number(item.unitPrice) || 0
+                    const discPercent = Number(item.discount) || 0
+                    const discAmt = price * (discPercent / 100)
+                    return acc + (price - discAmt) * qty
+                  }, 0)
+
                   return (
                     <div
-                      key={field.id}
+                      key={batch.id}
                       draggable
-                      onDragStart={(e) => handleDragStart(e, index)}
-                      onDragOver={(e) => handleDragOver(e, index)}
-                      onDrop={(e) => handleDrop(e, index)}
-                      onDragEnd={handleDragEnd}
+                      onDragStart={(e) => handleBatchDragStart(e, batch.id)}
+                      onDragOver={(e) => handleBatchDragOver(e, batch.id)}
+                      onDrop={(e) => handleBatchDrop(e, batch.id)}
                       className={cn(
-                        "group relative p-6 border rounded-xl bg-card hover:shadow-md transition-all duration-300 border-muted-foreground/10 hover:border-primary/20 space-y-4",
-                        dragOverIndex === index && "border-primary bg-primary/5 scale-[1.01]",
-                        draggedIndex === index && "opacity-40"
+                        "border rounded-xl bg-card/40 p-5 space-y-4 transition-all duration-300 relative border-muted-foreground/10 hover:border-primary/20",
+                        draggedBatchId === batch.id && "opacity-45",
+                        dragOverBatchId === batch.id && "border-primary bg-primary/5 scale-[1.01]"
                       )}
                     >
-                      {/* Drag Handle & Mobile Ordering Fallback Row */}
-                      <div className="flex items-center gap-2 border-b border-dashed pb-3 mb-2">
-                        <div
-                          className="drag-handle flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-muted-foreground/10"
-                          title="Click and drag to reorder item"
-                        >
-                          <GripVertical className="h-3.5 w-3.5 shrink-0" />
-                          <span>☰ Drag</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-md hover:bg-muted/80"
-                            disabled={index === 0}
-                            onClick={() => move(index, index - 1)}
-                            title="Move Up"
+                      {/* Batch Header Bar */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/40 p-4 rounded-xl border border-muted-foreground/10">
+                        <div className="flex items-center gap-3 w-full sm:flex-grow">
+                          <div
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-muted text-muted-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-muted-foreground/10 shrink-0"
+                            title="Drag to reorder sections"
                           >
-                            <ChevronUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-md hover:bg-muted/80"
-                            disabled={index === fields.length - 1}
-                            onClick={() => move(index, index + 1)}
-                            title="Move Down"
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                          </Button>
+                            <GripVertical className="h-4 w-4" />
+                            <span>Section</span>
+                          </div>
+                          
+                          <BatchHeadingInput
+                            value={batch.name}
+                            onChange={(newName) => handleRenameBatch(batch.id, newName)}
+                          />
                         </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-xs font-semibold text-muted-foreground bg-background px-3 py-1.5 rounded-lg border border-muted-foreground/10">
+                            {batchItems.length} Products
+                          </span>
+                          
+                          {batchItems.length === 0 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteBatch(batch.id)}
+                              className="h-9 w-9 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                              title="Delete empty section"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Batch Items List */}
+                      <div className="space-y-6">
+                        {batchItems.length === 0 ? (
+                          <div
+                            onDragOver={(e) => {
+                              e.preventDefault()
+                              setDragOverBatchId(batch.id)
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault()
+                              if (draggedIndex !== null) {
+                                form.setValue(`items.${draggedIndex}.batchHeading`, batch.name, { shouldDirty: true })
+                                const currentItems = form.getValues("items") || []
+                                move(draggedIndex, currentItems.length - 1)
+                                setDraggedIndex(null)
+                                setDragOverBatchId(null)
+                              }
+                            }}
+                            className={cn(
+                              "border-2 border-dashed border-muted-foreground/20 rounded-xl p-8 text-center text-xs text-muted-foreground bg-muted/10 transition-colors",
+                              dragOverBatchId === batch.id && "border-primary bg-primary/5"
+                            )}
+                          >
+                            No products in this section. Drag a product here or click "Add Catalog Product" / "Add Custom Product".
+                          </div>
+                        ) : (
+                          batchItems.map(({ field, index }) => {
+                            const showDetails = !!(watchItems[index]?.productId || watchItems[index]?.priceSource === "manual")
+                            const isFirstInBatch = batchItems[0]?.index === index
+                            const isLastInBatch = batchItems[batchItems.length - 1]?.index === index
+
+                            return (
+                              <div
+                                key={field.id}
+                                draggable
+                                onDragStart={(e) => {
+                                  e.stopPropagation()
+                                  handleDragStart(e, index)
+                                }}
+                                onDragOver={(e) => handleDragOver(e, index)}
+                                onDrop={(e) => {
+                                  e.stopPropagation()
+                                  handleDrop(e, index)
+                                }}
+                                onDragEnd={handleDragEnd}
+                                className={cn(
+                                  "group relative p-6 border rounded-xl bg-card hover:shadow-md transition-all duration-300 border-muted-foreground/10 hover:border-primary/20 space-y-4",
+                                  dragOverIndex === index && "border-primary bg-primary/5 scale-[1.01]",
+                                  draggedIndex === index && "opacity-40"
+                                )}
+                              >
+                                {/* Drag Handle & Mobile Ordering Fallback Row */}
+                                <div className="flex items-center gap-2 border-b border-dashed pb-3 mb-2">
+                                  <div
+                                    className="drag-handle flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-muted-foreground/10"
+                                    title="Click and drag to reorder item"
+                                  >
+                                    <GripVertical className="h-3.5 w-3.5 shrink-0" />
+                                    <span>☰ Drag</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 rounded-md hover:bg-muted/80"
+                                      disabled={isFirstInBatch}
+                                      onClick={() => handleMoveItemInBatch(index, "up")}
+                                      title="Move Up"
+                                    >
+                                      <ChevronUp className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 rounded-md hover:bg-muted/80"
+                                      disabled={isLastInBatch}
+                                      onClick={() => handleMoveItemInBatch(index, "down")}
+                                      title="Move Down"
+                                    >
+                                      <ChevronDown className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                         <span className="text-xs text-muted-foreground/80 font-medium ml-auto bg-muted/40 px-2 py-0.5 rounded-md border border-muted-foreground/5">
                           Item #{index + 1}
                         </span>
@@ -1627,6 +1985,7 @@ function NewQuotationForm() {
                               watchSegment={watchSegment}
                               onProductSelect={(prodId) => handleProductSelect(index, prodId)}
                               onCustomProductClick={() => {
+                                form.setValue(`items.${index}.productId`, "", { shouldValidate: true, shouldDirty: true })
                                 form.setValue(`items.${index}.priceSource`, "manual", { shouldValidate: true, shouldDirty: true })
                                 form.setValue(`items.${index}.description`, "", { shouldValidate: true, shouldDirty: true })
                                 form.setValue(`items.${index}.productDescription`, "", { shouldValidate: true, shouldDirty: true })
@@ -1646,6 +2005,8 @@ function NewQuotationForm() {
                           </div>
                         </div>
                       </div>
+
+
 
                       {(() => {
                         const isCustom = watchItems[index]?.priceSource === "manual" && !watchItems[index]?.productId
@@ -2086,7 +2447,7 @@ function NewQuotationForm() {
                                       variant="outline"
                                       size="sm"
                                       className="flex-1 h-8 text-[11px]"
-                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", saveToCatalog: false })}
+                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: watchItems[index]?.batchHeading || "", saveToCatalog: false })}
                                     >
                                       <Plus className="h-3.5 w-3.5 mr-1" />
                                       Add Custom Item
@@ -2109,7 +2470,7 @@ function NewQuotationForm() {
                                   {/* Thumbnail Image */}
                                   {(() => {
                                     const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
-                                    const imageUrl = watchItems[index]?.customImageUrl || selectedProd?.imageUrl
+                                    const imageUrl = selectedProd ? (selectedProd.imageUrl || "") : (watchItems[index]?.customImageUrl || "")
                                     return (
                                       <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-sm">
                                         {imageUrl ? (
@@ -2121,8 +2482,8 @@ function NewQuotationForm() {
                                     )
                                   })()}
                                   
-                                  {/* Product Title */}
-                                  <div className="flex-1">
+                                  {/* Product Title & Metadata Badges */}
+                                  <div className="flex-1 space-y-2">
                                     <FormField
                                       control={form.control}
                                       name={`items.${index}.description`}
@@ -2130,12 +2491,50 @@ function NewQuotationForm() {
                                         <FormItem className="space-y-1">
                                           <FormLabel className="text-xs font-semibold text-muted-foreground">Product Name</FormLabel>
                                           <FormControl>
-                                            <Input placeholder="Product name" {...field} className="bg-muted text-muted-foreground text-xs cursor-not-allowed" disabled />
+                                            <Input placeholder="Product name" {...field} className="bg-muted text-muted-foreground text-xs cursor-not-allowed font-medium" disabled />
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
                                       )}
                                     />
+                                    {(() => {
+                                      const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
+                                      if (!selectedProd) return null
+                                      return (
+                                        <div className="space-y-1.5 pt-1">
+                                          <div className="flex flex-wrap gap-1">
+                                            <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-muted/40 border-muted">
+                                              SKU: {selectedProd.productCode}
+                                            </Badge>
+                                            {selectedProd.category?.name && (
+                                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-muted/40 border-muted">
+                                                Cat: {selectedProd.category.name}
+                                              </Badge>
+                                            )}
+                                            {selectedProd.chairType && (
+                                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-muted/40 border-muted">
+                                                Type: {selectedProd.chairType}
+                                              </Badge>
+                                            )}
+                                            {selectedProd.warranty && (
+                                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-emerald-50 text-emerald-700 border-emerald-200">
+                                                Warranty: {selectedProd.warranty}
+                                              </Badge>
+                                            )}
+                                            {selectedProd.dimensions && (
+                                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-blue-50 text-blue-700 border-blue-200">
+                                                Dims: {selectedProd.dimensions}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          {selectedProd.description && (
+                                            <p className="text-[10px] text-muted-foreground line-clamp-2 leading-tight mt-1 italic" title={selectedProd.description}>
+                                              {selectedProd.description}
+                                            </p>
+                                          )}
+                                        </div>
+                                      )
+                                    })()}
                                   </div>
                                 </div>
                               </div>
@@ -2416,16 +2815,6 @@ function NewQuotationForm() {
                                         Remove Line
                                       </Button>
                                     )}
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      className="flex-1 h-8 text-[11px]"
-                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", saveToCatalog: false })}
-                                    >
-                                      <Plus className="h-3.5 w-3.5 mr-1" />
-                                      Add Custom Item
-                                    </Button>
                                   </div>
                                 </div>
                               </div>
@@ -2434,8 +2823,41 @@ function NewQuotationForm() {
                         }
 
                       })()}
+                            </div>
+                          )})
+                        )}
+                      </div>
+
+                      {/* Batch Container Footer */}
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t pt-4 mt-2">
+                        <div className="text-xs font-bold text-slate-700">
+                          {batch.name} Subtotal: AED {formatCurrency(batchSubtotal)}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddItemToBatch(batch.name, false)}
+                            className="h-8 text-[11px] border-primary/20 hover:border-primary/40 text-primary hover:bg-primary/5 cursor-pointer"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" />
+                            Add Catalog Product
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddItemToBatch(batch.name, true)}
+                            className="h-8 text-[11px] border-accent/20 hover:border-accent/40 text-accent hover:bg-accent/5 cursor-pointer"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" />
+                            Add Custom Product
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                  )
+                  );
                 })}
               </CardContent>
 

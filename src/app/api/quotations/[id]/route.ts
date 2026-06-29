@@ -452,6 +452,7 @@ export async function PUT(
           productDescription: item.productDescription || matchedProd?.description || null,
           dimensions: matchedProd?.dimensions || null,
           warranty: matchedProd?.warranty || null,
+          batchHeading: item.batchHeading || null,
         }
       }))
 
@@ -675,6 +676,7 @@ export async function PUT(
                 productDescription: item.productDescription,
                 categoryName: item.categoryName,
                 chairType: item.chairType,
+                batchHeading: item.batchHeading,
                 quantity: item.quantity,
                 basePrice: item.basePrice,
                 unitPrice: item.unitPrice,
@@ -800,6 +802,7 @@ export async function PUT(
           productDescription: item.productDescription || matchedProd?.description || null,
           dimensions: matchedProd?.dimensions || null,
           warranty: matchedProd?.warranty || null,
+          batchHeading: item.batchHeading || null,
         }
       }))
 
@@ -988,6 +991,7 @@ export async function PUT(
                 productDescription: item.productDescription,
                 categoryName: item.categoryName,
                 chairType: item.chairType,
+                batchHeading: item.batchHeading,
                 quantity: item.quantity,
                 basePrice: item.basePrice,
                 unitPrice: item.unitPrice,
@@ -1077,10 +1081,10 @@ export async function PUT(
     }
 
     return NextResponse.json(updatedQuotation)
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to update quotation:", error)
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: error?.message || "Internal Server Error" },
       { status: 500 }
     )
   }

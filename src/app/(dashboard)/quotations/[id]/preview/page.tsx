@@ -26,6 +26,7 @@ interface QuotationItem {
   productDescription?: string | null
   categoryName?: string | null
   chairType?: string | null
+  batchHeading?: string | null
   product?: {
     imageUrl: string | null
     sku: string
@@ -581,87 +582,124 @@ export default function QuotationHtmlPreviewPage({
           </div>
         </div>
 
-        {/* Products Table */}
-        <table className={`w-full table-fixed border-collapse text-[11px] ${quotation.items.length === 1 ? 'mb-[32px]' : 'mb-[40px]'}`}>
-          <thead>
-            <tr className="text-slate-900 text-left font-bold border-y border-slate-900">
-              <th className="py-3 px-4 w-[40%]">Item Description</th>
-              <th className="py-3 px-4 w-[33%] text-center">Image</th>
-              <th className="py-3 px-4 w-[7%] text-center">QTY</th>
-              <th className="py-3 px-4 w-[10%] text-right">Price</th>
-              <th className="py-3 px-4 w-[10%] text-right">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {quotation.items.map((item, idx) => (
-              <tr
-                key={item.id}
-                className="border-b border-[#fab48a] align-top"
-              >
-                {/* Description and specifications */}
-                <td className="px-4 align-top pt-[12px] pb-[14px] w-[40%] break-words whitespace-normal max-w-full shrink overflow-hidden">
-                  {/* 1. Product Name */}
-                  <div className="font-bold text-slate-900 text-[9.5px] leading-[1.1] mb-2 break-words whitespace-normal max-w-full shrink overflow-hidden">{item.description}</div>
-                  
-                  {/* 2. Product Type / Category */}
-                  {(item.categoryName || item.product?.category?.name) && (
-                    <div className="text-[#383e42] text-[5.85px] font-bold uppercase mb-[2px] tracking-[0.08em] break-words whitespace-normal max-w-full shrink overflow-hidden">
-                      {item.categoryName || item.product?.category?.name}
-                    </div>
-                  )}
+        {(() => {
+          const groupedSections: { heading: string | null; items: QuotationItem[] }[] = [];
+          quotation.items.forEach((item) => {
+            const heading = item.batchHeading ? item.batchHeading.trim() : null;
+            const existingSection = groupedSections.find(
+              (s) => (s.heading === null && heading === null) || (s.heading !== null && heading !== null && s.heading.toLowerCase() === heading.toLowerCase())
+            );
+            if (existingSection) {
+              existingSection.items.push(item);
+            } else {
+              groupedSections.push({ heading: item.batchHeading ? item.batchHeading.trim() : null, items: [item] });
+            }
+          });
 
-                  {/* 2.5 Chair Type (if applicable) */}
-                  {((item.categoryName || item.product?.category?.name)?.toLowerCase() === "chair" || (item.categoryName || item.product?.category?.name)?.toLowerCase() === "chairs") && (item.chairType || item.product?.chairType) && (
-                    <div className="text-[6.5px] mb-[2px] flex break-words whitespace-normal max-w-full shrink overflow-hidden">
-                      <span className="font-bold text-slate-900 mr-1 shrink-0">Chair Type:</span>
-                      <span className="text-[#444444] flex-1 break-words">{item.chairType || item.product?.chairType}</span>
-                    </div>
-                  )}
+          return (
+            <table className={`w-full table-fixed border-collapse text-[11px] ${quotation.items.length === 1 ? 'mb-[32px]' : 'mb-[40px]'}`}>
+              <thead>
+                <tr className="text-slate-900 text-left font-bold border-y border-slate-900">
+                  <th className="py-3 px-4 w-[40%]">Item Description</th>
+                  <th className="py-3 px-4 w-[33%] text-center">Image</th>
+                  <th className="py-3 px-4 w-[7%] text-center">QTY</th>
+                  <th className="py-3 px-4 w-[10%] text-right">Price</th>
+                  <th className="py-3 px-4 w-[10%] text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupedSections.map((group, gIdx) => {
+                  const sectionSubtotal = group.items.reduce((acc, item) => acc + item.amount, 0);
+                  return (
+                    <React.Fragment key={`group-${gIdx}`}>
+                      {group.heading && (
+                        <tr className="bg-slate-50 border-l-4 border-[#F17423] print:bg-slate-100" style={{ breakAfter: "avoid", pageBreakAfter: "avoid" }}>
+                          <td colSpan={5} className="py-2.5 px-4 text-[10px] font-bold text-slate-900 uppercase tracking-wide">
+                            {group.heading}
+                          </td>
+                        </tr>
+                      )}
+                      {group.items.map((item, idx) => (
+                        <tr
+                          key={item.id}
+                          className="border-b border-[#fab48a] align-top"
+                        >
+                          {/* Description and specifications */}
+                          <td className="px-4 align-top pt-[12px] pb-[14px] w-[40%] break-words whitespace-normal max-w-full shrink overflow-hidden">
+                            {/* 1. Product Name */}
+                            <div className="font-bold text-slate-900 text-[9.5px] leading-[1.1] mb-2 break-words whitespace-normal max-w-full shrink overflow-hidden">{item.description}</div>
+                            
+                            {/* 2. Product Type / Category */}
+                            {(item.categoryName || item.product?.category?.name) && (
+                              <div className="text-[#383e42] text-[5.85px] font-bold uppercase mb-[2px] tracking-[0.08em] break-words whitespace-normal max-w-full shrink overflow-hidden">
+                                {item.categoryName || item.product?.category?.name}
+                              </div>
+                            )}
 
-                  {/* 3. Product Description */}
-                  {(item.productDescription || item.product?.description) && (
-                    <div className="text-[#444444] text-[6.5px] mb-[4px] leading-[1.4] max-w-[95%] line-clamp-4 break-words whitespace-normal shrink overflow-hidden">
-                      {item.productDescription || item.product?.description}
-                    </div>
-                  )}
+                            {/* 2.5 Chair Type (if applicable) */}
+                            {((item.categoryName || item.product?.category?.name)?.toLowerCase() === "chair" || (item.categoryName || item.product?.category?.name)?.toLowerCase() === "chairs") && (item.chairType || item.product?.chairType) && (
+                              <div className="text-[6.5px] mb-[2px] flex break-words whitespace-normal max-w-full shrink overflow-hidden">
+                                <span className="font-bold text-slate-900 mr-1 shrink-0">Chair Type:</span>
+                                <span className="text-[#444444] flex-1 break-words">{item.chairType || item.product?.chairType}</span>
+                              </div>
+                            )}
 
-                  {/* 4, 5, 6. Specifications, Production Time, Remarks */}
-                  {renderSpecificationsHtml(item.specifications, item.productNotes)}
-                </td>
+                            {/* 3. Product Description */}
+                            {(item.productDescription || item.product?.description) && (
+                              <div className="text-[#444444] text-[6.5px] mb-[4px] leading-[1.4] max-w-[95%] line-clamp-4 break-words whitespace-normal shrink overflow-hidden">
+                                {item.productDescription || item.product?.description}
+                              </div>
+                            )}
 
-                {/* Product Image */}
-                <td className="px-4 text-center align-top pt-[12px] pb-[14px] w-[33%] overflow-hidden">
-                  {item.customImageUrl || item.product?.imageUrl ? (
-                    <img
-                      src={(item.customImageUrl || item.product?.imageUrl) ?? undefined}
-                      alt={item.description}
-                      className="w-full max-w-[180px] h-[120px] object-contain mx-auto"
-                    />
-                  ) : (
-                    <div className="w-full max-w-[180px] h-[120px] border border-dashed border-slate-200 rounded-sm flex items-center justify-center text-[8.5px] text-slate-400 bg-slate-50 mx-auto">
-                      No Image Available
-                    </div>
-                  )}
-                </td>
+                            {/* 4, 5, 6. Specifications, Production Time, Remarks */}
+                            {renderSpecificationsHtml(item.specifications, item.productNotes)}
+                          </td>
 
-                {/* Qty */}
-                <td className="px-4 align-top pt-[12px] pb-[14px] w-[7%] text-center font-medium text-slate-800">
-                  {item.quantity}
-                </td>
+                          {/* Product Image */}
+                          <td className="px-4 text-center align-top pt-[12px] pb-[14px] w-[33%] overflow-hidden">
+                            {item.customImageUrl || item.product?.imageUrl ? (
+                              <img
+                                src={(item.customImageUrl || item.product?.imageUrl) ?? undefined}
+                                alt={item.description}
+                                className="w-full max-w-[180px] h-[120px] object-contain mx-auto"
+                              />
+                            ) : (
+                              <div className="w-full max-w-[180px] h-[120px] border border-dashed border-slate-200 rounded-sm flex items-center justify-center text-[8.5px] text-slate-400 bg-slate-50 mx-auto">
+                                No Image Available
+                              </div>
+                            )}
+                          </td>
 
-                {/* Price */}
-                <td className="px-4 align-top pt-[12px] pb-[14px] w-[10%] text-right text-slate-800 font-mono">
-                  {formatCurrency(item.unitPrice)}
-                </td>
+                          {/* Qty */}
+                          <td className="px-4 align-top pt-[12px] pb-[14px] w-[7%] text-center font-medium text-slate-800">
+                            {item.quantity}
+                          </td>
 
-                {/* Total */}
-                <td className="px-4 align-top pt-[12px] pb-[14px] w-[10%] text-right font-bold text-slate-950 font-mono">
-                  {formatCurrency(item.amount)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                          {/* Price */}
+                          <td className="px-4 align-top pt-[12px] pb-[14px] w-[10%] text-right text-slate-800 font-mono">
+                            {formatCurrency(item.unitPrice)}
+                          </td>
+
+                          {/* Total */}
+                          <td className="px-4 align-top pt-[12px] pb-[14px] w-[10%] text-right font-bold text-slate-950 font-mono">
+                            {formatCurrency(item.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                      {group.heading && (
+                        <tr className="border-b border-dashed border-slate-200">
+                          <td colSpan={5} className="py-2.5 px-4 text-right font-bold text-[9.5px] text-slate-900 font-mono">
+                            {group.heading} Subtotal: AED {formatCurrency(sectionSubtotal)}
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          );
+        })()}
 
         {/* Financial Totals & Terms & Conditions side-by-side */}
         <div className={`flex justify-between items-start gap-8 page-break-inside-avoid ${quotation.items.length === 1 ? 'mb-4' : 'mb-10'}`}>

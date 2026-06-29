@@ -138,6 +138,7 @@ export async function GET(
       chairType: item.chairType || item.product?.chairType || null,
       dimensions: item.product?.dimensions || null,
       warranty: item.product?.warranty || null,
+      batchHeading: item.batchHeading || null,
     })))
 
     const companySettings = await getSettings([
