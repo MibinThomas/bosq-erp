@@ -10,14 +10,13 @@ export async function GET(
   try {
     const { id } = await params
     const session = await getServerSession(authOptions)
-    
-    // Determine the role
-    const userRole = (session?.user as any)?.role
-    
-    if (userRole !== "ADMIN" && userRole !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 })
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-
+    
+    const logUserRole = (session.user as any)?.role || "SALES_EXECUTIVE"
+    const logUserId = (session.user as any)?.id
+ 
     // 1. Fetch the Quotation to resolve its root ID and BOQ ID
     const quotation = await prisma.quotation.findFirst({
       where: {
@@ -27,7 +26,7 @@ export async function GET(
         ]
       }
     })
-
+ 
     if (!quotation) {
       return NextResponse.json(
         { error: "Quotation not found" },
@@ -35,6 +34,17 @@ export async function GET(
       )
     }
 
+    // Authorization checks
+    if (logUserRole === "SALES_EXECUTIVE") {
+      const hasAccess = quotation.preparedById === logUserId || quotation.salesAgentId === logUserId
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: "Forbidden: You do not have access to view this quotation" },
+          { status: 403 }
+        )
+      }
+    }
+ 
     const rootId = quotation.parentId || quotation.id
 
     // 2. Find all related quotation copies (root + all revisions)
@@ -87,6 +97,27 @@ export async function GET(
       })
     }
 
+    // 5. Fetch Revisions and Series Quotations list
+    const revisions = await prisma.quotationRevision.findMany({
+      where: { quotationId: rootId },
+      orderBy: { revisionNumber: "desc" }
+    })
+
+    const seriesQuotations = await prisma.quotation.findMany({
+      where: {
+        OR: [
+          { id: rootId },
+          { parentId: rootId }
+        ]
+      },
+      orderBy: { revisionNumber: "asc" },
+      include: {
+        preparedBy: {
+          select: { name: true }
+        }
+      }
+    })
+
     // Return the compiled journey data
     return NextResponse.json({
       quotation: {
@@ -96,7 +127,9 @@ export async function GET(
         sharepointUrl: quotation.sharepointUrl,
       },
       boq: boqData,
-      logs
+      logs,
+      revisions,
+      seriesQuotations
     })
 
   } catch (error) {

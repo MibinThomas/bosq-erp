@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Fragment, useCallback } from "react"
 import Link from "next/link"
-import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle, Edit, Map } from "lucide-react"
+import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle, Edit, Map, ChevronDown, ChevronRight, Calendar, User } from "lucide-react"
 import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
@@ -105,8 +105,6 @@ export default function QuotationsPage() {
     return () => clearTimeout(handler)
   }, [searchTerm])
   
-  const [historyQuote, setHistoryQuote] = useState<any | null>(null)
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [journeyQuoteId, setJourneyQuoteId] = useState<string | null>(null)
   const [isJourneyOpen, setIsJourneyOpen] = useState(false)
 
@@ -178,56 +176,41 @@ export default function QuotationsPage() {
     }
   }
 
-  // Effect to load full details including seriesQuotations when revision modal opens
-  useEffect(() => {
-    if (isHistoryOpen && historyQuote) {
-      const loadHistoryDetails = async () => {
-        try {
-          const res = await fetch(`/api/quotations/${historyQuote.id}`)
-          if (res.ok) {
-            const data = await res.json()
-            setHistoryQuote(data)
-          }
-        } catch (err) {
-          console.error("Failed to load full quotation history:", err)
-        }
+
+
+  const fetchQuotations = useCallback(async () => {
+    try {
+      setLoading(true)
+      const params = new URLSearchParams()
+      params.append("page", currentPage.toString())
+      params.append("limit", limit.toString())
+      if (debouncedSearch) params.append("search", debouncedSearch)
+      if (statusFilter && statusFilter !== "all") params.append("status", statusFilter)
+      if (segmentFilter && segmentFilter !== "all") params.append("customerSegment", segmentFilter)
+      if (poStatusFilter && poStatusFilter !== "all") params.append("poStatus", poStatusFilter)
+      params.append("sortBy", sortBy)
+      params.append("sortOrder", sortOrder)
+
+      const res = await fetch(`/api/quotations?${params.toString()}`)
+      if (!res.ok) throw new Error("Failed to fetch quotations")
+      const json = await res.json()
+      if (json.data) {
+        setQuotations(json.data)
+        setTotalPages(json.totalPages)
+      } else {
+        setQuotations(json)
       }
-      loadHistoryDetails()
+    } catch (error) {
+      console.error("Error fetching quotations:", error)
+      toast.error("Failed to load quotations. Please try again.")
+    } finally {
+      setLoading(false)
     }
-  }, [isHistoryOpen])
+  }, [currentPage, limit, debouncedSearch, statusFilter, segmentFilter, poStatusFilter, sortBy, sortOrder])
 
   useEffect(() => {
-    async function fetchQuotations() {
-      try {
-        setLoading(true)
-        const params = new URLSearchParams()
-        params.append("page", currentPage.toString())
-        params.append("limit", limit.toString())
-        if (debouncedSearch) params.append("search", debouncedSearch)
-        if (statusFilter && statusFilter !== "all") params.append("status", statusFilter)
-        if (segmentFilter && segmentFilter !== "all") params.append("customerSegment", segmentFilter)
-        if (poStatusFilter && poStatusFilter !== "all") params.append("poStatus", poStatusFilter)
-        params.append("sortBy", sortBy)
-        params.append("sortOrder", sortOrder)
-
-        const res = await fetch(`/api/quotations?${params.toString()}`)
-        if (!res.ok) throw new Error("Failed to fetch quotations")
-        const json = await res.json()
-        if (json.data) {
-          setQuotations(json.data)
-          setTotalPages(json.totalPages)
-        } else {
-          setQuotations(json)
-        }
-      } catch (error) {
-        console.error("Error fetching quotations:", error)
-        toast.error("Failed to load quotations. Please try again.")
-      } finally {
-        setLoading(false)
-      }
-    }
     fetchQuotations()
-  }, [currentPage, debouncedSearch, statusFilter, segmentFilter, poStatusFilter, sortBy, sortOrder])
+  }, [fetchQuotations])
 
   // Clear all filters
   const clearFilters = () => {
@@ -532,19 +515,15 @@ export default function QuotationsPage() {
                         </TableCell>
                       )}
                   <TableCell className="font-mono font-medium text-primary">
-                    {isAdminOrSuperAdmin ? (
-                      <span 
-                        className="cursor-pointer hover:underline text-blue-600"
-                        onClick={() => {
-                          setJourneyQuoteId(quote.id)
-                          setIsJourneyOpen(true)
-                        }}
-                      >
-                        {quote.quotationNumber}
-                      </span>
-                    ) : (
-                      quote.quotationNumber
-                    )}
+                    <span 
+                      className="cursor-pointer hover:underline text-blue-600"
+                      onClick={() => {
+                        setJourneyQuoteId(quote.id)
+                        setIsJourneyOpen(true)
+                      }}
+                    >
+                      {quote.quotationNumber}
+                    </span>
                   </TableCell>
                   <TableCell>{new Date(quote.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</TableCell>
                   <TableCell>
@@ -672,27 +651,14 @@ export default function QuotationsPage() {
                           <DropdownMenuLabel>View Options</DropdownMenuLabel>
                           <DropdownMenuItem 
                             onClick={() => {
-                              setHistoryQuote(quote)
-                              setIsHistoryOpen(true)
+                              setJourneyQuoteId(quote.id)
+                              setIsJourneyOpen(true)
                             }}
-                            className="flex items-center cursor-pointer"
+                            className="flex items-center cursor-pointer font-medium"
                           >
-                            <History className="mr-2 h-4 w-4 text-purple-600" />
-                            Revision History
+                            <Map className="mr-2 h-4 w-4 text-blue-600" />
+                            Quotation Journey
                           </DropdownMenuItem>
-                          
-                          {isAdminOrSuperAdmin && (
-                            <DropdownMenuItem 
-                              onClick={() => {
-                                setJourneyQuoteId(quote.id)
-                                setIsJourneyOpen(true)
-                              }}
-                              className="flex items-center cursor-pointer font-medium"
-                            >
-                              <Map className="mr-2 h-4 w-4 text-blue-600" />
-                              View Journey
-                            </DropdownMenuItem>
-                          )}
                           
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
@@ -785,280 +751,10 @@ export default function QuotationsPage() {
           setIsJourneyOpen(val)
           if (!val) setJourneyQuoteId(null)
         }} 
+        onConfirmed={fetchQuotations}
       />
 
-      {/* Revision History Modal */}
-      <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <DialogContent className="w-[90vw] sm:max-w-[720px] md:max-w-[800px] lg:max-w-[850px] rounded-xl overflow-hidden flex flex-col max-h-[90vh] p-0">
-          <DialogHeader className="p-6 pb-2">
-            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-              <History className="h-5 w-5 text-purple-600" />
-              Quotation Revision History
-            </DialogTitle>
-            <DialogDescription className="text-sm">
-              Full revisions and confirmation status for Quotation Series: **{historyQuote?.quotationNumber?.split("-")[0]}**
-            </DialogDescription>
-          </DialogHeader>
 
-          {historyQuote && (
-            <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-muted/40 border border-zinc-150 dark:border-zinc-800 rounded-xl p-4 text-sm">
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client</span>
-                  <div className="font-bold text-foreground truncate">{historyQuote.client?.companyName}</div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Version</span>
-                  <div className="font-bold text-foreground">
-                    Revision #{historyQuote.revisionNumber}{" "}
-                    <span className="text-xs font-normal text-muted-foreground">({historyQuote.quotationNumber})</span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current Total</span>
-                  <div className="font-mono font-bold text-primary text-base">
-                    AED {historyQuote.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                </div>
-              </div>
-
-              {!historyQuote.seriesQuotations || historyQuote.seriesQuotations.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-sm space-y-2">
-                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
-                  <p className="font-semibold text-zinc-500 animate-pulse">Loading revisions...</p>
-                </div>
-              ) : (
-                <>
-                  {/* Desktop view: Table */}
-                  <div className="hidden md:block border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-card">
-                    <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs table-fixed">
-                      <thead className="bg-muted/50 text-muted-foreground font-semibold">
-                        <tr>
-                          <th className="p-3 w-[22%]">Revision</th>
-                          <th className="p-3 w-[18%]">Date</th>
-                          <th className="p-3 w-[22%] text-right">Value</th>
-                          <th className="p-3 w-[22%] text-center">Status</th>
-                          <th className="p-3 w-[16%] text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                        {historyQuote.seriesQuotations.map((item: any) => {
-                           const isConfirmed = item.status === "CLIENT_APPROVED" || item.status === "CLIENT_CONFIRMED"
-                           const isProgressed = ["PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)
- 
-                           let displayStatus = item.status
-                           if (item.status === "CLIENT_APPROVED" || item.status === "CLIENT_CONFIRMED") displayStatus = "Client Approved"
-                           else if (item.status === "PO_CONVERTED" || item.status === "PO_RECEIVED") displayStatus = "Converted to PO"
-                           else if (item.status === "UNDER_PRODUCTION") displayStatus = "Under Production"
-                           else if (item.status === "REVISED") displayStatus = "Revised"
-                           else if (item.status === "APPROVED") displayStatus = "Client Approved"
-                           else if (item.status === "REJECTED") displayStatus = "Rejected"
-                           else if (item.status === "CANCELLED") displayStatus = "Cancelled"
-                           else if (item.status === "DRAFT") displayStatus = "Draft"
-                           else if (item.status === "QUOTE_CREATED") displayStatus = "Quote Created"
- 
-                           // Show Not Selected if another quote is confirmed
-                           const hasConfirmedInSeries = historyQuote.seriesQuotations.some((q: any) =>
-                             ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(q.status)
-                           )
-                           if (hasConfirmedInSeries && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)) {
-                             displayStatus = "Not Selected"
-                           }
-
-                          return (
-                            <tr
-                              key={item.id}
-                              className={`transition-colors duration-150 ${
-                                isConfirmed
-                                  ? "bg-green-50/40 dark:bg-green-950/15 hover:bg-green-50/60 dark:hover:bg-green-950/25 font-semibold text-green-900 dark:text-green-300"
-                                  : isProgressed
-                                  ? "bg-blue-50/20 dark:bg-blue-950/10 hover:bg-blue-50/40 dark:hover:bg-blue-950/20"
-                                  : displayStatus === "Not Selected"
-                                  ? "opacity-80 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 text-muted-foreground"
-                                  : "hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10"
-                              }`}
-                            >
-                              <td className="p-3 font-semibold font-mono truncate">{item.quotationNumber}</td>
-                              <td className="p-3 whitespace-nowrap">
-                                {new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                              </td>
-                              <td className="p-3 text-right font-mono font-medium">
-                                AED {item.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </td>
-                              <td className="p-3 text-center">
-                                {isConfirmed ? (
-                                  <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30 shadow-xs">
-                                    <Check className="h-3 w-3 shrink-0" /> Client Approved
-                                  </span>
-                                ) : displayStatus === "Not Selected" ? (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500 border border-zinc-200/50 dark:border-zinc-700/50">
-                                    Not Selected
-                                  </span>
-                                ) : (
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                    isProgressed
-                                      ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200"
-                                      : "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200"
-                                  }`}>
-                                    {displayStatus}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 text-right">
-                                <div className="flex flex-col items-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 px-1.5 text-[10px] font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20 w-fit"
-                                    onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
-                                  >
-                                    View
-                                  </Button>
-
-                                  {canConfirmQuoteItem(item.preparedById) && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 px-1.5 text-[10px] font-bold text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/20 w-fit"
-                                      onClick={() => handleConfirmQuote(item.id, false)}
-                                    >
-                                      Confirm
-                                    </Button>
-                                  )}
-
-                                  {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(item.status) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 px-1.5 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 w-fit"
-                                      onClick={() => handleUpdateStatus(item.id, "PO_CONVERTED", "status")}
-                                    >
-                                      Convert to PO
-                                    </Button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Mobile/Tablet view: Stacked Cards */}
-                  <div className="md:hidden space-y-3">
-                    {historyQuote.seriesQuotations.map((item: any) => {
-                       const isConfirmed = item.status === "CLIENT_APPROVED" || item.status === "CLIENT_CONFIRMED"
-                       const isProgressed = ["PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)
- 
-                       let displayStatus = item.status
-                       if (item.status === "CLIENT_APPROVED" || item.status === "CLIENT_CONFIRMED") displayStatus = "Client Approved"
-                       else if (item.status === "PO_CONVERTED" || item.status === "PO_RECEIVED") displayStatus = "Converted to PO"
-                       else if (item.status === "UNDER_PRODUCTION") displayStatus = "Under Production"
-                       else if (item.status === "REVISED") displayStatus = "Revised"
-                       else if (item.status === "APPROVED") displayStatus = "Client Approved"
-                       else if (item.status === "REJECTED") displayStatus = "Rejected"
-                       else if (item.status === "CANCELLED") displayStatus = "Cancelled"
-                       else if (item.status === "DRAFT") displayStatus = "Draft"
-                       else if (item.status === "QUOTE_CREATED") displayStatus = "Quote Created"
- 
-                       const hasConfirmedInSeries = historyQuote.seriesQuotations.some((q: any) =>
-                         ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(q.status)
-                       )
-                       if (hasConfirmedInSeries && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)) {
-                         displayStatus = "Not Selected"
-                       }
-
-                      return (
-                        <div
-                          key={item.id}
-                          className={`p-4 border rounded-xl space-y-3 transition-colors duration-150 ${
-                            isConfirmed
-                              ? "bg-green-50/40 dark:bg-green-950/15 border-green-300 dark:border-green-800"
-                              : isProgressed
-                              ? "bg-blue-50/10 dark:bg-blue-950/10 border-blue-200 dark:border-blue-900"
-                              : displayStatus === "Not Selected"
-                              ? "bg-zinc-50/50 dark:bg-zinc-900/50 opacity-90 border-zinc-200 dark:border-zinc-850 text-muted-foreground"
-                              : "bg-card text-card-foreground border-zinc-200 dark:border-zinc-800"
-                          }`}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="font-bold text-sm font-mono text-foreground">{item.quotationNumber}</div>
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                {new Date(item.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                              </div>
-                            </div>
-                            <div>
-                              {isConfirmed ? (
-                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30 shadow-xs">
-                                  <Check className="h-3 w-3" /> Client Approved
-                                </span>
-                              ) : displayStatus === "Not Selected" ? (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-zinc-100 text-zinc-400 dark:bg-zinc-800/50 dark:text-zinc-500 border border-zinc-200/50 dark:border-zinc-700/50">
-                                  Not Selected
-                                </span>
-                              ) : (
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                  isProgressed
-                                    ? "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200"
-                                    : "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-400 border border-purple-200"
-                                }`}>
-                                  {displayStatus}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex justify-between items-baseline pt-1">
-                            <span className="text-xs text-muted-foreground">Total Value:</span>
-                            <span className="font-mono font-bold text-sm text-foreground">
-                              AED {item.grandTotal?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                          </div>
-
-                          <div className="flex justify-end gap-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 px-3 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/20"
-                              onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
-                            >
-                              View
-                            </Button>
-
-                             {canConfirmQuoteItem(item.preparedById) && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(item.status) && (
-                               <Button
-                                 variant="outline"
-                                 size="sm"
-                                 className="h-8 px-3 text-xs text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/20 font-semibold"
-                                 onClick={() => handleConfirmQuote(item.id, false)}
-                               >
-                                 Approve
-                               </Button>
-                             )}
- 
-                             {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(item.status) && (
-                               <Button
-                                 variant="outline"
-                                 size="sm"
-                                 className="h-8 px-3 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 font-semibold"
-                                 onClick={() => handleUpdateStatus(item.id, "PO_CONVERTED", "status")}
-                               >
-                                 Convert to PO
-                               </Button>
-                             )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Replace Confirmation Modal */}
       <Dialog open={isReplaceDialogOpen} onOpenChange={setIsReplaceDialogOpen}>

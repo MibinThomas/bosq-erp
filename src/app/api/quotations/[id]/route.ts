@@ -300,6 +300,99 @@ export async function PUT(
       where: { id: finalPreparedById }
     }) || existingQuotation.preparedBy
 
+    // CASE 5: CONFIRM CLIENT-APPROVED REVISION AS FINAL QUOTATION
+    if (body.action === "CONFIRM_FINAL") {
+      const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(logUserRole)
+      const isSalesExecutiveWithPermission = logUserRole === "SALES_EXECUTIVE" && (
+        dbSessionUser?.permissionOverrides.find(o => o.action === "canConfirmQuotation")?.value ?? rolePerm?.canConfirmQuotation ?? false
+      )
+      const isAuthorized = isManagerOrAdmin || isSalesExecutiveWithPermission
+      
+      if (!isAuthorized) {
+        return NextResponse.json({ error: "Unauthorized: You do not have permission to confirm revisions as Final Quotation" }, { status: 403 })
+      }
+
+      const rootId = existingQuotation.parentId || existingQuotation.id
+
+      const confirmedQuotation = await prisma.$transaction(async (tx) => {
+        // 1. Mark all other quotations in this series as REVISED
+        await tx.quotation.updateMany({
+          where: {
+            OR: [
+              { id: rootId },
+              { parentId: rootId }
+            ],
+            id: { not: existingQuotation.id }
+          },
+          data: { status: "REVISED" }
+        })
+
+        // 2. Mark the selected revision as CLIENT_CONFIRMED
+        const updated = await tx.quotation.update({
+          where: { id: existingQuotation.id },
+          data: { status: "CLIENT_CONFIRMED" },
+          include: { client: true, items: true, revisions: true }
+        })
+
+        // 3. Migrate/upsert assignments to the confirmed revision
+        const seriesQuotes = await tx.quotation.findMany({
+          where: {
+            OR: [
+              { id: rootId },
+              { parentId: rootId }
+            ]
+          },
+          select: { id: true }
+        })
+        const seriesQuoteIds = seriesQuotes.map(q => q.id)
+
+        const existingAssignments = await tx.quotationAssignment.findMany({
+          where: {
+            quotationId: { in: seriesQuoteIds }
+          }
+        })
+        
+        const uniqueAssignmentsMap = new Map()
+        for (const a of existingAssignments) {
+          if (!uniqueAssignmentsMap.has(a.userId)) {
+            uniqueAssignmentsMap.set(a.userId, a)
+          }
+        }
+        const uniqueAssignments = Array.from(uniqueAssignmentsMap.values())
+
+        await tx.quotationAssignment.deleteMany({
+          where: { quotationId: existingQuotation.id }
+        })
+
+        if (uniqueAssignments.length > 0) {
+          await tx.quotationAssignment.createMany({
+            data: uniqueAssignments.map(a => ({
+              quotationId: existingQuotation.id,
+              userId: a.userId,
+              allowEdit: a.allowEdit,
+              allowRevisionApproval: a.allowRevisionApproval,
+              allowPricingVisibility: a.allowPricingVisibility
+            }))
+          })
+        }
+
+        // 4. Log activity
+        await tx.activityLog.create({
+          data: {
+            userId: logUserId,
+            action: "CLIENT_CONFIRMED_QUOTATION",
+            entityType: "QUOTATION",
+            entityId: updated.id,
+            details: `Confirmed quotation revision ${updated.quotationNumber} as the Final Quotation. Status updated to Client Confirmed. Client: ${updated.client.companyName}`,
+          }
+        })
+
+        return updated
+      }, { maxWait: 15000, timeout: 30000 })
+
+      return NextResponse.json(confirmedQuotation)
+    }
+
     // CASE 4: CLIENT CONFIRMS/APPROVES QUOTATION
     if (body.action === "CLIENT_CONFIRM" || body.status === "CLIENT_APPROVED") {
       const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(logUserRole)
