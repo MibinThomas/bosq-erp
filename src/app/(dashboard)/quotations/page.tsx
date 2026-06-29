@@ -43,6 +43,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { QuotationJourneyModal } from "@/components/quotations/QuotationJourneyModal"
+import { QuotationStatusModal, STATUS_BADGES, STATUS_LABELS } from "@/components/quotations/QuotationStatusModal"
 
 interface QuotationRevision {
   id: string
@@ -112,6 +113,8 @@ export default function QuotationsPage() {
   const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false)
   const [conflictingQuoteNo, setConflictingQuoteNo] = useState("")
   const [targetQuoteToConfirm, setTargetQuoteToConfirm] = useState<any | null>(null)
+  const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [targetStatusQuote, setTargetStatusQuote] = useState<{ id: string; quotationNumber: string; status: string } | null>(null)
 
   useEffect(() => {
     fetch("/api/users/me/permissions")
@@ -215,34 +218,15 @@ export default function QuotationsPage() {
   }
 
   const getStatusBadge = (status: string, revisionNumber?: number) => {
-    if (status === "DRAFT" && revisionNumber && revisionNumber > 1) {
-      return <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-medium">Revised</Badge>
-    }
-    switch (status) {
-      case "CLIENT_APPROVED":
-      case "CLIENT_CONFIRMED":
-      case "APPROVED":
-        return <Badge className="bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center gap-1 shrink-0"><Check size={11} />Client Approved</Badge>
-      case "SENT":
-        return <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-medium">Sent to Client</Badge>
-      case "DRAFT":
-        return <Badge variant="outline" className="text-gray-500 font-medium border-zinc-300">Draft</Badge>
-      case "QUOTE_CREATED":
-        return <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-medium">Quote Created</Badge>
-      case "REJECTED":
-        return <Badge variant="destructive" className="font-medium">Rejected</Badge>
-      case "CANCELLED":
-        return <Badge variant="destructive" className="font-medium bg-red-100 text-red-700 border-red-200 hover:bg-red-200">Cancelled</Badge>
-      case "REVISED":
-        return <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-medium">Revised</Badge>
-      case "PO_CONVERTED":
-      case "PO_RECEIVED":
-        return <Badge className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium">Converted to PO</Badge>
-      case "UNDER_PRODUCTION":
-        return <Badge className="bg-orange-600 hover:bg-orange-700 text-white font-medium">Under Production</Badge>
-      default:
-        return <Badge className="font-medium">{status}</Badge>
-    }
+    // Legacy support: map old APPROVED to CLIENT_APPROVED, QUOTE_CREATED to SUBMITTED, and PO_CONVERTED to PO_RECEIVED
+    let resolvedStatus = status
+    if (status === "APPROVED") resolvedStatus = "CLIENT_APPROVED"
+    else if (status === "QUOTE_CREATED") resolvedStatus = "SUBMITTED"
+    else if (status === "PO_CONVERTED") resolvedStatus = "PO_RECEIVED"
+
+    const label = STATUS_LABELS[resolvedStatus] || resolvedStatus
+    const badgeClass = STATUS_BADGES[resolvedStatus] || "bg-zinc-100 text-zinc-800 border-zinc-200"
+    return <Badge className={`${badgeClass} font-semibold border hover:opacity-90`}>{label}</Badge>
   }
 
   const handleUpdateStatus = async (id: string, newStatus: string, field: "status" | "poStatus") => {
@@ -382,16 +366,21 @@ export default function QuotationsPage() {
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="QUOTE_CREATED">Created</SelectItem>
-                <SelectItem value="SENT">Sent</SelectItem>
-                <SelectItem value="CLIENT_APPROVED">Client Approved</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                <SelectItem value="UNDER_REVIEW">Under Review</SelectItem>
                 <SelectItem value="REVISED">Revised</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
-                <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                <SelectItem value="PO_CONVERTED">PO Converted</SelectItem>
-                <SelectItem value="PO_RECEIVED">PO Received</SelectItem>
+                <SelectItem value="SENT_TO_CLIENT">Sent to Client</SelectItem>
+                <SelectItem value="CLIENT_REVIEWING">Client Reviewing</SelectItem>
+                <SelectItem value="CLIENT_APPROVED">Client Approved</SelectItem>
+                <SelectItem value="CLIENT_CONFIRMED">Client Confirmed</SelectItem>
+                <SelectItem value="CLIENT_REJECTED">Client Rejected</SelectItem>
                 <SelectItem value="UNDER_PRODUCTION">Under Production</SelectItem>
+                <SelectItem value="READY_FOR_DELIVERY">Ready for Delivery</SelectItem>
+                <SelectItem value="DELIVERED">Delivered</SelectItem>
+                <SelectItem value="PO_RECEIVED">PO Received</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                <SelectItem value="LOST">Lost</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -653,28 +642,19 @@ export default function QuotationsPage() {
                           
                           <DropdownMenuSeparator />
                           <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-
-                          {canConfirmQuoteItem(quote.preparedById) && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quote.status) && (
-                            <DropdownMenuItem onClick={() => handleConfirmQuote(quote.id, false)} className="cursor-pointer font-semibold text-green-700 focus:text-green-700 focus:bg-green-50">
-                              <Check className="mr-2 h-4 w-4 text-green-600" />
-                              Mark as Client Approved
-                            </DropdownMenuItem>
-                          )}
-                          {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(quote.status) && (
-                            <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "PO_CONVERTED", "status")} className="cursor-pointer">
-                              Convert to PO
-                            </DropdownMenuItem>
-                          )}
-                          {["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED"].includes(quote.status) && (
-                            <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "UNDER_PRODUCTION", "status")} className="cursor-pointer">
-                              Mark Under Production
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "REJECTED", "status")} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50">
-                            Mark Rejected
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleUpdateStatus(quote.id, "CANCELLED", "status")} className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50">
-                            Mark Cancelled
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setTargetStatusQuote({
+                                id: quote.id,
+                                quotationNumber: quote.quotationNumber,
+                                status: quote.status
+                              })
+                              setStatusModalOpen(true)
+                            }}
+                            className="flex items-center cursor-pointer font-medium"
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4 text-emerald-600" />
+                            Change Status...
                           </DropdownMenuItem>
                           
                           <DropdownMenuSeparator />
@@ -743,6 +723,17 @@ export default function QuotationsPage() {
           if (!val) setJourneyQuoteId(null)
         }} 
         onConfirmed={fetchQuotations}
+      />
+
+      <QuotationStatusModal
+        open={statusModalOpen}
+        onOpenChange={setStatusModalOpen}
+        quotation={targetStatusQuote}
+        onSuccess={() => {
+          fetchQuotations()
+          // Dispatch a background event to update other metrics
+          window.dispatchEvent(new Event("dashboard-refresh"))
+        }}
       />
 
 

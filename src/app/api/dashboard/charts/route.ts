@@ -198,7 +198,15 @@ export async function GET(request: Request) {
       const record = timeSeriesMap.get(dateStr)!
       const value = q.grandTotal || 0
       
-      const isConverted = q.poStatus === "RECEIVED" || q.status === "PO_RECEIVED" || q.status === "CLIENT_CONFIRMED" || q.status === "CLIENT_APPROVED" || q.status === "APPROVED" || q.status === "PO_CONVERTED" || q.status === "UNDER_PRODUCTION"
+      const isConverted = [
+        "CLIENT_APPROVED",
+        "CLIENT_CONFIRMED",
+        "PO_RECEIVED",
+        "UNDER_PRODUCTION",
+        "READY_FOR_DELIVERY",
+        "DELIVERED",
+        "COMPLETED"
+      ].includes(q.status)
       
       if (isConverted) {
         record.convertedValue += value

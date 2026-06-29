@@ -291,7 +291,6 @@ export async function PUT(
 
     // Special discount permission validation check removed to allow all roles to update and apply unlimited discount
 
-    // Determine the actual PreparedBy user (could be changed by admin/manager)
     let finalPreparedById = existingQuotation.preparedById
     if (["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(logUserRole) && body.preparedById) {
       finalPreparedById = body.preparedById
@@ -299,6 +298,148 @@ export async function PUT(
     const finalPreparedByUser = await prisma.user.findUnique({
       where: { id: finalPreparedById }
     }) || existingQuotation.preparedBy
+
+    // CASE 4.5: CHANGE QUOTATION STATUS (Comprehensive sales pipeline & lifecycle status flow)
+    if (body.action === "CHANGE_STATUS") {
+      const { newStatus, remarks } = body
+      if (!newStatus) {
+        return NextResponse.json({ error: "Missing newStatus parameter" }, { status: 400 })
+      }
+
+      const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(logUserRole)
+      const isSalesExecutiveWithPermission = logUserRole === "SALES_EXECUTIVE" && (
+        dbSessionUser?.permissionOverrides.find(o => o.action === "canConfirmQuotation")?.value ?? rolePerm?.canConfirmQuotation ?? false
+      )
+      const isAuthorized = isManagerOrAdmin || isSalesExecutiveWithPermission
+
+      // Enforce transition rules
+      const VALID_TRANSITIONS: Record<string, string[]> = {
+        DRAFT: ["SUBMITTED", "CANCELLED"],
+        SUBMITTED: ["UNDER_REVIEW", "SENT_TO_CLIENT", "CANCELLED"],
+        UNDER_REVIEW: ["SENT_TO_CLIENT", "REVISED", "CANCELLED"],
+        REVISED: ["SENT_TO_CLIENT", "CANCELLED"],
+        SENT_TO_CLIENT: ["CLIENT_REVIEWING", "CLIENT_APPROVED", "CLIENT_REJECTED", "CANCELLED"],
+        CLIENT_REVIEWING: ["CLIENT_APPROVED", "CLIENT_REJECTED", "CANCELLED"],
+        CLIENT_APPROVED: ["CLIENT_CONFIRMED", "CANCELLED"],
+        CLIENT_CONFIRMED: ["PO_RECEIVED", "UNDER_PRODUCTION", "CANCELLED"],
+        CLIENT_REJECTED: ["LOST", "REVISED", "CANCELLED"],
+        UNDER_PRODUCTION: ["READY_FOR_DELIVERY", "CANCELLED"],
+        READY_FOR_DELIVERY: ["DELIVERED", "CANCELLED"],
+        DELIVERED: ["PO_RECEIVED", "COMPLETED", "CANCELLED"],
+        PO_RECEIVED: ["UNDER_PRODUCTION", "READY_FOR_DELIVERY", "DELIVERED", "COMPLETED", "CANCELLED"],
+        COMPLETED: ["CANCELLED"],
+        CANCELLED: ["DRAFT", "SUBMITTED"],
+        LOST: ["DRAFT", "SUBMITTED"]
+      }
+
+      const allowedTransitions = VALID_TRANSITIONS[existingQuotation.status] || [
+        "DRAFT", "SUBMITTED", "UNDER_REVIEW", "SENT_TO_CLIENT", "CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_RECEIVED", "CANCELLED"
+      ]
+
+      if (!allowedTransitions.includes(newStatus)) {
+        return NextResponse.json({ error: `Invalid status transition from ${existingQuotation.status} to ${newStatus}` }, { status: 400 })
+      }
+
+      // Enforce roles & permission checks
+      const restrictedStatuses = [
+        "CLIENT_CONFIRMED",
+        "PO_RECEIVED",
+        "UNDER_PRODUCTION",
+        "READY_FOR_DELIVERY",
+        "DELIVERED",
+        "COMPLETED"
+      ]
+
+      if (restrictedStatuses.includes(newStatus) && !isAuthorized) {
+        return NextResponse.json({ error: "Unauthorized: Downstream status changes require Manager or Admin authorization" }, { status: 403 })
+      }
+
+      // Update status and write activity log
+      const updatedQuotation = await prisma.$transaction(async (tx) => {
+        const rootId = existingQuotation.parentId || existingQuotation.id
+
+        if (newStatus === "CLIENT_CONFIRMED") {
+          // 1. Mark all other quotations in this series as REVISED
+          await tx.quotation.updateMany({
+            where: {
+              OR: [
+                { id: rootId },
+                { parentId: rootId }
+              ],
+              id: { not: existingQuotation.id }
+            },
+            data: { status: "REVISED" }
+          })
+
+          // 2. Migrate/upsert assignments to the confirmed revision
+          const seriesQuotes = await tx.quotation.findMany({
+            where: {
+              OR: [
+                { id: rootId },
+                { parentId: rootId }
+              ]
+            },
+            select: { id: true }
+          })
+          const seriesQuoteIds = seriesQuotes.map(q => q.id)
+
+          const existingAssignments = await tx.quotationAssignment.findMany({
+            where: {
+              quotationId: { in: seriesQuoteIds }
+            }
+          })
+          
+          const uniqueAssignmentsMap = new Map()
+          for (const a of existingAssignments) {
+            if (!uniqueAssignmentsMap.has(a.userId)) {
+              uniqueAssignmentsMap.set(a.userId, a)
+            }
+          }
+          const uniqueAssignments = Array.from(uniqueAssignmentsMap.values())
+
+          await tx.quotationAssignment.deleteMany({
+            where: { quotationId: existingQuotation.id }
+          })
+
+          if (uniqueAssignments.length > 0) {
+            await tx.quotationAssignment.createMany({
+              data: uniqueAssignments.map(a => ({
+                quotationId: existingQuotation.id,
+                userId: a.userId,
+                allowEdit: a.allowEdit,
+                allowRevisionApproval: a.allowRevisionApproval,
+                allowPricingVisibility: a.allowPricingVisibility
+              }))
+            })
+          }
+        }
+
+        // Create activity log
+        await tx.activityLog.create({
+          data: {
+            userId: logUserId,
+            action: newStatus === "CLIENT_CONFIRMED" ? "CLIENT_CONFIRMED_QUOTATION" : "CHANGE_STATUS",
+            entityType: "QUOTATION",
+            entityId: existingQuotation.id,
+            details: newStatus === "CLIENT_CONFIRMED"
+              ? `Confirmed quotation revision ${existingQuotation.quotationNumber} as the Final Quotation. Status updated to Client Confirmed. Remarks: ${remarks || "None"}`
+              : `Status of ${existingQuotation.quotationNumber} changed from ${existingQuotation.status} to ${newStatus}. Remarks: ${remarks || "None"}`,
+            createdAt: new Date()
+          }
+        })
+
+        // Update status of the quotation
+        return await tx.quotation.update({
+          where: { id: existingQuotation.id },
+          data: {
+            status: newStatus,
+            updatedAt: new Date()
+          }
+        })
+      }, { maxWait: 15000, timeout: 30000 })
+
+      return NextResponse.json(updatedQuotation)
+    }
 
     // CASE 5: CONFIRM CLIENT-APPROVED REVISION AS FINAL QUOTATION
     if (body.action === "CONFIRM_FINAL") {

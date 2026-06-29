@@ -44,6 +44,9 @@ interface KPIStats {
   totalRevenuePipeline?: number
   underProductionCount?: number
   underProductionValue?: number
+  lostRevenue?: number
+  lostQuotesCount?: number
+  pendingRevenue?: number
 }
 
 interface DashboardKPIsProps {
@@ -98,10 +101,9 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
     )
   }
 
-  // Calculate lost/rejected quotations
-  const rejectedStats = data.statusStats?.filter((s: any) => ["REJECTED", "CANCELLED"].includes(s.status)) || []
-  const lostQuotesCount = rejectedStats.reduce((sum: number, s: any) => sum + s.count, 0)
-  const lostQuotesValue = rejectedStats.reduce((sum: number, s: any) => sum + s.value, 0)
+  const lostQuotesCount = data.lostQuotesCount ?? 0
+  const lostQuotesValue = data.lostRevenue ?? 0
+  const pendingRevenue = data.pendingRevenue ?? 0
 
   return (
     <div className="space-y-6">
@@ -319,27 +321,6 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
         </h3>
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           
-          {/* Quotation Value */}
-          <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
-            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Quotation Value</span>
-                <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-500 dark:text-blue-400">
-                  <DollarSign className="h-4 w-4" />
-                </div>
-              </div>
-              <div>
-                <div className="flex items-baseline gap-1 truncate">
-                  <span className="text-xs font-bold text-muted-foreground">AED</span>
-                  <span className="text-2xl font-bold tracking-tight font-sans text-foreground">{formatCurrencyParts(data.totalValue)}</span>
-                </div>
-                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
-                  <span>Gross pipeline sum</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Confirmed Revenue */}
           <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
             <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
@@ -376,17 +357,38 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
                   <span className="text-2xl font-bold tracking-tight font-sans text-pink-600 dark:text-pink-400">{formatCurrencyParts(data.totalRevenuePipeline ?? 0)}</span>
                 </div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
-                  <span className="text-pink-500 flex items-center font-bold gap-0.5">Unclosed value</span>
+                  <span className="text-pink-500 flex items-center font-bold gap-0.5">Active pipeline sum</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Lost / Rejected */}
+          {/* Pending Revenue */}
           <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
             <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
               <div className="flex justify-between items-start">
-                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Lost / Rejected</span>
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Pending Revenue</span>
+                <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-500 dark:text-blue-400">
+                  <Clock className="h-4 w-4" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-baseline gap-1 truncate">
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-500">AED</span>
+                  <span className="text-2xl font-bold tracking-tight font-sans text-blue-600 dark:text-blue-400">{formatCurrencyParts(pendingRevenue)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
+                  <span>Awaiting client approval</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lost Revenue */}
+          <Card className="border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md transition-all duration-300">
+            <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-semibold text-muted-foreground font-sans uppercase tracking-wider">Lost Revenue</span>
                 <div className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-500 dark:text-rose-400">
                   <TrendingDown className="h-4 w-4" />
                 </div>
@@ -397,7 +399,7 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
                   <span className="text-2xl font-bold tracking-tight font-sans text-rose-600 dark:text-rose-400">{formatCurrencyParts(lostQuotesValue)}</span>
                 </div>
                 <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground font-sans">
-                  <span>{lostQuotesCount} quote(s) lost/rejected</span>
+                  <span>{lostQuotesCount} quote(s) lost/cancelled</span>
                 </div>
               </div>
             </CardContent>

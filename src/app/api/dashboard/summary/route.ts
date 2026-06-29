@@ -233,7 +233,9 @@ export async function GET(request: Request) {
       consultantStats,
       clientStats,
       statusStats,
-      underProductionStats
+      underProductionStats,
+      lostStats,
+      pendingStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
         where: { ...whereClause, status: { not: "REVISED" } },
@@ -246,15 +248,17 @@ export async function GET(request: Request) {
             whereClause,
             { status: { not: "REVISED" } },
             {
-              OR: [
-                { poStatus: "RECEIVED" },
-                { status: "PO_RECEIVED" },
-                { status: "CLIENT_CONFIRMED" },
-                { status: "CLIENT_APPROVED" },
-                { status: "APPROVED" },
-                { status: "PO_CONVERTED" },
-                { status: "UNDER_PRODUCTION" }
-              ]
+              status: {
+                in: [
+                  "CLIENT_APPROVED",
+                  "CLIENT_CONFIRMED",
+                  "PO_RECEIVED",
+                  "UNDER_PRODUCTION",
+                  "READY_FOR_DELIVERY",
+                  "DELIVERED",
+                  "COMPLETED"
+                ]
+              }
             }
           ]
         },
@@ -262,10 +266,10 @@ export async function GET(request: Request) {
         _sum: { grandTotal: true }
       }),
       prisma.quotation.count({
-        where: { ...whereClause, status: "QUOTE_CREATED" }
+        where: { ...whereClause, status: "SUBMITTED" }
       }),
       prisma.quotation.count({
-        where: { ...whereClause, status: { in: ["DRAFT", "REVISED"] } }
+        where: { ...whereClause, status: { in: ["DRAFT", "UNDER_REVIEW", "REVISED", "SENT_TO_CLIENT", "CLIENT_REVIEWING"] } }
       }),
       prisma.quotation.groupBy({
         by: ["preparedById"],
@@ -314,6 +318,26 @@ export async function GET(request: Request) {
           AND: [
             whereClause,
             { status: "UNDER_PRODUCTION" }
+          ]
+        },
+        _count: true,
+        _sum: { grandTotal: true }
+      }),
+      prisma.quotation.aggregate({
+        where: {
+          AND: [
+            whereClause,
+            { status: { in: ["LOST", "CANCELLED"] } }
+          ]
+        },
+        _count: true,
+        _sum: { grandTotal: true }
+      }),
+      prisma.quotation.aggregate({
+        where: {
+          AND: [
+            whereClause,
+            { status: { in: ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "SENT_TO_CLIENT", "CLIENT_REVIEWING", "CLIENT_REJECTED"] } }
           ]
         },
         _count: true,
@@ -442,20 +466,10 @@ export async function GET(request: Request) {
     // 4. totalActiveQuotations (in-progress)
     const activeQuotesStats = await prisma.quotation.aggregate({
       where: {
-        AND: [
-          whereClause,
-          {
-            status: {
-              notIn: ["REVISED", "REJECTED", "CANCELLED", "PO_RECEIVED", "CLIENT_CONFIRMED", "CLIENT_APPROVED", "APPROVED", "PO_CONVERTED", "UNDER_PRODUCTION"]
-            }
-          },
-          {
-            OR: [
-              { poStatus: { not: "RECEIVED" } },
-              { poStatus: null }
-            ]
-          }
-        ]
+        ...whereClause,
+        status: {
+          notIn: ["REVISED", "COMPLETED", "CANCELLED", "LOST"]
+        }
       },
       _count: true,
       _sum: { grandTotal: true }
@@ -522,16 +536,17 @@ export async function GET(request: Request) {
                 where: {
                   preparedById: cid,
                   deletedAt: null,
-                  status: { not: "REVISED" },
-                  OR: [
-                    { poStatus: "RECEIVED" },
-                    { status: "PO_RECEIVED" },
-                    { status: "CLIENT_CONFIRMED" },
-                    { status: "CLIENT_APPROVED" },
-                    { status: "APPROVED" },
-                    { status: "PO_CONVERTED" },
-                    { status: "UNDER_PRODUCTION" }
-                  ]
+                  status: {
+                    in: [
+                      "CLIENT_APPROVED",
+                      "CLIENT_CONFIRMED",
+                      "PO_RECEIVED",
+                      "UNDER_PRODUCTION",
+                      "READY_FOR_DELIVERY",
+                      "DELIVERED",
+                      "COMPLETED"
+                    ]
+                  }
                 }
               })
             ])
@@ -574,6 +589,10 @@ export async function GET(request: Request) {
       })
     }
 
+    const lostRevenue = lostStats?._sum?.grandTotal || 0
+    const lostQuotesCount = lostStats?._count || 0
+    const pendingRevenue = pendingStats?._sum?.grandTotal || 0
+
     return NextResponse.json({
       totalQuotes,
       totalValue,
@@ -601,7 +620,10 @@ export async function GET(request: Request) {
       totalPendingBOQs,
       totalRevenuePipeline,
       underProductionCount,
-      underProductionValue
+      underProductionValue,
+      lostRevenue,
+      lostQuotesCount,
+      pendingRevenue
     }, {
       headers: {
         "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
