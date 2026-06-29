@@ -1144,13 +1144,17 @@ function NewQuotationForm() {
     }
   }
 
-  async function onSubmit(data: QuotationFormValues, targetStatus?: "DRAFT" | "QUOTE_CREATED") {
-    if (isRevision && !revisionNotes.trim()) {
+  async function onSubmit(data: QuotationFormValues, targetStatus?: "DRAFT" | "SUBMITTED") {
+    const resolvedStatus = targetStatus === "DRAFT"
+      ? "DRAFT"
+      : isRevision
+        ? "REVISED"
+        : (targetStatus || "SUBMITTED")
+
+    if (isRevision && resolvedStatus !== "DRAFT" && !revisionNotes.trim()) {
       toast.error("Revision notes are required to revise this quotation!")
       return
     }
-
-    const resolvedStatus = isRevision ? "REVISED" : (targetStatus || "DRAFT")
 
     setSubmitting(true)
     try {
@@ -1325,7 +1329,7 @@ function NewQuotationForm() {
       ) : (
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit((data) => onSubmit(data, "QUOTE_CREATED"))}
+            onSubmit={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"))}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const target = e.target as HTMLElement

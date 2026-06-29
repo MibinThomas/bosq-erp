@@ -167,7 +167,7 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
     } else if (presetName === "pending_approvals") {
       presetFilters = {
         ...presetFilters,
-        status: "QUOTE_CREATED"
+        status: "SUBMITTED"
       }
     }
 
@@ -324,13 +324,21 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="QUOTE_CREATED">Quote Created</SelectItem>
+                  <SelectItem value="SUBMITTED">Submitted</SelectItem>
+                  <SelectItem value="UNDER_REVIEW">Under Review</SelectItem>
                   <SelectItem value="REVISED">Revised</SelectItem>
+                  <SelectItem value="SENT_TO_CLIENT">Sent to Client</SelectItem>
+                  <SelectItem value="CLIENT_REVIEWING">Client Reviewing</SelectItem>
                   <SelectItem value="CLIENT_APPROVED">Client Approved</SelectItem>
-                  <SelectItem value="PO_CONVERTED">Converted to PO</SelectItem>
+                  <SelectItem value="CLIENT_CONFIRMED">Client Confirmed</SelectItem>
+                  <SelectItem value="CLIENT_REJECTED">Client Rejected</SelectItem>
                   <SelectItem value="UNDER_PRODUCTION">Under Production</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                  <SelectItem value="READY_FOR_DELIVERY">Ready for Delivery</SelectItem>
+                  <SelectItem value="DELIVERED">Delivered</SelectItem>
+                  <SelectItem value="PO_RECEIVED">PO Received</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
                   <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                  <SelectItem value="LOST">Lost</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -307,8 +307,17 @@ export function QuotationJourneyModal({
                       <p className="text-muted-foreground text-sm">No revisions found.</p>
                     ) : (
                       data.seriesQuotations.map((item) => {
+                        const isConfirmedOrWon = [
+                          "CLIENT_APPROVED",
+                          "CLIENT_CONFIRMED",
+                          "PO_RECEIVED",
+                          "UNDER_PRODUCTION",
+                          "READY_FOR_DELIVERY",
+                          "DELIVERED",
+                          "COMPLETED"
+                        ].includes(item.status)
                         const isConfirmed = item.status === "CLIENT_APPROVED" || item.status === "CLIENT_CONFIRMED"
-                        const isProgressed = ["PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION"].includes(item.status)
+                        const isProgressed = ["PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "READY_FOR_DELIVERY", "DELIVERED", "COMPLETED"].includes(item.status)
                         const isActive = item.id === activeQuotation.id
 
                         let displayStatus = item.status
@@ -332,9 +341,11 @@ export function QuotationJourneyModal({
                           <div key={item.id} className="relative animate-in fade-in slide-in-from-top-1 duration-200">
                             {/* Timeline Dot */}
                             <span className={`absolute -left-[41px] top-5 h-4 w-4 rounded-full ring-4 ring-background shrink-0 ${
-                              isActive 
-                                ? "bg-primary animate-pulse" 
-                                : "bg-muted-foreground/30"
+                              isConfirmedOrWon
+                                ? "bg-emerald-500"
+                                : isActive 
+                                  ? "bg-primary animate-pulse" 
+                                  : "bg-muted-foreground/30"
                             }`} />
 
                             <div className={`p-5 border rounded-xl bg-card shadow-sm space-y-4 hover:shadow-md transition-all duration-300 w-full relative ${
@@ -451,7 +462,11 @@ export function QuotationJourneyModal({
                     {data.logs.map((log) => (
                       <div key={log.id} className="relative">
                         {/* Timeline Dot */}
-                        <span className="absolute -left-[41px] top-5 h-4 w-4 rounded-full bg-zinc-450 ring-4 ring-background shrink-0" />
+                        <span className={`absolute -left-[41px] top-5 h-4 w-4 rounded-full ring-4 ring-background shrink-0 ${
+                          log.action === "CLIENT_CONFIRMED_QUOTATION" || log.details?.includes("Confirmed quotation")
+                            ? "bg-emerald-500"
+                            : "bg-zinc-400"
+                        }`} />
                         
                         <div className="p-5 border border-border/60 rounded-xl bg-card shadow-sm space-y-3 hover:shadow-md transition-shadow w-full">
                           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 w-full">

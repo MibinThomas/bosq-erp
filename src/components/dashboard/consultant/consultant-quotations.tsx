@@ -44,6 +44,7 @@ export function ConsultantQuotations({ quotations }: { quotations: any[] }) {
     switch (status) {
       case "DRAFT": return <Badge variant="outline" className="bg-slate-100 text-slate-700">Draft</Badge>
       case "QUOTE_CREATED": return <Badge variant="outline" className="bg-blue-100 text-blue-700">Quote Created</Badge>
+      case "SUBMITTED": return <Badge variant="outline" className="bg-blue-100 text-blue-700">Submitted</Badge>
       case "SENT": return <Badge variant="outline" className="bg-blue-100 text-blue-700">Sent to Client</Badge>
       case "CLIENT_APPROVED":
       case "CLIENT_CONFIRMED":

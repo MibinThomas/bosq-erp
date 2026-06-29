@@ -15,25 +15,41 @@ interface StatusChartProps {
 }
 
 const STATUS_COLORS: { [key: string]: string } = {
-  DRAFT: "hsl(var(--muted-foreground)/0.5)",
-  QUOTE_CREATED: "#3b82f6", // Blue
+  DRAFT: "#71717a", // Zinc
+  SUBMITTED: "#3b82f6", // Blue
+  UNDER_REVIEW: "#6366f1", // Indigo
   REVISED: "#f59e0b", // Amber
+  SENT_TO_CLIENT: "#14b8a6", // Teal
+  CLIENT_REVIEWING: "#0ea5e9", // Sky
   CLIENT_APPROVED: "#10b981", // Emerald
-  PO_CONVERTED: "#059669", // Dark Green
-  UNDER_PRODUCTION: "#ea580c", // Orange
-  REJECTED: "#ef4444", // Rose
-  CANCELLED: "#94a3b8" // Slate
+  CLIENT_CONFIRMED: "#22c55e", // Green
+  CLIENT_REJECTED: "#f43f5e", // Rose
+  UNDER_PRODUCTION: "#f97316", // Orange
+  READY_FOR_DELIVERY: "#eab308", // Yellow
+  DELIVERED: "#84cc16", // Lime
+  PO_RECEIVED: "#a855f7", // Purple
+  COMPLETED: "#059669", // Dark Green
+  CANCELLED: "#ef4444", // Red
+  LOST: "#e11d48" // Rose-600
 }
 
 const STATUS_LABELS: { [key: string]: string } = {
   DRAFT: "Draft",
-  QUOTE_CREATED: "Quote Created",
+  SUBMITTED: "Submitted",
+  UNDER_REVIEW: "Under Review",
   REVISED: "Revised",
+  SENT_TO_CLIENT: "Sent to Client",
+  CLIENT_REVIEWING: "Client Reviewing",
   CLIENT_APPROVED: "Client Approved",
-  PO_CONVERTED: "Converted to PO",
+  CLIENT_CONFIRMED: "Client Confirmed",
+  CLIENT_REJECTED: "Client Rejected",
   UNDER_PRODUCTION: "Under Production",
-  REJECTED: "Rejected",
-  CANCELLED: "Cancelled"
+  READY_FOR_DELIVERY: "Ready for Delivery",
+  DELIVERED: "Delivered",
+  PO_RECEIVED: "PO Received",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+  LOST: "Lost"
 }
 
 export function DashboardStatusChart({ data = [], loading }: StatusChartProps) {

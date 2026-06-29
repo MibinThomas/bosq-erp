@@ -145,7 +145,7 @@ export function DashboardKPIs({ data, loading, onFilterChange }: DashboardKPIsPr
 
           {/* Active Quotes */}
           <Card 
-            onClick={() => onFilterChange?.("status", "QUOTE_CREATED")}
+            onClick={() => onFilterChange?.("status", "SUBMITTED")}
             className="hover:scale-[1.015] transition-all duration-300 hover:shadow-md border border-zinc-200 dark:border-zinc-800 bg-card/65 backdrop-blur-md cursor-pointer group"
           >
             <CardContent className="p-4 flex flex-col justify-between h-full space-y-3">

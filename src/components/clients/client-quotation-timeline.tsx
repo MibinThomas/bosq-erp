@@ -89,19 +89,27 @@ interface Props {
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
+  SUBMITTED: "Submitted",
+  UNDER_REVIEW: "Under Review",
   QUOTE_CREATED: "Quote Created",
   SENT: "Sent",
   APPROVED: "Client Approved",
   CLIENT_APPROVED: "Client Approved",
   REVISED: "Revised",
   REJECTED: "Rejected",
-  CLIENT_CONFIRMED: "Client Approved",
+  CLIENT_CONFIRMED: "Client Confirmed",
   PO_CONVERTED: "Converted to PO",
   PO_RECEIVED: "Converted to PO",
   UNDER_PRODUCTION: "Under Production",
   PENDING_APPROVAL: "Pending Approval",
   CANCELLED: "Cancelled",
   COMPLETED: "Completed",
+  SENT_TO_CLIENT: "Sent to Client",
+  CLIENT_REVIEWING: "Client Reviewing",
+  CLIENT_REJECTED: "Client Rejected",
+  READY_FOR_DELIVERY: "Ready for Delivery",
+  DELIVERED: "Delivered",
+  LOST: "Lost",
 }
 
 function getStatusBadge(status: string, isNotSelected = false, isRevision = false) {
@@ -178,9 +186,10 @@ function getStatusBadge(status: string, isNotSelected = false, isRevision = fals
         </span>
       )
     case "QUOTE_CREATED":
+    case "SUBMITTED":
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-400 border border-blue-200">
-          Quote Created
+          Submitted
         </span>
       )
     default:
@@ -710,6 +719,7 @@ export function ClientQuotationTimeline({
 
   const STATUS_FILTER_OPTIONS = [
     { key: "DRAFT", label: "Draft" },
+    { key: "SUBMITTED", label: "Submitted" },
     { key: "QUOTE_CREATED", label: "Quote Created" },
     { key: "REVISED", label: "Revised" },
     { key: "CLIENT_APPROVED", label: "Client Approved" },
