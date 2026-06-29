@@ -98,6 +98,7 @@ export function QuotationStatusModal({
 }: QuotationStatusModalProps) {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const isSuperAdminOrAdmin = ["SUPER_ADMIN", "ADMIN"].includes(userRole)
   const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
 
   const [newStatus, setNewStatus] = useState<string>("")
@@ -121,12 +122,14 @@ export function QuotationStatusModal({
     "COMPLETED"
   ]
 
-  const filteredNextStatuses = allowedTransitions.filter(status => {
-    if (!isManagerOrAdmin && restrictedStatuses.includes(status)) {
-      return false
-    }
-    return true
-  })
+  const filteredNextStatuses = isSuperAdminOrAdmin
+    ? Object.keys(STATUS_LABELS).filter(status => status !== currentStatus)
+    : allowedTransitions.filter(status => {
+        if (!isManagerOrAdmin && restrictedStatuses.includes(status)) {
+          return false
+        }
+        return true
+      })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -238,10 +241,24 @@ export function QuotationStatusModal({
 
               {/* Transition Warning Dialog description */}
               {newStatus && (
-                <div className="p-3 border border-blue-100 dark:border-blue-900/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-2xl text-[11px] leading-normal flex items-start gap-2">
-                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-blue-500" />
+                <div className={`p-3 border rounded-2xl text-[11px] leading-normal flex items-start gap-2 ${
+                  isSuperAdminOrAdmin && !allowedTransitions.includes(newStatus)
+                    ? "border-amber-250 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                    : "border-blue-100 dark:border-blue-900/30 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                }`}>
+                  <AlertCircle className={`h-4 w-4 shrink-0 mt-0.5 ${
+                    isSuperAdminOrAdmin && !allowedTransitions.includes(newStatus) ? "text-amber-500" : "text-blue-500"
+                  }`} />
                   <span>
-                    Confirming this action will move quotation #{quotation.quotationNumber} into status <strong>{STATUS_LABELS[newStatus]}</strong>. This will update the sales pipeline and team dashboards in real-time.
+                    {isSuperAdminOrAdmin && !allowedTransitions.includes(newStatus) ? (
+                      <>
+                        <strong>Admin Flow Override:</strong> You are forcing an out-of-flow transition from <strong>{STATUS_LABELS[currentStatus]}</strong> directly to <strong>{STATUS_LABELS[newStatus]}</strong>. This action will bypass the standard matrix and update dashboards in real-time.
+                      </>
+                    ) : (
+                      <>
+                        Confirming this action will move quotation #{quotation.quotationNumber} into status <strong>{STATUS_LABELS[newStatus]}</strong>. This will update the sales pipeline and team dashboards in real-time.
+                      </>
+                    )}
                   </span>
                 </div>
               )}

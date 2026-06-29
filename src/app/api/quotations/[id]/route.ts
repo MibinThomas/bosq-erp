@@ -332,11 +332,12 @@ export async function PUT(
         LOST: ["DRAFT", "SUBMITTED"]
       }
 
+      const isSuperAdminOrAdmin = ["SUPER_ADMIN", "ADMIN"].includes(logUserRole)
       const allowedTransitions = VALID_TRANSITIONS[existingQuotation.status] || [
         "DRAFT", "SUBMITTED", "UNDER_REVIEW", "SENT_TO_CLIENT", "CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_RECEIVED", "CANCELLED"
       ]
 
-      if (!allowedTransitions.includes(newStatus)) {
+      if (!allowedTransitions.includes(newStatus) && !isSuperAdminOrAdmin) {
         return NextResponse.json({ error: `Invalid status transition from ${existingQuotation.status} to ${newStatus}` }, { status: 400 })
       }
 
@@ -423,7 +424,9 @@ export async function PUT(
             entityId: existingQuotation.id,
             details: newStatus === "CLIENT_CONFIRMED"
               ? `Confirmed quotation revision ${existingQuotation.quotationNumber} as the Final Quotation. Status updated to Client Confirmed. Remarks: ${remarks || "None"}`
-              : `Status of ${existingQuotation.quotationNumber} changed from ${existingQuotation.status} to ${newStatus}. Remarks: ${remarks || "None"}`,
+              : isSuperAdminOrAdmin && !allowedTransitions.includes(newStatus)
+                ? `Admin Override: Status of ${existingQuotation.quotationNumber} changed from ${existingQuotation.status} to ${newStatus}. Remarks: ${remarks || "None"}`
+                : `Status of ${existingQuotation.quotationNumber} changed from ${existingQuotation.status} to ${newStatus}. Remarks: ${remarks || "None"}`,
             createdAt: new Date()
           }
         })
