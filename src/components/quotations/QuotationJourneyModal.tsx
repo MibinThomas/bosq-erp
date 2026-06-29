@@ -143,7 +143,7 @@ export function QuotationJourneyModal({
 
   // Derived values for confirmed and active quotation
   const confirmedQuotation = data?.seriesQuotations?.find(q => q.status === "CLIENT_CONFIRMED")
-  const activeQuotation = confirmedQuotation || data?.seriesQuotations?.[data.seriesQuotations.length - 1] || data?.quotation
+  const activeQuotation = (confirmedQuotation || data?.seriesQuotations?.[data.seriesQuotations.length - 1] || data?.quotation) as any
 
   const confirmationLog = data?.logs?.find(log => log.action === "CLIENT_CONFIRMED_QUOTATION")
   const confirmedByUser = confirmationLog?.user?.name || activeQuotation?.preparedBy?.name || "N/A"
