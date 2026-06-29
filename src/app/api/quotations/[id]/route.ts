@@ -314,7 +314,7 @@ export async function PUT(
 
       // Enforce transition rules
       const VALID_TRANSITIONS: Record<string, string[]> = {
-        DRAFT: ["SUBMITTED", "CANCELLED"],
+        DRAFT: ["SUBMITTED", "UNDER_REVIEW", "SENT_TO_CLIENT", "CLIENT_APPROVED", "CANCELLED"],
         SUBMITTED: ["UNDER_REVIEW", "SENT_TO_CLIENT", "CANCELLED"],
         UNDER_REVIEW: ["SENT_TO_CLIENT", "REVISED", "CANCELLED"],
         REVISED: ["SENT_TO_CLIENT", "CANCELLED"],
