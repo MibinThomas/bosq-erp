@@ -55,17 +55,15 @@ export async function GET(request: Request) {
 
     if (all) {
       whereClause.status = "Approved"
-    }
-
-    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(dbSessionUser.role)
-    if (!isUnrestricted) {
-      whereClause.OR = [
-        { salespersonId: dbSessionUser.id },
-        { assignments: { some: { userId: dbSessionUser.id } } },
-        { accessRequests: { some: { userId: dbSessionUser.id, status: "Approved" } } }
-      ]
     } else {
-      if (!all) {
+      const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(dbSessionUser.role)
+      if (!isUnrestricted) {
+        whereClause.OR = [
+          { salespersonId: dbSessionUser.id },
+          { assignments: { some: { userId: dbSessionUser.id } } },
+          { accessRequests: { some: { userId: dbSessionUser.id, status: "Approved" } } }
+        ]
+      } else {
         if (ownershipRule === "DEPARTMENT") {
           const deptUsers = await prisma.user.findMany({
             where: { department: dbSessionUser.department || "N/A" },
@@ -123,7 +121,8 @@ export async function GET(request: Request) {
     const clientsWithAccess = clients.map(client => {
       let isAssigned = false
       const isClientUserAssigned = client.salespersonId === dbSessionUser.id || 
-                                   client.assignments.some(a => a.userId === dbSessionUser.id)
+                                   client.assignments.some(a => a.userId === dbSessionUser.id) ||
+                                   client.accessRequests.some(r => r.userId === dbSessionUser.id && r.status === "Approved")
 
       if (ownershipRule === "ALL") {
         isAssigned = true

@@ -1444,13 +1444,21 @@ function NewQuotationForm() {
                                     <Plus className="h-4 w-4 text-primary" />
                                     <span>Quick Add Client...</span>
                                   </CommandItem>
-                                  {clients
-                                    .filter((client) => client.status === "Approved")
-                                    .map((client) => {
-                                      const isExcludedFromAssignmentCheck = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
+                                  {(() => {
+                                    const approvedClients = clients.filter((c) => c.status === "Approved")
+                                    const isExcluded = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
+                                    
+                                    const assigned = approvedClients.filter(c => {
+                                      const isUserAssigned = c.salespersonId === (session?.user as any)?.id || c.assignments?.some((a: any) => a.userId === (session?.user as any)?.id)
+                                      return isUserAssigned || isExcluded
+                                    })
+                                    const unassigned = approvedClients.filter(c => {
+                                      const isUserAssigned = c.salespersonId === (session?.user as any)?.id || c.assignments?.some((a: any) => a.userId === (session?.user as any)?.id)
+                                      return !(isUserAssigned || isExcluded)
+                                    })
+
+                                    const renderClientItem = (client: typeof clients[0], canSelect: boolean) => {
                                       const isUserAssigned = client.salespersonId === (session?.user as any)?.id || client.assignments?.some((a: any) => a.userId === (session?.user as any)?.id)
-                                      const canSelect = isUserAssigned || isExcludedFromAssignmentCheck
-                                      
                                       const activeReq = client.accessRequests?.[0]
                                       const isRequested = activeReq?.status === "Requested"
                                       const isRejected = activeReq?.status === "Rejected"
@@ -1468,7 +1476,7 @@ function NewQuotationForm() {
                                       return (
                                         <CommandItem
                                           key={client.id}
-                                          value={client.companyName}
+                                          value={`${client.companyName} ${client.clientId}`}
                                           onSelect={() => {
                                             if (!canSelect) return
                                             form.setValue("clientId", client.id)
@@ -1476,7 +1484,7 @@ function NewQuotationForm() {
                                           }}
                                           className={cn(
                                             "flex flex-col items-start p-2 border-b last:border-b-0 border-muted/50 aria-selected:bg-muted/40 cursor-pointer",
-                                            !canSelect && "opacity-75 cursor-default"
+                                            !canSelect && "opacity-85 cursor-default hover:bg-transparent"
                                           )}
                                         >
                                           <div className="flex items-center justify-between w-full">
@@ -1487,7 +1495,7 @@ function NewQuotationForm() {
                                                   isSelected ? "opacity-100" : "opacity-0"
                                                 )}
                                               />
-                                              <span className="font-medium text-sm">{client.companyName}</span>
+                                              <span className="font-semibold text-sm">{client.companyName}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                               {canSelect ? (
@@ -1504,7 +1512,7 @@ function NewQuotationForm() {
                                                     </Badge>
                                                   )}
                                                   {isRejected && (
-                                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px] py-0 px-1.5 font-normal">
+                                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-250 text-[10px] py-0 px-1.5 font-normal">
                                                       Rejected
                                                     </Badge>
                                                   )}
@@ -1519,6 +1527,8 @@ function NewQuotationForm() {
                                           </div>
 
                                           <div className="text-[11px] text-muted-foreground ml-6 mt-0.5 flex items-center gap-1">
+                                            <span className="font-mono">{client.clientId}</span>
+                                            <span>·</span>
                                             <span>{client.clientType || "Direct"}</span>
                                             <span>·</span>
                                             <span>{statusText}</span>
@@ -1602,7 +1612,23 @@ function NewQuotationForm() {
                                           })()}
                                         </CommandItem>
                                       )
-                                    })}
+                                    }
+
+                                    return (
+                                      <>
+                                        {assigned.length > 0 && (
+                                          <CommandGroup heading="Assigned Clients">
+                                            {assigned.map(c => renderClientItem(c, true))}
+                                          </CommandGroup>
+                                        )}
+                                        {unassigned.length > 0 && (
+                                          <CommandGroup heading="Unassigned / Other Clients">
+                                            {unassigned.map(c => renderClientItem(c, false))}
+                                          </CommandGroup>
+                                        )}
+                                      </>
+                                    )
+                                  })()}
                                 </CommandGroup>
                               </CommandList>
                             </Command>
