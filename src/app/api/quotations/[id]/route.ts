@@ -651,7 +651,7 @@ export async function PUT(
         include: { category: true }
       })
       // Validate out-of-stock products for Interior Design Consultants
-      const userRole = (session.user as any).role || ""
+      const userRole = (session?.user as any)?.role || ""
       if (userRole === "INTERIOR_DESIGN_CONSULTANT") {
         const outOfStockItems = items.filter((item: any) => {
           const prod = dbProducts.find((p) => p.id === item.productId)
@@ -1024,6 +1024,7 @@ export async function PUT(
       })
 
       // Validate out-of-stock products for Interior Design Consultants
+      const userRole = (session?.user as any)?.role || ""
       if (userRole === "INTERIOR_DESIGN_CONSULTANT") {
         const outOfStockItems = items.filter((item: any) => {
           const prod = dbProducts.find((p) => p.id === item.productId)

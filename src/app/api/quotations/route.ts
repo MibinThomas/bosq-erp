@@ -427,7 +427,7 @@ export async function POST(request: Request) {
     })
 
     // Validate out-of-stock products for Interior Design Consultants
-    const userRole = (session.user as any).role || ""
+    const userRole = (session?.user as any)?.role || ""
     if (userRole === "INTERIOR_DESIGN_CONSULTANT") {
       const outOfStockItems = items.filter((item: any) => {
         const prod = dbProducts.find((p) => p.id === item.productId)

@@ -28,7 +28,7 @@ export async function GET(
       include: { category: true },
     })
 
-    const userRole = (session.user as any).role || ""
+    const userRole = (session?.user as any)?.role || ""
     const isInteriorConsultant = userRole === "INTERIOR_DESIGN_CONSULTANT"
 
     if (!product || (isInteriorConsultant && (product.stock ?? 0) <= 0)) {
