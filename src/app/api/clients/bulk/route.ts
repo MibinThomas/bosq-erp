@@ -151,6 +151,29 @@ export async function POST(request: Request) {
     let failCount = 0
     let warningCount = 0
 
+    // PRE-CREATE SharePoint Folders Concurrently in Chunks of 15 to prevent timeouts
+    const CHUNK_SIZE = 15;
+    for (let i = 0; i < clients.length; i += CHUNK_SIZE) {
+      const chunk = clients.slice(i, i + CHUNK_SIZE);
+      await Promise.all(chunk.map(async (clientData) => {
+        if (!clientData.companyName || clientData.companyName.trim() === "") return;
+        
+        const companyKey = clientData.companyName.trim().toLowerCase();
+        const existingClient = clientByCompany.get(companyKey);
+        
+        let spId = existingClient?.sharepointFolder || "";
+        if (!spId) {
+          try {
+            spId = await createClientFolder(clientData.companyName.trim());
+          } catch (e) {
+            console.error("Failed to pre-create SharePoint folder:", e);
+            spId = `mock-folder-failed-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+          }
+        }
+        clientData._sharepointFolderId = spId;
+      }));
+    }
+
     // Validate and process rows
     for (let idx = 0; idx < clients.length; idx++) {
       const clientData = clients[idx]
@@ -364,7 +387,7 @@ export async function POST(request: Request) {
         successCount++
       }
 
-      // 1. Prepare SharePoint folder (Skip creation during bulk upload to prevent 504 Timeouts. Will be lazy-loaded on view)
+      // 1. Prepare SharePoint folder (Created concurrently during pre-processing)
       let finalClientId = clientId ? clientId.trim() : null
       const existingClient = clientByCompany.get(companyName.trim().toLowerCase())
       
@@ -375,7 +398,7 @@ export async function POST(request: Request) {
         nextNum++
       }
 
-      let sharepointFolderId = existingClient?.sharepointFolder || ""
+      let sharepointFolderId = clientData._sharepointFolderId || existingClient?.sharepointFolder || ""
 
       // 2. Create / Update Client in Transaction (if valid)
       await prisma.$transaction(async (tx) => {
