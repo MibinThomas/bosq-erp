@@ -59,6 +59,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const [importResult, setImportResult] = useState<any | null>(null)
   const [dbClients, setDbClients] = useState<any[]>([])
   const [exporting, setExporting] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
 
   const [uploadedFileMeta, setUploadedFileMeta] = useState<{
     fileName: string
@@ -767,30 +768,76 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return
       }
 
-      const res = await fetch("/api/clients/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clients: finalizedClients })
-      })
+      const BATCH_SIZE = 10
+      const totalClients = finalizedClients.length
+      setUploadProgress({ current: 0, total: totalClients })
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        throw new Error(errorData.error || "Bulk import failed")
+      let totalSuccessCount = 0
+      let totalFailCount = 0
+      let totalWarningCount = 0
+      let allErrors: any[] = []
+      let allWarnings: any[] = []
+      let lastErrorFileBase64 = ""
+
+      for (let i = 0; i < totalClients; i += BATCH_SIZE) {
+        const chunk = finalizedClients.slice(i, i + BATCH_SIZE)
+        
+        const res = await fetch("/api/clients/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clients: chunk })
+        })
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}))
+          throw new Error(errorData.error || `Bulk import failed at batch starting row ${i + 1}`)
+        }
+
+        const data = await res.json()
+
+        if (data.summary) {
+          totalSuccessCount += (data.summary.successCount || 0)
+          totalFailCount += (data.summary.failCount || 0)
+          totalWarningCount += (data.summary.warningCount || 0)
+        }
+
+        if (data.errors && Array.isArray(data.errors)) {
+          allErrors.push(...data.errors)
+        }
+        if (data.warnings && Array.isArray(data.warnings)) {
+          allWarnings.push(...data.warnings)
+        }
+        if (data.errorFileBase64) {
+          lastErrorFileBase64 = data.errorFileBase64
+        }
+
+        setUploadProgress({ current: Math.min(i + BATCH_SIZE, totalClients), total: totalClients })
       }
-      const data = await res.json()
 
       // Clear draft on success
       localStorage.removeItem("bosq_importer_draft_clients")
       localStorage.removeItem("bosq_importer_draft_mappings")
 
-      setImportResult(data)
+      setImportResult({
+        success: true,
+        summary: {
+          successCount: totalSuccessCount,
+          failCount: totalFailCount,
+          warningCount: totalWarningCount
+        },
+        errors: allErrors,
+        warnings: allWarnings,
+        errorFileBase64: lastErrorFileBase64
+      })
+
       setStep(4)
-      toast.success(`Successfully imported ${data.summary?.successCount || 0} clients!`)
-    } catch (err) {
+      toast.success(`Successfully imported ${totalSuccessCount} clients!`)
+    } catch (err: any) {
       console.error(err)
-      toast.error("Failed to import clients. Please verify data formats.")
+      toast.error(err?.message || "Failed to import clients. Please verify data formats.")
     } finally {
       setUploading(false)
+      setUploadProgress(null)
     }
   }
 
@@ -1512,7 +1559,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   {uploading ? (
-                    <>Importing <Loader2 className="h-4 w-4 animate-spin" /></>
+                    <>Importing {uploadProgress ? `(${uploadProgress.current}/${uploadProgress.total})` : ""} <Loader2 className="h-4 w-4 animate-spin" /></>
                   ) : (
                     <>Import Clients</>
                   )}
