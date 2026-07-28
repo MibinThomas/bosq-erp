@@ -72,7 +72,6 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const [validationWarnings, setValidationWarnings] = useState<{ row: number; column: string; message: string; key: string }[]>([])
   const [filterStatus, setFilterStatus] = useState<"all" | "errors" | "ready">("all")
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
-  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
