@@ -28,8 +28,11 @@ export async function GET(
       include: { category: true },
     })
 
-    if (!product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    const userRole = (session.user as any).role || ""
+    const isInteriorConsultant = userRole === "INTERIOR_DESIGN_CONSULTANT"
+
+    if (!product || (isInteriorConsultant && (product.stock ?? 0) <= 0)) {
+      return NextResponse.json({ error: "Product not found or out of stock" }, { status: 404 })
     }
 
     return NextResponse.json(product)

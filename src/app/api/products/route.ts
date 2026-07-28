@@ -15,8 +15,14 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden: You do not have permission to view products" }, { status: 403 })
     }
 
+    const userRole = (session.user as any).role || ""
+    const isInteriorConsultant = userRole === "INTERIOR_DESIGN_CONSULTANT"
+
     const products = await prisma.product.findMany({
-      where: { deletedAt: null },
+      where: { 
+        deletedAt: null,
+        ...(isInteriorConsultant ? { stock: { gt: 0 } } : {})
+      },
       include: {
         category: true,
       },

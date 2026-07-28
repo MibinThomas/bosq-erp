@@ -426,6 +426,27 @@ export async function POST(request: Request) {
       include: { category: true }
     })
 
+    // Validate out-of-stock products for Interior Design Consultants
+    const userRole = (session.user as any).role || ""
+    if (userRole === "INTERIOR_DESIGN_CONSULTANT") {
+      const outOfStockItems = items.filter((item: any) => {
+        const prod = dbProducts.find((p) => p.id === item.productId)
+        return prod && (prod.stock ?? 0) <= 0
+      })
+      if (outOfStockItems.length > 0) {
+        const prodNames = outOfStockItems
+          .map((item: any) => {
+            const p = dbProducts.find((p) => p.id === item.productId)
+            return p?.productName || item.description || item.productId
+          })
+          .join(", ")
+        return NextResponse.json(
+          { error: `The following out-of-stock product(s) cannot be added to a quotation: ${prodNames}` },
+          { status: 400 }
+        )
+      }
+    }
+
     // 3. Calculate financial totals using strict order
     let subtotal = 0
     const quotationItemsToCreate = await Promise.all(items.map(async (item: any, idx: number) => {
