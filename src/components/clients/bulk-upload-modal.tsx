@@ -551,14 +551,14 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       }
 
       // 4. Client Type validation
-      const allowedTypes = ["Project", "Interior", "Dealer", "Special", "Government", "Corporate", "Project"]
+      const allowedTypes = ["Project", "Interior", "Dealer", "Special"]
       if (c.clientType && c.clientType.trim() !== "") {
         const matchedType = allowedTypes.find(t => t.toLowerCase() === c.clientType.trim().toLowerCase())
         if (!matchedType) {
           errorsList.push({
             row: csvRowNum,
             column: currentMappings["clientType"] || "Client Type",
-            message: "Invalid client type. Allowed: Direct, Interior, Dealer, Online, Government, Corporate, Project",
+            message: "Invalid client type. Allowed: Dealer, Interior, Project, Special",
             key: "clientType"
           })
         }
@@ -1237,12 +1237,10 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                                   value={c.clientType}
                                   onChange={(e) => handleClientFieldChange(idx, "clientType", e.target.value)}
                                 >
-                                  <option value="Project">Direct</option>
-                                  <option value="Interior">Interior</option>
                                   <option value="Dealer">Dealer</option>
-                                  <option value="Special">Online</option>
-                                  <option value="Government">Government</option>
-                                  <option value="Corporate">Corporate</option>
+                                  <option value="Interior">Interior</option>
+                                  <option value="Project">Project</option>
+                                  <option value="Special">Special</option>
                                 </select>
                               </div>
 
