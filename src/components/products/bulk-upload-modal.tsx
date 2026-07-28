@@ -44,8 +44,8 @@ interface ParsedProduct {
   costPrice: number
   dealerPrice: number
   interiorPrice: number
-  directPrice: number
-  onlinePrice: number
+  projectPrice: number
+  specialPrice: number
   warranty: string
   imageFilename: string
   localImageFile?: File
@@ -341,8 +341,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         costPrice: basePrice,
         dealerPrice: calculatePrice(pricingTiers.dealer),
         interiorPrice: calculatePrice(pricingTiers.interior),
-        directPrice: calculatePrice(pricingTiers.direct),
-        onlinePrice: basePrice,
+        projectPrice: calculatePrice(pricingTiers.direct),
+        specialPrice: basePrice,
         warranty: getVal("warranty"),
         finishMaterial: getVal("finishMaterial"),
         chairType: getVal("chairType"),
@@ -603,8 +603,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         costPrice: basePrice,
         dealerPrice: calculatePrice(pricingTiers.dealer),
         interiorPrice: calculatePrice(pricingTiers.interior),
-        directPrice: calculatePrice(pricingTiers.direct),
-        onlinePrice: basePrice, // Online Price = Base Price
+        projectPrice: calculatePrice(pricingTiers.direct),
+        specialPrice: basePrice, // Online Price = Base Price
         warranty: getVal("warranty"),
         finishMaterial: getVal("finishMaterial"),
         chairType: getVal("chairType"),
@@ -758,9 +758,9 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       }
       updated[index].dealerPrice = calculatePrice(pricingTiers.dealer)
       updated[index].interiorPrice = calculatePrice(pricingTiers.interior)
-      updated[index].directPrice = calculatePrice(pricingTiers.direct)
-      updated[index].onlinePrice = cost
-      updated[index].unitPrice = updated[index].directPrice
+      updated[index].projectPrice = calculatePrice(pricingTiers.direct)
+      updated[index].specialPrice = cost
+      updated[index].unitPrice = updated[index].projectPrice
     }
     
     setProducts(updated)

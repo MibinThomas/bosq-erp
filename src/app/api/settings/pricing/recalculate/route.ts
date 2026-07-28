@@ -38,8 +38,8 @@ export async function POST(request: Request) {
       const cost = product.costPrice || 0
       const dealerPrice = cost / (1 - (margins.dealer / 100))
       const interiorPrice = cost / (1 - (margins.interior / 100))
-      const directPrice = cost / (1 - (margins.direct / 100))
-      const onlinePrice = cost / (1 - (margins.online / 100))
+      const projectPrice = cost / (1 - (margins.direct / 100))
+      const specialPrice = cost / (1 - (margins.online / 100))
 
       updatedCount++
 
@@ -48,9 +48,9 @@ export async function POST(request: Request) {
         data: {
           dealerPrice: Number(dealerPrice.toFixed(2)),
           interiorPrice: Number(interiorPrice.toFixed(2)),
-          directPrice: Number(directPrice.toFixed(2)),
-          onlinePrice: Number(onlinePrice.toFixed(2)),
-          unitPrice: Number(directPrice.toFixed(2)) // Typically unitPrice serves as the default direct/base price
+          projectPrice: Number(projectPrice.toFixed(2)),
+          specialPrice: Number(specialPrice.toFixed(2)),
+          unitPrice: Number(projectPrice.toFixed(2)) // Typically unitPrice serves as the default direct/base price
         }
       })
     })

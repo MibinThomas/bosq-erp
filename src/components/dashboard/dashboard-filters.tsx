@@ -354,8 +354,8 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
                   <SelectItem value="all">All Segments</SelectItem>
                   <SelectItem value="Interior">Interior Designer</SelectItem>
                   <SelectItem value="Dealer">Dealer</SelectItem>
-                  <SelectItem value="Direct">Direct Client</SelectItem>
-                  <SelectItem value="Online">Online</SelectItem>
+                  <SelectItem value="Project">Direct Client</SelectItem>
+                  <SelectItem value="Special">Online</SelectItem>
                 </SelectContent>
               </Select>
             </div>

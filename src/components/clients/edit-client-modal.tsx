@@ -33,7 +33,7 @@ export function EditClientModal({ client, isOpen, onClose, onSuccess }: EditClie
   const [email, setEmail] = useState("")
   const [address, setAddress] = useState("")
   const [trn, setTrn] = useState("")
-  const [clientType, setClientType] = useState("Direct")
+  const [clientType, setClientType] = useState("Project")
   const [notes, setNotes] = useState("")
   
   const [loading, setLoading] = useState(false)
@@ -46,7 +46,7 @@ export function EditClientModal({ client, isOpen, onClose, onSuccess }: EditClie
       setEmail(client.email || "")
       setAddress(client.address || "")
       setTrn(client.trn || "")
-      setClientType(client.clientType || "Direct")
+      setClientType(client.clientType || "Project")
       setNotes(client.notes || "")
     }
   }, [client, isOpen])
@@ -141,12 +141,10 @@ export function EditClientModal({ client, isOpen, onClose, onSuccess }: EditClie
                   className="w-full h-9 rounded-md border bg-background px-3 py-1 text-sm shadow-sm"
                   value={clientType}
                   onChange={(e) => setClientType(e.target.value)}
-                >
-                  <option value="Direct">Direct Client</option>
-                  <option value="Project">Project</option>
-                  <option value="Interior">Interior Designer</option>
                   <option value="Dealer">Dealer</option>
-                  <option value="Online">Online / Ecommerce</option>
+                  <option value="Interior">Interior</option>
+                  <option value="Project">Project</option>
+                  <option value="Special">Special</option>
                 </select>
               </div>
             </div>

@@ -37,7 +37,7 @@ function ClientFormContent() {
     contactPerson: "",
     email: "",
     phone: "",
-    clientType: "Direct",
+    clientType: "Project",
     trn: "",
     address: "",
     notes: "",
@@ -73,7 +73,7 @@ function ClientFormContent() {
               contactPerson: data.contactPerson || "",
               email: data.email || "",
               phone: data.phone || "",
-              clientType: data.clientType || "Direct",
+              clientType: data.clientType || "Project",
               trn: data.trn || "",
               address: data.address || "",
               notes: data.notes || "",
@@ -96,7 +96,7 @@ function ClientFormContent() {
   }
 
   const handleSelectChange = (value: string | null) => {
-    setFormData((prev) => ({ ...prev, clientType: value || "Direct" }))
+    setFormData((prev) => ({ ...prev, clientType: value || "Project" }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -285,10 +285,9 @@ function ClientFormContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Dealer">Dealer</SelectItem>
-                  <SelectItem value="Project">Project</SelectItem>
                   <SelectItem value="Interior">Interior</SelectItem>
-                  <SelectItem value="Direct">Direct</SelectItem>
-                  <SelectItem value="Online">Online</SelectItem>
+                  <SelectItem value="Project">Project</SelectItem>
+                  <SelectItem value="Special">Special</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -380,13 +380,13 @@ export async function POST(request: Request) {
 
     // 2. Generate quotation number (e.g. I2223-1)
     let nextQuoteNo = body.quotationNumber
-    const segment = body.customerSegment || "Direct"
+    const segment = body.customerSegment || "Project"
     
     if (!nextQuoteNo) {
       let prefix = "P"
       if (segment === "Interior") prefix = "I"
       else if (segment === "Dealer") prefix = "D"
-      else if (segment === "Direct" || segment === "Online") prefix = "P"
+      else if (segment === "Project" || segment === "Special") prefix = "P"
 
       const allQuotes = await prisma.quotation.findMany({
         select: { quotationNumber: true }

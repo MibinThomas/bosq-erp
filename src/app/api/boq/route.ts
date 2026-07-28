@@ -217,7 +217,7 @@ export async function POST(request: Request) {
     }
 
     // Generate BOQ number matching Quotation ID standard
-    const segment = customerSegment || "Direct"
+    const segment = customerSegment || "Project"
     let prefix = "P"
     if (segment === "Interior") prefix = "I"
     else if (segment === "Dealer") prefix = "D"
@@ -306,7 +306,7 @@ export async function POST(request: Request) {
         boqNumber: nextBoqNo,
         clientId,
         projectName: projectName || null,
-        customerSegment: customerSegment || "Direct",
+        customerSegment: customerSegment || "Project",
         preparedById: creatorId,
         status: "DRAFT",
         totalMaterialCost,

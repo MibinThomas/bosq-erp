@@ -169,7 +169,7 @@ export function PendingClientApprovals({ onApprovalChanged }: PendingClientAppro
                   </TableCell>
                   <TableCell className="py-3">
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                      {client.clientType || "Direct"}
+                      {client.clientType || "Project"}
                     </Badge>
                   </TableCell>
                   <TableCell className="py-3 text-xs font-medium text-slate-300">

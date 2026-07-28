@@ -221,11 +221,11 @@ export async function GET(request: Request) {
     const segmentMap = new Map<string, number>()
     segmentMap.set("Interior", 0)
     segmentMap.set("Dealer", 0)
-    segmentMap.set("Direct", 0)
-    segmentMap.set("Online", 0)
+    segmentMap.set("Project", 0)
+    segmentMap.set("Special", 0)
 
     quotations.forEach(q => {
-      const segment = q.customerSegment || q.client?.clientType || "Direct"
+      const segment = q.customerSegment || q.client?.clientType || "Project"
       const val = q.grandTotal || 0
       if (segmentMap.has(segment)) {
         segmentMap.set(segment, segmentMap.get(segment)! + val)

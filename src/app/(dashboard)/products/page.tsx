@@ -44,8 +44,8 @@ interface Product {
   costPrice: number
   interiorPrice?: number
   dealerPrice?: number
-  directPrice?: number
-  onlinePrice?: number
+  projectPrice?: number
+  specialPrice?: number
   warranty: string | null
   availableColors: string | null
   dimensions: string | null
@@ -362,12 +362,12 @@ export default function ProductsPage() {
     }
 
     // Determine segment & pricing segment mapping
-    const clientType = selectedClient.clientType || "Direct"
-    // Valid values for Quotation Form Segment: "Interior", "Dealer", "Direct", "Online"
-    let segment: "Interior" | "Dealer" | "Direct" | "Online" = "Direct"
+    const clientType = selectedClient.clientType || "Project"
+    // Valid values for Quotation Form Segment: "Interior", "Dealer", "Project", "Special"
+    let segment: "Interior" | "Dealer" | "Project" | "Special" = "Project"
     if (clientType === "Interior" || clientType === "Interior Designer") segment = "Interior"
     else if (clientType === "Dealer") segment = "Dealer"
-    else if (clientType === "Online" || clientType === "Online / Ecommerce") segment = "Online"
+    else if (clientType === "Special" || clientType === "Online / Ecommerce") segment = "Special"
 
     const quotationPayload = {
       clientId: selectedClientId,
@@ -378,8 +378,8 @@ export default function ProductsPage() {
         let rate = prod.unitPrice
         if (segment === "Interior") rate = prod.interiorPrice ?? prod.unitPrice
         else if (segment === "Dealer") rate = prod.dealerPrice ?? prod.unitPrice
-        else if (segment === "Direct") rate = prod.directPrice ?? prod.unitPrice
-        else if (segment === "Online") rate = prod.onlinePrice ?? prod.unitPrice
+        else if (segment === "Project") rate = prod.projectPrice ?? prod.unitPrice
+        else if (segment === "Special") rate = prod.specialPrice ?? prod.unitPrice
 
         return {
           productId: prod.id,
@@ -1145,18 +1145,18 @@ export default function ProductsPage() {
                         const prod = item.product
                         // Determine Price dynamically based on client type segment
                         const selectedClient = clients.find(c => c.id === selectedClientId)
-                        let priceSegment = "Direct"
+                        let priceSegment = "Project"
                         if (selectedClient) {
-                          const cType = selectedClient.clientType || "Direct"
+                          const cType = selectedClient.clientType || "Project"
                           if (cType === "Interior" || cType === "Interior Designer") priceSegment = "Interior"
                           else if (cType === "Dealer") priceSegment = "Dealer"
-                          else if (cType === "Online" || cType === "Online / Ecommerce") priceSegment = "Online"
+                          else if (cType === "Special" || cType === "Online / Ecommerce") priceSegment = "Special"
                         }
                         
                         let price = prod.unitPrice
                         if (priceSegment === "Interior") price = prod.interiorPrice ?? prod.unitPrice
                         else if (priceSegment === "Dealer") price = prod.dealerPrice ?? prod.unitPrice
-                        else if (priceSegment === "Online") price = prod.onlinePrice ?? prod.unitPrice
+                        else if (priceSegment === "Special") price = prod.specialPrice ?? prod.unitPrice
 
                         return (
                           <div key={prod.id} className="flex gap-4 p-3 border rounded-xl bg-muted/10 hover:bg-muted/20 transition-all items-start group">
@@ -1273,8 +1273,8 @@ export default function ProductsPage() {
                           >
                             <option value="Interior">Interior Designer</option>
                             <option value="Dealer">Dealer</option>
-                            <option value="Direct">Direct Client</option>
-                            <option value="Online">Online ecommerce</option>
+                            <option value="Project">Direct Client</option>
+                            <option value="Special">Online ecommerce</option>
                           </select>
                         </div>
                       </div>
@@ -1336,7 +1336,7 @@ export default function ProductsPage() {
                           {selectedClientId
                             ? (() => {
                                 const c = clients.find((client) => client.id === selectedClientId)
-                                return c ? `${c.companyName} (${c.clientType || "Direct"})` : "-- Choose Assigned Client --"
+                                return c ? `${c.companyName} (${c.clientType || "Project"})` : "-- Choose Assigned Client --"
                               })()
                             : "-- Choose Assigned Client --"}
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1437,7 +1437,7 @@ export default function ProductsPage() {
                                         </div>
 
                                         <div className="text-[11px] text-muted-foreground ml-6 mt-0.5 flex items-center gap-1">
-                                          <span>{client.clientType || "Direct"}</span>
+                                          <span>{client.clientType || "Project"}</span>
                                           <span>·</span>
                                           <span>{statusText}</span>
                                         </div>
@@ -1530,11 +1530,11 @@ export default function ProductsPage() {
                       {selectedClientId && (() => {
                         const sel = clients.find(c => c.id === selectedClientId)
                         if (!sel) return null
-                        const type = sel.clientType || "Direct"
+                        const type = sel.clientType || "Project"
                         let explanation = "Standard general rates applied."
                         if (type === "Interior" || type === "Interior Designer") explanation = "IDC Special Interior Designer wholesale rates applied."
                         else if (type === "Dealer") explanation = "Dealer wholesale pricing tier applied."
-                        else if (type === "Online") explanation = "Online ecommerce pricing segment applied."
+                        else if (type === "Special") explanation = "Online ecommerce pricing segment applied."
 
                         return (
                           <div className="p-3 border border-primary/10 bg-primary/5 rounded-xl text-[10px] leading-relaxed text-primary">
@@ -1558,18 +1558,18 @@ export default function ProductsPage() {
                       AED {quoteCart.reduce((sum, item) => {
                         const prod = item.product
                         const selectedClient = clients.find(c => c.id === selectedClientId)
-                        let priceSegment = "Direct"
+                        let priceSegment = "Project"
                         if (selectedClient) {
-                          const cType = selectedClient.clientType || "Direct"
+                          const cType = selectedClient.clientType || "Project"
                           if (cType === "Interior" || cType === "Interior Designer") priceSegment = "Interior"
                           else if (cType === "Dealer") priceSegment = "Dealer"
-                          else if (cType === "Online" || cType === "Online / Ecommerce") priceSegment = "Online"
+                          else if (cType === "Special" || cType === "Online / Ecommerce") priceSegment = "Special"
                         }
                         
                         let price = prod.unitPrice
                         if (priceSegment === "Interior") price = prod.interiorPrice ?? prod.unitPrice
                         else if (priceSegment === "Dealer") price = prod.dealerPrice ?? prod.unitPrice
-                        else if (priceSegment === "Online") price = prod.onlinePrice ?? prod.unitPrice
+                        else if (priceSegment === "Special") price = prod.specialPrice ?? prod.unitPrice
 
                         return sum + (price * item.quantity)
                       }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

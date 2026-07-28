@@ -17,8 +17,8 @@ interface Product {
   costPrice: number
   interiorPrice?: number
   dealerPrice?: number
-  directPrice?: number
-  onlinePrice?: number
+  projectPrice?: number
+  specialPrice?: number
   warranty: string | null
   availableColors: string | null
   dimensions: string | null
@@ -47,8 +47,8 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
   const [costPrice, setCostPrice] = useState("")
   const [interiorPrice, setInteriorPrice] = useState("")
   const [dealerPrice, setDealerPrice] = useState("")
-  const [directPrice, setDirectPrice] = useState("")
-  const [onlinePrice, setOnlinePrice] = useState("")
+  const [projectPrice, setDirectPrice] = useState("")
+  const [specialPrice, setOnlinePrice] = useState("")
   const [warranty, setWarranty] = useState("")
   const [stock, setStock] = useState<number | string>(0)
   const [specifications, setSpecifications] = useState("")
@@ -99,8 +99,8 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
       setCostPrice(product.costPrice?.toString() || "")
       setInteriorPrice(product.interiorPrice?.toString() || "")
       setDealerPrice(product.dealerPrice?.toString() || "")
-      setDirectPrice(product.directPrice?.toString() || "")
-      setOnlinePrice(product.onlinePrice?.toString() || "")
+      setDirectPrice(product.projectPrice?.toString() || "")
+      setOnlinePrice(product.specialPrice?.toString() || "")
       setWarranty(product.warranty || "5 Years")
       setStock(product.stock || 0)
       setSpecifications(product.specifications || "")
@@ -219,8 +219,8 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
           costPrice: parseFloat(costPrice) || 0.0,
           interiorPrice: interiorPrice !== "" ? parseFloat(interiorPrice) : parseFloat(price),
           dealerPrice: dealerPrice !== "" ? parseFloat(dealerPrice) : parseFloat(price),
-          directPrice: directPrice !== "" ? parseFloat(directPrice) : parseFloat(price),
-          onlinePrice: onlinePrice !== "" ? parseFloat(onlinePrice) : parseFloat(price),
+          projectPrice: projectPrice !== "" ? parseFloat(projectPrice) : parseFloat(price),
+          specialPrice: specialPrice !== "" ? parseFloat(specialPrice) : parseFloat(price),
           warranty,
           description,
           specifications,
@@ -356,7 +356,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-500">Direct Price ({margins.direct}% Margin)</label>
               <Input 
-                value={directPrice} 
+                value={projectPrice} 
                 onChange={(e) => setDirectPrice(e.target.value)} 
                 type="number" step="0.01" 
                 readOnly={!manualOverride}
@@ -365,7 +365,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
             <div className="space-y-1">
               <label className="text-xs font-semibold text-slate-500">Online Price ({margins.online}% Margin)</label>
               <Input 
-                value={onlinePrice} 
+                value={specialPrice} 
                 onChange={(e) => setOnlinePrice(e.target.value)} 
                 type="number" step="0.01" 
                 readOnly={!manualOverride}

@@ -177,7 +177,7 @@ export function DashboardTopPerformers({ topConsultants = [], topClients = [], l
                       <div className="flex flex-col min-w-0">
                         <span className="font-bold text-xs text-foreground truncate max-w-[170px]">{client.companyName}</span>
                         <span className="text-[10px] text-muted-foreground mt-0.5">
-                          {client.clientType || "Direct"} &bull; {client.count} quote(s)
+                          {client.clientType || "Project"} &bull; {client.count} quote(s)
                         </span>
                       </div>
                     </TableCell>

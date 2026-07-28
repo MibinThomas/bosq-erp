@@ -12,8 +12,8 @@ interface Product {
   costPrice: number
   interiorPrice?: number
   dealerPrice?: number
-  directPrice?: number
-  onlinePrice?: number
+  projectPrice?: number
+  specialPrice?: number
   warranty: string | null
   availableColors: string | null
   dimensions: string | null
@@ -85,20 +85,20 @@ export function ProductDetailsModal({
 
   // Pricing Segment Dynamic Resolution
   const selectedClient = clients?.find((c) => c.id === selectedClientId)
-  let segment = "Direct"
+  let segment = "Project"
   if (selectedClient) {
-    const cType = selectedClient.clientType || "Direct"
+    const cType = selectedClient.clientType || "Project"
     if (cType === "Interior" || cType === "Interior Designer") segment = "Interior"
     else if (cType === "Dealer") segment = "Dealer"
-    else if (cType === "Online" || cType === "Online / Ecommerce") segment = "Online"
+    else if (cType === "Special" || cType === "Online / Ecommerce") segment = "Special"
   }
 
   // Calculate pricing segment unit values
   let applicablePrice = product.unitPrice
   if (segment === "Interior") applicablePrice = product.interiorPrice ?? product.unitPrice
   else if (segment === "Dealer") applicablePrice = product.dealerPrice ?? product.unitPrice
-  else if (segment === "Direct") applicablePrice = product.directPrice ?? product.unitPrice
-  else if (segment === "Online") applicablePrice = product.onlinePrice ?? product.unitPrice
+  else if (segment === "Project") applicablePrice = product.projectPrice ?? product.unitPrice
+  else if (segment === "Special") applicablePrice = product.specialPrice ?? product.unitPrice
 
   const hasQuoteAccess = canCreateQuotation !== undefined
     ? canCreateQuotation

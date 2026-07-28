@@ -394,8 +394,8 @@ export default function QuotationsPage() {
                 <SelectItem value="all">All Segments</SelectItem>
                 <SelectItem value="Interior">Interior</SelectItem>
                 <SelectItem value="Dealer">Dealer</SelectItem>
-                <SelectItem value="Direct">Direct</SelectItem>
-                <SelectItem value="Online">Online</SelectItem>
+                <SelectItem value="Project">Direct</SelectItem>
+                <SelectItem value="Special">Online</SelectItem>
               </SelectContent>
             </Select>
           </div>

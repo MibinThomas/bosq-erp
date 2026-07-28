@@ -241,15 +241,15 @@ export async function POST(request: Request) {
       }
 
       // 4. Validate Client Type
-      const allowedTypes = ["Direct", "Interior", "Dealer", "Online", "Government", "Corporate", "Project"]
-      let normalizedClientType = "Direct"
+      const allowedTypes = ["Dealer", "Interior", "Project", "Special"]
+      let normalizedClientType = "Project"
       if (clientType && clientType.trim() !== "") {
         const matchedType = allowedTypes.find(t => t.toLowerCase() === clientType.trim().toLowerCase())
         if (!matchedType) {
           cellIssues.push({
             columnKey: "clientType",
             type: "error",
-            message: "Invalid client type. Allowed: Direct, Interior, Dealer, Online, Government, Corporate, Project"
+            message: "Invalid client type. Allowed: Dealer, Interior, Project, Special"
           })
         } else {
           normalizedClientType = matchedType
@@ -278,7 +278,14 @@ export async function POST(request: Request) {
       } else {
         const matchedUser = userByName.get(assignedConsultant.trim().toLowerCase())
         if (!matchedUser) {
-          cellIssues.push({ columnKey: "assignedConsultant", type: "error", message: "Design consultant not found in ERP users" })
+          assignedConsultantUserId = fallbackAdminUserId
+          const fallbackUser = dbUsers.find(u => u.id === fallbackAdminUserId)
+          const fallbackName = fallbackUser?.name || "Admin"
+          cellIssues.push({ 
+            columnKey: "assignedConsultant", 
+            type: "warning", 
+            message: `Design consultant '${assignedConsultant}' not found. Automatically assigned to ${fallbackName}.` 
+          })
         } else if (matchedUser.isActive === false) {
           cellIssues.push({ columnKey: "assignedConsultant", type: "error", message: "Design consultant is inactive" })
         } else {

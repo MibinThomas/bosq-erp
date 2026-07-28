@@ -115,11 +115,11 @@ export default function NewProductPage() {
     description: "",
     specifications: "",
     costPrice: "",
-    unitPrice: "", // This will map to directPrice initially
+    unitPrice: "", // This will map to projectPrice initially
     interiorPrice: "",
     dealerPrice: "",
-    directPrice: "",
-    onlinePrice: "",
+    projectPrice: "",
+    specialPrice: "",
     warranty: "5 Years",
     stock: "0",
     
@@ -154,8 +154,8 @@ export default function NewProductPage() {
       costPrice: costStr,
       dealerPrice: dealer,
       interiorPrice: interior,
-      directPrice: direct,
-      onlinePrice: online,
+      projectPrice: direct,
+      specialPrice: online,
       unitPrice: direct
     }))
   }
@@ -174,8 +174,8 @@ export default function NewProductPage() {
           ...prev,
           dealerPrice: dealer,
           interiorPrice: interior,
-          directPrice: direct,
-          onlinePrice: online,
+          projectPrice: direct,
+          specialPrice: online,
           unitPrice: direct
         }))
       }
@@ -622,8 +622,8 @@ export default function NewProductPage() {
                     <label className="text-xs font-semibold text-muted-foreground">Direct Price</label>
                     <Input
                       type="number"
-                      value={formData.directPrice}
-                      onChange={(e) => setFormData(prev => ({ ...prev, directPrice: e.target.value }))}
+                      value={formData.projectPrice}
+                      onChange={(e) => setFormData(prev => ({ ...prev, projectPrice: e.target.value }))}
                       disabled={!manualOverride}
                       className={!manualOverride ? "bg-muted font-medium" : "font-medium"}
                     />
@@ -634,8 +634,8 @@ export default function NewProductPage() {
                     <label className="text-xs font-semibold text-muted-foreground">Online Price</label>
                     <Input
                       type="number"
-                      value={formData.onlinePrice}
-                      onChange={(e) => setFormData(prev => ({ ...prev, onlinePrice: e.target.value }))}
+                      value={formData.specialPrice}
+                      onChange={(e) => setFormData(prev => ({ ...prev, specialPrice: e.target.value }))}
                       disabled={!manualOverride}
                       className={!manualOverride ? "bg-muted font-medium" : "font-medium"}
                     />

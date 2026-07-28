@@ -40,7 +40,7 @@ export function QuickAddClientModal({ isOpen, onClose, onSuccess, userRole }: Qu
   const [email, setEmail] = useState("")
   const [address, setAddress] = useState("")
   const [trn, setTrn] = useState("")
-  const [clientType, setClientType] = useState<string>("Direct")
+  const [clientType, setClientType] = useState<string>("Project")
   const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
 
@@ -90,7 +90,7 @@ export function QuickAddClientModal({ isOpen, onClose, onSuccess, userRole }: Qu
       setEmail("")
       setAddress("")
       setTrn("")
-      setClientType("Direct")
+      setClientType("Project")
       setNotes("")
       onClose()
     } catch (error: any) {
@@ -146,15 +146,15 @@ export function QuickAddClientModal({ isOpen, onClose, onSuccess, userRole }: Qu
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold">Client Segment <span className="text-destructive">*</span></label>
-                <Select onValueChange={(val) => setClientType(val || "Direct")} value={clientType}>
+                <Select onValueChange={(val) => setClientType(val || "Project")} value={clientType}>
                   <SelectTrigger className="bg-card">
                     <SelectValue placeholder="Select segment" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Direct">Direct</SelectItem>
+                    <SelectItem value="Project">Direct</SelectItem>
                     <SelectItem value="Interior">Interior Designer</SelectItem>
                     <SelectItem value="Dealer">Dealer</SelectItem>
-                    <SelectItem value="Online">Online</SelectItem>
+                    <SelectItem value="Special">Online</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

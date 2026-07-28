@@ -62,7 +62,7 @@ export default function BoqBuilderPage() {
   const [boqNo, setBoqNo] = useState("")
   const [clientId, setClientId] = useState("")
   const [projectName, setProjectName] = useState("")
-  const [customerSegment, setCustomerSegment] = useState("Direct")
+  const [customerSegment, setCustomerSegment] = useState("Project")
   const [status, setStatus] = useState("DRAFT")
   const [notes, setNotes] = useState("")
 
@@ -602,7 +602,7 @@ export default function BoqBuilderPage() {
           <Select value={customerSegment} onValueChange={(val) => val && setCustomerSegment(val)} disabled={!isIDC && !isNew}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="Direct">Direct</SelectItem>
+              <SelectItem value="Project">Direct</SelectItem>
               <SelectItem value="Dealer">Dealer</SelectItem>
               <SelectItem value="Interior">Interior Designer</SelectItem>
             </SelectContent>

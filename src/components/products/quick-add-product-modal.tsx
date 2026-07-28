@@ -15,8 +15,8 @@ interface Product {
   unitPrice: number
   interiorPrice?: number
   dealerPrice?: number
-  directPrice?: number
-  onlinePrice?: number
+  projectPrice?: number
+  specialPrice?: number
   specifications: string | null
   imageUrl: string | null
   stock?: number
@@ -138,8 +138,8 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
           unitPrice,
           interiorPrice: unitPrice,
           dealerPrice: unitPrice,
-          directPrice: unitPrice,
-          onlinePrice: unitPrice,
+          projectPrice: unitPrice,
+          specialPrice: unitPrice,
           specifications: specifications || null,
           imageUrl: base64Image || null,
         }
@@ -176,8 +176,8 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
           unitPrice: created.unitPrice,
           interiorPrice: created.interiorPrice,
           dealerPrice: created.dealerPrice,
-          directPrice: created.directPrice,
-          onlinePrice: created.onlinePrice,
+          projectPrice: created.projectPrice,
+          specialPrice: created.specialPrice,
           specifications: created.specifications || "",
           imageUrl: created.imageUrl || null,
         })

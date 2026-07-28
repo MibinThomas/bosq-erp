@@ -249,7 +249,7 @@ export async function POST(request: Request) {
         email,
         address,
         trn,
-        clientType: clientType || "Direct",
+        clientType: clientType || "Project",
         notes,
         sharepointFolder: sharepointFolderId,
         salespersonId: creatorUserId,

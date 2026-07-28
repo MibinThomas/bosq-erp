@@ -240,7 +240,7 @@ export default function ClientsPage() {
   const totalPages = Math.ceil(filteredClients.length / ITEMS_PER_PAGE) || 1
 
   const uniqueConsultants = Array.from(new Set(clients.flatMap(c => c.assignments?.filter(a => a.isPrimary).map(a => a.user.name) || []))).filter(Boolean) as string[]
-  const standardCategories = ["Direct", "Interior", "Dealer", "Online"]
+  const standardCategories = ["Project", "Interior", "Dealer", "Special"]
   const allCategories = Array.from(new Set([...standardCategories, ...clients.map(c => c.clientType).filter(Boolean)])) as string[]
 
   return (
@@ -318,10 +318,10 @@ export default function ClientsPage() {
                     <SelectItem value="All">All Categories</SelectItem>
                     {allCategories.map(cat => (
                       <SelectItem key={cat} value={cat}>
-                        {cat === "Direct" ? "Direct Client" :
+                        {cat === "Project" ? "Direct Client" :
                          cat === "Interior" ? "Interior Designer" :
                          cat === "Dealer" ? "Dealer" :
-                         cat === "Online" ? "Online / Ecommerce" : cat}
+                         cat === "Special" ? "Online / Ecommerce" : cat}
                       </SelectItem>
                     ))}
                   </SelectContent>

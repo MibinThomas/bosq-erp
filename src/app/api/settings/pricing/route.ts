@@ -26,8 +26,8 @@ export async function GET() {
       return NextResponse.json({
         dealer: 15,
         interior: 30,
-        direct: 50,
-        online: 75
+        project: 50,
+        special: 75
       })
     }
   } catch (error) {
@@ -49,18 +49,18 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { dealer, interior, direct, online, recalculateExisting } = body
+    const { dealer, interior, project, special, recalculateExisting } = body
 
     const dealerVal = Math.min(Number(dealer), 99.99)
     const interiorVal = Math.min(Number(interior), 99.99)
-    const directVal = Math.min(Number(direct), 99.99)
-    const onlineVal = Math.min(Number(online), 99.99)
+    const projectVal = Math.min(Number(project), 99.99)
+    const specialVal = Math.min(Number(special), 99.99)
 
     const valueStr = JSON.stringify({
       dealer: dealerVal,
       interior: interiorVal,
-      direct: directVal,
-      online: onlineVal
+      project: projectVal,
+      special: specialVal
     })
 
     const setting = await prisma.systemSetting.upsert({
@@ -82,17 +82,17 @@ export async function POST(request: Request) {
         const cost = product.costPrice || 0
         const dealerPrice = cost / (1 - (dealerVal / 100))
         const interiorPrice = cost / (1 - (interiorVal / 100))
-        const directPrice = cost / (1 - (directVal / 100))
-        const onlinePrice = cost / (1 - (onlineVal / 100))
+        const projectPrice = cost / (1 - (projectVal / 100))
+        const specialPrice = cost / (1 - (specialVal / 100))
 
         return prisma.product.update({
           where: { id: product.id },
           data: {
             dealerPrice: Number(dealerPrice.toFixed(2)),
             interiorPrice: Number(interiorPrice.toFixed(2)),
-            directPrice: Number(directPrice.toFixed(2)),
-            onlinePrice: Number(onlinePrice.toFixed(2)),
-            unitPrice: Number(directPrice.toFixed(2))
+            projectPrice: Number(projectPrice.toFixed(2)),
+            specialPrice: Number(specialPrice.toFixed(2)),
+            unitPrice: Number(projectPrice.toFixed(2))
           }
         })
       })

@@ -64,7 +64,7 @@ model Client {
   email           String?
   address         String?
   trn             String?
-  clientType      String?     @default("Direct") // Category: DEALER, PROJECT, INTERIOR
+  clientType      String?     @default("Project") // Category: Dealer, Interior, Project, Special
   priceCategory   String?     // P PRICE, D PRICE, I PRICE
   salespersonId   String?
   sharepointFolder String?
@@ -128,8 +128,8 @@ model Product {
   costPrice       Float     @default(0.0)
   interiorPrice   Float     @default(0.0)
   dealerPrice     Float     @default(0.0)
-  directPrice     Float     @default(0.0)
-  onlinePrice     Float     @default(0.0)
+  projectPrice    Float     @default(0.0)
+  specialPrice    Float     @default(0.0)
   warranty        String?
   availableColors String?
   dimensions      String?
@@ -146,7 +146,7 @@ model Product {
 model Quotation {
   id              String    @id @default(cuid())
   quotationNumber String    @unique // E.g., I1951
-  customerSegment String    @default("Direct") // Interior, Dealer, Direct, Online
+  customerSegment String    @default("Project") // Dealer, Interior, Project, Special
   clientId        String
   client          Client    @relation(fields: [clientId], references: [id])
   projectId       String?
@@ -298,7 +298,7 @@ model Boq {
   projectId       String?
   projectName     String?
   
-  customerSegment String    @default("Direct") // Interior, Dealer, Direct, Online
+  customerSegment String    @default("Project") // Dealer, Interior, Project, Special
   
   preparedById    String
   preparedBy      User      @relation(fields: [preparedById], references: [id])

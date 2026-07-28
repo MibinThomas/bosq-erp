@@ -582,7 +582,7 @@ export async function GET(request: Request) {
         return {
           id: stat.clientId,
           companyName: client?.companyName || "Unknown Client",
-          clientType: client?.clientType || "Direct",
+          clientType: client?.clientType || "Project",
           count: stat._count.id,
           value: stat._sum.grandTotal || 0
         }

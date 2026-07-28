@@ -52,7 +52,7 @@ import {
 const quotationSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
   projectName: z.string().min(1, "Project name is required"),
-  customerSegment: z.enum(["Interior", "Dealer", "Direct", "Online"]),
+  customerSegment: z.enum(["Interior", "Dealer", "Project", "Special"]),
   date: z.string(),
   validityDate: z.string(),
   deliveryDate: z.string().optional(),
@@ -133,8 +133,8 @@ interface Product {
   unitPrice: number
   interiorPrice?: number
   dealerPrice?: number
-  directPrice?: number
-  onlinePrice?: number
+  projectPrice?: number
+  specialPrice?: number
   specifications: string | null
   imageUrl: string | null
   description?: string | null
@@ -168,8 +168,8 @@ const ProductSearchSelect = React.memo(({
     let basePrice = selectedProd.unitPrice
     if (watchSegment === "Interior") basePrice = selectedProd.interiorPrice ?? selectedProd.unitPrice
     else if (watchSegment === "Dealer") basePrice = selectedProd.dealerPrice ?? selectedProd.unitPrice
-    else if (watchSegment === "Direct") basePrice = selectedProd.directPrice ?? selectedProd.unitPrice
-    else if (watchSegment === "Online") basePrice = selectedProd.onlinePrice ?? selectedProd.unitPrice
+    else if (watchSegment === "Project") basePrice = selectedProd.projectPrice ?? selectedProd.unitPrice
+    else if (watchSegment === "Special") basePrice = selectedProd.specialPrice ?? selectedProd.unitPrice
     label = `${selectedProd.productCode} - ${selectedProd.productName} (${watchSegment} Price: AED ${basePrice.toFixed(2)})`
   }
 
@@ -218,8 +218,8 @@ const ProductSearchSelect = React.memo(({
                 let basePrice = product.unitPrice
                 if (watchSegment === "Interior") basePrice = product.interiorPrice ?? product.unitPrice
                 else if (watchSegment === "Dealer") basePrice = product.dealerPrice ?? product.unitPrice
-                else if (watchSegment === "Direct") basePrice = product.directPrice ?? product.unitPrice
-                else if (watchSegment === "Online") basePrice = product.onlinePrice ?? product.unitPrice
+                else if (watchSegment === "Project") basePrice = product.projectPrice ?? product.unitPrice
+                else if (watchSegment === "Special") basePrice = product.specialPrice ?? product.unitPrice
 
                 const productLabel = `${product.productCode} - ${product.productName}`
 
@@ -591,7 +591,7 @@ function NewQuotationForm() {
             form.reset({
               clientId: activeData.clientId,
               projectName: activeData.projectName || "",
-              customerSegment: activeData.customerSegment || "Direct",
+              customerSegment: activeData.customerSegment || "Project",
               preparedById: activeData.preparedById || "",
               salesAgentId: activeData.salesAgentId || (activeData.salesAgentName ? "manual" : (activeData.preparedById || "")),
               salesAgentName: activeData.salesAgentName || "",
@@ -663,7 +663,7 @@ function NewQuotationForm() {
 
         form.reset({
           clientId: data.clientId,
-          customerSegment: data.customerSegment || "Direct",
+          customerSegment: data.customerSegment || "Project",
           projectName: "",
           preparedById: (session?.user as any)?.id || "",
           salesAgentId: (session?.user as any)?.id || "",
@@ -713,7 +713,7 @@ function NewQuotationForm() {
     defaultValues: {
       clientId: initialClientId,
       projectName: "",
-      customerSegment: "Direct",
+      customerSegment: "Project",
       preparedById: (session?.user as any)?.id || "",
       salesAgentId: (session?.user as any)?.id || "",
       salesAgentName: (session?.user as any)?.name || "",
@@ -759,7 +759,7 @@ function NewQuotationForm() {
 
   const selectedClientObj = clients.find((c) => c.id === watchClientId)
 
-  const watchSegment = form.watch("customerSegment") || "Direct"
+  const watchSegment = form.watch("customerSegment") || "Project"
 
   const handleAddBatch = () => {
     const newName = `Section ${batches.length + 1}`
@@ -929,7 +929,7 @@ function NewQuotationForm() {
   // Automatically select segment based on client type
   useEffect(() => {
     if (selectedClientObj && selectedClientObj.clientType) {
-      const validTypes = ["Dealer", "Interior", "Direct", "Online"]
+      const validTypes = ["Dealer", "Interior", "Project", "Special"]
       if (validTypes.includes(selectedClientObj.clientType)) {
         form.setValue("customerSegment", selectedClientObj.clientType as any, { shouldValidate: true, shouldDirty: true })
         toast.info(`Pricing updated to ${selectedClientObj.clientType} Segment based on client profile.`)
@@ -988,8 +988,8 @@ function NewQuotationForm() {
           let basePrice = matchedProduct.unitPrice
           if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice || matchedProduct.unitPrice
           else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
-          else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
-          else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
+          else if (watchSegment === "Project") basePrice = matchedProduct.projectPrice || matchedProduct.unitPrice
+          else if (watchSegment === "Special") basePrice = matchedProduct.specialPrice || matchedProduct.unitPrice
 
           form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
           const margin = Number(item.margin) || 0
@@ -1008,8 +1008,8 @@ function NewQuotationForm() {
       let basePrice = matchedProduct.unitPrice
       if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice || matchedProduct.unitPrice
       else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
-      else if (watchSegment === "Direct") basePrice = matchedProduct.directPrice || matchedProduct.unitPrice
-      else if (watchSegment === "Online") basePrice = matchedProduct.onlinePrice || matchedProduct.unitPrice
+      else if (watchSegment === "Project") basePrice = matchedProduct.projectPrice || matchedProduct.unitPrice
+      else if (watchSegment === "Special") basePrice = matchedProduct.specialPrice || matchedProduct.unitPrice
 
       form.setValue(`items.${index}.productId`, matchedProduct.id, { shouldValidate: true, shouldDirty: true })
       form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
@@ -1061,8 +1061,8 @@ function NewQuotationForm() {
         let segmentPrice = matchedProduct.unitPrice
         if (watchSegment === "Interior") segmentPrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
         else if (watchSegment === "Dealer") segmentPrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
-        else if (watchSegment === "Direct") segmentPrice = matchedProduct.directPrice ?? matchedProduct.unitPrice
-        else if (watchSegment === "Online") segmentPrice = matchedProduct.onlinePrice ?? matchedProduct.unitPrice
+        else if (watchSegment === "Project") segmentPrice = matchedProduct.projectPrice ?? matchedProduct.unitPrice
+        else if (watchSegment === "Special") segmentPrice = matchedProduct.specialPrice ?? matchedProduct.unitPrice
         
         basePrice = segmentPrice
         form.setValue(`items.${index}.basePrice`, segmentPrice, { shouldValidate: false, shouldDirty: true })
@@ -1267,8 +1267,8 @@ function NewQuotationForm() {
     let basePrice = product.unitPrice
     if (watchSegment === "Interior") basePrice = product.interiorPrice ?? product.unitPrice
     else if (watchSegment === "Dealer") basePrice = product.dealerPrice ?? product.unitPrice
-    else if (watchSegment === "Direct") basePrice = product.directPrice ?? product.unitPrice
-    else if (watchSegment === "Online") basePrice = product.onlinePrice ?? product.unitPrice
+    else if (watchSegment === "Project") basePrice = product.projectPrice ?? product.unitPrice
+    else if (watchSegment === "Special") basePrice = product.specialPrice ?? product.unitPrice
     return {
       label: `Standard ${watchSegment} Price`,
       price: basePrice
@@ -1529,7 +1529,7 @@ function NewQuotationForm() {
                                           <div className="text-[11px] text-muted-foreground ml-6 mt-0.5 flex items-center gap-1">
                                             <span className="font-mono">{client.clientId}</span>
                                             <span>·</span>
-                                            <span>{client.clientType || "Direct"}</span>
+                                            <span>{client.clientType || "Project"}</span>
                                             <span>·</span>
                                             <span>{statusText}</span>
                                           </div>
@@ -1654,8 +1654,8 @@ function NewQuotationForm() {
                           <SelectContent>
                             <SelectItem value="Interior">Interior (Prefix: I)</SelectItem>
                             <SelectItem value="Dealer">Dealer (Prefix: D)</SelectItem>
-                            <SelectItem value="Direct">Direct (Prefix: P)</SelectItem>
-                            <SelectItem value="Online">Online (Prefix: P)</SelectItem>
+                            <SelectItem value="Project">Direct (Prefix: P)</SelectItem>
+                            <SelectItem value="Special">Online (Prefix: P)</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />

@@ -239,7 +239,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         "john@acme.com", 
         "Office 402, Downtown Dubai, UAE", 
         "100123456789012", 
-        "Direct", 
+        "Project", 
         "P PRICE",
         "Important VIP client", 
         "John Consultant"
@@ -350,7 +350,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         email: getVal("email"),
         address: getVal("address"),
         trn: getVal("trn"),
-        clientType: getVal("clientType") || "Direct",
+        clientType: getVal("clientType") || "Project",
         priceCategory: getVal("priceCategory"),
         notes: getVal("notes"),
         assignedConsultant: getVal("assignedConsultant"),
@@ -551,7 +551,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       }
 
       // 4. Client Type validation
-      const allowedTypes = ["Direct", "Interior", "Dealer", "Online", "Government", "Corporate", "Project"]
+      const allowedTypes = ["Project", "Interior", "Dealer", "Special", "Government", "Corporate", "Project"]
       if (c.clientType && c.clientType.trim() !== "") {
         const matchedType = allowedTypes.find(t => t.toLowerCase() === c.clientType.trim().toLowerCase())
         if (!matchedType) {
@@ -701,7 +701,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         email: getVal("email"),
         address: getVal("address"),
         trn: getVal("trn"),
-        clientType: getVal("clientType") || "Direct",
+        clientType: getVal("clientType") || "Project",
         priceCategory: getVal("priceCategory"),
         notes: getVal("notes"),
         assignedConsultant: getVal("assignedConsultant"),
@@ -1237,10 +1237,10 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                                   value={c.clientType}
                                   onChange={(e) => handleClientFieldChange(idx, "clientType", e.target.value)}
                                 >
-                                  <option value="Direct">Direct</option>
+                                  <option value="Project">Direct</option>
                                   <option value="Interior">Interior</option>
                                   <option value="Dealer">Dealer</option>
-                                  <option value="Online">Online</option>
+                                  <option value="Special">Online</option>
                                   <option value="Government">Government</option>
                                   <option value="Corporate">Corporate</option>
                                 </select>

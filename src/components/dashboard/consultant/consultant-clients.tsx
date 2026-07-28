@@ -28,7 +28,7 @@ export function ConsultantClients({ clients }: { clients: any[] }) {
                     {client.companyName}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {client.contactPerson || "No Contact"} • {client.clientType || "Direct"}
+                    {client.contactPerson || "No Contact"} • {client.clientType || "Project"}
                   </span>
                 </div>
                 <div className="flex flex-col items-end gap-1">
