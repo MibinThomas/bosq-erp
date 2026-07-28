@@ -382,7 +382,7 @@ export async function GET(request: Request) {
     // Calculate the 10 required Team Overview KPIs
     // 1. totalDesignConsultants
     const activeConsultantsCountWhere: any = {
-      role: { in: ["DESIGN_CONSULTANT", "SALES_EXECUTIVE"] },
+      role: { in: ["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"] },
       isActive: true,
       deletedAt: null
     }

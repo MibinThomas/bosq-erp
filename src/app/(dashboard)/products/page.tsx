@@ -87,7 +87,7 @@ export default function ProductsPage() {
   const canDeleteProduct = isSuperAdmin || (productPermissions ? productPermissions.delete === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
   const canBulkUploadProduct = isSuperAdmin || (productPermissions ? productPermissions.uploadFiles === true : ["ADMIN"].includes(userRole))
   const canManageCategory = isSuperAdmin || (productPermissions ? productPermissions.manage === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
-  const hasQuoteAccess = isSuperAdmin || (productPermissions ? productPermissions.share === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
+  const hasQuoteAccess = isSuperAdmin || (productPermissions ? productPermissions.share === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole))
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isBulkOpen, setIsBulkOpen] = useState(false)
@@ -215,7 +215,7 @@ export default function ProductsPage() {
         console.error("Failed to load clients:", err)
       }
     }
-    if (userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || isManagerOrAdmin) {
+    if (userRole === "SALES_EXECUTIVE" || userRole === "INTERIOR_DESIGN_CONSULTANT" || isManagerOrAdmin) {
       loadClients()
     }
   }, [userRole, isManagerOrAdmin])

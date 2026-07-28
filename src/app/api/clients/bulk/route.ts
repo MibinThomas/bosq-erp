@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       where: { deletedAt: null }
     })
 
-    // Fetch active users for design consultant validation
+    // Fetch active users for Interior design consultant validation
     const dbUsers = await prisma.user.findMany({
       where: { deletedAt: null }
     })
@@ -264,7 +264,7 @@ export async function POST(request: Request) {
         }
       }
 
-      // 6. Validate Design Consultant
+      // 6. Validate Interior Design Consultant
       let assignedConsultantUserId: string | null = null
       if (!assignedConsultant || assignedConsultant.trim() === "") {
         assignedConsultantUserId = fallbackAdminUserId
@@ -284,12 +284,12 @@ export async function POST(request: Request) {
           cellIssues.push({ 
             columnKey: "assignedConsultant", 
             type: "warning", 
-            message: `Design consultant '${assignedConsultant}' not found. Automatically assigned to ${fallbackName}.` 
+            message: `Interior Design consultant '${assignedConsultant}' not found. Automatically assigned to ${fallbackName}.` 
           })
         } else if (matchedUser.isActive === false) {
-          cellIssues.push({ columnKey: "assignedConsultant", type: "error", message: "Design consultant is inactive" })
+          cellIssues.push({ columnKey: "assignedConsultant", type: "error", message: "Interior Design consultant is inactive" })
         } else {
-          const allowedRoles = ["DESIGN_CONSULTANT"]
+          const allowedRoles = ["INTERIOR_DESIGN_CONSULTANT"]
           if (allowSalesExec) {
             allowedRoles.push("SALES_EXECUTIVE")
           }
@@ -485,7 +485,7 @@ export async function POST(request: Request) {
         { header: "TRN", key: "trn", width: 18 },
         { header: "Client Type", key: "clientType", width: 15 },
         { header: "Notes", key: "notes", width: 35 },
-        { header: "Assigned Design Consultant", key: "assignedConsultant", width: 25 },
+        { header: "Assigned Interior Design Consultant", key: "assignedConsultant", width: 25 },
         { header: "Upload Error", key: "uploadError", width: 40 }
       ]
 

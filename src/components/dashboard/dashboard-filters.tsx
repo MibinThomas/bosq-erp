@@ -376,7 +376,7 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
               </Select>
             </div>
 
-            {/* 5. Design Consultant (Managers/Admins only) */}
+            {/* 5. Interior Design Consultant (Managers/Admins only) */}
             {isManagerOrAdmin && (
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">

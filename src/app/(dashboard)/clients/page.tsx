@@ -106,8 +106,8 @@ export default function ClientsPage() {
       .catch(err => console.error("Failed to load permissions", err))
   }, [])
 
-  const canCreate = isSuperAdmin || (userPermissions ? userPermissions.create === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
-  const canBulkUpload = isSuperAdmin || (userPermissions ? userPermissions.uploadFiles === true : (userRole === "MANAGER" || userRole === "SALES_MANAGER" ? false : ["ADMIN", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole)))
+  const canCreate = isSuperAdmin || (userPermissions ? userPermissions.create === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole))
+  const canBulkUpload = isSuperAdmin || (userPermissions ? userPermissions.uploadFiles === true : (userRole === "MANAGER" || userRole === "SALES_MANAGER" ? false : ["ADMIN", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole)))
 
   useEffect(() => {
     if (isSuperAdmin) {

@@ -186,7 +186,7 @@ export default function DashboardPage() {
     )
   }
 
-  if (userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT") {
+  if (userRole === "SALES_EXECUTIVE" || userRole === "INTERIOR_DESIGN_CONSULTANT") {
     return <ConsultantDashboard />
   }
 

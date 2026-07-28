@@ -102,7 +102,7 @@ export function ProductDetailsModal({
 
   const hasQuoteAccess = canCreateQuotation !== undefined
     ? canCreateQuotation
-    : (userRole === "SALES_EXECUTIVE" || userRole === "DESIGN_CONSULTANT" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER" || userRole === "SUPER_ADMIN")
+    : (userRole === "SALES_EXECUTIVE" || userRole === "INTERIOR_DESIGN_CONSULTANT" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER" || userRole === "SUPER_ADMIN")
 
   // HTML Spec Parser Helper
   const sanitizeHtmlToText = (html: string) => {

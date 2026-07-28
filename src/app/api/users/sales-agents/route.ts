@@ -39,7 +39,7 @@ export async function GET() {
       whereClause.role = { not: "SUPER_ADMIN" }
       whereClause.department = dbSessionUser.department || "N/A"
     } else {
-      // Design Consultants and other standard users are locked to their own account
+      // Interior Design Consultants and other standard users are locked to their own account
       whereClause.id = dbSessionUser.id
     }
 

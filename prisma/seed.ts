@@ -99,8 +99,8 @@ async function main() {
       ]
     },
     {
-      name: "DESIGN_CONSULTANT",
-      description: "Design Consultant focused on BOQs and product selections.",
+      name: "INTERIOR_DESIGN_CONSULTANT",
+      description: "Interior Design Consultant focused on BOQs and product selections.",
       isSystem: true,
       permissions: [
         { module: "DASHBOARD", view: true, create: false, edit: false, delete: false, approve: false, reject: false, export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false, ownership: "ALL", costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false },

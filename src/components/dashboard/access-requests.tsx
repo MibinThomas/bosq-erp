@@ -159,7 +159,7 @@ export function ClientAccessRequests({ onChanged }: ClientAccessRequestsProps) {
                 Access Requests
               </CardTitle>
               <CardDescription className="text-xs text-slate-400">
-                Manage requests from design consultants seeking authorization to assigned clients.
+                Manage requests from Interior design consultants seeking authorization to assigned clients.
               </CardDescription>
             </div>
             {requests.length > 0 && (

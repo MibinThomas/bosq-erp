@@ -118,7 +118,7 @@ export function ConsultantDashboard() {
       />
 
       {!hasData ? (
-        userRole === "DESIGN_CONSULTANT" ? (
+        userRole === "INTERIOR_DESIGN_CONSULTANT" ? (
           <div className="bg-card border border-dashed rounded-xl p-12 text-center flex flex-col items-center justify-center space-y-4">
             <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center">
               <span className="text-2xl">👤</span>
@@ -151,7 +151,7 @@ export function ConsultantDashboard() {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
             <div className="lg:col-span-5 space-y-6">
               <ConsultantQuotations quotations={overviewData?.quotations || []} />
-              {userRole === "DESIGN_CONSULTANT" && (
+              {userRole === "INTERIOR_DESIGN_CONSULTANT" && (
                 <ConsultantBoqs boqs={overviewData?.boqs || []} />
               )}
               <div className="grid gap-6 md:grid-cols-2">

@@ -67,7 +67,7 @@ export async function GET(request: Request) {
       if (ownershipRule === "ALL") {
         ownershipRule = "DEPARTMENT"
       }
-    } else if (["DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(userRole)) {
+    } else if (["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(userRole)) {
       if (ownershipRule === "ALL" || ownershipRule === "DEPARTMENT") {
         ownershipRule = "ASSIGNED"
       }

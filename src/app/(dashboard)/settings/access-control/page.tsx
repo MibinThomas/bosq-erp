@@ -71,7 +71,7 @@ export default function AccessControlPage() {
       case "MANAGER":
       case "SALES_MANAGER": return "Manager"
       case "SALES_EXECUTIVE": return "Interior Design Consultant (IDC)"
-      case "DESIGN_CONSULTANT": return "Design Consultant"
+      case "INTERIOR_DESIGN_CONSULTANT": return "Interior Design Consultant"
       case "ESTIMATOR": return "Cost Estimator"
       case "ACCOUNTS": return "Finance & Accounts"
       case "PROCUREMENT": return "Procurement"
@@ -1272,7 +1272,7 @@ export default function AccessControlPage() {
         <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
           <div>
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Client Access Request Queue</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">Approve, reject, or reassign requests submitted by design consultants requesting access to other owners&apos; clients.</p>
+            <p className="text-xs text-zinc-400 mt-0.5">Approve, reject, or reassign requests submitted by Interior design consultants requesting access to other owners&apos; clients.</p>
           </div>
 
           <div className="overflow-x-auto border dark:border-zinc-800 rounded-xl">

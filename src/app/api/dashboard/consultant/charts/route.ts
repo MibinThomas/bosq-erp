@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     const projectNameFilter = url.searchParams.get("projectName")
     let qWhere: any = { deletedAt: null, status: { not: "REVISED" } } // Exclude revised from charts
 
-    // Enforce strict personal performance boundaries for Design Consultants and Sales Executives
+    // Enforce strict personal performance boundaries for Interior Design Consultants and Sales Executives
     qWhere.OR = [
       { preparedById: userId },
       { salesAgentId: userId },

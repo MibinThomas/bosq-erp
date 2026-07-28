@@ -203,7 +203,7 @@ export default function ProfilePage() {
                     profile.role === "ADMIN" ? "Administrator" :
                     (profile.role === "MANAGER" || profile.role === "SALES_MANAGER") ? "Manager" :
                     profile.role === "SALES_EXECUTIVE" ? "Interior Design Consultant" :
-                    profile.role === "DESIGN_CONSULTANT" ? "Design Consultant" :
+                    profile.role === "INTERIOR_DESIGN_CONSULTANT" ? "Interior Design Consultant" :
                     profile.role === "ESTIMATOR" ? "Cost Estimator" :
                     profile.role === "ACCOUNTS" ? "Finance & Accounts" :
                     profile.role === "PROCUREMENT" ? "Procurement" :

@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     let qWhere: any = { deletedAt: null, status: { not: "REVISED" } } // Exclude revised from followups
     let logWhere: any = { userId }
 
-    // Enforce strict personal performance boundaries for Design Consultants and Sales Executives
+    // Enforce strict personal performance boundaries for Interior Design Consultants and Sales Executives
     qWhere.OR = [
       { preparedById: userId },
       { salesAgentId: userId },

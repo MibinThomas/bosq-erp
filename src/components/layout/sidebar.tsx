@@ -107,8 +107,8 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
         return "Manager"
       case "SALES_EXECUTIVE":
         return "Interior Design Consultant"
-      case "DESIGN_CONSULTANT":
-        return "Design Consultant"
+      case "INTERIOR_DESIGN_CONSULTANT":
+        return "Interior Design Consultant"
       case "ESTIMATOR":
         return "Cost Estimator"
       case "ACCOUNTS":

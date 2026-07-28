@@ -62,7 +62,7 @@ export function DashboardTopPerformers({ topConsultants = [], topClients = [], l
             <div className="space-y-1">
               <CardTitle className="text-lg font-bold flex items-center gap-2 tracking-tight">
                 <Trophy className="h-5 w-5 text-amber-500 animate-bounce" />
-                Top Design Consultants
+                Top Interior Design Consultants
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Leading sales executives by quotation volume.

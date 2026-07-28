@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     let cWhere: any = { deletedAt: null }
     let boqWhere: any = { deletedAt: null }
 
-    // Enforce strict personal performance boundaries for Design Consultants and Sales Executives
+    // Enforce strict personal performance boundaries for Interior Design Consultants and Sales Executives
     cWhere.OR = [
       { salespersonId: userId },
       { assignments: { some: { userId } } },

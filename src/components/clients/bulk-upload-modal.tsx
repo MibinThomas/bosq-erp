@@ -87,7 +87,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     "Client Type", 
     "Price Category",
     "Notes", 
-    "Assigned Design Consultant"
+    "Assigned Interior Design Consultant"
   ]
 
   const serializeToCSVCell = (val: any) => {
@@ -228,7 +228,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       "Client Type", 
       "Price Category",
       "Notes", 
-      "Assigned Design Consultant"
+      "Assigned Interior Design Consultant"
     ]
     const rows = [
       [
@@ -274,7 +274,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       { wch: 15 }, // Client Type
       { wch: 15 }, // Price Category
       { wch: 35 }, // Notes
-      { wch: 25 }, // Assigned Design Consultant
+      { wch: 25 }, // Assigned Interior Design Consultant
     ]
 
     // Create workbook and append sheet
@@ -591,13 +591,13 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         }
       }
 
-      // 6. Assigned Design Consultant validation
+      // 6. Assigned Interior Design Consultant validation
       if (!c.assignedConsultant || c.assignedConsultant.trim() === "") {
         const assignToUploader = systemSettings["client_assign_to_uploader"] !== "false"
         if (assignToUploader) {
           warningsList.push({
             row: csvRowNum,
-            column: currentMappings["assignedConsultant"] || "Assigned Design Consultant",
+            column: currentMappings["assignedConsultant"] || "Assigned Interior Design Consultant",
             message: "Blank assigned consultant, will default to uploading user.",
             key: "assignedConsultant"
           })
@@ -609,27 +609,27 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         if (!matchedUser) {
           errorsList.push({
             row: csvRowNum,
-            column: currentMappings["assignedConsultant"] || "Assigned Design Consultant",
-            message: "Design consultant not found in ERP users.",
+            column: currentMappings["assignedConsultant"] || "Assigned Interior Design Consultant",
+            message: "Interior Design consultant not found in ERP users.",
             key: "assignedConsultant"
           })
         } else if (matchedUser.isActive === false) {
           errorsList.push({
             row: csvRowNum,
-            column: currentMappings["assignedConsultant"] || "Assigned Design Consultant",
-            message: "Design consultant is inactive.",
+            column: currentMappings["assignedConsultant"] || "Assigned Interior Design Consultant",
+            message: "Interior Design consultant is inactive.",
             key: "assignedConsultant"
           })
         } else {
           const allowSalesExec = systemSettings["client_allow_sales_executive_assignment"] !== "false"
-          const allowedRoles = ["DESIGN_CONSULTANT"]
+          const allowedRoles = ["INTERIOR_DESIGN_CONSULTANT"]
           if (allowSalesExec) {
             allowedRoles.push("SALES_EXECUTIVE")
           }
           if (!allowedRoles.includes(matchedUser.role)) {
             errorsList.push({
               row: csvRowNum,
-              column: currentMappings["assignedConsultant"] || "Assigned Design Consultant",
+              column: currentMappings["assignedConsultant"] || "Assigned Interior Design Consultant",
               message: `User role (${matchedUser.role.replace(/_/g, " ")}) is not permitted for client assignment.`,
               key: "assignedConsultant"
             })
@@ -1319,7 +1319,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                                 </div>
 
                                 <div className="space-y-1">
-                                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide">Assigned Design Consultant</label>
+                                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide">Assigned Interior Design Consultant</label>
                                   <input
                                     id={`input-${idx}-assignedConsultant`}
                                     className={`w-full border rounded-lg px-2.5 py-1.5 bg-white dark:bg-zinc-900 text-xs focus:ring-blue-500 ${
@@ -1394,7 +1394,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
                   <div className="p-3 bg-blue-50/50 dark:bg-blue-950/10 border border-blue-200/40 rounded-xl text-[10px] text-blue-800 dark:text-blue-400 leading-relaxed flex items-start gap-1.5">
                     <Info size={14} className="shrink-0 mt-0.5 animate-pulse text-blue-550" />
-                    <span>Design consultant mappings are validated against current active users directory.</span>
+                    <span>Interior Design consultant mappings are validated against current active users directory.</span>
                   </div>
 
                   <div className="space-y-2 pt-2 border-t dark:border-zinc-850">
@@ -1444,7 +1444,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                         { key: "trn", label: "TRN", required: false },
                         { key: "clientType", label: "Client Type", required: false },
                         { key: "notes", label: "Notes", required: false },
-                        { key: "assignedConsultant", label: "Assigned Design Consultant", required: false }
+                        { key: "assignedConsultant", label: "Assigned Interior Design Consultant", required: false }
                       ].map((field) => (
                         <div key={field.key} className="space-y-1">
                           <label className="text-[10px] font-bold text-zinc-600 dark:text-zinc-400">

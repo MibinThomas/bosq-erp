@@ -211,7 +211,7 @@ export default function ClientDetailPage() {
   }, [clientId, fetchClient])
 
   const isSuperAdmin = userRole === "SUPER_ADMIN"
-  const canEdit = isSuperAdmin || (userPermissions ? userPermissions.edit === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "DESIGN_CONSULTANT"].includes(userRole))
+  const canEdit = isSuperAdmin || (userPermissions ? userPermissions.edit === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole))
   const canApprove = isSuperAdmin || (userPermissions ? userPermissions.approve === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
 
   // ── Lazy load BOQs when tab selected ──────────────────────────────────────

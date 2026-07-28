@@ -24,9 +24,9 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    if (!["DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(dbSessionUser.role)) {
+    if (!["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(dbSessionUser.role)) {
       return NextResponse.json(
-        { error: "Only Design Consultants and Sales Executives can request client access." },
+        { error: "Only Interior Design Consultants and Sales Executives can request client access." },
         { status: 403 }
       )
     }
@@ -100,7 +100,7 @@ export async function POST(
       }
     })
 
-    // 3. Notify currently assigned Design Consultants/Managers/Admins of that client
+    // 3. Notify currently assigned Interior Design Consultants/Managers/Admins of that client
     // Also notify Admins/Super Admins for visibility.
     const notifyUserIds = new Set<string>()
     

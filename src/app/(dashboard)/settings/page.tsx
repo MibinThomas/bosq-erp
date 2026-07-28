@@ -1004,7 +1004,7 @@ export default function SettingsPage() {
                              usr.role === "ADMIN" ? "Administrator" :
                              (usr.role === "SALES_MANAGER" || usr.role === "MANAGER") ? "Manager" :
                              usr.role === "SALES_EXECUTIVE" ? "Interior Design Consultant (IDC)" :
-                             usr.role === "DESIGN_CONSULTANT" ? "Design Consultant" :
+                             usr.role === "INTERIOR_DESIGN_CONSULTANT" ? "Interior Design Consultant" :
                              usr.role === "ESTIMATOR" ? "Cost Estimator" :
                              usr.role === "ACCOUNTS" ? "Finance & Accounts" :
                              usr.role === "PROCUREMENT" ? "Procurement" :
@@ -1497,7 +1497,7 @@ export default function SettingsPage() {
                         
                         let label = r.name.replace(/_/g, " ")
                         if (r.name === "SALES_EXECUTIVE") label = "Interior Design Consultant (IDC)"
-                        else if (r.name === "DESIGN_CONSULTANT") label = "Design Consultant"
+                        else if (r.name === "INTERIOR_DESIGN_CONSULTANT") label = "Interior Design Consultant"
                         else if (r.name === "ESTIMATOR") label = "Cost Estimator"
                         else if (r.name === "ACCOUNTS") label = "Finance & Accounts"
                         else if (r.name === "SUPER_ADMIN") label = "Super Administrator"
@@ -1514,7 +1514,7 @@ export default function SettingsPage() {
                     ) : (
                       <>
                         <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
-                        <option value="DESIGN_CONSULTANT">Design Consultant</option>
+                        <option value="INTERIOR_DESIGN_CONSULTANT">Interior Design Consultant</option>
                         <option value="ESTIMATOR">Cost Estimator</option>
                         {userRole === "SUPER_ADMIN" && (
                           <>
@@ -1647,7 +1647,7 @@ export default function SettingsPage() {
                         
                         let label = r.name.replace(/_/g, " ")
                         if (r.name === "SALES_EXECUTIVE") label = "Interior Design Consultant (IDC)"
-                        else if (r.name === "DESIGN_CONSULTANT") label = "Design Consultant"
+                        else if (r.name === "INTERIOR_DESIGN_CONSULTANT") label = "Interior Design Consultant"
                         else if (r.name === "ESTIMATOR") label = "Cost Estimator"
                         else if (r.name === "ACCOUNTS") label = "Finance & Accounts"
                         else if (r.name === "SUPER_ADMIN") label = "Super Administrator"
@@ -1664,7 +1664,7 @@ export default function SettingsPage() {
                     ) : (
                       <>
                         <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
-                        <option value="DESIGN_CONSULTANT">Design Consultant</option>
+                        <option value="INTERIOR_DESIGN_CONSULTANT">Interior Design Consultant</option>
                         <option value="ESTIMATOR">Cost Estimator</option>
                         {(userRole === "SUPER_ADMIN" || editUserData.role === "SALES_MANAGER" || editUserData.role === "MANAGER") && (
                           <option value="MANAGER">Manager</option>

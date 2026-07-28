@@ -122,7 +122,7 @@ The system implements a multi-layered security model in [rbac.ts](file:///d:/MIB
 | **`SALES_MANAGER`** | 🟢 Full Access (All Clients) | 🟢 Create, Edit, Approve Revisions | 🟢 Review & Convert BOQs | 🟢 Unit, Cost, Dealer, Margin | 🟡 View Only |
 | **`SALES_EXECUTIVE`** | 🟡 Assigned Clients Only | 🟡 Create/Edit Assigned Quotes | 🔴 No Access | 🟡 Unit & Segment Selling Price Only | 🔴 No Access |
 | **`ESTIMATOR`** | 🟡 Assigned Clients Only | 🔴 Read-Only on Linked Quotes | 🟢 Cost Estimation & Markup | 🟢 Material, Labor, Overhead, Cost | 🔴 No Access |
-| **`DESIGN_CONSULTANT`** | 🟡 Assigned Clients Only | 🟡 Create Draft Quotes | 🟡 View Assigned BOQs | 🟡 Unit Selling Price Only | 🔴 No Access |
+| **`INTERIOR_DESIGN_CONSULTANT`** | 🟡 Assigned Clients Only | 🟡 Create Draft Quotes | 🟡 View Assigned BOQs | 🟡 Unit Selling Price Only | 🔴 No Access |
 | **`ACCOUNTS` / `PRODUCTION`** | 🟡 View Approved Clients | 🟡 View Approved Quotes & POs | 🔴 No Access | 🟡 Unit Price & Total Amount | 🔴 No Access |
 
 > [!IMPORTANT]
