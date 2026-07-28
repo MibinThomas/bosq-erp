@@ -1681,6 +1681,15 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
             </div>
 
             <div className="flex flex-col w-full gap-3 pt-4">
+              {importResult.summary?.failCount && importResult.summary.failCount > 0 ? (
+                <Button
+                  onClick={handleDownloadErrorReport}
+                  variant="destructive"
+                  className="w-full h-12 text-md font-bold shadow-md"
+                >
+                  Download Skipped Records
+                </Button>
+              ) : null}
               <Button
                 onClick={() => {
                   onSuccess()
