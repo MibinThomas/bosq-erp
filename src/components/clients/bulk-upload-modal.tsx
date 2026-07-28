@@ -40,6 +40,7 @@ interface ParsedClient {
   address: string
   trn: string
   clientType: string
+  priceCategory: string
   notes: string
   assignedConsultant: string
 }
@@ -84,6 +85,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     "Address", 
     "TRN", 
     "Client Type", 
+    "Price Category",
     "Notes", 
     "Assigned Design Consultant"
   ]
@@ -118,6 +120,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
           c.address || "",
           c.trn || "",
           c.clientType || "",
+          c.priceCategory || "",
           c.notes || "",
           assignedConsultant
         ]
@@ -223,6 +226,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       "Address", 
       "TRN", 
       "Client Type", 
+      "Price Category",
       "Notes", 
       "Assigned Design Consultant"
     ]
@@ -236,6 +240,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         "Office 402, Downtown Dubai, UAE", 
         "100123456789012", 
         "Direct", 
+        "P PRICE",
         "Important VIP client", 
         "John Consultant"
       ],
@@ -248,6 +253,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         "Dubai Silicon Oasis, UAE", 
         "100987654321098", 
         "Dealer", 
+        "D PRICE",
         "Bulk purchaser", 
         "Jane Executive"
       ],
@@ -266,6 +272,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       { wch: 40 }, // Address
       { wch: 18 }, // TRN
       { wch: 15 }, // Client Type
+      { wch: 15 }, // Price Category
       { wch: 35 }, // Notes
       { wch: 25 }, // Assigned Design Consultant
     ]
@@ -290,14 +297,15 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const processImportData = (fileHeaders: string[], fileRows: string[][], fileName: string, fileSize: number) => {
     const initialMappings: Record<string, string> = {}
     const targetFields = [
-      { key: "clientId", synonyms: ["id", "clientid", "customerid", "code"] },
-      { key: "companyName", synonyms: ["company", "name", "companyname", "client", "customer"] },
+      { key: "clientId", synonyms: ["id", "clientid", "customerid", "code", "clientcode"] },
+      { key: "companyName", synonyms: ["company", "name", "companyname", "client", "customer", "clientname"] },
       { key: "contactPerson", synonyms: ["contact", "person", "contactperson", "attention"] },
       { key: "phone", synonyms: ["phone", "mobile", "tel", "contactnumber"] },
       { key: "email", synonyms: ["email", "e-mail", "mail"] },
       { key: "address", synonyms: ["address", "location", "city", "street"] },
       { key: "trn", synonyms: ["trn", "tax", "vat", "taxnumber"] },
       { key: "clientType", synonyms: ["type", "clienttype", "category", "segment"] },
+      { key: "priceCategory", synonyms: ["pricecategory", "price", "pricing", "price category"] },
       { key: "notes", synonyms: ["notes", "remarks", "comments", "details"] },
       { key: "assignedConsultant", synonyms: ["consultant", "assigneddesignconsultant", "salesperson", "designconsultant", "salesexecutive", "sales"] }
     ]
@@ -343,6 +351,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         address: getVal("address"),
         trn: getVal("trn"),
         clientType: getVal("clientType") || "Direct",
+        priceCategory: getVal("priceCategory"),
         notes: getVal("notes"),
         assignedConsultant: getVal("assignedConsultant"),
       }
@@ -542,15 +551,29 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       }
 
       // 4. Client Type validation
-      const allowedTypes = ["Direct", "Interior", "Dealer", "Online", "Government", "Corporate"]
+      const allowedTypes = ["Direct", "Interior", "Dealer", "Online", "Government", "Corporate", "Project"]
       if (c.clientType && c.clientType.trim() !== "") {
         const matchedType = allowedTypes.find(t => t.toLowerCase() === c.clientType.trim().toLowerCase())
         if (!matchedType) {
           errorsList.push({
             row: csvRowNum,
             column: currentMappings["clientType"] || "Client Type",
-            message: "Invalid client type. Allowed: Direct, Interior, Dealer, Online, Government, Corporate",
+            message: "Invalid client type. Allowed: Direct, Interior, Dealer, Online, Government, Corporate, Project",
             key: "clientType"
+          })
+        }
+      }
+      
+      // Price Category Validation
+      const allowedPrices = ["P PRICE", "D PRICE", "I PRICE"]
+      if (c.priceCategory && c.priceCategory.trim() !== "") {
+        const matchedPrice = allowedPrices.find(p => p.toLowerCase() === c.priceCategory.trim().toLowerCase())
+        if (!matchedPrice) {
+          errorsList.push({
+            row: csvRowNum,
+            column: currentMappings["priceCategory"] || "Price Category",
+            message: "Invalid Price Category. Allowed: P PRICE, D PRICE, I PRICE",
+            key: "priceCategory"
           })
         }
       }
@@ -679,6 +702,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         address: getVal("address"),
         trn: getVal("trn"),
         clientType: getVal("clientType") || "Direct",
+        priceCategory: getVal("priceCategory"),
         notes: getVal("notes"),
         assignedConsultant: getVal("assignedConsultant"),
       }
@@ -751,7 +775,10 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         body: JSON.stringify({ clients: finalizedClients })
       })
 
-      if (!res.ok) throw new Error("Bulk import failed")
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || "Bulk import failed")
+      }
       const data = await res.json()
 
       // Clear draft on success

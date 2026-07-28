@@ -64,7 +64,8 @@ model Client {
   email           String?
   address         String?
   trn             String?
-  clientType      String?     @default("Direct")
+  clientType      String?     @default("Direct") // Category: DEALER, PROJECT, INTERIOR
+  priceCategory   String?     // P PRICE, D PRICE, I PRICE
   salespersonId   String?
   sharepointFolder String?
   notes           String?
@@ -496,4 +497,13 @@ model ClientAccessRequest {
   updatedAt       DateTime @updatedAt
 
   @@unique([clientId, userId])
+}
+
+model SequenceTracker {
+  id          String   @id @default(cuid())
+  type        String   @unique // e.g., "CLIENT_D", "CLIENT_P", "CLIENT_I", "QUOTE_I"
+  lastValue   Int      @default(0)
+  prefix      String?
+  description String?
+  updatedAt   DateTime @updatedAt
 }

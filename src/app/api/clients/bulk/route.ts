@@ -94,6 +94,10 @@ export async function POST(request: Request) {
       }
     }
 
+    if (!fallbackAdminUserId) {
+      fallbackAdminUserId = creatorUserId
+    }
+
     const clientByCompany = new Map(dbClients.map(c => [c.companyName.trim().toLowerCase(), c]))
     const clientByEmail = new Map()
     const clientByPhone = new Map()
@@ -158,6 +162,7 @@ export async function POST(request: Request) {
         address,
         trn,
         clientType,
+        priceCategory,
         notes,
         assignedConsultant
       } = clientData
@@ -384,6 +389,7 @@ export async function POST(request: Request) {
             address: address || null,
             trn: trn || null,
             clientType: normalizedClientType,
+            priceCategory: priceCategory || null,
             notes: notes || null,
             status: "Approved",
             salespersonId: assignedConsultantUserId || undefined
@@ -397,6 +403,7 @@ export async function POST(request: Request) {
             address: address || null,
             trn: trn || null,
             clientType: normalizedClientType,
+            priceCategory: priceCategory || null,
             notes: notes || null,
             sharepointFolder: sharepointFolderId,
             salespersonId: assignedConsultantUserId,
@@ -563,10 +570,10 @@ export async function POST(request: Request) {
       warnings: warningRowsList,
       errorFileBase64
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to bulk import clients:", error)
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: error?.message || String(error) || "Internal Server Error" },
       { status: 500 }
     )
   }
