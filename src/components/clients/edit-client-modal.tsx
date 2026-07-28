@@ -141,6 +141,7 @@ export function EditClientModal({ client, isOpen, onClose, onSuccess }: EditClie
                   className="w-full h-9 rounded-md border bg-background px-3 py-1 text-sm shadow-sm"
                   value={clientType}
                   onChange={(e) => setClientType(e.target.value)}
+                >
                   <option value="Dealer">Dealer</option>
                   <option value="Interior">Interior</option>
                   <option value="Project">Project</option>
