@@ -56,34 +56,27 @@ export async function GET(request: Request) {
     if (all) {
       whereClause.status = "Approved"
     } else {
-      const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(dbSessionUser.role)
-      if (!isUnrestricted) {
+      if (ownershipRule === "ALL") {
+        // No additional restrictions needed, can view all clients
+      } else if (ownershipRule === "DEPARTMENT") {
+        const deptUsers = await prisma.user.findMany({
+          where: { department: dbSessionUser.department || "N/A" },
+          select: { id: true }
+        })
+        const deptUserIds = deptUsers.map(u => u.id)
+        whereClause.OR = [
+          { salespersonId: { in: deptUserIds } },
+          { assignments: { some: { userId: { in: deptUserIds } } } },
+          { accessRequests: { some: { userId: { in: deptUserIds }, status: "Approved" } } }
+        ]
+      } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
         whereClause.OR = [
           { salespersonId: dbSessionUser.id },
           { assignments: { some: { userId: dbSessionUser.id } } },
           { accessRequests: { some: { userId: dbSessionUser.id, status: "Approved" } } }
         ]
-      } else {
-        if (ownershipRule === "DEPARTMENT") {
-          const deptUsers = await prisma.user.findMany({
-            where: { department: dbSessionUser.department || "N/A" },
-            select: { id: true }
-          })
-          const deptUserIds = deptUsers.map(u => u.id)
-          whereClause.OR = [
-            { salespersonId: { in: deptUserIds } },
-            { assignments: { some: { userId: { in: deptUserIds } } } },
-            { accessRequests: { some: { userId: { in: deptUserIds }, status: "Approved" } } }
-          ]
-        } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
-          whereClause.OR = [
-            { salespersonId: dbSessionUser.id },
-            { assignments: { some: { userId: dbSessionUser.id } } },
-            { accessRequests: { some: { userId: dbSessionUser.id, status: "Approved" } } }
-          ]
-        } else if (ownershipRule === "NONE") {
-          whereClause.id = "none"
-        }
+      } else if (ownershipRule === "NONE") {
+        whereClause.id = "none"
       }
     }
 

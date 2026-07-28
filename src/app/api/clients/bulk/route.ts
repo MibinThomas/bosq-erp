@@ -1,3 +1,4 @@
+export const maxDuration = 300; // 5 minutes timeout for bulk operations
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
@@ -363,29 +364,29 @@ export async function POST(request: Request) {
         successCount++
       }
 
-      // Create / Update Client in Transaction (if valid)
+      // 1. Create SharePoint folder outside transaction to prevent holding DB locks
+      let finalClientId = clientId ? clientId.trim() : null
+      const existingClient = clientByCompany.get(companyName.trim().toLowerCase())
+      
+      if (existingClient && (!finalClientId || existingClient.clientId !== finalClientId)) {
+        finalClientId = existingClient.clientId
+      } else if (!finalClientId) {
+        finalClientId = `C-${nextNum.toString().padStart(4, "0")}`
+        nextNum++
+      }
+
+      let sharepointFolderId = existingClient?.sharepointFolder || ""
+      if (!sharepointFolderId) {
+        try {
+          sharepointFolderId = await createClientFolder(companyName)
+        } catch (spError) {
+          console.error("Failed to create SharePoint folder for client:", spError)
+          sharepointFolderId = `mock-folder-failed-${Date.now()}`
+        }
+      }
+
+      // 2. Create / Update Client in Transaction (if valid)
       await prisma.$transaction(async (tx) => {
-        let finalClientId = clientId ? clientId.trim() : null
-        
-        const existingClient = clientByCompany.get(companyName.trim().toLowerCase())
-        if (existingClient && (!finalClientId || existingClient.clientId !== finalClientId)) {
-          finalClientId = existingClient.clientId
-        } else if (!finalClientId) {
-          finalClientId = `C-${nextNum.toString().padStart(4, "0")}`
-          nextNum++
-        }
-
-        // Create SharePoint folder (mock or real)
-        let sharepointFolderId = existingClient?.sharepointFolder || ""
-        if (!sharepointFolderId) {
-          try {
-            sharepointFolderId = await createClientFolder(companyName)
-          } catch (spError) {
-            console.error("Failed to create SharePoint folder for client:", spError)
-            sharepointFolderId = `mock-folder-failed-${Date.now()}`
-          }
-        }
-
         const savedClient = await tx.client.upsert({
           where: { clientId: finalClientId },
           update: {

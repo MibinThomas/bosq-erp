@@ -46,7 +46,7 @@ interface ParsedClient {
 }
 
 export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1) // 1: Upload File, 2: Review & Fix Errors, 3: Confirm & Import
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1) // 1: Upload File, 2: Review & Fix Errors, 3: Confirm & Import, 4: Success
   const [headers, setHeaders] = useState<string[]>([])
   const [csvRows, setCsvRows] = useState<string[][]>([])
   const [mappings, setMappings] = useState<Record<string, string>>({})
@@ -72,7 +72,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const [validationWarnings, setValidationWarnings] = useState<{ row: number; column: string; message: string; key: string }[]>([])
   const [filterStatus, setFilterStatus] = useState<"all" | "errors" | "ready">("all")
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
-  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false)
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -785,17 +785,9 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       localStorage.removeItem("bosq_importer_draft_clients")
       localStorage.removeItem("bosq_importer_draft_mappings")
 
-      if (data.summary?.failCount === 0) {
-        setShowSuccessOverlay(true)
-        toast.success(`Successfully imported all ${data.summary.successCount || 0} clients!`)
-      } else {
-        setImportResult(data)
-        if (data.summary?.failCount > 0) {
-          toast.error(`Import completed with ${data.summary.failCount} failed rows.`)
-        } else {
-          toast.success(`Successfully imported ${data.summary?.successCount || 0} clients!`)
-        }
-      }
+      setImportResult(data)
+      setStep(4)
+      toast.success(`Successfully imported ${data.summary?.successCount || 0} clients!`)
     } catch (err) {
       console.error(err)
       toast.error("Failed to import clients. Please verify data formats.")
@@ -1653,33 +1645,82 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
       </div>
 
-      {/* Success Animation Screen Overlay */}
-      {showSuccessOverlay && (
-        <div className="fixed inset-0 z-60 flex flex-col items-center justify-center bg-zinc-950/90 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="flex flex-col items-center space-y-5 max-w-sm text-center">
+      {/* Step 4: Success Screen */}
+      {step === 4 && importResult && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="flex flex-col items-center max-w-lg w-full bg-card border rounded-2xl shadow-xl p-8 text-center space-y-6">
             
-            {/* Green Animated Checkmark */}
-            <div className="h-20 w-20 bg-green-500/10 text-green-500 border border-green-500/30 rounded-full flex items-center justify-center animate-bounce shadow-inner">
-              <CheckCircle size={48} className="animate-pulse" />
+            {/* Success Icon */}
+            <div className="h-24 w-24 bg-green-500/10 text-green-500 border-4 border-green-500/20 rounded-full flex items-center justify-center animate-bounce shadow-inner">
+              <CheckCircle size={56} className="animate-pulse" />
             </div>
 
-            <div className="space-y-1">
-              <h3 className="text-2xl font-bold text-white tracking-tight">Clients Imported!</h3>
-              <p className="text-sm text-zinc-400 leading-normal">
-                Successfully processed, synchronized SharePoint directories, and stored {totalValid} clients in the database!
+            <div className="space-y-2">
+              <h3 className="text-3xl font-bold text-foreground tracking-tight">Clients Imported Successfully</h3>
+              <p className="text-muted-foreground">
+                The client data has been synchronized and stored in the database.
               </p>
             </div>
 
-            <Button
-              onClick={() => {
-                setShowSuccessOverlay(false)
-                onSuccess()
-                onClose()
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold w-full py-2 shadow-lg cursor-pointer"
-            >
-              Back to Clients View
-            </Button>
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-4 w-full pt-2">
+              <div className="flex flex-col items-center p-4 bg-muted/30 rounded-xl border">
+                <span className="text-3xl font-bold text-primary">{importResult.summary?.successCount || 0}</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">Total Imported</span>
+              </div>
+              <div className="flex flex-col items-center p-4 bg-muted/30 rounded-xl border">
+                <span className="text-3xl font-bold text-green-600">{importResult.summary?.successCount || 0}</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">New Created</span>
+              </div>
+              <div className="flex flex-col items-center p-4 bg-muted/30 rounded-xl border">
+                <span className="text-3xl font-bold text-blue-600">0</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">Updated</span>
+              </div>
+              <div className="flex flex-col items-center p-4 bg-muted/30 rounded-xl border">
+                <span className={`text-3xl font-bold ${(importResult.summary?.failCount || 0) > 0 ? 'text-red-500' : 'text-zinc-500'}`}>{importResult.summary?.failCount || 0}</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">Skipped / Failed</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col w-full gap-3 pt-4">
+              <Button
+                onClick={() => {
+                  onSuccess()
+                  onClose()
+                }}
+                className="w-full h-12 text-md font-bold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
+              >
+                View Clients
+              </Button>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setStep(1)
+                    setHeaders([])
+                    setCsvRows([])
+                    setMappings({})
+                    setClients([])
+                    setImportResult(null)
+                    setUploadedFileMeta(null)
+                  }}
+                  className="w-full h-11"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Import Another File
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    onSuccess()
+                    onClose()
+                  }}
+                  className="w-full h-11"
+                >
+                  Return to Dashboard
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
