@@ -241,7 +241,7 @@ export async function POST(request: Request) {
       }
 
       // 4. Validate Client Type
-      const allowedTypes = ["Direct", "Interior", "Dealer", "Online", "Government", "Corporate"]
+      const allowedTypes = ["Direct", "Interior", "Dealer", "Online", "Government", "Corporate", "Project"]
       let normalizedClientType = "Direct"
       if (clientType && clientType.trim() !== "") {
         const matchedType = allowedTypes.find(t => t.toLowerCase() === clientType.trim().toLowerCase())
@@ -249,7 +249,7 @@ export async function POST(request: Request) {
           cellIssues.push({
             columnKey: "clientType",
             type: "error",
-            message: "Invalid client type. Allowed: Direct, Interior, Dealer, Online, Government, Corporate"
+            message: "Invalid client type. Allowed: Direct, Interior, Dealer, Online, Government, Corporate, Project"
           })
         } else {
           normalizedClientType = matchedType

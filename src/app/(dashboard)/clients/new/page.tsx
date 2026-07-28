@@ -285,6 +285,7 @@ function ClientFormContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Dealer">Dealer</SelectItem>
+                  <SelectItem value="Project">Project</SelectItem>
                   <SelectItem value="Interior">Interior</SelectItem>
                   <SelectItem value="Direct">Direct</SelectItem>
                   <SelectItem value="Online">Online</SelectItem>

@@ -143,6 +143,7 @@ export function EditClientModal({ client, isOpen, onClose, onSuccess }: EditClie
                   onChange={(e) => setClientType(e.target.value)}
                 >
                   <option value="Direct">Direct Client</option>
+                  <option value="Project">Project</option>
                   <option value="Interior">Interior Designer</option>
                   <option value="Dealer">Dealer</option>
                   <option value="Online">Online / Ecommerce</option>
