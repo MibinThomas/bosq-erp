@@ -364,7 +364,7 @@ export async function POST(request: Request) {
         successCount++
       }
 
-      // 1. Create SharePoint folder outside transaction to prevent holding DB locks
+      // 1. Prepare SharePoint folder (Skip creation during bulk upload to prevent 504 Timeouts. Will be lazy-loaded on view)
       let finalClientId = clientId ? clientId.trim() : null
       const existingClient = clientByCompany.get(companyName.trim().toLowerCase())
       
@@ -376,14 +376,6 @@ export async function POST(request: Request) {
       }
 
       let sharepointFolderId = existingClient?.sharepointFolder || ""
-      if (!sharepointFolderId) {
-        try {
-          sharepointFolderId = await createClientFolder(companyName)
-        } catch (spError) {
-          console.error("Failed to create SharePoint folder for client:", spError)
-          sharepointFolderId = `mock-folder-failed-${Date.now()}`
-        }
-      }
 
       // 2. Create / Update Client in Transaction (if valid)
       await prisma.$transaction(async (tx) => {

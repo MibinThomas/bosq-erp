@@ -57,6 +57,23 @@ export async function GET(
       }
     }
 
+    // Lazy-load SharePoint folder if missing (e.g. from bulk import)
+    if (!client.sharepointFolder || client.sharepointFolder.startsWith("mock-")) {
+      try {
+        const { createClientFolder } = await import("@/lib/sharepoint")
+        const newFolderId = await createClientFolder(client.companyName)
+        if (newFolderId && !newFolderId.startsWith("mock-")) {
+          await prisma.client.update({
+            where: { id: client.id },
+            data: { sharepointFolder: newFolderId }
+          })
+          client.sharepointFolder = newFolderId
+        }
+      } catch (err) {
+        console.error("Failed lazy-loading SharePoint folder:", err)
+      }
+    }
+
     // Fetch all quotations for this client (including revised ones so history is complete)
     const quotations = await prisma.quotation.findMany({
       where: { clientId: id, parentId: null }, // only root quotations; revisions are nested
