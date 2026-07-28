@@ -156,7 +156,6 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       setClients([])
       setImportResult(null)
       setUploadedFileMeta(null)
-      setShowSuccessOverlay(false)
       setValidationErrors([])
       setValidationWarnings([])
       setFilterStatus("all")
