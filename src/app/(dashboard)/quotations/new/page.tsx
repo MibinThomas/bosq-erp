@@ -1433,6 +1433,7 @@ function NewQuotationForm() {
                                     size="sm"
                                     variant="outline"
                                     className="w-full flex items-center justify-center gap-1.5"
+                                    onClick={() => {
                                       setIsQuickAddClientOpen(true)
                                       setIsClientPopoverOpen(false)
                                       setClientSearch("")
