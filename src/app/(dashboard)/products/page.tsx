@@ -1342,7 +1342,10 @@ export default function ProductsPage() {
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </PopoverTrigger>
                         <PopoverContent className="w-[350px] p-0" align="start">
-                          <Command>
+                          <Command filter={(value, search) => {
+                            if (value.toLowerCase().includes(search.toLowerCase())) return 1
+                            return 0
+                          }}>
                             <CommandInput placeholder="Search clients..." className="h-9 text-xs" />
                             <CommandList className="max-h-[200px] overflow-y-auto">
                               <CommandEmpty>

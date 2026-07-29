@@ -378,8 +378,8 @@ export async function POST(request: Request) {
     // All quotations are immediately set to DRAFT (Quote Created) status.
     const resolvedStatus = status || "DRAFT"
 
-    // 2. Generate quotation number (e.g. I2223-1)
     let nextQuoteNo = body.quotationNumber
+    let usedBaseNumber = 0
     const segment = body.customerSegment || "Project"
     
     if (!nextQuoteNo) {
@@ -388,23 +388,28 @@ export async function POST(request: Request) {
       else if (segment === "Dealer") prefix = "D"
       else if (segment === "Project" || segment === "Special") prefix = "P"
 
-      const allQuotes = await prisma.quotation.findMany({
-        select: { quotationNumber: true }
-      })
-
+      let tracker = await prisma.sequenceTracker.findUnique({ where: { type: "QUOTATION_BASE" } })
       let maxNumber = 3670
-      for (const q of allQuotes) {
-        const match = q.quotationNumber.match(/^[IDP](\d+)/)
-        if (match) {
-          const num = parseInt(match[1], 10)
-          if (num > maxNumber) {
-            maxNumber = num
+
+      if (tracker) {
+        maxNumber = tracker.lastValue
+      } else {
+        const allQuotes = await prisma.quotation.findMany({
+          select: { quotationNumber: true }
+        })
+        for (const q of allQuotes) {
+          const match = q.quotationNumber.match(/^[IDP](\d+)/)
+          if (match) {
+            const num = parseInt(match[1], 10)
+            if (num > maxNumber) {
+              maxNumber = num
+            }
           }
         }
       }
 
-      const nextBaseNumber = maxNumber + 1
-      nextQuoteNo = `${prefix}${nextBaseNumber}-1`
+      usedBaseNumber = maxNumber + 1
+      nextQuoteNo = `${prefix}${usedBaseNumber}-1`
     } else {
       // Validate that the manually provided quotation number is unique
       const existingQuotation = await prisma.quotation.findFirst({
@@ -680,10 +685,19 @@ export async function POST(request: Request) {
       include: {
         client: true,
         items: true,
-      },
+        revisions: true,
+      }
     })
 
-    // Log Activity
+    if (usedBaseNumber > 0) {
+      await prisma.sequenceTracker.upsert({
+        where: { type: "QUOTATION_BASE" },
+        update: { lastValue: usedBaseNumber },
+        create: { type: "QUOTATION_BASE", lastValue: usedBaseNumber, description: "Base quotation number sequence" }
+      })
+    }
+
+    // Assign Creator Explicitly
     try {
       await prisma.activityLog.create({
         data: {

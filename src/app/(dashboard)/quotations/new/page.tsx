@@ -52,6 +52,7 @@ import {
 const quotationSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
   projectName: z.string().min(1, "Project name is required"),
+  quotationNumber: z.string().optional(),
   customerSegment: z.enum(["Interior", "Dealer", "Project", "Special"]),
   date: z.string(),
   validityDate: z.string(),
@@ -194,7 +195,10 @@ const ProductSearchSelect = React.memo(({
         }
       />
       <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[650px] p-0" align="start">
-        <Command>
+        <Command filter={(value, search) => {
+          if (value.toLowerCase().includes(search.toLowerCase())) return 1
+          return 0
+        }}>
           <CommandInput placeholder="Search products..." />
           <CommandList className="max-h-[350px] overflow-y-auto overflow-x-hidden">
             <CommandEmpty className="p-3 text-center flex flex-col items-center justify-center">
@@ -591,6 +595,7 @@ function NewQuotationForm() {
             form.reset({
               clientId: activeData.clientId,
               projectName: activeData.projectName || "",
+              quotationNumber: activeData.quotationNumber || "",
               customerSegment: activeData.customerSegment || "Project",
               preparedById: activeData.preparedById || "",
               salesAgentId: activeData.salesAgentId || (activeData.salesAgentName ? "manual" : (activeData.preparedById || "")),
@@ -1413,7 +1418,10 @@ function NewQuotationForm() {
                             }
                           />
                           <PopoverContent className="w-[400px] p-0" align="start">
-                            <Command>
+                            <Command filter={(value, search) => {
+                              if (value.toLowerCase().includes(search.toLowerCase())) return 1
+                              return 0
+                            }}>
                               <CommandInput placeholder="Search client name..." />
                               <CommandList>
                                 <CommandEmpty className="p-3 text-center">
@@ -1684,11 +1692,29 @@ function NewQuotationForm() {
                         <FormLabel>Project Name</FormLabel>
                         <FormControl>
                           <Input placeholder="e.g. Corporate HQ Fitout" {...field} disabled={isRevision} />
-                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  {userRole === "SUPER_ADMIN" && !isRevision && (
+                    <FormField
+                      control={form.control}
+                      name="quotationNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Quotation Number (Optional Override)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. D4000-1" {...field} />
+                          </FormControl>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            Leave blank to auto-generate. If provided, this exact number will be used.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </CardContent>
               </Card>
 
