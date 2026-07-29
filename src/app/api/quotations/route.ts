@@ -392,7 +392,7 @@ export async function POST(request: Request) {
         select: { quotationNumber: true }
       })
 
-      let maxNumber = 2222
+      let maxNumber = 3670
       for (const q of allQuotes) {
         const match = q.quotationNumber.match(/^[IDP](\d+)/)
         if (match) {
@@ -404,7 +404,7 @@ export async function POST(request: Request) {
       }
 
       const nextBaseNumber = maxNumber + 1
-      nextQuoteNo = `${prefix}${nextBaseNumber}`
+      nextQuoteNo = `${prefix}${nextBaseNumber}-1`
     } else {
       // Validate that the manually provided quotation number is unique
       const existingQuotation = await prisma.quotation.findFirst({
