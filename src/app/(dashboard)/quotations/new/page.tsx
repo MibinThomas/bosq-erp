@@ -2095,7 +2095,7 @@ function NewQuotationForm() {
                               <div className="xl:col-span-4 space-y-4 flex flex-col">
                                 {/* Product Image Upload Zone */}
                                 <div className="space-y-2">
-                                  <FormLabel className="text-xs font-semibold text-muted-foreground">Product Image</FormLabel>
+                                  <FormLabel className="text-xs font-semibold text-foreground">Product Image</FormLabel>
                                   {watchItems[index]?.customImageUrl ? (
                                     <div className="flex items-center gap-4 p-3 border rounded-xl bg-muted/30">
                                       <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-sm">
@@ -2188,7 +2188,7 @@ function NewQuotationForm() {
                                   name={`items.${index}.description`}
                                   render={({ field }) => (
                                     <FormItem className="space-y-1">
-                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Product Name *</FormLabel>
+                                      <FormLabel className="text-xs font-semibold text-foreground">Product Name *</FormLabel>
                                       <FormControl>
                                         <Input placeholder="Enter product name" {...field} className="bg-muted/10 focus-visible:bg-background" />
                                       </FormControl>
@@ -2204,7 +2204,7 @@ function NewQuotationForm() {
                                     name={`items.${index}.categoryName`}
                                     render={({ field }) => (
                                       <FormItem className="space-y-1">
-                                        <FormLabel className="text-xs font-semibold text-muted-foreground">Category *</FormLabel>
+                                        <FormLabel className="text-xs font-semibold text-foreground">Category *</FormLabel>
                                         <Select
                                           onValueChange={(val) => {
                                             field.onChange(val)
@@ -2238,7 +2238,7 @@ function NewQuotationForm() {
                                       name={`items.${index}.chairType`}
                                       render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-xs font-semibold text-muted-foreground">Chair Type *</FormLabel>
+                                          <FormLabel className="text-xs font-semibold text-foreground">Chair Type *</FormLabel>
                                           <Select onValueChange={field.onChange} value={field.value || ""}>
                                             <FormControl>
                                               <SelectTrigger className="bg-muted/10 focus:bg-background">
@@ -2295,7 +2295,7 @@ function NewQuotationForm() {
                                     return (
                                       <FormItem className="space-y-1">
                                         <div className="flex justify-between items-center">
-                                          <FormLabel className="text-xs font-semibold text-muted-foreground">Product Description</FormLabel>
+                                          <FormLabel className="text-xs font-semibold text-foreground">Product Description</FormLabel>
                                           <span className="text-[9px] font-medium text-muted-foreground">
                                             {valLength} chars
                                           </span>
@@ -2322,7 +2322,7 @@ function NewQuotationForm() {
                                   name={`items.${index}.specifications`}
                                   render={({ field }) => (
                                     <FormItem className="space-y-1 flex-1 flex flex-col">
-                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Quotation Specifications</FormLabel>
+                                      <FormLabel className="text-xs font-semibold text-foreground">Quotation Specifications</FormLabel>
                                       <FormControl className="flex-1">
                                         <div className="h-full min-h-[150px]">
                                           <RichTextEditor
@@ -2341,7 +2341,7 @@ function NewQuotationForm() {
                                   name={`items.${index}.productNotes`}
                                   render={({ field }) => (
                                     <FormItem className="space-y-1">
-                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Special / Customization Notes</FormLabel>
+                                      <FormLabel className="text-xs font-semibold text-foreground">Special / Customization Notes</FormLabel>
                                       <FormControl>
                                         <Textarea
                                           placeholder="Special instructions or customer specific requirements..."
@@ -2372,7 +2372,7 @@ function NewQuotationForm() {
                                       name={`items.${index}.quantity`}
                                       render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Quantity</FormLabel>
+                                          <FormLabel className="text-[11px] font-semibold text-foreground">Quantity</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
@@ -2393,7 +2393,7 @@ function NewQuotationForm() {
                                       name={`items.${index}.basePrice`}
                                       render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Base Price</FormLabel>
+                                          <FormLabel className="text-[11px] font-semibold text-foreground">Base Price</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
@@ -2415,7 +2415,7 @@ function NewQuotationForm() {
                                       name={`items.${index}.margin`}
                                       render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin (%)</FormLabel>
+                                          <FormLabel className="text-[11px] font-semibold text-foreground">Margin (%)</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
@@ -2438,7 +2438,7 @@ function NewQuotationForm() {
                                       name={`items.${index}.unitPrice`}
                                       render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Unit Price</FormLabel>
+                                          <FormLabel className="text-[11px] font-semibold text-foreground">Unit Price</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
@@ -2461,7 +2461,7 @@ function NewQuotationForm() {
                                       name={`items.${index}.discount`}
                                       render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount (%)</FormLabel>
+                                          <FormLabel className="text-[11px] font-semibold text-foreground">Discount (%)</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
@@ -2629,9 +2629,9 @@ function NewQuotationForm() {
                                       name={`items.${index}.description`}
                                       render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-xs font-semibold text-muted-foreground">Product Name</FormLabel>
+                                          <FormLabel className="text-xs font-semibold text-foreground">Product Name</FormLabel>
                                           <FormControl>
-                                            <Input placeholder="Product name" {...field} className="bg-muted text-muted-foreground text-xs cursor-not-allowed font-medium" disabled />
+                                            <Input placeholder="Product name" {...field} className="bg-muted/30 text-foreground text-xs cursor-not-allowed font-semibold opacity-100 disabled:opacity-100" disabled />
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
@@ -2685,7 +2685,7 @@ function NewQuotationForm() {
                                   name={`items.${index}.specifications`}
                                   render={({ field }) => (
                                     <FormItem className="space-y-1 flex-1 flex flex-col">
-                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Quotation Specifications</FormLabel>
+                                      <FormLabel className="text-xs font-semibold text-foreground">Quotation Specifications</FormLabel>
                                       <FormControl className="flex-1">
                                         <div className="h-full min-h-[150px]">
                                           <RichTextEditor
@@ -2704,7 +2704,7 @@ function NewQuotationForm() {
                                   name={`items.${index}.productNotes`}
                                   render={({ field }) => (
                                     <FormItem className="space-y-1">
-                                      <FormLabel className="text-xs font-semibold text-muted-foreground">Special / Customization Notes</FormLabel>
+                                      <FormLabel className="text-xs font-semibold text-foreground">Special / Customization Notes</FormLabel>
                                       <FormControl>
                                         <Textarea
                                           placeholder="Special instructions or customer specific requirements..."
@@ -2786,7 +2786,7 @@ function NewQuotationForm() {
                                       name={`items.${index}.quantity`}
                                       render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Quantity</FormLabel>
+                                          <FormLabel className="text-[11px] font-semibold text-foreground">Quantity</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
@@ -2811,7 +2811,7 @@ function NewQuotationForm() {
                                         const isStandard = watchItems[index]?.priceSource === "standard"
                                         return (
                                           <FormItem className="space-y-1">
-                                            <FormLabel className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                                            <FormLabel className="text-[11px] font-semibold text-foreground flex items-center gap-1">
                                               Base Price
                                               {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
                                             </FormLabel>
@@ -2820,7 +2820,7 @@ function NewQuotationForm() {
                                                 type="number"
                                                 min="0"
                                                 step="0.01"
-                                                className={cn("h-8 text-xs font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
+                                                className={cn("h-8 text-xs font-mono", isStandard && "bg-muted/30 text-foreground cursor-not-allowed font-semibold opacity-100 disabled:opacity-100")}
                                                 disabled={isStandard}
                                                 value={field.value}
                                                 onChange={(val) => {
@@ -2840,7 +2840,7 @@ function NewQuotationForm() {
                                       name={`items.${index}.margin`}
                                       render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin (%)</FormLabel>
+                                          <FormLabel className="text-[11px] font-semibold text-foreground">Margin (%)</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
@@ -2867,7 +2867,7 @@ function NewQuotationForm() {
                                         const isStandard = watchItems[index]?.priceSource === "standard"
                                         return (
                                           <FormItem className="space-y-1">
-                                            <FormLabel className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                                            <FormLabel className="text-[11px] font-semibold text-foreground flex items-center gap-1">
                                               Unit Price
                                               {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
                                             </FormLabel>
@@ -2876,7 +2876,7 @@ function NewQuotationForm() {
                                                 type="number"
                                                 min="0"
                                                 step="0.01"
-                                                className={cn("h-8 text-xs font-mono", isStandard && "bg-muted text-muted-foreground cursor-not-allowed")}
+                                                className={cn("h-8 text-xs font-mono", isStandard && "bg-muted/30 text-foreground cursor-not-allowed font-semibold opacity-100 disabled:opacity-100")}
                                                 disabled={isStandard}
                                                 value={field.value}
                                                 onChange={(val) => {
@@ -2896,7 +2896,7 @@ function NewQuotationForm() {
                                       name={`items.${index}.discount`}
                                       render={({ field }) => (
                                         <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount (%)</FormLabel>
+                                          <FormLabel className="text-[11px] font-semibold text-foreground">Discount (%)</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
@@ -3012,7 +3012,7 @@ function NewQuotationForm() {
                       name="vatMode"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs font-semibold text-muted-foreground">
+                          <FormLabel className="text-xs font-semibold text-foreground">
                             VAT Mode
                           </FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
@@ -3088,7 +3088,7 @@ function NewQuotationForm() {
                                 const val = field.value === 0 ? "" : field.value
                                 return (
                                   <FormItem className="animate-in fade-in duration-200">
-                                    <FormLabel className="text-xs font-semibold text-muted-foreground">
+                                    <FormLabel className="text-xs font-semibold text-foreground">
                                       Discount Value {watchSpecialDiscountType === "PERCENTAGE" ? "(%)" : "(AED)"}
                                     </FormLabel>
                                     <FormControl>
@@ -3155,7 +3155,7 @@ function NewQuotationForm() {
                                 name="specialDiscountReason"
                                 render={({ field }) => (
                                   <FormItem className="animate-in fade-in duration-200">
-                                    <FormLabel className="text-xs font-semibold text-muted-foreground">Discount Reason (Optional)</FormLabel>
+                                    <FormLabel className="text-xs font-semibold text-foreground">Discount Reason (Optional)</FormLabel>
                                     <FormControl>
                                       <Input
                                         placeholder="e.g. Special Approval, Project Discount"
