@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { read, write, utils } from "xlsx"
 import { Card, CardContent } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
+
 
 interface QuotationBulkUploadModalProps {
   isOpen: boolean
