@@ -671,7 +671,7 @@ export async function PUT(
         }
       }
 
-      const resolvedStatus = "DRAFT"
+      const resolvedStatus = body.status || "DRAFT"
 
       // Calculate new financial totals using strict order
       let subtotal = 0
@@ -863,9 +863,10 @@ export async function PUT(
           )
         } catch (spError) {
           console.error("Failed to upload revised PDF to SharePoint:", spError)
+          const qFolder = revQuoteNum.match(/^([IDP]\d+)/)?.[1] || revQuoteNum.split("-")[0]
           sharepointUrl = `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(
             existingQuotation.client.companyName
-          )}/Quotations/${filenameBase}.pdf`
+          )}/Quotations/${qFolder}/${filenameBase}.pdf`
         }
       }
 
