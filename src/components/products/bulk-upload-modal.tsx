@@ -168,7 +168,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     "Storage Options (for workstations)",
     "Specifications / Details",
     "Dimensions",
-    "Image Filename"
+    "Image Filename",
+    "Stock Quantity"
   ]
 
   const serializeToCSVCell = (val: any) => {
@@ -224,7 +225,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
           p.storageOptions || "",
           p.specifications || "",
           p.dimensions || "",
-          imageFilename
+          imageFilename,
+          p.stock !== undefined && p.stock !== null ? p.stock.toString() : "0"
         ]
       })
 
@@ -328,8 +330,12 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return Number((basePrice / (1 - (pct / 100))).toFixed(2))
       }
 
-      const stockVal = parseInt(getVal("stock").replace(/[^0-9]/g, ""), 10)
-      const stock = isNaN(stockVal) ? 0 : stockVal
+      const stockRaw = getVal("stock")
+      let stock: number | undefined = undefined
+      if (stockRaw !== "") {
+        const stockVal = parseInt(stockRaw.replace(/[^0-9]/g, ""), 10)
+        stock = isNaN(stockVal) ? 0 : stockVal
+      }
 
       return {
         productCode: getVal("productCode"),
@@ -478,6 +484,15 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
           column: currentMappings["basePrice"] || "Base Price (AED)",
           message: "Base price must be a valid positive number.",
           key: "costPrice"
+        })
+      }
+
+      if (p.stock !== undefined && (isNaN(p.stock) || p.stock < 0)) {
+        errorsList.push({
+          row: csvRowNum,
+          column: currentMappings["stock"] || "Stock Quantity",
+          message: "Stock must be a valid numeric quantity (0 or greater).",
+          key: "stock"
         })
       }
 
