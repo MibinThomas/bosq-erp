@@ -412,6 +412,7 @@ function NewQuotationForm() {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
   const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false)
   const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false)
+  const [clientSearch, setClientSearch] = useState("")
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
 
   const [requestAccessClient, setRequestAccessClient] = useState<{ id: string; name: string } | null>(null)
@@ -1418,11 +1419,12 @@ function NewQuotationForm() {
                             }
                           />
                           <PopoverContent className="w-[400px] p-0" align="start">
-                            <Command filter={(value, search) => {
-                              if (value.toLowerCase().includes(search.toLowerCase())) return 1
-                              return 0
-                            }}>
-                              <CommandInput placeholder="Search client name..." />
+                            <Command shouldFilter={false}>
+                              <CommandInput 
+                                placeholder="Search client name..." 
+                                value={clientSearch}
+                                onValueChange={setClientSearch}
+                              />
                               <CommandList>
                                 <CommandEmpty className="p-3 text-center">
                                   <p className="text-xs text-muted-foreground mb-2">No client found.</p>
@@ -1431,9 +1433,9 @@ function NewQuotationForm() {
                                     size="sm"
                                     variant="outline"
                                     className="w-full flex items-center justify-center gap-1.5"
-                                    onClick={() => {
                                       setIsQuickAddClientOpen(true)
                                       setIsClientPopoverOpen(false)
+                                      setClientSearch("")
                                     }}
                                   >
                                     <Plus className="h-3.5 w-3.5" />
@@ -1446,6 +1448,7 @@ function NewQuotationForm() {
                                     onSelect={() => {
                                       setIsQuickAddClientOpen(true)
                                       setIsClientPopoverOpen(false)
+                                      setClientSearch("")
                                     }}
                                     className="text-primary font-medium flex items-center gap-1.5 cursor-pointer"
                                   >
@@ -1453,14 +1456,26 @@ function NewQuotationForm() {
                                     <span>Quick Add Client...</span>
                                   </CommandItem>
                                   {(() => {
-                                    const approvedClients = clients.filter((c) => c.status === "Approved")
+                                    let matchedClients = clients.filter((c) => c.status === "Approved")
+                                    
+                                    if (clientSearch.trim()) {
+                                      const searchLower = clientSearch.toLowerCase().trim()
+                                      matchedClients = matchedClients.filter(c => {
+                                        const searchStr = `${c.companyName} ${c.clientId} ${c.contactPerson || ""} ${c.trnNumber || ""}`.toLowerCase()
+                                        return searchStr.includes(searchLower)
+                                      })
+                                    }
+                                    
+                                    const MAX_RESULTS = 50;
+                                    matchedClients = matchedClients.slice(0, MAX_RESULTS);
+
                                     const isExcluded = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
                                     
-                                    const assigned = approvedClients.filter(c => {
+                                    const assigned = matchedClients.filter(c => {
                                       const isUserAssigned = c.salespersonId === (session?.user as any)?.id || c.assignments?.some((a: any) => a.userId === (session?.user as any)?.id)
                                       return isUserAssigned || isExcluded
                                     })
-                                    const unassigned = approvedClients.filter(c => {
+                                    const unassigned = matchedClients.filter(c => {
                                       const isUserAssigned = c.salespersonId === (session?.user as any)?.id || c.assignments?.some((a: any) => a.userId === (session?.user as any)?.id)
                                       return !(isUserAssigned || isExcluded)
                                     })
@@ -1489,6 +1504,7 @@ function NewQuotationForm() {
                                             if (!canSelect) return
                                             form.setValue("clientId", client.id)
                                             setIsClientPopoverOpen(false)
+                                            setClientSearch("")
                                           }}
                                           className={cn(
                                             "flex flex-col items-start p-2 border-b last:border-b-0 border-muted/50 aria-selected:bg-muted/40 cursor-pointer",
@@ -1897,16 +1913,16 @@ function NewQuotationForm() {
                       onDragOver={(e) => handleBatchDragOver(e, batch.id)}
                       onDrop={(e) => handleBatchDrop(e, batch.id)}
                       className={cn(
-                        "border rounded-xl bg-card/40 p-5 space-y-4 transition-all duration-300 relative border-muted-foreground/10 hover:border-primary/20",
-                        draggedBatchId === batch.id && "opacity-45",
+                        "border-2 rounded-xl bg-card p-5 space-y-4 transition-all duration-300 relative border-border hover:border-primary/30 shadow-sm",
+                        draggedBatchId === batch.id && "opacity-50",
                         dragOverBatchId === batch.id && "border-primary bg-primary/5 scale-[1.01]"
                       )}
                     >
                       {/* Batch Header Bar */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/40 p-4 rounded-xl border border-muted-foreground/10">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/30 p-4 rounded-xl border border-border shadow-sm">
                         <div className="flex items-center gap-3 w-full sm:flex-grow">
                           <div
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-muted text-muted-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-muted-foreground/10 shrink-0"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-muted text-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-border shrink-0 shadow-sm"
                             title="Drag to reorder sections"
                           >
                             <GripVertical className="h-4 w-4" />
@@ -1920,7 +1936,7 @@ function NewQuotationForm() {
                         </div>
 
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-xs font-semibold text-muted-foreground bg-background px-3 py-1.5 rounded-lg border border-muted-foreground/10">
+                          <span className="text-xs font-bold text-foreground bg-background px-3 py-1.5 rounded-lg border border-border shadow-sm">
                             {batchItems.length} Products
                           </span>
                           
@@ -1985,15 +2001,15 @@ function NewQuotationForm() {
                                 }}
                                 onDragEnd={handleDragEnd}
                                 className={cn(
-                                  "group relative p-6 border rounded-xl bg-card hover:shadow-md transition-all duration-300 border-muted-foreground/10 hover:border-primary/20 space-y-4",
+                                  "group relative p-6 border rounded-xl bg-background shadow-sm hover:shadow-md transition-all duration-300 border-border hover:border-primary/40 space-y-4",
                                   dragOverIndex === index && "border-primary bg-primary/5 scale-[1.01]",
-                                  draggedIndex === index && "opacity-40"
+                                  draggedIndex === index && "opacity-50"
                                 )}
                               >
                                 {/* Drag Handle & Mobile Ordering Fallback Row */}
-                                <div className="flex items-center gap-2 border-b border-dashed pb-3 mb-2">
+                                <div className="flex items-center gap-2 border-b border-border pb-3 mb-2">
                                   <div
-                                    className="drag-handle flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-muted-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-muted-foreground/10"
+                                    className="drag-handle flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-border shadow-sm"
                                     title="Click and drag to reorder item"
                                   >
                                     <GripVertical className="h-3.5 w-3.5 shrink-0" />
