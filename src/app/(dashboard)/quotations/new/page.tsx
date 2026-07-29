@@ -1462,7 +1462,7 @@ function NewQuotationForm() {
                                     if (clientSearch.trim()) {
                                       const searchLower = clientSearch.toLowerCase().trim()
                                       matchedClients = matchedClients.filter(c => {
-                                        const searchStr = `${c.companyName} ${c.clientId} ${c.contactPerson || ""} ${c.trnNumber || ""}`.toLowerCase()
+                                        const searchStr = `${c.companyName} ${c.clientId} ${(c as any).contactPerson || ""} ${(c as any).trnNumber || ""}`.toLowerCase()
                                         return searchStr.includes(searchLower)
                                       })
                                     }
