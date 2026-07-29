@@ -1692,6 +1692,7 @@ function NewQuotationForm() {
                         <FormLabel>Project Name</FormLabel>
                         <FormControl>
                           <Input placeholder="e.g. Corporate HQ Fitout" {...field} disabled={isRevision} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
