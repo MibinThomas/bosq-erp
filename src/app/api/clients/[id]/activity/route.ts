@@ -39,7 +39,7 @@ export async function GET(
 
     // Fetch all quotation IDs belonging to this client
     const clientQuotations = await prisma.quotation.findMany({
-      where: { clientId: id },
+      where: { clientId: id, deletedAt: null },
       select: { id: true },
     })
     const quotationIds = clientQuotations.map((q) => q.id)
