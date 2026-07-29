@@ -743,6 +743,57 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     toast.success("Client removed from import list.")
   }
 
+  const handleDownloadValidationErrors = () => {
+    const rowsWithErrors = clients.filter((c, idx) => {
+      const csvRowNum = c.rowIndex || idx + 2
+      return validationErrors.some(err => err.row === csvRowNum)
+    })
+
+    if (rowsWithErrors.length === 0) {
+      toast.success("No failed records found.")
+      return
+    }
+
+    const dataToExport = rowsWithErrors.map((c, idx) => {
+      const csvRowNum = c.rowIndex || idx + 2
+      const errors = validationErrors
+        .filter(err => err.row === csvRowNum)
+        .map(err => err.message)
+        .join("; ")
+
+      return {
+        "Row": csvRowNum,
+        "Client ID": c.clientId || "",
+        "Company Name": c.companyName || "",
+        "Contact Person": c.contactPerson || "",
+        "Phone": c.phone || "",
+        "Email": c.email || "",
+        "Address": c.address || "",
+        "TRN": c.trn || "",
+        "Client Type": c.clientType || "",
+        "Price Category": c.priceCategory || "",
+        "Notes": c.notes || "",
+        "Assigned Consultant": c.assignedConsultant || "",
+        "Validation Errors": errors
+      }
+    })
+
+    const worksheet = utils.json_to_sheet(dataToExport)
+    const workbook = utils.book_new()
+    utils.book_append_sheet(workbook, worksheet, "Failed Validations")
+
+    const excelBuffer = write(workbook, { bookType: "xlsx", type: "array" })
+    const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    const url = window.URL.createObjectURL(data)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `validation_errors_${new Date().toISOString().slice(0, 10)}.xlsx`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  }
+
   const handleSaveDraft = () => {
     try {
       localStorage.setItem("bosq_importer_draft_clients", JSON.stringify(clients))
@@ -1448,6 +1499,16 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                     >
                       Save Draft
                     </Button>
+                    {totalErrors > 0 && (
+                      <Button
+                        variant="destructive"
+                        onClick={handleDownloadValidationErrors}
+                        className="w-full text-xs py-2.5 font-semibold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 hover:text-red-700 dark:bg-red-950/20 dark:border-red-900/40 dark:hover:bg-red-900/40 cursor-pointer"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Download Error File
+                      </Button>
+                    )}
                     <Button 
                       variant="ghost" 
                       onClick={() => {
