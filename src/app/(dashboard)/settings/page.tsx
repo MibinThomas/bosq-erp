@@ -84,6 +84,8 @@ export default function SettingsPage() {
   const [footerLogo, setFooterLogo] = useState("")
   const [quotationSequence, setQuotationSequence] = useState<number | "">("")
   const [savingSequence, setSavingSequence] = useState(false)
+  const [clientSequence, setClientSequence] = useState<number | "">("")
+  const [savingClientSequence, setSavingClientSequence] = useState(false)
 
   // 2. Users Tab State
   const [users, setUsers] = useState<SystemUser[]>([])
@@ -306,10 +308,15 @@ export default function SettingsPage() {
 
   const fetchSequence = async () => {
     try {
-      const res = await fetch("/api/settings/sequence")
+      const res = await fetch("/api/settings/sequence?type=QUOTATION_BASE")
       if (res.ok) {
         const data = await res.json()
         setQuotationSequence(data.lastValue ?? "")
+      }
+      const resClient = await fetch("/api/settings/sequence?type=CLIENT_BASE")
+      if (resClient.ok) {
+        const dataClient = await resClient.json()
+        setClientSequence(dataClient.lastValue ?? "")
       }
     } catch (err) {
       console.error(err)
@@ -326,7 +333,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/settings/sequence", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lastValue: quotationSequence })
+        body: JSON.stringify({ lastValue: quotationSequence, type: "QUOTATION_BASE" })
       })
       if (res.ok) {
         toast.success("Quotation sequence base updated!")
@@ -337,6 +344,30 @@ export default function SettingsPage() {
       toast.error("Failed to update sequence.")
     } finally {
       setSavingSequence(false)
+    }
+  }
+
+  const handleSaveClientSequence = async () => {
+    if (typeof clientSequence !== "number" || clientSequence < 0) {
+      toast.error("Please enter a valid positive number.")
+      return
+    }
+    setSavingClientSequence(true)
+    try {
+      const res = await fetch("/api/settings/sequence", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lastValue: clientSequence, type: "CLIENT_BASE" })
+      })
+      if (res.ok) {
+        toast.success("Client sequence base updated!")
+      } else {
+        toast.error("Failed to update client sequence.")
+      }
+    } catch (err) {
+      toast.error("Failed to update client sequence.")
+    } finally {
+      setSavingClientSequence(false)
     }
   }
 
@@ -882,38 +913,69 @@ export default function SettingsPage() {
               <CardHeader className="border-b border-slate-800/80 pb-4">
                 <CardTitle className="text-xl flex items-center gap-2">
                   <Hash className="text-orange-500 h-5 w-5" />
-                  Quotation Numbering Sequence
+                  System Sequence Counters
                 </CardTitle>
                 <CardDescription className="text-slate-400">
-                  Manage the sequence tracker used for automatically generating the next quotation number.
+                  Manage the sequence trackers used for automatically generating IDs across the system.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 pt-6">
-                <div className="flex flex-col md:flex-row gap-4 items-end">
-                  <div className="space-y-2 flex-1 max-w-sm">
-                    <Label htmlFor="quotationSequence" className="text-slate-300">Base Quotation Sequence Number</Label>
-                    <Input 
-                      id="quotationSequence" 
-                      type="number"
-                      min="1"
-                      value={quotationSequence}
-                      onChange={(e) => setQuotationSequence(e.target.value ? parseInt(e.target.value) : "")}
-                      className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 font-mono"
-                      placeholder="e.g. 3670"
-                    />
-                    <p className="text-[10px] text-slate-500">
-                      The next quotation will use this number + 1 (e.g. if set to 3671, next is 3672).
-                    </p>
+                <div className="flex flex-col gap-6">
+                  {/* Quotation Sequence */}
+                  <div className="flex flex-col md:flex-row gap-4 items-end">
+                    <div className="space-y-2 flex-1 max-w-sm">
+                      <Label htmlFor="quotationSequence" className="text-slate-300">Base Quotation Sequence Number</Label>
+                      <Input 
+                        id="quotationSequence" 
+                        type="number"
+                        min="1"
+                        value={quotationSequence}
+                        onChange={(e) => setQuotationSequence(e.target.value ? parseInt(e.target.value) : "")}
+                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 font-mono"
+                        placeholder="e.g. 3670"
+                      />
+                      <p className="text-[10px] text-slate-500">
+                        The next quotation will use this number + 1 (e.g. if set to 3671, next is 3672).
+                      </p>
+                    </div>
+                    <Button 
+                      type="button" 
+                      onClick={handleSaveSequence} 
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold w-36"
+                      disabled={savingSequence || quotationSequence === ""}
+                    >
+                      {savingSequence ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Update
+                    </Button>
                   </div>
-                  <Button 
-                    type="button" 
-                    onClick={handleSaveSequence} 
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
-                    disabled={savingSequence || quotationSequence === ""}
-                  >
-                    {savingSequence ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                    Update Sequence
-                  </Button>
+                  
+                  {/* Client Sequence */}
+                  <div className="flex flex-col md:flex-row gap-4 items-end pt-4 border-t border-slate-800">
+                    <div className="space-y-2 flex-1 max-w-sm">
+                      <Label htmlFor="clientSequence" className="text-slate-300">Base Client ID Sequence Number</Label>
+                      <Input 
+                        id="clientSequence" 
+                        type="number"
+                        min="1"
+                        value={clientSequence}
+                        onChange={(e) => setClientSequence(e.target.value ? parseInt(e.target.value) : "")}
+                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 font-mono"
+                        placeholder="e.g. 1000"
+                      />
+                      <p className="text-[10px] text-slate-500">
+                        The next client will use this number + 1 (e.g. if set to 1000, next is C-1001).
+                      </p>
+                    </div>
+                    <Button 
+                      type="button" 
+                      onClick={handleSaveClientSequence} 
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold w-36"
+                      disabled={savingClientSequence || clientSequence === ""}
+                    >
+                      {savingClientSequence ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Update
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

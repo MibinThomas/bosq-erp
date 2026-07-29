@@ -184,21 +184,31 @@ export async function POST(request: Request) {
     }
 
     // 1. Generate client ID (e.g. C-1004)
-    const allClients = await prisma.client.findMany({
-      select: { clientId: true }
+    let tracker = await prisma.sequenceTracker.findUnique({
+      where: { type: "CLIENT_BASE" }
     })
-
+    
     let maxNumber = 1000
-    for (const c of allClients) {
-      const match = c.clientId.match(/^C-(\d+)/i)
-      if (match) {
-        const num = parseInt(match[1], 10)
-        if (num > maxNumber) {
-          maxNumber = num
+
+    if (tracker) {
+      maxNumber = tracker.lastValue
+    } else {
+      const allClients = await prisma.client.findMany({
+        select: { clientId: true }
+      })
+      for (const c of allClients) {
+        const match = c.clientId.match(/^C-(\d+)/i)
+        if (match) {
+          const num = parseInt(match[1], 10)
+          if (num > maxNumber) {
+            maxNumber = num
+          }
         }
       }
     }
-    const nextClientId = `C-${maxNumber + 1}`
+    
+    const usedBaseNumber = maxNumber + 1
+    const nextClientId = `C-${usedBaseNumber}`
 
     // 2. Create SharePoint folder (mock or real)
     let sharepointFolderId = ""
@@ -253,6 +263,14 @@ export async function POST(request: Request) {
         status: initialStatus,
       },
     })
+
+    if (usedBaseNumber > 1000) {
+      await prisma.sequenceTracker.upsert({
+        where: { type: "CLIENT_BASE" },
+        update: { lastValue: usedBaseNumber },
+        create: { type: "CLIENT_BASE", lastValue: usedBaseNumber, description: "Base client ID sequence" }
+      })
+    }
 
     // Log Activity
     if (creatorUserId) {
