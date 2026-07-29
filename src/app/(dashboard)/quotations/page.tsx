@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dialog"
 import { QuotationJourneyModal } from "@/components/quotations/QuotationJourneyModal"
 import { QuotationStatusModal, STATUS_BADGES, STATUS_LABELS } from "@/components/quotations/QuotationStatusModal"
+import { QuotationBulkUploadModal } from "@/components/quotations/bulk-upload-modal"
 
 interface QuotationRevision {
   id: string
@@ -115,6 +116,7 @@ export default function QuotationsPage() {
   const [targetQuoteToConfirm, setTargetQuoteToConfirm] = useState<any | null>(null)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
   const [targetStatusQuote, setTargetStatusQuote] = useState<{ id: string; quotationNumber: string; status: string } | null>(null)
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false)
 
   useEffect(() => {
     fetch("/api/users/me/permissions")
@@ -311,12 +313,20 @@ export default function QuotationsPage() {
             Generate and track sales quotations, PDF archives, and SharePoint storage.
           </p>
         </div>
-        <a href="/quotations/new">
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-            <Plus className="mr-2 h-4 w-4" />
-            Create Quotation
-          </Button>
-        </a>
+        <div className="flex gap-2 items-center">
+          {isSuperAdmin && (
+            <Button variant="outline" className="border-orange-500/30 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-500/10" onClick={() => setIsBulkUploadOpen(true)}>
+              <FileDown className="mr-2 h-4 w-4" />
+              Bulk Import
+            </Button>
+          )}
+          <a href="/quotations/new">
+            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Quotation
+            </Button>
+          </a>
+        </div>
       </div>
 
       <div className="flex flex-col gap-4 bg-muted/20 p-4 rounded-xl border border-border/50">
@@ -766,6 +776,14 @@ export default function QuotationsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <QuotationBulkUploadModal 
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        onSuccess={() => {
+          setIsBulkUploadOpen(false)
+          fetchQuotations()
+        }}
+      />
     </div>
   )
 }
