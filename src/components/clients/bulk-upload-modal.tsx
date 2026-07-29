@@ -818,51 +818,20 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return
       }
 
-      const BATCH_SIZE = 10
-      const totalClients = finalizedClients.length
-      setUploadProgress({ current: 0, total: totalClients })
+      setUploadProgress({ current: 1, total: 1 }) // No more chunks, single POST
 
-      let totalSuccessCount = 0
-      let totalFailCount = 0
-      let totalWarningCount = 0
-      let allErrors: any[] = []
-      let allWarnings: any[] = []
-      let lastErrorFileBase64 = ""
+      const res = await fetch("/api/clients/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clients: finalizedClients })
+      })
 
-      for (let i = 0; i < totalClients; i += BATCH_SIZE) {
-        const chunk = finalizedClients.slice(i, i + BATCH_SIZE)
-        
-        const res = await fetch("/api/clients/bulk", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clients: chunk })
-        })
-
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}))
-          throw new Error(errorData.error || `Bulk import failed at batch starting row ${i + 1}`)
-        }
-
-        const data = await res.json()
-
-        if (data.summary) {
-          totalSuccessCount += (data.summary.successCount || 0)
-          totalFailCount += (data.summary.failCount || 0)
-          totalWarningCount += (data.summary.warningCount || 0)
-        }
-
-        if (data.errors && Array.isArray(data.errors)) {
-          allErrors.push(...data.errors)
-        }
-        if (data.warnings && Array.isArray(data.warnings)) {
-          allWarnings.push(...data.warnings)
-        }
-        if (data.errorFileBase64) {
-          lastErrorFileBase64 = data.errorFileBase64
-        }
-
-        setUploadProgress({ current: Math.min(i + BATCH_SIZE, totalClients), total: totalClients })
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || "Bulk import failed")
       }
+
+      const data = await res.json()
 
       // Clear draft on success
       localStorage.removeItem("bosq_importer_draft_clients")
@@ -870,21 +839,15 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
       setImportResult({
         success: true,
-        summary: {
-          successCount: totalSuccessCount,
-          failCount: totalFailCount,
-          warningCount: totalWarningCount
-        },
-        errors: allErrors,
-        warnings: allWarnings,
-        errorFileBase64: lastErrorFileBase64
+        stats: data.stats || {},
+        errorFileBase64: data.errorFileBase64 || ""
       })
 
       setStep(4)
-      toast.success(`Successfully imported ${totalSuccessCount} clients!`)
+      toast.success(`Upload processed!`)
     } catch (err: any) {
       console.error(err)
-      toast.error(err?.message || "Failed to import clients. Please verify data formats.")
+      toast.error(err?.message || "Failed to process clients.")
     } finally {
       setUploading(false)
       setUploadProgress(null)
@@ -1592,7 +1555,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                 </div>
                 <div className="py-3 flex justify-between items-center">
                   <span className="text-zinc-550 font-medium flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-blue-500" /> Update Existing Clients
+                    <span className="h-2 w-2 rounded-full bg-blue-500" /> Skip Existing Clients
                   </span>
                   <span className="font-bold text-blue-500">{updateCount} Clients</span>
                 </div>
@@ -1619,9 +1582,9 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   {uploading ? (
-                    <>Importing {uploadProgress ? `(${uploadProgress.current}/${uploadProgress.total})` : ""} <Loader2 className="h-4 w-4 animate-spin" /></>
+                    <>Processing Upload <Loader2 className="h-4 w-4 animate-spin" /></>
                   ) : (
-                    <>Import Clients</>
+                    <>Process Upload</>
                   )}
                 </Button>
               </div>
@@ -1770,31 +1733,39 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-4 w-full pt-2">
               <div className="flex flex-col items-center p-4 bg-muted/30 rounded-xl border">
-                <span className="text-3xl font-bold text-primary">{importResult.summary?.successCount || 0}</span>
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">Total Imported</span>
+                <span className="text-3xl font-bold text-primary">{importResult.stats?.totalReceived || 0}</span>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">Total Processed</span>
               </div>
-              <div className="flex flex-col items-center p-4 bg-muted/30 rounded-xl border">
-                <span className="text-3xl font-bold text-green-600">{importResult.summary?.successCount || 0}</span>
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">New Created</span>
+              <div className="flex flex-col items-center p-4 bg-green-500/10 rounded-xl border border-green-500/30">
+                <span className="text-3xl font-bold text-green-600">{importResult.stats?.newCreated || 0}</span>
+                <span className="text-xs font-medium text-green-700 uppercase tracking-wider mt-1">New Created</span>
               </div>
-              <div className="flex flex-col items-center p-4 bg-muted/30 rounded-xl border">
-                <span className="text-3xl font-bold text-blue-600">0</span>
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">Updated</span>
+              <div className="flex flex-col items-center p-4 bg-blue-500/10 rounded-xl border border-blue-500/30">
+                <span className="text-3xl font-bold text-blue-600">{importResult.stats?.existingSkipped || 0}</span>
+                <span className="text-xs font-medium text-blue-700 uppercase tracking-wider mt-1">Existing (Skipped)</span>
               </div>
-              <div className="flex flex-col items-center p-4 bg-muted/30 rounded-xl border">
-                <span className={`text-3xl font-bold ${(importResult.summary?.failCount || 0) > 0 ? 'text-red-500' : 'text-zinc-500'}`}>{importResult.summary?.failCount || 0}</span>
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-1">Skipped / Failed</span>
+              <div className="flex flex-col items-center p-4 bg-blue-500/10 rounded-xl border border-blue-500/30">
+                <span className="text-3xl font-bold text-blue-600">{importResult.stats?.sharepointCreated || 0}</span>
+                <span className="text-xs font-medium text-blue-700 uppercase tracking-wider mt-1">Folders Created</span>
+              </div>
+              <div className="flex flex-col items-center p-4 bg-yellow-500/10 rounded-xl border border-yellow-500/30">
+                <span className={`text-3xl font-bold ${(importResult.stats?.duplicatesInFile || 0) > 0 ? 'text-yellow-600' : 'text-zinc-500'}`}>{importResult.stats?.duplicatesInFile || 0}</span>
+                <span className="text-xs font-medium text-yellow-700 uppercase tracking-wider mt-1">File Duplicates</span>
+              </div>
+              <div className="flex flex-col items-center p-4 bg-red-500/10 rounded-xl border border-red-500/30">
+                <span className={`text-3xl font-bold ${(importResult.stats?.failedRecords || 0) > 0 ? 'text-red-600' : 'text-zinc-500'}`}>{importResult.stats?.failedRecords || 0}</span>
+                <span className="text-xs font-medium text-red-700 uppercase tracking-wider mt-1">Failed Validation</span>
               </div>
             </div>
 
             <div className="flex flex-col w-full gap-3 pt-4">
-              {importResult.summary?.failCount && importResult.summary.failCount > 0 ? (
+              {importResult.errorFileBase64 ? (
                 <Button
                   onClick={handleDownloadErrorReport}
                   variant="destructive"
-                  className="w-full h-12 text-md font-bold shadow-md"
+                  className="w-full h-12 text-md font-bold shadow-md bg-red-600 hover:bg-red-700 text-white"
                 >
-                  Download Skipped Records
+                  Download Report (Failed & Skipped)
                 </Button>
               ) : null}
               <Button

@@ -54,11 +54,7 @@ export async function POST(request: Request) {
       where: { deletedAt: null }
     })
 
-    // Resolve fallback admin user ID based on priority list:
-    // 1. Uploading Admin user, if uploader is Admin
-    // 2. Default Admin user configured in Settings
-    // 3. First active Admin user
-    // 4. Super Admin (only if no Admin exists)
+    // Resolve fallback admin user ID
     let fallbackAdminUserId: string | null = null
 
     const creatorUser = dbUsers.find(u => u.id === creatorUserId)
@@ -102,7 +98,9 @@ export async function POST(request: Request) {
     const clientByCompany = new Map(dbClients.map(c => [c.companyName.trim().toLowerCase(), c]))
     const clientByEmail = new Map()
     const clientByPhone = new Map()
+    const clientByClientId = new Map()
     dbClients.forEach(c => {
+      clientByClientId.set(c.clientId.trim().toUpperCase(), c)
       if (c.email) clientByEmail.set(c.email.trim().toLowerCase(), c)
       if (c.phone) clientByPhone.set(c.phone.trim().toLowerCase(), c)
     })
@@ -129,13 +127,9 @@ export async function POST(request: Request) {
       }
     })
 
-    // 1. Get the max client ID to generate new ones
-    const allClients = await prisma.client.findMany({
-      select: { clientId: true }
-    })
-
+    // Get max client ID to generate new ones safely
     let maxNumber = 1000
-    for (const c of allClients) {
+    for (const c of dbClients) {
       const match = c.clientId.match(/^C-(\d+)/i)
       if (match) {
         const num = parseInt(match[1], 10)
@@ -146,39 +140,21 @@ export async function POST(request: Request) {
     }
     let nextNum = maxNumber + 1
 
-    const createdClients = []
-    const failedRowsList: any[] = []
-    const warningRowsList: any[] = []
     const processedRows: any[] = []
-
-    let successCount = 0
-    let failCount = 0
-    let warningCount = 0
-
-    // PRE-CREATE SharePoint Folders Concurrently in Chunks of 15 to prevent timeouts
-    const CHUNK_SIZE = 15;
-    for (let i = 0; i < clients.length; i += CHUNK_SIZE) {
-      const chunk = clients.slice(i, i + CHUNK_SIZE);
-      await Promise.all(chunk.map(async (clientData) => {
-        if (!clientData.companyName || clientData.companyName.trim() === "") return;
-        
-        const companyKey = clientData.companyName.trim().toLowerCase();
-        const existingClient = clientByCompany.get(companyKey);
-        
-        let spId = existingClient?.sharepointFolder || "";
-        if (!spId) {
-          try {
-            spId = await createClientFolder(clientData.companyName.trim());
-          } catch (e) {
-            console.error("Failed to pre-create SharePoint folder:", e);
-            spId = `mock-folder-failed-${Date.now()}-${Math.random().toString(36).substring(7)}`;
-          }
-        }
-        clientData._sharepointFolderId = spId;
-      }));
+    const validNewClientsToCreate: any[] = []
+    
+    let stats = {
+      totalReceived: clients.length,
+      newCreated: 0,
+      existingSkipped: 0,
+      duplicatesInFile: 0,
+      failedRecords: 0,
+      sharepointCreated: 0
     }
 
-    // Validate and process rows
+    // Pass 1: Validate and Identify Status (New vs Existing vs Failed vs Dup)
+    const processedCompanyKeys = new Set<string>()
+
     for (let idx = 0; idx < clients.length; idx++) {
       const clientData = clients[idx]
       const {
@@ -195,34 +171,23 @@ export async function POST(request: Request) {
         assignedConsultant
       } = clientData
 
-      // Spreadsheet row index (2-indexed: Row 1 is header, Row 2 is first data row)
       const rowIndex = clientData.rowIndex || (idx + 2)
-
       const cellIssues: { columnKey: string; type: "error" | "warning"; message: string }[] = []
 
       // 1. Validate Company Name
+      let companyKey = ""
       if (!companyName || companyName.trim() === "") {
         cellIssues.push({ columnKey: "companyName", type: "error", message: "Company name is a required field" })
       } else {
-        const companyTrimmed = companyName.trim()
-        const companyKey = companyTrimmed.toLowerCase()
-
-        // Duplicate within file
-        if ((companyOccurrences.get(companyKey) || 0) > 1) {
-          cellIssues.push({ columnKey: "companyName", type: "warning", message: "Duplicate company name in upload file" })
-        }
+        companyKey = companyName.trim().toLowerCase()
         
-        // Duplicate in database (Check if exists under different clientId)
-        const matchedDbClient = clientByCompany.get(companyKey)
-        if (matchedDbClient) {
-          const finalClientId = clientId ? clientId.trim() : null
-          if (finalClientId && matchedDbClient.clientId !== finalClientId) {
-            cellIssues.push({ columnKey: "companyName", type: "warning", message: `Company name already exists with Client ID ${matchedDbClient.clientId}` })
-          }
+        // Check if already processed in this file (internal duplicate)
+        if (processedCompanyKeys.has(companyKey)) {
+          cellIssues.push({ columnKey: "companyName", type: "error", message: "Duplicate company name in upload file" })
         }
       }
 
-      // 2. Validate Email format & duplicate
+      // 2. Validate Email
       if (email && email.trim() !== "") {
         const emailTrimmed = email.trim()
         const emailKey = emailTrimmed.toLowerCase()
@@ -231,40 +196,14 @@ export async function POST(request: Request) {
         if (!emailRegex.test(emailTrimmed)) {
           cellIssues.push({ columnKey: "email", type: "error", message: "Invalid email format" })
         }
-
-        if ((emailOccurrences.get(emailKey) || 0) > 1) {
-          cellIssues.push({ columnKey: "email", type: "warning", message: "Duplicate email in upload file" })
-        }
-
-        const matchedDbClient = clientByEmail.get(emailKey)
-        if (matchedDbClient) {
-          const matchedCompanyKey = matchedDbClient.companyName.trim().toLowerCase()
-          if (!companyName || matchedCompanyKey !== companyName.trim().toLowerCase()) {
-            cellIssues.push({ columnKey: "email", type: "warning", message: `Email already registered to client: ${matchedDbClient.companyName}` })
-          }
-        }
       }
 
-      // 3. Validate Phone format & duplicate
+      // 3. Validate Phone
       if (phone && String(phone).trim() !== "") {
         const phoneTrimmed = String(phone).trim()
-        const phoneKey = phoneTrimmed.toLowerCase()
         const phoneRegex = /^\+?[0-9\s\-()]{7,20}$/
-
         if (!phoneRegex.test(phoneTrimmed)) {
           cellIssues.push({ columnKey: "phone", type: "error", message: "Invalid phone number format" })
-        }
-
-        if ((phoneOccurrences.get(phoneKey) || 0) > 1) {
-          cellIssues.push({ columnKey: "phone", type: "warning", message: "Duplicate phone number in upload file" })
-        }
-
-        const matchedDbClient = clientByPhone.get(phoneKey)
-        if (matchedDbClient) {
-          const matchedCompanyKey = matchedDbClient.companyName.trim().toLowerCase()
-          if (!companyName || matchedCompanyKey !== companyName.trim().toLowerCase()) {
-            cellIssues.push({ columnKey: "phone", type: "warning", message: `Phone number already registered to client: ${matchedDbClient.companyName}` })
-          }
         }
       }
 
@@ -274,11 +213,7 @@ export async function POST(request: Request) {
       if (clientType && clientType.trim() !== "") {
         const matchedType = allowedTypes.find(t => t.toLowerCase() === clientType.trim().toLowerCase())
         if (!matchedType) {
-          cellIssues.push({
-            columnKey: "clientType",
-            type: "error",
-            message: "Invalid client type. Allowed: Dealer, Interior, Project, Special"
-          })
+          cellIssues.push({ columnKey: "clientType", type: "error", message: "Invalid client type. Allowed: Dealer, Interior, Project, Special" })
         } else {
           normalizedClientType = matchedType
         }
@@ -292,304 +227,215 @@ export async function POST(request: Request) {
         }
       }
 
-      // 6. Validate Interior Design Consultant
+      // 6. Validate Consultant
       let assignedConsultantUserId: string | null = null
       if (!assignedConsultant || assignedConsultant.trim() === "") {
         assignedConsultantUserId = fallbackAdminUserId
-        const fallbackUser = dbUsers.find(u => u.id === fallbackAdminUserId)
-        const fallbackName = fallbackUser?.name || "Admin"
-        cellIssues.push({
-          columnKey: "assignedConsultant",
-          type: "warning",
-          message: `Blank assigned consultant, assigned to ${fallbackName} by default`
-        })
       } else {
         const matchedUser = userByName.get(assignedConsultant.trim().toLowerCase())
         if (!matchedUser) {
           assignedConsultantUserId = fallbackAdminUserId
-          const fallbackUser = dbUsers.find(u => u.id === fallbackAdminUserId)
-          const fallbackName = fallbackUser?.name || "Admin"
-          cellIssues.push({ 
-            columnKey: "assignedConsultant", 
-            type: "warning", 
-            message: `Interior Design consultant '${assignedConsultant}' not found. Automatically assigned to ${fallbackName}.` 
-          })
         } else if (matchedUser.isActive === false) {
           cellIssues.push({ columnKey: "assignedConsultant", type: "error", message: "Interior Design consultant is inactive" })
         } else {
-          const allowedRoles = ["INTERIOR_DESIGN_CONSULTANT"]
-          if (allowSalesExec) {
-            allowedRoles.push("SALES_EXECUTIVE")
-          }
-          // Always allow managers/admins as per the requirement
-          allowedRoles.push("SALES_MANAGER", "MANAGER")
-          
-          const allowAdminAssign = systemConfig["client_allow_admin_assignment"] !== "false"
-          if (allowAdminAssign) {
-            allowedRoles.push("ADMIN", "SUPER_ADMIN")
-          }
+          const allowedRoles = ["INTERIOR_DESIGN_CONSULTANT", "SALES_MANAGER", "MANAGER"]
+          if (allowSalesExec) allowedRoles.push("SALES_EXECUTIVE")
+          if (systemConfig["client_allow_admin_assignment"] !== "false") allowedRoles.push("ADMIN", "SUPER_ADMIN")
 
           if (!allowedRoles.includes(matchedUser.role)) {
-            cellIssues.push({
-              columnKey: "assignedConsultant",
-              type: "error",
-              message: `User role (${matchedUser.role.replace(/_/g, " ")}) is not permitted for client assignment`
-            })
+            cellIssues.push({ columnKey: "assignedConsultant", type: "error", message: `User role (${matchedUser.role}) not permitted` })
           } else {
             assignedConsultantUserId = matchedUser.id
           }
         }
       }
 
-      const hasErrors = cellIssues.some(issue => issue.type === "error")
-      const hasWarnings = cellIssues.some(issue => issue.type === "warning")
-
-      let errorMessage = ""
-      if (hasErrors) {
-        errorMessage = cellIssues
-          .filter(issue => issue.type === "error")
-          .map(issue => `${issue.columnKey}: ${issue.message}`)
-          .join("; ")
-      } else if (hasWarnings) {
-        errorMessage = cellIssues
-          .filter(issue => issue.type === "warning")
-          .map(issue => `${issue.columnKey}: ${issue.message}`)
-          .join("; ")
+      // Check Existing Logic
+      let isExisting = false
+      if (companyKey) {
+        if (clientByCompany.has(companyKey)) {
+          isExisting = true
+        } else if (clientId && clientByClientId.has(clientId.trim().toUpperCase())) {
+          isExisting = true
+        }
       }
 
-      // Record detailed logs of parsed row
-      const processedRow = {
+      const hasErrors = cellIssues.some(i => i.type === "error")
+
+      let finalStatus = "SUCCESS" // assume new
+      let errorMessage = cellIssues.map(i => `${i.columnKey}: ${i.message}`).join("; ")
+
+      if (hasErrors) {
+        if (cellIssues.some(i => i.message === "Duplicate company name in upload file")) {
+          finalStatus = "DUPLICATE_IN_FILE"
+          stats.duplicatesInFile++
+        } else {
+          finalStatus = "FAILED"
+          stats.failedRecords++
+        }
+      } else if (isExisting) {
+        finalStatus = "EXISTING_SKIPPED"
+        stats.existingSkipped++
+        errorMessage = "Client already exists in database (skipped)"
+      } else {
+        // It's a valid new client
+        processedCompanyKeys.add(companyKey) // Mark to catch dupes further down
+        
+        // Generate new client ID if not provided or conflicted
+        let finalClientId = clientId ? clientId.trim().toUpperCase() : `C-${nextNum.toString().padStart(4, "0")}`
+        if (!clientId) nextNum++
+        
+        validNewClientsToCreate.push({
+          ...clientData,
+          rowIndex,
+          finalClientId,
+          companyName: companyName.trim(),
+          normalizedClientType,
+          assignedConsultantUserId
+        })
+      }
+
+      processedRows.push({
         ...clientData,
         rowIndex,
-        cellIssues,
-        hasErrors,
-        hasWarnings,
-        errorMessage
-      }
-      processedRows.push(processedRow)
-
-      if (hasErrors) {
-        failCount++
-        failedRowsList.push({
-          row: rowIndex,
-          column: cellIssues.find(i => i.type === "error")?.columnKey || "Row",
-          value: clientData[cellIssues.find(i => i.type === "error")?.columnKey || ""] || "",
-          error: cellIssues.filter(i => i.type === "error").map(i => i.message).join(", ")
-        })
-        continue
-      }
-
-      if (hasWarnings) {
-        warningCount++
-        warningRowsList.push({
-          row: rowIndex,
-          column: cellIssues.find(i => i.type === "warning")?.columnKey || "Row",
-          value: clientData[cellIssues.find(i => i.type === "warning")?.columnKey || ""] || "",
-          warning: cellIssues.filter(i => i.type === "warning").map(i => i.message).join(", ")
-        })
-      } else {
-        successCount++
-      }
-
-      // 1. Prepare SharePoint folder (Created concurrently during pre-processing)
-      let finalClientId = clientId ? clientId.trim() : null
-      const existingClient = clientByCompany.get(companyName.trim().toLowerCase())
-      
-      if (existingClient && (!finalClientId || existingClient.clientId !== finalClientId)) {
-        finalClientId = existingClient.clientId
-      } else if (!finalClientId) {
-        finalClientId = `C-${nextNum.toString().padStart(4, "0")}`
-        nextNum++
-      }
-
-      let sharepointFolderId = clientData._sharepointFolderId || existingClient?.sharepointFolder || ""
-
-      // 2. Create / Update Client in Transaction (if valid)
-      await prisma.$transaction(async (tx) => {
-        let savedClient
-        const existingForUpdate = await tx.client.findFirst({
-          where: { clientId: finalClientId }
-        })
-
-        if (existingForUpdate) {
-          savedClient = await tx.client.update({
-            where: { id: existingForUpdate.id },
-            data: {
-              companyName: companyName.trim(),
-              contactPerson: contactPerson || null,
-              phone: phone || null,
-              email: email || null,
-              address: address || null,
-              trn: trn || null,
-              clientType: normalizedClientType,
-              priceCategory: priceCategory || null,
-              notes: notes || null,
-              status: "Approved",
-              salespersonId: assignedConsultantUserId || undefined
-            }
-          })
-        } else {
-          savedClient = await tx.client.create({
-            data: {
-              clientId: finalClientId,
-              companyName: companyName.trim(),
-              contactPerson: contactPerson || null,
-              phone: phone || null,
-              email: email || null,
-              address: address || null,
-              trn: trn || null,
-              clientType: normalizedClientType,
-              priceCategory: priceCategory || null,
-              notes: notes || null,
-              sharepointFolder: sharepointFolderId,
-              salespersonId: assignedConsultantUserId,
-              status: "Approved",
-            }
-          })
-        }
-
-        createdClients.push(savedClient)
-
-        // Keep Assignments synchronized
-        if (assignedConsultantUserId) {
-          // Delete existing assignments for client to avoid duplication
-          await tx.clientAssignment.deleteMany({
-            where: { clientId: savedClient.id }
-          })
-
-          // Create new primary assignment
-          await tx.clientAssignment.create({
-            data: {
-              clientId: savedClient.id,
-              userId: assignedConsultantUserId,
-              isPrimary: true,
-              allowAllQuotations: true,
-              allowQuotationEdit: true,
-              allowRevisionApproval: true,
-              allowBoqAccess: true,
-              allowPricingVisibility: false
-            }
-          })
-
-          // Send notification if assigned consultant is not the uploader
-          if (assignedConsultantUserId !== creatorUserId) {
-            await tx.notification.create({
-              data: {
-                userId: assignedConsultantUserId,
-                title: "New Client Assigned",
-                message: `You have been assigned to client ${savedClient.companyName} (${savedClient.clientId}) from bulk upload.`,
-                type: "CLIENT_APPROVAL",
-                link: `/clients/${savedClient.id}`
-              }
-            })
-          }
-        }
-
-        // Log Activity
-        await tx.activityLog.create({
-          data: {
-            userId: creatorUserId,
-            action: "CREATED_CLIENT",
-            entityType: "CLIENT",
-            entityId: savedClient.id,
-            details: `Bulk imported client ${companyName} (${finalClientId})`,
-          },
-        })
+        status: finalStatus,
+        errorMessage,
+        cellIssues
       })
     }
 
-    // Generate downloadable error report spreadsheet with exceljs
-    let errorFileBase64 = ""
-    if (failCount > 0 || warningCount > 0) {
-      const workbook = new ExcelJS.Workbook()
-      const worksheet = workbook.addWorksheet("Client Import Report")
+    // Pass 2: Create SharePoint Folders for VALID NEW clients concurrently
+    const CHUNK_SIZE = 15;
+    for (let i = 0; i < validNewClientsToCreate.length; i += CHUNK_SIZE) {
+      const chunk = validNewClientsToCreate.slice(i, i + CHUNK_SIZE);
+      await Promise.all(chunk.map(async (clientData) => {
+        try {
+          const spId = await createClientFolder(clientData.companyName);
+          clientData._sharepointFolderId = spId;
+          stats.sharepointCreated++
+        } catch (e) {
+          console.error(`Failed to pre-create SharePoint folder for ${clientData.companyName}:`, e);
+          clientData._sharepointFolderId = `mock-folder-failed-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        }
+      }));
+    }
 
-      // Headers config
-      worksheet.columns = [
-        { header: "Client ID", key: "clientId", width: 12 },
-        { header: "Company Name", key: "companyName", width: 30 },
-        { header: "Contact Person", key: "contactPerson", width: 20 },
-        { header: "Phone", key: "phone", width: 18 },
-        { header: "Email", key: "email", width: 25 },
-        { header: "Address", key: "address", width: 40 },
-        { header: "TRN", key: "trn", width: 18 },
-        { header: "Client Type", key: "clientType", width: 15 },
-        { header: "Notes", key: "notes", width: 35 },
-        { header: "Assigned Interior Design Consultant", key: "assignedConsultant", width: 25 },
-        { header: "Upload Error", key: "uploadError", width: 40 }
-      ]
+    // Pass 3: Database Insertion (Transaction)
+    if (validNewClientsToCreate.length > 0) {
+      await prisma.$transaction(async (tx) => {
+        for (const clientData of validNewClientsToCreate) {
+          const savedClient = await tx.client.create({
+            data: {
+              clientId: clientData.finalClientId,
+              companyName: clientData.companyName,
+              contactPerson: clientData.contactPerson || null,
+              phone: clientData.phone || null,
+              email: clientData.email || null,
+              address: clientData.address || null,
+              trn: clientData.trn || null,
+              clientType: clientData.normalizedClientType,
+              priceCategory: clientData.priceCategory || null,
+              notes: clientData.notes || null,
+              sharepointFolder: clientData._sharepointFolderId,
+              salespersonId: clientData.assignedConsultantUserId,
+              status: "Approved",
+            }
+          })
 
-      // Header row styling
-      const headerRow = worksheet.getRow(1)
-      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } }
-      headerRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FF1F4E78" } // Professional dark blue
-      } as ExcelJS.Fill
+          stats.newCreated++
 
-      // Styles for highlights
-      const errorFill: ExcelJS.Fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFFFC7CE" } // Light red background
-      }
-      const errorFont: Partial<ExcelJS.Font> = {
-        color: { argb: "FF9C0006" } // Dark red text
-      }
-      const warningFill: ExcelJS.Fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFFFEB9C" } // Light yellow background
-      }
-      const warningFont: Partial<ExcelJS.Font> = {
-        color: { argb: "FF9C6500" } // Dark yellow text
-      }
+          if (clientData.assignedConsultantUserId) {
+            await tx.clientAssignment.create({
+              data: {
+                clientId: savedClient.id,
+                userId: clientData.assignedConsultantUserId,
+                isPrimary: true,
+                allowAllQuotations: true,
+                allowQuotationEdit: true,
+                allowRevisionApproval: true,
+                allowBoqAccess: true,
+                allowPricingVisibility: false
+              }
+            })
 
-      // Add all rows with conditional highlighting and cell notes
-      processedRows.forEach((rowData) => {
-        const row = worksheet.addRow({
-          clientId: rowData.clientId || "",
-          companyName: rowData.companyName || "",
-          contactPerson: rowData.contactPerson || "",
-          phone: rowData.phone || "",
-          email: rowData.email || "",
-          address: rowData.address || "",
-          trn: rowData.trn || "",
-          clientType: rowData.clientType || "",
-          notes: rowData.notes || "",
-          assignedConsultant: rowData.assignedConsultant || "",
-          uploadError: rowData.errorMessage || ""
-        })
-
-        // Style the cells that triggered errors or warnings
-        rowData.cellIssues.forEach((issue: any) => {
-          // Find the column index based on columnKey
-          const colIndex = worksheet.columns.findIndex(col => col.key === issue.columnKey)
-          if (colIndex !== -1) {
-            const cell = row.getCell(colIndex + 1) // 1-indexed cell
-            if (issue.type === "error") {
-              cell.fill = errorFill
-              cell.font = errorFont
-              cell.note = `❌ ${issue.message}`
-            } else if (issue.type === "warning") {
-              cell.fill = warningFill
-              cell.font = warningFont
-              cell.note = `⚠ ${issue.message}`
+            if (clientData.assignedConsultantUserId !== creatorUserId) {
+              await tx.notification.create({
+                data: {
+                  userId: clientData.assignedConsultantUserId,
+                  title: "New Client Assigned",
+                  message: `You have been assigned to client ${savedClient.companyName} (${savedClient.clientId}) from bulk upload.`,
+                  type: "CLIENT_APPROVAL",
+                  link: `/clients/${savedClient.id}`
+                }
+              })
             }
           }
+
+          await tx.activityLog.create({
+            data: {
+              userId: creatorUserId,
+              action: "CREATED_CLIENT",
+              entityType: "CLIENT",
+              entityId: savedClient.id,
+              details: `Bulk imported client ${clientData.companyName} (${clientData.finalClientId})`,
+            },
+          })
+        }
+      })
+    }
+
+    // Generate downloadable error report spreadsheet for EVERYTHING that wasn't successfully created
+    let errorFileBase64 = ""
+    const reportRows = processedRows.filter(r => r.status !== "SUCCESS")
+    
+    if (reportRows.length > 0) {
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet("Upload Report")
+
+      worksheet.columns = [
+        { header: "Row", key: "row", width: 10 },
+        { header: "Status", key: "status", width: 25 },
+        { header: "Company Name", key: "companyName", width: 30 },
+        { header: "Client ID", key: "clientId", width: 15 },
+        { header: "Email", key: "email", width: 25 },
+        { header: "Phone", key: "phone", width: 18 },
+        { header: "Reason", key: "reason", width: 60 }
+      ]
+
+      const headerRow = worksheet.getRow(1)
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } }
+      headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1F4E78" } }
+
+      reportRows.forEach((rowData) => {
+        const row = worksheet.addRow({
+          row: rowData.rowIndex,
+          status: rowData.status,
+          companyName: rowData.companyName || "",
+          clientId: rowData.clientId || "",
+          email: rowData.email || "",
+          phone: rowData.phone || "",
+          reason: rowData.errorMessage || ""
         })
 
-        // Style the 'Upload Error' column cell
-        const errorCellIndex = worksheet.columns.findIndex(col => col.key === "uploadError")
-        if (errorCellIndex !== -1) {
-          const errCell = row.getCell(errorCellIndex + 1)
-          if (rowData.hasErrors) {
-            errCell.font = { color: { argb: "FFD00000" }, bold: true }
-          } else if (rowData.hasWarnings) {
-            errCell.font = { color: { argb: "FFB07000" }, bold: true }
-          }
+        // Color coding based on status
+        let bgColor = "FFFFFFFF"
+        let fontColor = "FF000000"
+
+        if (rowData.status === "FAILED") {
+          bgColor = "FFFFC7CE" // Red
+          fontColor = "FF9C0006"
+        } else if (rowData.status === "EXISTING_SKIPPED") {
+          bgColor = "FFE2EFDA" // Green
+          fontColor = "FF375623"
+        } else if (rowData.status === "DUPLICATE_IN_FILE") {
+          bgColor = "FFFFEB9C" // Yellow
+          fontColor = "FF9C6500"
         }
+
+        row.eachCell((cell) => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } }
+          cell.font = { color: { argb: fontColor } }
+        })
       })
 
       const buffer = await workbook.xlsx.writeBuffer()
@@ -598,15 +444,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      summary: {
-        successCount,
-        failCount,
-        warningCount
-      },
-      errors: failedRowsList,
-      warnings: warningRowsList,
+      stats,
       errorFileBase64
     })
+
   } catch (error: any) {
     console.error("Failed to bulk import clients:", error)
     return NextResponse.json(
