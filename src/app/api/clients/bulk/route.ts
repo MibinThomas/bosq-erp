@@ -406,37 +406,47 @@ export async function POST(request: Request) {
 
       // 2. Create / Update Client in Transaction (if valid)
       await prisma.$transaction(async (tx) => {
-        const savedClient = await tx.client.upsert({
-          where: { clientId: finalClientId },
-          update: {
-            companyName: companyName.trim(),
-            contactPerson: contactPerson || null,
-            phone: phone || null,
-            email: email || null,
-            address: address || null,
-            trn: trn || null,
-            clientType: normalizedClientType,
-            priceCategory: priceCategory || null,
-            notes: notes || null,
-            status: "Approved",
-            salespersonId: assignedConsultantUserId || undefined
-          },
-          create: {
-            clientId: finalClientId,
-            companyName: companyName.trim(),
-            contactPerson: contactPerson || null,
-            phone: phone || null,
-            email: email || null,
-            address: address || null,
-            trn: trn || null,
-            clientType: normalizedClientType,
-            priceCategory: priceCategory || null,
-            notes: notes || null,
-            sharepointFolder: sharepointFolderId,
-            salespersonId: assignedConsultantUserId,
-            status: "Approved",
-          },
+        let savedClient
+        const existingForUpdate = await tx.client.findFirst({
+          where: { clientId: finalClientId }
         })
+
+        if (existingForUpdate) {
+          savedClient = await tx.client.update({
+            where: { id: existingForUpdate.id },
+            data: {
+              companyName: companyName.trim(),
+              contactPerson: contactPerson || null,
+              phone: phone || null,
+              email: email || null,
+              address: address || null,
+              trn: trn || null,
+              clientType: normalizedClientType,
+              priceCategory: priceCategory || null,
+              notes: notes || null,
+              status: "Approved",
+              salespersonId: assignedConsultantUserId || undefined
+            }
+          })
+        } else {
+          savedClient = await tx.client.create({
+            data: {
+              clientId: finalClientId,
+              companyName: companyName.trim(),
+              contactPerson: contactPerson || null,
+              phone: phone || null,
+              email: email || null,
+              address: address || null,
+              trn: trn || null,
+              clientType: normalizedClientType,
+              priceCategory: priceCategory || null,
+              notes: notes || null,
+              sharepointFolder: sharepointFolderId,
+              salespersonId: assignedConsultantUserId,
+              status: "Approved",
+            }
+          })
+        }
 
         createdClients.push(savedClient)
 

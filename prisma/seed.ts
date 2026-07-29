@@ -333,11 +333,12 @@ async function main() {
   ]
 
   for (const client of clients) {
-    await prisma.client.upsert({
-      where: { clientId: client.clientId },
-      update: {},
-      create: client,
+    const existing = await prisma.client.findFirst({
+      where: { clientId: client.clientId }
     })
+    if (!existing) {
+      await prisma.client.create({ data: client })
+    }
   }
 
   console.log("Clients seeded successfully.")
@@ -430,7 +431,7 @@ async function main() {
 
   if (dbClient && dbProduct) {
     const quoteNo = "I1951"
-    const existingQuote = await prisma.quotation.findUnique({ where: { quotationNumber: quoteNo } })
+    const existingQuote = await prisma.quotation.findFirst({ where: { quotationNumber: quoteNo } })
 
     if (!existingQuote) {
       const subtotal = dbProduct.unitPrice * 2
