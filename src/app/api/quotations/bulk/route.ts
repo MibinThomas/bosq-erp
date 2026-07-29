@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     }
     
     // Only SUPER_ADMIN allowed
-    if (session.user.role !== "SUPER_ADMIN") {
+    if ((session.user as any).role !== "SUPER_ADMIN") {
       return new NextResponse("Forbidden", { status: 403 })
     }
 
