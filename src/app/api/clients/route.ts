@@ -197,7 +197,7 @@ export async function POST(request: Request) {
         select: { clientId: true }
       })
       for (const c of allClients) {
-        const match = c.clientId.match(/^C-(\d+)/i)
+        const match = c.clientId.match(/^[A-Za-z-]*(\d+)$/i)
         if (match) {
           const num = parseInt(match[1], 10)
           if (num > maxNumber) {
@@ -208,7 +208,18 @@ export async function POST(request: Request) {
     }
     
     const usedBaseNumber = maxNumber + 1
-    const nextClientId = `C-${usedBaseNumber}`
+    
+    let prefix = "P"
+    const resolvedType = clientType || "Project"
+    if (resolvedType.toLowerCase() === "interior") {
+      prefix = "I"
+    } else if (resolvedType.toLowerCase() === "dealer") {
+      prefix = "D"
+    } else if (resolvedType.toLowerCase() === "project" || resolvedType.toLowerCase() === "special") {
+      prefix = "P"
+    }
+
+    const nextClientId = `${prefix}${String(usedBaseNumber).padStart(4, "0")}`
 
     // 2. Create SharePoint folder (mock or real)
     let sharepointFolderId = ""
@@ -263,6 +274,23 @@ export async function POST(request: Request) {
         status: initialStatus,
       },
     })
+
+    // Automatically assign the creator to the client
+    if (creatorUserId) {
+      await prisma.clientAssignment.create({
+        data: {
+          clientId: newClient.id,
+          userId: creatorUserId,
+          isPrimary: true,
+          allowAllQuotations: true,
+          allowQuotationEdit: true,
+          allowRevisionApproval: true,
+          allowBoqAccess: true,
+          allowPricingVisibility: false
+        }
+      })
+    }
+
 
     if (usedBaseNumber > 1000) {
       await prisma.sequenceTracker.upsert({

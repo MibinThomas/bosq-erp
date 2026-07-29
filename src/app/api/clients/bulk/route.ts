@@ -130,7 +130,7 @@ export async function POST(request: Request) {
     // Get max client ID to generate new ones safely
     let maxNumber = 1000
     for (const c of dbClients) {
-      const match = c.clientId.match(/^C-(\d+)/i)
+      const match = c.clientId.match(/^[A-Za-z-]*(\d+)$/i)
       if (match) {
         const num = parseInt(match[1], 10)
         if (num > maxNumber) {
@@ -282,8 +282,19 @@ export async function POST(request: Request) {
         processedCompanyKeys.add(companyKey) // Mark to catch dupes further down
         
         // Generate new client ID if not provided or conflicted
-        let finalClientId = clientId ? clientId.trim().toUpperCase() : `C-${nextNum.toString().padStart(4, "0")}`
-        if (!clientId) nextNum++
+        let finalClientId = clientId ? clientId.trim().toUpperCase() : ""
+        if (!finalClientId) {
+          let prefix = "P"
+          if (normalizedClientType.toLowerCase() === "interior") {
+            prefix = "I"
+          } else if (normalizedClientType.toLowerCase() === "dealer") {
+            prefix = "D"
+          } else if (normalizedClientType.toLowerCase() === "project" || normalizedClientType.toLowerCase() === "special") {
+            prefix = "P"
+          }
+          finalClientId = `${prefix}${String(nextNum).padStart(4, "0")}`
+          nextNum++
+        }
         
         validNewClientsToCreate.push({
           ...clientData,
