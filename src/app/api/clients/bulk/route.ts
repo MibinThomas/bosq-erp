@@ -129,18 +129,22 @@ export async function POST(request: Request) {
       }
     })
 
-    // 1. Get the last client ID to generate new ones
-    const lastClient = await prisma.client.findFirst({
-      orderBy: { clientId: "desc" },
+    // 1. Get the max client ID to generate new ones
+    const allClients = await prisma.client.findMany({
+      select: { clientId: true }
     })
 
-    let nextNum = 1
-    if (lastClient && lastClient.clientId.startsWith("C-")) {
-      const lastNumPart = parseInt(lastClient.clientId.replace("C-", ""), 10)
-      if (!isNaN(lastNumPart)) {
-        nextNum = lastNumPart + 1
+    let maxNumber = 1000
+    for (const c of allClients) {
+      const match = c.clientId.match(/^C-(\d+)/i)
+      if (match) {
+        const num = parseInt(match[1], 10)
+        if (num > maxNumber) {
+          maxNumber = num
+        }
       }
     }
+    let nextNum = maxNumber + 1
 
     const createdClients = []
     const failedRowsList: any[] = []
@@ -205,7 +209,7 @@ export async function POST(request: Request) {
 
         // Duplicate within file
         if ((companyOccurrences.get(companyKey) || 0) > 1) {
-          cellIssues.push({ columnKey: "companyName", type: "error", message: "Duplicate company name in upload file" })
+          cellIssues.push({ columnKey: "companyName", type: "warning", message: "Duplicate company name in upload file" })
         }
         
         // Duplicate in database (Check if exists under different clientId)
@@ -213,7 +217,7 @@ export async function POST(request: Request) {
         if (matchedDbClient) {
           const finalClientId = clientId ? clientId.trim() : null
           if (finalClientId && matchedDbClient.clientId !== finalClientId) {
-            cellIssues.push({ columnKey: "companyName", type: "error", message: `Company name already exists with Client ID ${matchedDbClient.clientId}` })
+            cellIssues.push({ columnKey: "companyName", type: "warning", message: `Company name already exists with Client ID ${matchedDbClient.clientId}` })
           }
         }
       }
@@ -229,14 +233,14 @@ export async function POST(request: Request) {
         }
 
         if ((emailOccurrences.get(emailKey) || 0) > 1) {
-          cellIssues.push({ columnKey: "email", type: "error", message: "Duplicate email in upload file" })
+          cellIssues.push({ columnKey: "email", type: "warning", message: "Duplicate email in upload file" })
         }
 
         const matchedDbClient = clientByEmail.get(emailKey)
         if (matchedDbClient) {
           const matchedCompanyKey = matchedDbClient.companyName.trim().toLowerCase()
           if (!companyName || matchedCompanyKey !== companyName.trim().toLowerCase()) {
-            cellIssues.push({ columnKey: "email", type: "error", message: `Email already registered to client: ${matchedDbClient.companyName}` })
+            cellIssues.push({ columnKey: "email", type: "warning", message: `Email already registered to client: ${matchedDbClient.companyName}` })
           }
         }
       }
@@ -252,14 +256,14 @@ export async function POST(request: Request) {
         }
 
         if ((phoneOccurrences.get(phoneKey) || 0) > 1) {
-          cellIssues.push({ columnKey: "phone", type: "error", message: "Duplicate phone number in upload file" })
+          cellIssues.push({ columnKey: "phone", type: "warning", message: "Duplicate phone number in upload file" })
         }
 
         const matchedDbClient = clientByPhone.get(phoneKey)
         if (matchedDbClient) {
           const matchedCompanyKey = matchedDbClient.companyName.trim().toLowerCase()
           if (!companyName || matchedCompanyKey !== companyName.trim().toLowerCase()) {
-            cellIssues.push({ columnKey: "phone", type: "error", message: `Phone number already registered to client: ${matchedDbClient.companyName}` })
+            cellIssues.push({ columnKey: "phone", type: "warning", message: `Phone number already registered to client: ${matchedDbClient.companyName}` })
           }
         }
       }

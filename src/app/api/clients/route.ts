@@ -184,17 +184,21 @@ export async function POST(request: Request) {
     }
 
     // 1. Generate client ID (e.g. C-1004)
-    const lastClient = await prisma.client.findFirst({
-      orderBy: { clientId: "desc" },
+    const allClients = await prisma.client.findMany({
+      select: { clientId: true }
     })
 
-    let nextClientId = "C-1001"
-    if (lastClient && lastClient.clientId.startsWith("C-")) {
-      const lastNum = parseInt(lastClient.clientId.replace("C-", ""), 10)
-      if (!isNaN(lastNum)) {
-        nextClientId = `C-${lastNum + 1}`
+    let maxNumber = 1000
+    for (const c of allClients) {
+      const match = c.clientId.match(/^C-(\d+)/i)
+      if (match) {
+        const num = parseInt(match[1], 10)
+        if (num > maxNumber) {
+          maxNumber = num
+        }
       }
     }
+    const nextClientId = `C-${maxNumber + 1}`
 
     // 2. Create SharePoint folder (mock or real)
     let sharepointFolderId = ""

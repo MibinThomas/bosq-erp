@@ -468,7 +468,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
           dbc => dbc.companyName.trim().toLowerCase() === companyTrimmed && dbc.clientId !== c.clientId
         )
         if (dbDuplicate) {
-          errorsList.push({
+          warningsList.push({
             row: csvRowNum,
             column: currentMappings["companyName"] || "Company Name",
             message: `Company name already exists in database with Client ID ${dbDuplicate.clientId}`,
@@ -503,7 +503,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
             dbc => dbc.email && dbc.email.trim().toLowerCase() === emailKey && dbc.companyName.trim().toLowerCase() !== c.companyName?.trim().toLowerCase()
           )
           if (dbDuplicate) {
-            errorsList.push({
+            warningsList.push({
               row: csvRowNum,
               column: currentMappings["email"] || "Email",
               message: `Email already registered in database to: ${dbDuplicate.companyName}`,
@@ -539,7 +539,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
             dbc => dbc.phone && dbc.phone.trim().toLowerCase() === phoneKey && dbc.companyName.trim().toLowerCase() !== c.companyName?.trim().toLowerCase()
           )
           if (dbDuplicate) {
-            errorsList.push({
+            warningsList.push({
               row: csvRowNum,
               column: currentMappings["phone"] || "Phone",
               message: `Phone number already registered in database to: ${dbDuplicate.companyName}`,
@@ -637,11 +637,10 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       }
     })
 
-    // Duplicate within file checks
     seenCompanies.forEach((rows, company) => {
       if (rows.length > 1) {
         rows.forEach(r => {
-          errorsList.push({
+          warningsList.push({
             row: r,
             column: currentMappings["companyName"] || "Company Name",
             message: `Duplicate Company Name '${company.toUpperCase()}' found in upload file.`,
@@ -654,7 +653,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     seenEmails.forEach((rows, email) => {
       if (rows.length > 1) {
         rows.forEach(r => {
-          errorsList.push({
+          warningsList.push({
             row: r,
             column: currentMappings["email"] || "Email",
             message: `Duplicate Email '${email}' found in upload file.`,
@@ -667,7 +666,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     seenPhones.forEach((rows, phone) => {
       if (rows.length > 1) {
         rows.forEach(r => {
-          errorsList.push({
+          warningsList.push({
             row: r,
             column: currentMappings["phone"] || "Phone",
             message: `Duplicate Phone '${phone}' found in upload file.`,

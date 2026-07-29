@@ -405,6 +405,17 @@ export async function POST(request: Request) {
 
       const nextBaseNumber = maxNumber + 1
       nextQuoteNo = `${prefix}${nextBaseNumber}`
+    } else {
+      // Validate that the manually provided quotation number is unique
+      const existingQuotation = await prisma.quotation.findFirst({
+        where: { quotationNumber: nextQuoteNo }
+      })
+      if (existingQuotation) {
+        return NextResponse.json(
+          { error: `Quotation number "${nextQuoteNo}" already exists.` },
+          { status: 409 }
+        )
+      }
     }
     // Read both brand logos to base64 (only if not draft)
     let logoBase64 = ""

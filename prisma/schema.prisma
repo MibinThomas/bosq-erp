@@ -57,7 +57,7 @@ model Notification {
 
 model Client {
   id              String      @id @default(cuid())
-  clientId        String      @unique // E.g., C-1001
+  clientId        String      // E.g., C-1001
   companyName     String
   contactPerson   String?
   phone           String?
@@ -145,7 +145,7 @@ model Product {
 
 model Quotation {
   id              String    @id @default(cuid())
-  quotationNumber String    @unique // E.g., I1951
+  quotationNumber String    // E.g., I1951
   customerSegment String    @default("Project") // Dealer, Interior, Project, Special
   clientId        String
   client          Client    @relation(fields: [clientId], references: [id])
