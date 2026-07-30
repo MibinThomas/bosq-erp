@@ -18,6 +18,7 @@ const colors = {
   lightText: "#383E42", // Dark Grey
   lineColor: "#E6E7E8", // Soft Grey
   bgLight: "#FFF0D7", // Champagne Cream
+  highlightBg: "#F17423",
   white: "#ffffff",
 }
 
