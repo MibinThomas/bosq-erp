@@ -232,7 +232,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   financialHeader: {
-    backgroundColor: colors.bgLight,
     paddingVertical: 6,
     paddingHorizontal: 16,
   },
@@ -241,6 +240,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: colors.primary,
     textTransform: "uppercase",
+    textAlign: "center",
   },
   financialRow: {
     flexDirection: "row",
@@ -1019,7 +1019,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         {/* Financial Summary Box */}
         <View style={styles.financialBox} wrap={false}>
             <View style={styles.financialHeader}>
-              <Text style={styles.financialTitle}>Commercial Summary</Text>
+              <Text style={styles.financialTitle}>Cost Breakdown</Text>
             </View>
             <View style={styles.financialRow}>
                 <Text style={styles.financialLabel}>Products Subtotal</Text>
