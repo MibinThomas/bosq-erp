@@ -585,6 +585,7 @@ export async function POST(request: Request) {
       preparedByContact: creatorUser.phone,
       preparedByDesignation: creatorUser.designation,
       preparedByRole: creatorUser.role,
+      preparedBySignatureUrl: creatorUser.signature || null,
       salesAgentName: salesAgentName || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,

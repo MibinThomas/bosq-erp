@@ -18,7 +18,8 @@ const SETTING_KEYS = [
   "client_assign_to_uploader",
   "client_allow_sales_executive_assignment",
   "quotation_header_logo",
-  "quotation_footer_logo"
+  "quotation_footer_logo",
+  "quotation_watermark_logo"
 ]
 
 export async function GET() {

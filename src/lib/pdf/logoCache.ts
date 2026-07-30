@@ -38,10 +38,17 @@ export async function getLogoBase64(): Promise<string> {
 }
 
 export async function getWatermarkBase64(): Promise<string> {
+  try {
+    const dbWatermarkLogo = await getSetting("quotation_watermark_logo")
+    if (dbWatermarkLogo) return dbWatermarkLogo
+  } catch (err) {
+    console.error("Failed to fetch custom watermark logo from database settings:", err)
+  }
+
   if (watermarkBase64Cache) return watermarkBase64Cache
 
   try {
-    const watermarkPath = path.join(process.cwd(), "public", "assets", "logo", "Watermark.svg")
+    const watermarkPath = path.join(process.cwd(), "public", "assets", "images", "Watermark2.svg")
     if (fs.existsSync(watermarkPath)) {
       const fileBuffer = fs.readFileSync(watermarkPath)
       const sharp = (await import("sharp")).default

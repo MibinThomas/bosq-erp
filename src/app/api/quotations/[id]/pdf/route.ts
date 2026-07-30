@@ -172,6 +172,7 @@ export async function GET(
       preparedByContact: quotation.preparedBy?.phone || null,
       preparedByDesignation: quotation.preparedBy?.designation || null,
       preparedByRole: quotation.preparedBy?.role || null,
+      preparedBySignatureUrl: quotation.preparedBy?.signature || null,
       salesAgentName: quotation.salesAgentName || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,

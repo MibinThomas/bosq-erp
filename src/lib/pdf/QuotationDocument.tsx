@@ -457,6 +457,7 @@ export interface QuotationPdfProps {
   preparedByContact?: string | null
   preparedByDesignation?: string | null
   preparedByRole?: string | null
+  preparedBySignatureUrl?: string | null
   salesAgentName?: string | null
   termsConditions: string[]
   companyLogoUrl?: string | null // Base64 logo png
@@ -497,6 +498,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   preparedByContact,
   preparedByDesignation,
   preparedByRole,
+  preparedBySignatureUrl,
   salesAgentName,
   termsConditions,
   companyLogoUrl,
@@ -1023,8 +1025,15 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           );
         })}
 
-        {/* Financial Summary Box */}
-        <View style={styles.financialBox} wrap={false}>
+        {/* Financial Summary Box & Watermark */}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 20 }} wrap={false}>
+          <View style={{ width: "45%", alignItems: "center", justifyContent: "center" }}>
+            {watermarkUrl && (
+              <PdfImage src={watermarkUrl} style={{ width: 140, objectFit: "contain", opacity: 0.8 }} />
+            )}
+          </View>
+
+          <View style={[styles.financialBox, { marginTop: 0, width: "50%", alignSelf: "auto" }]}>
             <View style={styles.financialHeader}>
               <Text style={styles.financialTitle}>Cost Breakdown</Text>
             </View>
@@ -1083,13 +1092,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               <Text style={styles.grandTotalLabel}>GRAND TOTAL</Text>
               <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
             </View>
+          </View>
         </View>
 
-        {/* Group Terms and Signatures to prevent orphaned signature page */}
-        <View wrap={false}>
-          {/* Terms and Conditions */}
-          {termsConditions && termsConditions.length > 0 && (
-            <View style={styles.termsCard}>
+        {/* Terms and Conditions */}
+        {termsConditions && termsConditions.length > 0 && (
+          <View style={styles.termsCard}>
               <Text style={styles.termsTitle}>Terms & Conditions</Text>
               {termsConditions.map((term, idx) => (
                 <View key={idx} style={styles.termItem}>
@@ -1100,8 +1108,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             </View>
           )}
 
-          {/* Signatures */}
-          <View style={[styles.signatureSection, items.length === 1 ? { marginTop: 20 } : {}]}>
+        {/* Signatures */}
+        <View wrap={false} style={[styles.signatureSection, items.length === 1 ? { marginTop: 20 } : {}]}>
             <View style={styles.signatureBox}>
               <View style={styles.signatureLine} />
               <Text style={styles.signatureLabel}>Prepared By</Text>
@@ -1109,9 +1117,13 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 {preparedBy}
                 {preparedByDesignation || formatRole(preparedByRole) ? ` | ${preparedByDesignation || formatRole(preparedByRole)}` : ""}
               </Text>
-              <Text style={[styles.signatureCompany, { marginTop: 1.5, fontWeight: "bold" }]}>
-                Interior Design Consultant
-              </Text>
+              {preparedBySignatureUrl ? (
+                <PdfImage src={preparedBySignatureUrl} style={{ height: 30, width: 80, objectFit: "contain", marginTop: 4 }} />
+              ) : (
+                <Text style={[styles.signatureCompany, { marginTop: 1.5, fontWeight: "bold" }]}>
+                  Interior Design Consultant
+                </Text>
+              )}
             </View>
             <View style={styles.signatureBox}>
               <View style={styles.signatureLine} />
@@ -1119,7 +1131,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               <Text style={styles.signatureCompany}>Authorized Customer Signature</Text>
             </View>
           </View>
-        </View>
 
         {/* Absolute Bottom Page Footer */}
         <View style={styles.footer} fixed>
