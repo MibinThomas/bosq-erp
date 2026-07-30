@@ -1226,6 +1226,7 @@ function NewQuotationForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
+          preparedById: data.preparedById,
           items: formattedItems,
           deliveryCharge: totalAdditionalCost,
           specialDiscountValue: data.specialDiscountValue === "" ? 0 : Number(data.specialDiscountValue),
@@ -1795,81 +1796,66 @@ function NewQuotationForm() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="salesAgentId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Sales Agent <span className="text-red-500">*</span></FormLabel>
-                        <Select
-                          onValueChange={(val) => {
-                            field.onChange(val)
-                            if (val === "manual") {
-                              form.setValue("salesAgentName", "")
-                              form.setValue("salesAgentContactNumber", "")
-                            } else {
-                              const selectedUser = users.find((u) => u.id === val)
-                              if (selectedUser) {
-                                form.setValue("salesAgentName", selectedUser.name)
-                                form.setValue("salesAgentContactNumber", selectedUser.phone || "")
-                              }
-                            }
-                          }}
-                          value={field.value || ""}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select sales agent">
-                                {field.value === "manual"
-                                  ? "Manual Entry"
-                                  : users.find(u => u.id === field.value)?.name || "Select sales agent"}
-                              </SelectValue>
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {users.map((u) => (
-                              <SelectItem key={u.id} value={u.id}>
-                                {u.name} {u.role && `(${u.role})`}
-                              </SelectItem>
-                            ))}
-                            <SelectItem value="manual">+ Type Agent Manually...</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {form.watch("salesAgentId") === "manual" && (
-                    <div className="space-y-4 pt-2 border-t border-dashed animate-in fade-in slide-in-from-top-1">
-                      <FormField
-                        control={form.control}
-                        name="salesAgentName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Manual Sales Agent Name <span className="text-red-500">*</span></FormLabel>
+                  {isManagerOrAdmin && (
+                    <FormField
+                      control={form.control}
+                      name="preparedById"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Interior Design Consultant <span className="text-red-500">*</span></FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value || ""}
+                          >
                             <FormControl>
-                              <Input placeholder="Enter agent name" {...field} />
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select consultant">
+                                  {users.find(u => u.id === field.value)?.name || "Select consultant"}
+                                </SelectValue>
+                              </SelectTrigger>
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="salesAgentContactNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Manual Agent Contact Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g. +971 50 123 4567" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                            <SelectContent>
+                              {users.map((u) => (
+                                <SelectItem key={u.id} value={u.id}>
+                                  {u.name} {u.role && `(${u.role})`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
+
+                  <div className="space-y-4 pt-2 border-t border-dashed">
+                    <FormField
+                      control={form.control}
+                      name="salesAgentName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sales Agent Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter sales agent name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="salesAgentContactNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sales Agent Contact Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. +971 50 123 4567" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </div>
