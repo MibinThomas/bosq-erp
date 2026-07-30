@@ -230,6 +230,8 @@ const styles = StyleSheet.create({
     borderColor: colors.lineColor,
     borderRadius: 6,
     overflow: "hidden",
+    width: "50%",
+    alignSelf: "flex-end",
   },
   financialHeader: {
     paddingVertical: 6,
@@ -1106,6 +1108,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               <Text style={styles.signatureCompany}>
                 {preparedBy}
                 {preparedByDesignation || formatRole(preparedByRole) ? ` | ${preparedByDesignation || formatRole(preparedByRole)}` : ""}
+              </Text>
+              <Text style={[styles.signatureCompany, { marginTop: 1.5, fontWeight: "bold" }]}>
+                Interior Design Consultant
               </Text>
             </View>
             <View style={styles.signatureBox}>
