@@ -446,13 +446,9 @@ export async function PUT(
 
     // CASE 5: CONFIRM CLIENT-APPROVED REVISION AS FINAL QUOTATION
     if (body.action === "CONFIRM_FINAL") {
-      const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(logUserRole)
-      const isSalesExecutiveWithPermission = logUserRole === "SALES_EXECUTIVE" && (
-        dbSessionUser?.permissionOverrides.find(o => o.action === "canConfirmQuotation")?.value ?? rolePerm?.canConfirmQuotation ?? false
-      )
-      const isAuthorized = isManagerOrAdmin || isSalesExecutiveWithPermission
+      const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(logUserRole)
       
-      if (!isAuthorized) {
+      if (!isManagerOrAdmin) {
         return NextResponse.json({ error: "Unauthorized: You do not have permission to confirm revisions as Final Quotation" }, { status: 403 })
       }
 

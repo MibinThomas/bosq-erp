@@ -83,7 +83,7 @@ export function QuotationJourneyModal({
   const [confirmLoading, setConfirmLoading] = useState(false)
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isAuthorizedToConfirm = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole) || 
+  const isAuthorizedToConfirm = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole) || 
     (session?.user as any)?.permissionOverrides?.find((o: any) => o.action === "canConfirmQuotation")?.value === true
 
   useEffect(() => {
