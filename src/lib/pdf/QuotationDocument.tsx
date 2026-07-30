@@ -234,6 +234,8 @@ const styles = StyleSheet.create({
   financialHeader: {
     paddingVertical: 6,
     paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lineColor,
   },
   financialTitle: {
     fontSize: 9.5,
@@ -266,12 +268,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.mutedForeground,
   },
   grandTotalLabel: {
-    fontSize: 12,
+    fontSize: 7.2,
     fontWeight: "bold",
     color: colors.white,
   },
   grandTotalValue: {
-    fontSize: 12,
+    fontSize: 7.2,
     fontWeight: "bold",
     color: colors.white,
   },
@@ -298,14 +300,14 @@ const styles = StyleSheet.create({
   },
   termItem: {
     flexDirection: "row",
-    marginBottom: 8,
+    marginBottom: 4,
     alignItems: "flex-start",
   },
   termNumber: {
     width: 20,
     fontSize: 8,
     fontWeight: "bold",
-    color: colors.highlightBg,
+    color: colors.secondary,
   },
   termText: {
     flex: 1,
