@@ -19,6 +19,7 @@ const colors = {
   lineColor: "#E6E7E8", // Soft Grey
   bgLight: "#FFF0D7", // Champagne Cream
   highlightBg: "#F17423",
+  mutedForeground: "#737373", // oklch(0.556 0 0) roughly
   white: "#ffffff",
 }
 
@@ -266,7 +267,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: colors.highlightBg,
+    backgroundColor: colors.mutedForeground,
   },
   grandTotalLabel: {
     fontSize: 12,
@@ -297,6 +298,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1.5,
     borderBottomColor: colors.highlightBg,
     paddingBottom: 8,
+    textAlign: "center",
   },
   termItem: {
     flexDirection: "row",
@@ -1014,23 +1016,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                   </View>
                 ))
               )}
-
-              {/* Group Subtotal */}
-              {group.heading && (
-                <View style={styles.sectionSubtotalRow} wrap={false}>
-                  <Text style={styles.sectionSubtotalText}>
-                    {group.heading} Subtotal: AED {formatCurrency(sectionSubtotal)}
-                  </Text>
-                </View>
-              )}
             </View>
           );
         })}
 
-        {/* Group Totals and Signatures to prevent orphaned signature page */}
-        <View wrap={false}>
-          {/* Financial Summary Box */}
-          <View style={styles.financialBox}>
+        {/* Financial Summary Box */}
+        <View style={styles.financialBox} wrap={false}>
             <View style={styles.financialHeader}>
               <Text style={styles.financialTitle}>Commercial Summary</Text>
             </View>
@@ -1089,8 +1080,10 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               <Text style={styles.grandTotalLabel}>GRAND TOTAL</Text>
               <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
             </View>
-          </View>
+        </View>
 
+        {/* Group Terms and Signatures to prevent orphaned signature page */}
+        <View wrap={false}>
           {/* Terms and Conditions */}
           {termsConditions && termsConditions.length > 0 && (
             <View style={styles.termsCard}>
