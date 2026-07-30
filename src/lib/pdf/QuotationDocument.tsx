@@ -114,6 +114,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     alignItems: "flex-start",
   },
+  tableRowAlt: {
+    backgroundColor: "#FDFDFD",
+  },
   
   // Columns
   colNo: { width: "6%" },
