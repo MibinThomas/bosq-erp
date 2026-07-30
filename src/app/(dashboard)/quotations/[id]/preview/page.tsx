@@ -502,6 +502,5 @@ export default function QuotationHtmlPreviewPage({
         </DialogContent>
       </Dialog>
     </div>
-  </div>
   )
 }
