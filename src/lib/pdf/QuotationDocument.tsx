@@ -233,10 +233,8 @@ const styles = StyleSheet.create({
   },
   financialHeader: {
     backgroundColor: colors.bgLight,
-    paddingVertical: 10,
+    paddingVertical: 6,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lineColor,
   },
   financialTitle: {
     fontSize: 9.5,
@@ -247,10 +245,8 @@ const styles = StyleSheet.create({
   financialRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 8,
+    paddingVertical: 5,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lineColor,
     backgroundColor: colors.white,
   },
   financialLabel: {
@@ -265,7 +261,7 @@ const styles = StyleSheet.create({
   grandTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 14,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     backgroundColor: colors.mutedForeground,
   },
