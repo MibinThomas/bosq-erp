@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.lineColor,
   },
   financialTitle: {
-    fontSize: 9.5,
+    fontSize: 10.5,
     fontWeight: "bold",
     color: colors.primary,
     textTransform: "uppercase",
@@ -247,16 +247,19 @@ const styles = StyleSheet.create({
   financialRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 5,
+    paddingVertical: 8,
     paddingHorizontal: 16,
     backgroundColor: colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
   },
   financialLabel: {
-    fontSize: 8.5,
-    color: colors.secondary,
+    fontSize: 9.5,
+    color: colors.primary,
+    fontWeight: "medium",
   },
   financialValue: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "bold",
     color: colors.primary,
   },
@@ -268,19 +271,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.mutedForeground,
   },
   grandTotalLabel: {
-    fontSize: 7.2,
+    fontSize: 11,
     fontWeight: "bold",
     color: colors.white,
   },
   grandTotalValue: {
-    fontSize: 7.2,
+    fontSize: 11,
     fontWeight: "bold",
     color: colors.white,
   },
 
   // Terms and Conditions Card
   termsCard: {
-    marginTop: 24,
+    marginTop: 12,
     backgroundColor: colors.white,
     borderRadius: 6,
     padding: 16,
