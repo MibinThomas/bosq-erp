@@ -818,20 +818,56 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return
       }
 
-      setUploadProgress({ current: 1, total: 1 }) // No more chunks, single POST
+      const CHUNK_SIZE = 50;
+      const totalChunks = Math.ceil(finalizedClients.length / CHUNK_SIZE);
+      
+      let aggregatedStats = {
+        totalReceived: 0,
+        newCreated: 0,
+        existingSkipped: 0,
+        duplicatesInFile: 0,
+        failedRecords: 0,
+        sharepointCreated: 0
+      };
+      
+      let lastErrorFileBase64 = "";
 
-      const res = await fetch("/api/clients/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clients: finalizedClients })
-      })
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = finalizedClients.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+        
+        setUploadProgress({ 
+          current: Math.min(i * CHUNK_SIZE, finalizedClients.length), 
+          total: finalizedClients.length 
+        });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}))
-        throw new Error(errorData.error || "Bulk import failed")
+        const res = await fetch("/api/clients/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clients: chunk })
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}))
+          throw new Error(errorData.error || `Bulk import failed at chunk ${i + 1}`)
+        }
+
+        const data = await res.json()
+        
+        if (data.stats) {
+          aggregatedStats.totalReceived += data.stats.totalReceived || 0;
+          aggregatedStats.newCreated += data.stats.newCreated || 0;
+          aggregatedStats.existingSkipped += data.stats.existingSkipped || 0;
+          aggregatedStats.duplicatesInFile += data.stats.duplicatesInFile || 0;
+          aggregatedStats.failedRecords += data.stats.failedRecords || 0;
+          aggregatedStats.sharepointCreated += data.stats.sharepointCreated || 0;
+        }
+
+        if (data.errorFileBase64) {
+          lastErrorFileBase64 = data.errorFileBase64;
+        }
       }
 
-      const data = await res.json()
+      setUploadProgress({ current: finalizedClients.length, total: finalizedClients.length });
 
       // Clear draft on success
       localStorage.removeItem("bosq_importer_draft_clients")
@@ -839,8 +875,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
       setImportResult({
         success: true,
-        stats: data.stats || {},
-        errorFileBase64: data.errorFileBase64 || ""
+        stats: aggregatedStats,
+        errorFileBase64: lastErrorFileBase64
       })
 
       setStep(4)
@@ -1567,19 +1603,39 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                 </div>
               </div>
 
+              {/* Progress Indicator */}
+              {uploadProgress && (
+                <div className="max-w-md mx-auto pt-4 space-y-2">
+                  <div className="flex justify-between text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
+                    <span>Uploading...</span>
+                    <span>{uploadProgress.current} / {uploadProgress.total}</span>
+                  </div>
+                  <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-600 transition-all duration-300 ease-out"
+                      style={{ width: `${Math.max(2, (uploadProgress.current / uploadProgress.total) * 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-zinc-400 text-center">
+                    {uploadProgress.total - uploadProgress.current} clients pending upload
+                  </div>
+                </div>
+              )}
+
               {/* Buttons */}
               <div className="flex gap-3 max-w-md mx-auto pt-2">
                 <Button 
                   variant="outline" 
                   onClick={() => setStep(2)}
-                  className="flex-1 border-zinc-250 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900 text-xs font-semibold bg-white"
+                  disabled={uploading}
+                  className="flex-1 border-zinc-250 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900 text-xs font-semibold bg-white disabled:opacity-50"
                 >
                   Back to Review
                 </Button>
                 <Button 
                   onClick={handleImport}
                   disabled={uploading || totalValid === 0}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-80"
                 >
                   {uploading ? (
                     <>Processing Upload <Loader2 className="h-4 w-4 animate-spin" /></>
