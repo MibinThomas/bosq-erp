@@ -1043,14 +1043,29 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 <Text style={styles.financialValue}>AED {formatCurrency(subtotal)}</Text>
               </View>
 
-              {(Array.isArray(additionalCharges) ? additionalCharges : [])
-                .filter((c: any) => c.name && Number(c.amount) > 0)
-                .map((charge: any, idx: number) => (
+              {(() => {
+                const charges = Array.isArray(additionalCharges) ? additionalCharges : [];
+                // Check if delivery charge already exists
+                const hasDelivery = charges.some((c: any) => c.name && c.name.toLowerCase().includes("delivery"));
+                
+                // Create a processed list of charges
+                let processedCharges = charges.filter((c: any) => c.name && (Number(c.amount) > 0 || c.name.toLowerCase().includes("delivery")));
+                
+                // If no delivery charge exists, add a default one with 0.00
+                if (!hasDelivery) {
+                  processedCharges = [
+                    { name: "Delivery & Installation Charge", amount: 0 },
+                    ...processedCharges
+                  ];
+                }
+
+                return processedCharges.map((charge: any, idx: number) => (
                   <View key={`charge-${idx}`} style={styles.financialRow}>
                     <Text style={styles.financialLabel}>{charge.name}</Text>
                     <Text style={styles.financialValue}>AED {formatCurrency(Number(charge.amount))}</Text>
                   </View>
-                ))}
+                ));
+              })()}
 
               {hasAdditionalCost && (
                 <View style={styles.financialRow}>
