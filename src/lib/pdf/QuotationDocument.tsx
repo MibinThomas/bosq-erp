@@ -28,20 +28,20 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica",
     fontSize: 8.5,
     color: colors.text,
-    lineHeight: 1.4,
+    lineHeight: 1.5,
   },
   // Typography
   h1: { fontSize: 20, fontWeight: "bold", color: colors.primary, letterSpacing: 1, textTransform: "uppercase" },
-  h2: { fontSize: 10, fontWeight: "bold", color: colors.primary, marginBottom: 6, textTransform: "uppercase" },
-  h3: { fontSize: 9.5, fontWeight: "bold", color: colors.primary, marginBottom: 4 },
+  h2: { fontSize: 10, fontWeight: "bold", color: colors.primary, marginBottom: 8, textTransform: "uppercase" },
+  h3: { fontSize: 10, fontWeight: "bold", color: colors.primary, marginBottom: 4 },
   
   // Header
   headerContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 20,
-    paddingBottom: 15,
+    marginBottom: 24,
+    paddingBottom: 16,
     borderBottomWidth: 2,
     borderBottomColor: colors.primary,
   },
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     objectPositionX: "left",
   },
   logoTextFallback: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "bold",
     color: colors.primary,
     letterSpacing: 1,
@@ -62,30 +62,30 @@ const styles = StyleSheet.create({
   infoCardsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
-    gap: 16,
+    marginBottom: 24,
   },
   card: {
     backgroundColor: colors.bgLight,
     borderRadius: 6,
     padding: 12,
-    flex: 1,
+    width: "48%",
     borderWidth: 1,
     borderColor: colors.lineColor,
   },
   cardRow: {
     flexDirection: "row",
-    marginBottom: 5,
+    marginBottom: 6,
+    alignItems: "flex-start",
   },
   cardLabel: {
-    width: 85,
-    fontSize: 7.5,
+    width: "35%",
+    fontSize: 8,
     fontWeight: "bold",
     color: colors.secondary,
   },
   cardValue: {
-    flex: 1,
-    fontSize: 7.5,
+    width: "65%",
+    fontSize: 8,
     color: colors.primary,
     fontWeight: "bold",
   },
@@ -95,14 +95,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: colors.primary,
     color: colors.white,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: "center",
     borderRadius: 4,
     marginBottom: 4,
   },
   thText: {
-    fontSize: 7.5,
+    fontSize: 8,
     fontWeight: "bold",
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: colors.lineColor,
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 8,
     alignItems: "flex-start",
   },
@@ -119,10 +119,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#FDFDFD",
   },
   
-  // Columns
-  colNo: { width: "6%" },
-  colImage: { width: "22%", paddingRight: 10 },
-  colDesc: { width: "42%", paddingRight: 12 },
+  // Columns (Strict Widths)
+  colNo: { width: "5%" },
+  colImage: { width: "20%", paddingRight: 10 },
+  colDesc: { width: "45%", paddingRight: 12 },
   colQty: { width: "8%", textAlign: "center" },
   colPrice: { width: "11%", textAlign: "right" },
   colAmount: { width: "11%", textAlign: "right" },
@@ -133,78 +133,80 @@ const styles = StyleSheet.create({
     objectFit: "contain",
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: "#f3f4f6",
+    borderColor: colors.lineColor,
+    backgroundColor: colors.white,
   },
   
   itemTitle: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: "bold",
     color: colors.primary,
-    marginBottom: 3,
+    marginBottom: 4,
+    lineHeight: 1.3,
   },
   itemCategory: {
-    fontSize: 6.5,
+    fontSize: 7,
     fontWeight: "bold",
     color: colors.accent,
     textTransform: "uppercase",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   itemDescText: {
-    fontSize: 7,
+    fontSize: 7.5,
     color: colors.secondary,
-    marginBottom: 6,
-    lineHeight: 1.3,
+    marginBottom: 8,
+    lineHeight: 1.4,
   },
 
-  // Spec Grid
+  // Spec Grid (Vertical List to prevent overlap)
   specGrid: {
-    marginTop: 4,
-    flexDirection: "row",
-    flexWrap: "wrap",
+    marginTop: 6,
+    flexDirection: "column",
     backgroundColor: colors.bgLight,
-    padding: 6,
+    padding: 8,
     borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.lineColor,
   },
   specItem: {
-    width: "50%",
     flexDirection: "row",
-    marginBottom: 3,
+    marginBottom: 4,
+    alignItems: "flex-start",
   },
   specItemKey: {
-    width: "45%",
-    fontSize: 6,
+    width: "30%",
+    fontSize: 7,
     fontWeight: "bold",
     color: colors.secondary,
   },
   specItemValue: {
-    width: "55%",
-    fontSize: 6,
+    width: "70%",
+    fontSize: 7,
     color: colors.primary,
     fontWeight: "bold",
   },
   remarksBlock: {
-    marginTop: 4,
-    fontSize: 6.5,
+    marginTop: 6,
+    fontSize: 7,
     color: colors.secondary,
     fontStyle: "italic",
-    paddingTop: 4,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: colors.lineColor,
+    lineHeight: 1.4,
   },
 
   sectionHeader: {
-    backgroundColor: "#f3f4f6",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    marginTop: 12,
-    marginBottom: 4,
+    backgroundColor: "#F4F5F7",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 16,
+    marginBottom: 8,
     borderLeftWidth: 3,
     borderLeftColor: colors.accent,
   },
   sectionHeaderText: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: "bold",
     color: colors.primary,
     textTransform: "uppercase",
@@ -212,22 +214,22 @@ const styles = StyleSheet.create({
   sectionSubtotalRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    backgroundColor: "#fff7ed",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#FFF7ED",
     borderBottomWidth: 1,
-    borderBottomColor: "#fed7aa",
-    marginBottom: 8,
+    borderBottomColor: "#FED7AA",
+    marginBottom: 12,
   },
   sectionSubtotalText: {
-    fontSize: 8.5,
+    fontSize: 9,
     fontWeight: "bold",
     color: colors.accent,
   },
 
   // Financial Summary Box (Full Width)
   financialBox: {
-    marginTop: 16,
+    marginTop: 20,
     borderWidth: 1,
     borderColor: colors.lineColor,
     borderRadius: 6,
@@ -235,13 +237,13 @@ const styles = StyleSheet.create({
   },
   financialHeader: {
     backgroundColor: colors.bgLight,
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.lineColor,
   },
   financialTitle: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: "bold",
     color: colors.primary,
     textTransform: "uppercase",
@@ -260,14 +262,14 @@ const styles = StyleSheet.create({
     color: colors.secondary,
   },
   financialValue: {
-    fontSize: 8.5,
+    fontSize: 9,
     fontWeight: "bold",
     color: colors.primary,
   },
   grandTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     backgroundColor: colors.highlightBg,
   },
@@ -292,7 +294,7 @@ const styles = StyleSheet.create({
     borderColor: colors.lineColor,
   },
   termsTitle: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: "bold",
     color: colors.primary,
     marginBottom: 12,
@@ -326,7 +328,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   signatureBlock: {
-    width: "45%",
+    width: "40%",
   },
   signatureLine: {
     borderTopWidth: 1,
@@ -335,14 +337,15 @@ const styles = StyleSheet.create({
     marginTop: 50,
   },
   signatureName: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "bold",
     color: colors.primary,
     marginBottom: 2,
   },
   signatureRole: {
-    fontSize: 7.5,
+    fontSize: 8,
     color: colors.secondary,
+    marginBottom: 2,
   },
 
   // Footer
@@ -353,18 +356,18 @@ const styles = StyleSheet.create({
     right: 40,
     borderTopWidth: 1,
     borderTopColor: colors.lineColor,
-    paddingTop: 10,
+    paddingTop: 12,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-end",
+    alignItems: "flex-start",
   },
   footerText: {
-    fontSize: 6.5,
+    fontSize: 7,
     color: colors.lightText,
     lineHeight: 1.4,
   },
   pageNumber: {
-    fontSize: 7.5,
+    fontSize: 8,
     color: colors.secondary,
     fontWeight: "bold",
   }
@@ -671,23 +674,23 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               <Text style={styles.cardValue}>{clientContact || "-"}</Text>
             </View>
             <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Phone Number:</Text>
+              <Text style={styles.cardLabel}>Mobile Number:</Text>
               <Text style={styles.cardValue}>{clientPhone || "-"}</Text>
             </View>
             <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Email Address:</Text>
+              <Text style={styles.cardLabel}>Email:</Text>
               <Text style={styles.cardValue}>{clientEmail || "-"}</Text>
             </View>
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Company TRN:</Text>
-              <Text style={styles.cardValue}>{clientTrn || "-"}</Text>
-            </View>
             {projectName && (
-              <View style={[styles.cardRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.lineColor }]}>
+              <View style={styles.cardRow}>
                 <Text style={styles.cardLabel}>Project Name:</Text>
                 <Text style={styles.cardValue}>{projectName}</Text>
               </View>
             )}
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Address:</Text>
+              <Text style={styles.cardValue}>{clientAddress || "-"}</Text>
+            </View>
           </View>
 
           {/* Quotation Details Card */}
@@ -696,14 +699,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             <View style={styles.cardRow}>
               <Text style={styles.cardLabel}>Quotation No:</Text>
               <Text style={styles.cardValue}>{quotationNumber}</Text>
-            </View>
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Date:</Text>
-              <Text style={styles.cardValue}>{date}</Text>
-            </View>
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Valid Until:</Text>
-              <Text style={styles.cardValue}>{validityDate}</Text>
             </View>
             <View style={styles.cardRow}>
               <Text style={styles.cardLabel}>Customer ID:</Text>
@@ -715,6 +710,20 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 <Text style={styles.cardValue}>{salesAgentName}</Text>
               </View>
             )}
+            {preparedBy && (
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Interior Design Consultant:</Text>
+                <Text style={styles.cardValue}>{preparedBy}</Text>
+              </View>
+            )}
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Date:</Text>
+              <Text style={styles.cardValue}>{date}</Text>
+            </View>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Valid Until:</Text>
+              <Text style={styles.cardValue}>{validityDate}</Text>
+            </View>
           </View>
         </View>
 
