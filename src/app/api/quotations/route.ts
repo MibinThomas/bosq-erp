@@ -39,7 +39,9 @@ export async function GET(request: Request) {
 
     // Resolve ownership rule
     let ownershipRule = "ALL"
-    if (dbSessionUser.role !== "SUPER_ADMIN") {
+    if (["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(dbSessionUser.role)) {
+      ownershipRule = "ALL"
+    } else {
       const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
       if (override?.ownership) {
         ownershipRule = override.ownership
@@ -374,6 +376,7 @@ export async function POST(request: Request) {
         }
       }
     }
+    const loggedInUserId = (session?.user as any)?.id;
 
     // All quotations are immediately set to DRAFT (Quote Created) status.
     const resolvedStatus = status || "DRAFT"
@@ -680,6 +683,16 @@ export async function POST(request: Request) {
             margin: item.margin,
             amount: item.amount,
           })),
+        },
+        assignments: {
+          create: loggedInUserId && loggedInUserId !== creatorUser.id ? [
+            {
+              userId: loggedInUserId,
+              allowEdit: true,
+              allowRevisionApproval: true,
+              allowPricingVisibility: true,
+            }
+          ] : []
         },
       },
       include: {
