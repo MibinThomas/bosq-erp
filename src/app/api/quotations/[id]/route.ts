@@ -291,10 +291,7 @@ export async function PUT(
 
     // Special discount permission validation check removed to allow all roles to update and apply unlimited discount
 
-    let finalPreparedById = existingQuotation.preparedById
-    if (["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(logUserRole) && body.preparedById) {
-      finalPreparedById = body.preparedById
-    }
+    let finalPreparedById = body.preparedById || existingQuotation.preparedById
     const finalPreparedByUser = await prisma.user.findUnique({
       where: { id: finalPreparedById }
     }) || existingQuotation.preparedBy
@@ -899,7 +896,7 @@ export async function PUT(
             projectName: projectName || existingQuotation.projectName || null,
             date: new Date(),
             validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-            preparedById: existingQuotation.preparedById,
+            preparedById: finalPreparedById,
             deliveryDate: deliveryDate ? new Date(deliveryDate) : existingQuotation.deliveryDate,
             paymentTerms: paymentTerms || existingQuotation.paymentTerms,
             status: resolvedStatus,

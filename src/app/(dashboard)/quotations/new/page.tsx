@@ -1153,9 +1153,7 @@ function NewQuotationForm() {
   async function onSubmit(data: QuotationFormValues, targetStatus?: "DRAFT" | "SUBMITTED") {
     const resolvedStatus = targetStatus === "DRAFT"
       ? "DRAFT"
-      : isRevision
-        ? "REVISED"
-        : (targetStatus || "SUBMITTED")
+      : (targetStatus || "SUBMITTED")
 
     if (isRevision && resolvedStatus !== "DRAFT" && !revisionNotes.trim()) {
       toast.error("Revision notes are required to revise this quotation!")
