@@ -229,14 +229,14 @@ const styles = StyleSheet.create({
   financialBox: {
     marginTop: 16,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.lineColor,
     borderRadius: 6,
     overflow: "hidden",
   },
   financialHeader: {
     backgroundColor: colors.bgLight,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.lineColor,
   },
@@ -249,10 +249,11 @@ const styles = StyleSheet.create({
   financialRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.lineColor,
+    backgroundColor: colors.white,
   },
   financialLabel: {
     fontSize: 8.5,
@@ -266,8 +267,8 @@ const styles = StyleSheet.create({
   grandTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     backgroundColor: colors.highlightBg,
   },
   grandTotalLabel: {
@@ -291,30 +292,29 @@ const styles = StyleSheet.create({
     borderColor: colors.lineColor,
   },
   termsTitle: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "bold",
     color: colors.primary,
-    marginBottom: 10,
+    marginBottom: 12,
     textTransform: "uppercase",
-    borderBottomWidth: 2,
-    borderBottomColor: colors.accent,
-    paddingBottom: 4,
-    width: 140,
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.highlightBg,
+    paddingBottom: 8,
   },
   termItem: {
     flexDirection: "row",
-    marginBottom: 6,
+    marginBottom: 8,
     alignItems: "flex-start",
   },
   termNumber: {
-    width: 18,
-    fontSize: 7.5,
+    width: 20,
+    fontSize: 8,
     fontWeight: "bold",
-    color: colors.accent,
+    color: colors.highlightBg,
   },
   termText: {
     flex: 1,
-    fontSize: 7.5,
+    fontSize: 8,
     color: colors.secondary,
     lineHeight: 1.5,
   },
@@ -792,8 +792,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             <View style={styles.financialHeader}>
               <Text style={styles.financialTitle}>Commercial Summary</Text>
             </View>
-            <View style={{ padding: 6 }}>
-              <View style={styles.financialRow}>
+            <View style={styles.financialRow}>
                 <Text style={styles.financialLabel}>Products Subtotal</Text>
                 <Text style={styles.financialValue}>AED {formatCurrency(subtotal)}</Text>
               </View>
@@ -832,18 +831,17 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               )}
 
               {vatMode === "EXCLUDING" && (
-                <View style={styles.financialRow}>
+                <View style={[styles.financialRow, { borderBottomWidth: 0 }]}>
                   <Text style={styles.financialLabel}>VAT (5%)</Text>
                   <Text style={styles.financialValue}>AED {formatCurrency(vatAmount)}</Text>
                 </View>
               )}
               {vatMode === "INCLUDING" && (
-                <View style={styles.financialRow}>
+                <View style={[styles.financialRow, { borderBottomWidth: 0 }]}>
                   <Text style={styles.financialLabel}>VAT (5%) Included in Price</Text>
                   <Text style={styles.financialValue}>AED {formatCurrency(vatAmount)}</Text>
                 </View>
               )}
-            </View>
             
             <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalLabel}>GRAND TOTAL</Text>
