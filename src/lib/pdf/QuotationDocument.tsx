@@ -36,10 +36,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lineColor,
-    paddingBottom: 20,
+    marginBottom: 16,
   },
   leftColumn: {
     width: "53%",
@@ -735,7 +732,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         )}
 
         {/* Unified Two-Row Header for Perfect Horizontal Alignment */}
-        <View style={[styles.headerContainer, { flexDirection: "column" }, items.length === 1 ? { marginBottom: 12, paddingBottom: 8 } : {}]}>
+        <View style={[styles.headerContainer, { flexDirection: "column" }]}>
           
           {/* Top Row: Logo & Quotation Title */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: 16 }}>
@@ -1122,7 +1119,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 {preparedByDesignation || formatRole(preparedByRole) ? ` | ${preparedByDesignation || formatRole(preparedByRole)}` : ""}
               </Text>
               {preparedBySignatureUrl ? (
-                <PdfImage src={preparedBySignatureUrl} style={{ height: 30, width: 80, objectFit: "contain", marginTop: 4 }} />
+                <PdfImage src={preparedBySignatureUrl} style={{ height: 90, width: 240, objectFit: "contain", marginTop: 4 }} />
               ) : (
                 <Text style={[styles.signatureCompany, { marginTop: 1.5, fontWeight: "bold" }]}>
                   Interior Design Consultant
