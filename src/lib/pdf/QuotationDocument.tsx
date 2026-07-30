@@ -33,6 +33,7 @@ const styles = StyleSheet.create({
   // Typography
   h1: { fontSize: 20, fontWeight: "bold", color: colors.primary, letterSpacing: 1, textTransform: "uppercase" },
   h2: { fontSize: 10, fontWeight: "bold", color: colors.primary, marginBottom: 6, textTransform: "uppercase" },
+  h3: { fontSize: 9.5, fontWeight: "bold", color: colors.primary, marginBottom: 4 },
   
   // Header
   headerContainer: {
