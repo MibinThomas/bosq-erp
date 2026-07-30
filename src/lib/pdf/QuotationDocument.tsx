@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   signatureSection: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 35,
+    marginTop: 15,
     gap: 50,
   },
   signatureBox: {
@@ -1125,7 +1125,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           )}
 
         {/* Signatures */}
-        <View wrap={false} style={[styles.signatureSection, items.length === 1 ? { marginTop: 20 } : {}]}>
+        <View wrap={false} style={[styles.signatureSection, items.length === 1 ? { marginTop: 10 } : {}]}>
             <View style={styles.signatureBox}>
               <View style={styles.signatureLine} />
               <Text style={styles.signatureLabel}>Prepared By</Text>
@@ -1134,7 +1134,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 {preparedByDesignation || formatRole(preparedByRole) ? ` | ${preparedByDesignation || formatRole(preparedByRole)}` : ""}
               </Text>
               {preparedBySignatureUrl ? (
-                <PdfImage src={preparedBySignatureUrl} style={{ height: 90, width: 240, objectFit: "contain", marginTop: 4 }} />
+                <PdfImage src={preparedBySignatureUrl} style={{ height: 50, width: 240, objectFit: "contain", marginTop: 4 }} />
               ) : (
                 <Text style={[styles.signatureCompany, { marginTop: 1.5, fontWeight: "bold" }]}>
                   Interior Design Consultant
