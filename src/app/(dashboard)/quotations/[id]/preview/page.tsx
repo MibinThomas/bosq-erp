@@ -475,7 +475,7 @@ export default function QuotationHtmlPreviewPage({
       {/* Dedicated Scrollable Preview Area Workspace */}
       <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-900 p-4 sm:p-6 md:p-8 flex flex-col print:hidden">
         <iframe
-          src={`/api/quotations/${quotation.id}/pdf#toolbar=0&navpanes=0`}
+          src={`/api/quotations/${quotation.id}/pdf?preview=true#toolbar=0&navpanes=0`}
           className="w-full flex-1 min-h-[85vh] border-0 shadow-xl rounded-md bg-white"
           title={`Quotation ${quotation.quotationNumber} Preview`}
         />
