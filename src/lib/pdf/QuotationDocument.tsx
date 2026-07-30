@@ -7,399 +7,200 @@ import {
   StyleSheet,
   Image as PdfImage,
 } from "@react-pdf/renderer"
-import Html from "react-pdf-html"
 
-// Premium BOSQ Palette
 const colors = {
-  primary: "#231F20", // Deep Black
-  secondary: "#383E42", // Dark Grey
-  accent: "#F17423", // BOSQ Bright Orange
-  text: "#231F20", // Deep Black
-  lightText: "#383E42", // Dark Grey
-  lineColor: "#E6E7E8", // Soft Grey
-  bgLight: "#FFF0D7", // Champagne Cream
+  primary: "#111827", // Very Dark Grey/Black for main text & borders
+  secondary: "#4B5563", // Medium Grey for labels
+  accent: "#ea580c", // BOSQ Bright Orange (Darker for print)
+  text: "#1f2937",
+  lightText: "#6b7280",
+  lineColor: "#e5e7eb", // Soft Grey
+  bgLight: "#f9fafb", // Light Grey for Cards
+  highlightBg: "#f17423", // Brand Orange for Grand Total
   white: "#ffffff",
 }
 
 const styles = StyleSheet.create({
   page: {
-    paddingBottom: 75, // Room for fixed absolute footer
-    paddingHorizontal: 45,
+    paddingTop: 35,
+    paddingBottom: 70,
+    paddingHorizontal: 40,
     fontFamily: "Helvetica",
     fontSize: 8.5,
     color: colors.text,
     lineHeight: 1.4,
   },
+  // Typography
+  h1: { fontSize: 20, fontWeight: "bold", color: colors.primary, letterSpacing: 1, textTransform: "uppercase" },
+  h2: { fontSize: 10, fontWeight: "bold", color: colors.primary, marginBottom: 6, textTransform: "uppercase" },
+  
+  // Header
   headerContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lineColor,
-    paddingBottom: 20,
-  },
-  leftColumn: {
-    width: "53%",
-  },
-  rightColumn: {
-    width: "44%",
-    alignItems: "flex-end",
-  },
-  logoWrapperLeft: {
-    alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
   },
   logoImageLeft: {
-    width: 152,
-    height: 48.8,
+    width: 140,
+    height: 45,
     objectFit: "contain",
     objectPositionX: "left",
   },
   logoTextFallback: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "bold",
     color: colors.primary,
     letterSpacing: 1,
   },
-  logoWrapperRight: {
-    alignItems: "flex-end",
-    marginBottom: 8,
+  
+  // Top Info Cards (2-col layout)
+  infoCardsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    gap: 16,
   },
-  logoImageRight: {
-    width: 130,
-    height: 33,
-    objectFit: "contain",
+  card: {
+    backgroundColor: colors.bgLight,
+    borderRadius: 6,
+    padding: 12,
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.lineColor,
   },
-  companyNameText: {
-    fontSize: 8.1,
-    fontWeight: "bold",
-    color: colors.primary,
+  cardRow: {
+    flexDirection: "row",
     marginBottom: 5,
   },
-  companyInfoBlock: {
-    gap: 2,
-  },
-  clientInfoBlock: {
-    gap: 2,
-  },
-  infoRowInline: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    fontSize: 6.75,
-    lineHeight: 1.25,
-  },
-  infoKeyInline: {
+  cardLabel: {
+    width: 85,
+    fontSize: 7.5,
     fontWeight: "bold",
-    color: colors.primary,
-    width: 75,
-  },
-  infoValueInline: {
     color: colors.secondary,
+  },
+  cardValue: {
     flex: 1,
-  },
-  quotationDetailsBlock: {
-    alignItems: "flex-end",
-    gap: 2,
-    width: "100%",
-  },
-  quotationHeading: {
-    fontSize: 15,
-    fontWeight: "bold",
+    fontSize: 7.5,
     color: colors.primary,
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  metaRowRight: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    fontSize: 6.75,
-    lineHeight: 1.25,
-    width: "100%",
-  },
-  metaKeyRight: {
     fontWeight: "bold",
-    color: colors.primary,
-    textAlign: "right",
-  },
-  metaValueRight: {
-    color: colors.secondary,
-    textAlign: "right",
-    marginLeft: 3,
-  },
-  barcodeWrapper: {
-    marginTop: 10,
-    width: 140,
-    alignItems: "center",
-    alignSelf: "flex-end",
-  },
-  barcodeImage: {
-    width: 140,
-    height: 25,
-    objectFit: "contain",
-  },
-  barcodeText: {
-    fontSize: 7,
-    color: colors.secondary,
-    marginTop: 2,
-    letterSpacing: 0.5,
-    textAlign: "center",
   },
 
-  // Table Styling
+  // Table Structure
   tableHeader: {
     flexDirection: "row",
-    borderTopWidth: 1,
-    borderTopColor: colors.primary, // Deep Black Top border
-    borderBottomWidth: 1,
-    borderBottomColor: colors.primary, // Deep Black bottom border
-    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    color: colors.white,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
     alignItems: "center",
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  thText: {
+    fontSize: 7.5,
     fontWeight: "bold",
-    color: colors.primary,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#fab48a", // Custom orange separator
-    paddingTop: 12,
-    paddingBottom: 14,
-    alignItems: "flex-start", // Align columns to top
-  },
-  colDesc: { width: "40%", paddingRight: 15 },
-  colImage: { width: "33%", overflow: "hidden" },
-  colQty: { width: "7%", textAlign: "center" },
-  colPrice: { width: "10%", textAlign: "right" },
-  colAmount: { width: "10%", textAlign: "right" },
-
-  itemTitle: {
-    fontSize: 9.5,
-    fontWeight: "bold",
-    color: colors.primary,
-    marginBottom: 4,
-    lineHeight: 1.2,
-    maxLines: 2,
-  },
-  itemCategory: {
-    fontSize: 6,
-    fontWeight: "bold",
-    color: "#58595B",
-    textTransform: "uppercase",
-    marginBottom: 1,
-    letterSpacing: 0.8,
-  },
-  itemDescText: {
-    fontSize: 6.5,
-    color: "#444444",
-    marginBottom: 3,
-    lineHeight: 1.25,
-    width: "100%",
+    borderBottomColor: colors.lineColor,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    alignItems: "flex-start",
   },
   
-  // Dynamic attribute specification styles
-  specRow: {
-    flexDirection: "row",
-    fontSize: 6.5,
-    color: colors.primary,
-    marginBottom: 2.5,
-    lineHeight: 1.35,
-  },
-  specKey: {
-    fontWeight: "bold",
-    width: 90,
-    fontSize: 6.5,
-  },
-  specValue: {
-    flex: 1,
-    color: "#444444",
-    fontSize: 6.5,
-  },
+  // Columns
+  colNo: { width: "6%" },
+  colImage: { width: "22%", paddingRight: 10 },
+  colDesc: { width: "42%", paddingRight: 12 },
+  colQty: { width: "8%", textAlign: "center" },
+  colPrice: { width: "11%", textAlign: "right" },
+  colAmount: { width: "11%", textAlign: "right" },
 
   productImage: {
     width: "100%",
-    height: 120,
+    height: 85,
     objectFit: "contain",
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "#f3f4f6",
   },
-
-  // Totals layout
-  totalsSection: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 12,
-    gap: 40,
-  },
-  termsBox: {
-    flex: 1.2,
-  },
-  termsTitle: {
+  
+  itemTitle: {
     fontSize: 9,
     fontWeight: "bold",
     color: colors.primary,
-    marginBottom: 5,
+    marginBottom: 3,
+  },
+  itemCategory: {
+    fontSize: 6.5,
+    fontWeight: "bold",
+    color: colors.accent,
     textTransform: "uppercase",
-  },
-  termRow: {
-    fontSize: 7.5,
-    color: colors.secondary,
-    marginBottom: 3,
-  },
-  
-  totalsBox: {
-    flex: 0.8,
-    borderTopWidth: 1,
-    borderTopColor: colors.primary,
-    paddingTop: 8,
-  },
-  totalsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     marginBottom: 4,
   },
-  totalsLabel: {
+  itemDescText: {
+    fontSize: 7,
     color: colors.secondary,
-    fontSize: 8.5,
-  },
-  totalsValue: {
-    fontWeight: "bold",
-    fontSize: 8.5,
-  },
-  leaderRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    marginBottom: 4,
-  },
-  leaderDots: {
-    flexGrow: 1,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lineColor,
-    borderStyle: "dotted",
-    marginHorizontal: 4,
-    marginBottom: 2,
-  },
-  bulletRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingLeft: 8,
-    marginBottom: 3,
-  },
-  bulletLabel: {
-    color: colors.secondary,
-    fontSize: 7.5,
-    fontStyle: "italic",
-    maxWidth: "70%",
-  },
-  bulletValue: {
-    color: colors.secondary,
-    fontSize: 7.5,
-    fontStyle: "italic",
-  },
-  taxableRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: colors.lineColor,
-    borderStyle: "dashed",
-    paddingTop: 4,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  taxableLabel: {
-    fontWeight: "bold",
-    color: colors.secondary,
-    fontSize: 8.5,
-  },
-  taxableValue: {
-    fontWeight: "bold",
-    fontSize: 8.5,
-  },
-  grandTotalRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    borderTopWidth: 1,
-    borderTopColor: colors.primary,
-    paddingTop: 6,
-    marginTop: 6,
-  },
-  grandTotalLabel: {
-    fontWeight: "bold",
-    fontSize: 10.5,
-    color: colors.primary,
-  },
-  grandTotalValue: {
-    fontWeight: "bold",
-    fontSize: 10.5,
-    color: colors.primary,
-  },
-
-  // Signatures
-  signatureSection: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 35,
-    gap: 50,
-  },
-  signatureBox: {
-    flex: 1,
-    alignItems: "center",
-  },
-  signatureLine: {
-    width: "100%",
-    borderBottomWidth: 1,
-    borderBottomColor: "#fab48a",
-    marginBottom: 4,
-  },
-  signatureLabel: {
-    fontSize: 8,
-    fontWeight: "bold",
-    color: colors.secondary,
-  },
-  signatureCompany: {
-    fontSize: 7.5,
-    color: colors.lightText,
-  },
-
-  // Fixed Absolute Footer
-  footer: {
-    position: "absolute",
-    bottom: 30,
-    left: 45,
-    right: 45,
-    borderTopWidth: 1,
-    borderTopColor: colors.lineColor,
-    paddingTop: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  footerColLeft: {
-    alignItems: "flex-start",
-  },
-  footerColMiddle: {
-    alignItems: "center",
-  },
-  footerColRight: {
-    alignItems: "flex-end",
-  },
-  footerText: {
-    fontSize: 7.5,
-    color: colors.lightText,
-  },
-  footerPageNum: {
-    fontSize: 8.5,
-    color: colors.secondary,
-    fontWeight: "bold",
-  },
-  sectionHeader: {
-    backgroundColor: "#F5F5F5",
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    marginTop: 15,
     marginBottom: 6,
+    lineHeight: 1.3,
+  },
+
+  // Spec Grid
+  specGrid: {
+    marginTop: 4,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    backgroundColor: colors.bgLight,
+    padding: 6,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.lineColor,
+  },
+  specItem: {
+    width: "50%",
+    flexDirection: "row",
+    marginBottom: 3,
+  },
+  specItemKey: {
+    width: "45%",
+    fontSize: 6,
+    fontWeight: "bold",
+    color: colors.secondary,
+  },
+  specItemValue: {
+    width: "55%",
+    fontSize: 6,
+    color: colors.primary,
+    fontWeight: "bold",
+  },
+  remarksBlock: {
+    marginTop: 4,
+    fontSize: 6.5,
+    color: colors.secondary,
+    fontStyle: "italic",
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: colors.lineColor,
+  },
+
+  sectionHeader: {
+    backgroundColor: "#f3f4f6",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginTop: 12,
+    marginBottom: 4,
     borderLeftWidth: 3,
     borderLeftColor: colors.accent,
   },
   sectionHeaderText: {
-    fontSize: 9.5,
+    fontSize: 9,
     fontWeight: "bold",
     color: colors.primary,
     textTransform: "uppercase",
@@ -408,17 +209,162 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     paddingVertical: 6,
+    paddingHorizontal: 8,
+    backgroundColor: "#fff7ed",
     borderBottomWidth: 1,
-    borderBottomColor: colors.lineColor,
-    borderStyle: "dashed",
-    marginBottom: 10,
+    borderBottomColor: "#fed7aa",
+    marginBottom: 8,
   },
   sectionSubtotalText: {
     fontSize: 8.5,
     fontWeight: "bold",
+    color: colors.accent,
+  },
+
+  // Financial Summary Box (Full Width)
+  financialBox: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  financialHeader: {
+    backgroundColor: colors.bgLight,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lineColor,
+  },
+  financialTitle: {
+    fontSize: 9,
+    fontWeight: "bold",
     color: colors.primary,
+    textTransform: "uppercase",
+  },
+  financialRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lineColor,
+  },
+  financialLabel: {
+    fontSize: 8.5,
+    color: colors.secondary,
+  },
+  financialValue: {
+    fontSize: 8.5,
+    fontWeight: "bold",
+    color: colors.primary,
+  },
+  grandTotalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: colors.highlightBg,
+  },
+  grandTotalLabel: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: colors.white,
+  },
+  grandTotalValue: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: colors.white,
+  },
+
+  // Terms and Conditions Card
+  termsCard: {
+    marginTop: 24,
+    backgroundColor: colors.white,
+    borderRadius: 6,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.lineColor,
+  },
+  termsTitle: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: colors.primary,
+    marginBottom: 10,
+    textTransform: "uppercase",
+    borderBottomWidth: 2,
+    borderBottomColor: colors.accent,
+    paddingBottom: 4,
+    width: 140,
+  },
+  termItem: {
+    flexDirection: "row",
+    marginBottom: 6,
+    alignItems: "flex-start",
+  },
+  termNumber: {
+    width: 18,
+    fontSize: 7.5,
+    fontWeight: "bold",
+    color: colors.accent,
+  },
+  termText: {
+    flex: 1,
+    fontSize: 7.5,
+    color: colors.secondary,
+    lineHeight: 1.5,
+  },
+
+  // Signatures
+  signatureGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 40,
+  },
+  signatureBlock: {
+    width: "45%",
+  },
+  signatureLine: {
+    borderTopWidth: 1,
+    borderTopColor: colors.primary,
+    paddingTop: 8,
+    marginTop: 50,
+  },
+  signatureName: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  signatureRole: {
+    fontSize: 7.5,
+    color: colors.secondary,
+  },
+
+  // Footer
+  footer: {
+    position: "absolute",
+    bottom: 25,
+    left: 40,
+    right: 40,
+    borderTopWidth: 1,
+    borderTopColor: colors.lineColor,
+    paddingTop: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
+  footerText: {
+    fontSize: 6.5,
+    color: colors.lightText,
+    lineHeight: 1.4,
+  },
+  pageNumber: {
+    fontSize: 7.5,
+    color: colors.secondary,
+    fontWeight: "bold",
   }
-})
+});
 
 export interface QuotationPdfItem {
   itemNo: number
@@ -469,7 +415,7 @@ export interface QuotationPdfProps {
   preparedByRole?: string | null
   salesAgentName?: string | null
   termsConditions: string[]
-  companyLogoUrl?: string | null // Base64 logo png
+  companyLogoUrl?: string | null
   aynMuskLogoUrl?: string | null
   barcodeBase64?: string | null
   watermarkUrl?: string | null
@@ -510,8 +456,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   salesAgentName,
   termsConditions,
   companyLogoUrl,
-  aynMuskLogoUrl,
-  barcodeBase64,
   watermarkUrl,
   clientId,
   items,
@@ -582,7 +526,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       if (/^product\s+specifications$/i.test(line)) {
         return;
       }
-
       if (line.includes(",") && line.includes(":")) {
         const parts = line.split(',');
         let currentSpec: { key?: string; value: string } | null = null;
@@ -593,22 +536,14 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             const colonIndex = trimmed.indexOf(":");
             const key = trimmed.substring(0, colonIndex).trim();
             const value = trimmed.substring(colonIndex + 1).trim();
-            
-            if (currentSpec) {
-              parsedSpecs.push(currentSpec);
-            }
+            if (currentSpec) parsedSpecs.push(currentSpec);
             currentSpec = { key, value };
           } else {
-            if (currentSpec) {
-              currentSpec.value += ", " + trimmed;
-            } else {
-              parsedSpecs.push({ value: trimmed });
-            }
+            if (currentSpec) currentSpec.value += ", " + trimmed;
+            else parsedSpecs.push({ value: trimmed });
           }
         });
-        if (currentSpec) {
-          parsedSpecs.push(currentSpec);
-        }
+        if (currentSpec) parsedSpecs.push(currentSpec);
       } else {
         if (line.includes(":")) {
           const colonIndex = line.indexOf(":");
@@ -623,9 +558,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
     return parsedSpecs.filter(spec => {
       const val = spec.value.trim().toLowerCase();
-      if (!val || val === "-" || val === "not specified" || val === "none") {
-        return false;
-      }
+      if (!val || val === "-" || val === "not specified" || val === "none") return false;
       return true;
     });
   }
@@ -637,52 +570,34 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     warranty?: string | null
   ) => {
     const parsed = parseSpecifications(specs);
-    
-    // Filter out remarks from specifications list
     const specsList = parsed.filter(s => s.key?.toLowerCase() !== "remarks");
     const remarksFromSpecs = parsed.filter(s => s.key?.toLowerCase() === "remarks").map(s => s.value);
     
     const remarksLines = [...remarksFromSpecs];
-    if (productNotes) {
-      remarksLines.push(productNotes);
-    }
+    if (productNotes) remarksLines.push(productNotes);
 
-    // Inject dimension and warranty dynamically if present
-    if (dimensions && dimensions.trim()) {
-      specsList.push({ key: "Dimension", value: dimensions.trim() });
-    }
-    if (warranty && warranty.trim()) {
-      specsList.push({ key: "Warranty", value: warranty.trim() });
-    }
+    if (dimensions && dimensions.trim()) specsList.push({ key: "Dimension", value: dimensions.trim() });
+    if (warranty && warranty.trim()) specsList.push({ key: "Warranty", value: warranty.trim() });
     
     if (specsList.length === 0 && remarksLines.length === 0) return null;
 
     return (
-      <View style={{ marginTop: 2 }}>
+      <View style={{ marginTop: 6 }}>
         {specsList.length > 0 && (
-          <View style={{ marginBottom: 0 }}>
+          <View style={styles.specGrid}>
             {specsList.map((spec, idx) => {
-              const isProdTime = spec.key?.toLowerCase() === "production time";
-              const textColor = isProdTime ? "#1e3a8a" : "#444444";
-              const keyColor = isProdTime ? "#1e3a8a" : colors.primary;
-              
               const cleanKey = spec.key ? spec.key.trim() : "";
               const cleanVal = spec.value ? spec.value.trim() : "";
               if (!cleanVal) return null;
-
               return (
-                <View key={`spec-${idx}`} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 1 }}>
+                <View key={`spec-${idx}`} style={styles.specItem}>
                   {cleanKey ? (
                     <>
-                      <Text style={{ fontWeight: "bold", color: keyColor, marginRight: 3, flexShrink: 0, fontSize: 4.6, lineHeight: 1.2 }}>{cleanKey}:</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: textColor, fontSize: 4.6, lineHeight: 1.2 }}>{cleanVal}</Text>
-                      </View>
+                      <Text style={styles.specItemKey}>{cleanKey}:</Text>
+                      <Text style={styles.specItemValue}>{cleanVal}</Text>
                     </>
                   ) : (
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: textColor, fontSize: 4.6, lineHeight: 1.2 }}>{cleanVal}</Text>
-                    </View>
+                    <Text style={[styles.specItemValue, { width: "100%" }]}>{cleanVal}</Text>
                   )}
                 </View>
               );
@@ -691,350 +606,175 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         )}
         
         {remarksLines.length > 0 && (
-          <View style={{ marginTop: 2, flexDirection: "row", alignItems: "flex-start" }}>
-            <Text style={{ fontWeight: "bold", fontSize: 4.6, color: colors.accent, marginRight: 4, lineHeight: 1.2 }}>Remarks:</Text>
-            <View style={{ flex: 1 }}>
-              {remarksLines.map((r, i) => {
-                const cleanRemark = r ? r.trim() : "";
-                if (!cleanRemark) return null;
-                return (
-                  <Text key={i} style={{ fontSize: 4.6, color: colors.secondary, marginBottom: 1, lineHeight: 1.2 }}>{cleanRemark}</Text>
-                );
-              })}
-            </View>
+          <View style={styles.remarksBlock}>
+            {remarksLines.map((r, i) => {
+              const cleanRemark = r ? r.trim() : "";
+              if (!cleanRemark) return null;
+              return <Text key={i}>* {cleanRemark}</Text>;
+            })}
           </View>
         )}
       </View>
     );
   }
 
-  // Group items by batchHeading dynamically, preserving relative order of appearance
   const groupedSections: { heading: string | null; items: QuotationPdfItem[] }[] = [];
   items.forEach((item) => {
     const heading = item.batchHeading ? item.batchHeading.trim() : null;
     const existingSection = groupedSections.find(
       (s) => (s.heading === null && heading === null) || (s.heading !== null && heading !== null && s.heading.toLowerCase() === heading.toLowerCase())
     );
-    if (existingSection) {
-      existingSection.items.push(item);
-    } else {
-      groupedSections.push({ heading: item.batchHeading ? item.batchHeading.trim() : null, items: [item] });
-    }
+    if (existingSection) existingSection.items.push(item);
+    else groupedSections.push({ heading: item.batchHeading ? item.batchHeading.trim() : null, items: [item] });
   });
 
   return (
     <Document>
-      <Page size="A4" style={[styles.page, items.length === 1 ? { paddingBottom: 55 } : {}]}>
+      <Page size="A4" style={styles.page}>
         
-        {/* Dynamic Top Margin & Padding (Replaces page paddingTop) */}
-        <View fixed render={({ pageNumber }) => (
-          <View style={{ paddingTop: 45, paddingBottom: pageNumber > 1 ? 16 : 0, width: "100%" }}>
-            {pageNumber > 1 && <View style={{ borderTopWidth: 1, borderTopColor: colors.lineColor }} />}
-          </View>
-        )} />
-
-        {/* Bottom Right Watermark Logo (Repeats on every page) */}
         {watermarkUrl && (
           <View fixed style={{ position: "absolute", bottom: -130, right: -310, zIndex: -1 }}>
             <PdfImage src={watermarkUrl} style={{ width: 338 }} />
           </View>
         )}
 
-        {/* Unified Two-Row Header for Perfect Horizontal Alignment */}
-        <View style={[styles.headerContainer, { flexDirection: "column" }, items.length === 1 ? { marginBottom: 12, paddingBottom: 8 } : {}]}>
-          
-          {/* Top Row: Logo & Quotation Title */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: 16 }}>
-            {/* Left Logo (BOSQ Logo) */}
-            <View style={{ alignItems: "flex-start" }}>
-              {companyLogoUrl ? (
-                <PdfImage src={companyLogoUrl} style={styles.logoImageLeft} />
-              ) : (
-                <Text style={styles.logoTextFallback}>BOSQ</Text>
-              )}
-            </View>
-            
-            {/* Quotation Title */}
-            <View style={{ alignItems: "flex-end" }}>
-              <Text style={[styles.quotationHeading, { marginBottom: 0, marginTop: 30 }]}>Quotation</Text>
-              {(status === "CLIENT_APPROVED" || status === "CLIENT_CONFIRMED") && (
-                <Text style={{ fontSize: 9, fontWeight: "bold", color: "#16a34a", marginTop: 2 }}>Client Approved</Text>
-              )}
-            </View>
+        <View style={styles.headerContainer} fixed>
+          <View style={{ alignItems: "flex-start" }}>
+            {companyLogoUrl ? (
+              <PdfImage src={companyLogoUrl} style={styles.logoImageLeft} />
+            ) : (
+              <Text style={styles.logoTextFallback}>BOSQ</Text>
+            )}
           </View>
-
-          {/* Bottom Row: Client Info & Meta Details */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
-            
-            {/* Left Column: Client Info */}
-            <View style={styles.leftColumn}>
-              <View style={styles.clientInfoBlock}>
-                <Text style={[styles.companyNameText, { marginBottom: 6 }]}>CLIENT INFORMATION</Text>
-                
-                <View style={styles.infoRowInline}>
-                  <Text style={styles.infoKeyInline}>Quotation for:</Text>
-                  <Text style={styles.infoValueInline}>{clientName}</Text>
-                </View>
-
-                <View style={styles.infoRowInline}>
-                  <Text style={styles.infoKeyInline}>Contact Person:</Text>
-                  <Text style={styles.infoValueInline}>{clientContact || "-"}</Text>
-                </View>
-
-                <View style={styles.infoRowInline}>
-                  <Text style={styles.infoKeyInline}>Address:</Text>
-                  <Text style={styles.infoValueInline}>{clientAddress || "-"}</Text>
-                </View>
-
-                <View style={styles.infoRowInline}>
-                  <Text style={styles.infoKeyInline}>Phone:</Text>
-                  <Text style={styles.infoValueInline}>{clientPhone || "-"}</Text>
-                </View>
-                <View style={styles.infoRowInline}>
-                  <Text style={styles.infoKeyInline}>Email:</Text>
-                  <Text style={styles.infoValueInline}>{clientEmail || "-"}</Text>
-                </View>
-                <View style={styles.infoRowInline}>
-                  <Text style={styles.infoKeyInline}>TRN:</Text>
-                  <Text style={styles.infoValueInline}>{clientTrn || "-"}</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Right Column: Quotation Meta details */}
-            <View style={styles.rightColumn}>
-              <View style={styles.quotationDetailsBlock}>
-                
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>Date:</Text>
-                  <Text style={styles.metaValueRight}>{date}</Text>
-                </View>
-
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>Quotation #:</Text>
-                  <Text style={styles.metaValueRight}>{quotationNumber}</Text>
-                </View>
-
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>TRNID:</Text>
-                  <Text style={styles.metaValueRight}>{clientTrn || "-"}</Text>
-                </View>
-
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>Customer ID:</Text>
-                  <Text style={styles.metaValueRight}>{clientId || "-"}</Text>
-                </View>
-
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>Quotation Valid Until:</Text>
-                  <Text style={styles.metaValueRight}>{validityDate}</Text>
-                </View>
-
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>Contact Number:</Text>
-                  <Text style={styles.metaValueRight}>{preparedByContact || "-"}</Text>
-                </View>
-
-              </View>
-
-              {/* Removed Barcode per user request */}
-            </View>
-
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={styles.h1}>Quotation</Text>
+            {(status === "CLIENT_APPROVED" || status === "CLIENT_CONFIRMED") && (
+              <Text style={{ fontSize: 9, fontWeight: "bold", color: "#16a34a", marginTop: 2 }}>Client Approved</Text>
+            )}
           </View>
+        </View>
 
-          {/* Bottom Row: Sales Executive & Project Name */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%", marginTop: 24 }}>
-            <View style={{ flexDirection: "row" }}>
-              <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Sales Executive: </Text>
-              <Text style={{ color: "#827f82", fontSize: 6.75 }}>{salesAgentName || preparedBy}</Text>
+        <View style={styles.infoCardsContainer}>
+          {/* Client Information Card */}
+          <View style={styles.card}>
+            <Text style={styles.h2}>Client Information</Text>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Client Name:</Text>
+              <Text style={styles.cardValue}>{clientName}</Text>
+            </View>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Contact Person:</Text>
+              <Text style={styles.cardValue}>{clientContact || "-"}</Text>
+            </View>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Phone Number:</Text>
+              <Text style={styles.cardValue}>{clientPhone || "-"}</Text>
+            </View>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Email Address:</Text>
+              <Text style={styles.cardValue}>{clientEmail || "-"}</Text>
+            </View>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Company TRN:</Text>
+              <Text style={styles.cardValue}>{clientTrn || "-"}</Text>
             </View>
             {projectName && (
-              <View style={{ flexDirection: "row" }}>
-                <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Project: </Text>
-                <Text style={{ color: "#827f82", fontSize: 6.75 }}>{projectName}</Text>
+              <View style={[styles.cardRow, { marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.lineColor }]}>
+                <Text style={styles.cardLabel}>Project Name:</Text>
+                <Text style={styles.cardValue}>{projectName}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Quotation Details Card */}
+          <View style={styles.card}>
+            <Text style={styles.h2}>Quotation Details</Text>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Quotation No:</Text>
+              <Text style={styles.cardValue}>{quotationNumber}</Text>
+            </View>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Date:</Text>
+              <Text style={styles.cardValue}>{date}</Text>
+            </View>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Valid Until:</Text>
+              <Text style={styles.cardValue}>{validityDate}</Text>
+            </View>
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Customer ID:</Text>
+              <Text style={styles.cardValue}>{clientId || "-"}</Text>
+            </View>
+            {salesAgentName && (
+              <View style={styles.cardRow}>
+                <Text style={styles.cardLabel}>Sales Executive:</Text>
+                <Text style={styles.cardValue}>{salesAgentName}</Text>
               </View>
             )}
           </View>
         </View>
 
-        {/* Table Headers (Rendered only once at the top of the table) */}
-        <View style={styles.tableHeader} wrap={false}>
-          <Text style={styles.colDesc}>Item Description</Text>
-          <Text style={[styles.colImage, { textAlign: "center" }]}>Image</Text>
-          <Text style={styles.colQty}>QTY</Text>
-          <Text style={styles.colPrice}>Price</Text>
-          <Text style={styles.colAmount}>Total</Text>
+        {/* Products Table Header */}
+        <View style={styles.tableHeader} fixed>
+          <Text style={[styles.thText, styles.colNo]}>No.</Text>
+          <Text style={[styles.thText, styles.colImage, { textAlign: "center" }]}>Image</Text>
+          <Text style={[styles.thText, styles.colDesc]}>Description</Text>
+          <Text style={[styles.thText, styles.colQty]}>QTY</Text>
+          <Text style={[styles.thText, styles.colPrice]}>Unit Price</Text>
+          <Text style={[styles.thText, styles.colAmount]}>Total Amount</Text>
         </View>
 
         {/* Grouped Table Sections */}
         {groupedSections.map((group, gIdx) => {
           const sectionSubtotal = group.items.reduce((acc, item) => acc + item.amount, 0);
           return (
-            <View key={`group-${gIdx}`} style={{ marginTop: gIdx > 0 ? 8 : 4 }}>
-              {group.heading ? (
-                <>
-                  {/* Keep the section heading and the first product row together on the same page */}
-                  <View wrap={false}>
-                    <View style={styles.sectionHeader}>
-                      <Text style={styles.sectionHeaderText}>{group.heading}</Text>
-                    </View>
-                    {group.items.slice(0, 1).map((item, index) => (
-                      <View key="first" style={[styles.tableRow, group.items.length === 1 ? { paddingVertical: 10 } : {}]}>
-                        {/* Description */}
-                        <View style={styles.colDesc}>
-                          {/* 1. Product Name */}
-                          <Text style={styles.itemTitle}>{item.description}</Text>
-                          
-                          {/* 2. Product Type / Category */}
-                          {item.categoryName && (
-                            <Text style={styles.itemCategory}>{item.categoryName}</Text>
-                          )}
-
-                          {/* 2.5 Chair Type (if applicable) */}
-                          {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
-                            <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
-                              <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
-                              <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
-                            </View>
-                          )}
-
-                          {/* 3. Product Description */}
-                          {item.productDescription && (
-                            <Text style={styles.itemDescText}>
-                              {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
-                            </Text>
-                          )}
-
-                          {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
-                          {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
-                        </View>
-
-                        {/* Product Image */}
-                        <View style={[styles.colImage, { alignItems: "center", justifyContent: "center" }]}>
-                          {item.imageUrl ? (
-                            <PdfImage src={item.imageUrl} style={styles.productImage} />
-                          ) : (
-                            <View style={{ width: "100%", height: 100, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
-                              <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
-                            </View>
-                          )}
-                        </View>
-
-                        {/* Qty, Price, Total */}
-                        <Text style={styles.colQty}>{item.quantity}</Text>
-                        <Text style={styles.colPrice}>{formatCurrency(item.unitPrice)}</Text>
-                        <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  {/* Render the remaining items individually, each wrapped in wrap={false} */}
-                  {group.items.slice(1).map((item, index) => (
-                    <View key={index + 1} style={[styles.tableRow, { borderTopWidth: 0 }]} wrap={false}>
-                      {/* Description */}
-                      <View style={styles.colDesc}>
-                        {/* 1. Product Name */}
-                        <Text style={styles.itemTitle}>{item.description}</Text>
-                        
-                        {/* 2. Product Type / Category */}
-                        {item.categoryName && (
-                          <Text style={styles.itemCategory}>{item.categoryName}</Text>
-                        )}
-
-                        {/* 2.5 Chair Type (if applicable) */}
-                        {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
-                          <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
-                            <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
-                            <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
-                          </View>
-                        )}
-
-                        {/* 3. Product Description */}
-                        {item.productDescription && (
-                          <Text style={styles.itemDescText}>
-                            {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
-                          </Text>
-                        )}
-
-                        {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
-                        {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
-                      </View>
-
-                      {/* Product Image */}
-                      <View style={[styles.colImage, { alignItems: "center", justifyContent: "center" }]}>
-                        {item.imageUrl ? (
-                          <PdfImage src={item.imageUrl} style={styles.productImage} />
-                        ) : (
-                          <View style={{ width: "100%", height: 100, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
-                            <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
-                          </View>
-                        )}
-                      </View>
-
-                      {/* Qty, Price, Total */}
-                      <Text style={styles.colQty}>{item.quantity}</Text>
-                      <Text style={styles.colPrice}>{formatCurrency(item.unitPrice)}</Text>
-                      <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
-                    </View>
-                  ))}
-                </>
-              ) : (
-                /* No section heading, render all items individually with wrap={false} */
-                group.items.map((item, index) => (
-                  <View key={index} style={[styles.tableRow, group.items.length === 1 ? { paddingVertical: 10 } : {}]} wrap={false}>
-                    {/* Description */}
-                    <View style={styles.colDesc}>
-                      {/* 1. Product Name */}
-                      <Text style={styles.itemTitle}>{item.description}</Text>
-                      
-                      {/* 2. Product Type / Category */}
-                      {item.categoryName && (
-                        <Text style={styles.itemCategory}>{item.categoryName}</Text>
-                      )}
-
-                      {/* 2.5 Chair Type (if applicable) */}
-                      {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
-                        <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
-                          <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
-                          <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
-                        </View>
-                      )}
-
-                      {/* 3. Product Description */}
-                      {item.productDescription && (
-                        <Text style={styles.itemDescText}>
-                          {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
-                        </Text>
-                      )}
-
-                      {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
-                      {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
-                    </View>
-
-                    {/* Product Image */}
-                    <View style={[styles.colImage, { alignItems: "center", justifyContent: "center" }]}>
-                      {item.imageUrl ? (
-                        <PdfImage src={item.imageUrl} style={styles.productImage} />
-                      ) : (
-                        <View style={{ width: "100%", height: 100, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Qty, Price, Total */}
-                    <Text style={styles.colQty}>{item.quantity}</Text>
-                    <Text style={styles.colPrice}>{formatCurrency(item.unitPrice)}</Text>
-                    <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
-                  </View>
-                ))
+            <View key={`group-${gIdx}`}>
+              {group.heading && (
+                <View style={styles.sectionHeader} wrap={false}>
+                  <Text style={styles.sectionHeaderText}>{group.heading}</Text>
+                </View>
               )}
 
-              {/* Group Subtotal */}
+              {group.items.map((item, index) => (
+                <View key={index} style={[styles.tableRow, index % 2 === 1 ? styles.tableRowAlt : {}]} wrap={false}>
+                  
+                  <Text style={[styles.colNo, { fontWeight: "bold", fontSize: 7.5, color: colors.secondary }]}>
+                    {(gIdx + 1).toString().padStart(2, '0')}.{(index + 1).toString().padStart(2, '0')}
+                  </Text>
+                  
+                  <View style={styles.colImage}>
+                    {item.imageUrl ? (
+                      <PdfImage src={item.imageUrl} style={styles.productImage} />
+                    ) : (
+                      <View style={{ width: "100%", height: 85, border: "1px dashed #d1d5db", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 6.5, color: colors.lightText }}>No Image</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.colDesc}>
+                    <Text style={styles.itemTitle}>{item.description}</Text>
+                    {item.categoryName && (
+                      <Text style={styles.itemCategory}>{item.categoryName}</Text>
+                    )}
+                    {item.productDescription && (
+                      <Text style={styles.itemDescText}>
+                        {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
+                      </Text>
+                    )}
+                    {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
+                  </View>
+
+                  <Text style={[styles.colQty, { fontSize: 8, fontWeight: "bold" }]}>{item.quantity}</Text>
+                  <Text style={[styles.colPrice, { fontSize: 8 }]}>{formatCurrency(item.unitPrice)}</Text>
+                  <Text style={[styles.colAmount, { fontSize: 8, fontWeight: "bold" }]}>{formatCurrency(item.amount)}</Text>
+                </View>
+              ))}
+
               {group.heading && (
                 <View style={styles.sectionSubtotalRow} wrap={false}>
                   <Text style={styles.sectionSubtotalText}>
-                    {group.heading} Subtotal: AED {formatCurrency(sectionSubtotal)}
+                    Section Subtotal: AED {formatCurrency(sectionSubtotal)}
                   </Text>
                 </View>
               )}
@@ -1042,156 +782,120 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           );
         })}
 
-        {/* Group Totals and Signatures to prevent orphaned signature page */}
         <View wrap={false}>
-          {/* Financial Totals & Terms */}
-          <View style={[styles.totalsSection, { marginTop: items.length === 1 ? 24 : 32 }]}>
-            {/* Left Terms & Conditions */}
-            <View style={styles.termsBox}>
-              {termsConditions && termsConditions.length > 0 && (
-                <>
-                  <Text style={styles.termsTitle}>Terms & Conditions</Text>
-                  {termsConditions.map((term, idx) => (
-                    <Text key={idx} style={styles.termRow}>
-                      {idx + 1}. {term}
-                    </Text>
-                  ))}
-                </>
-              )}
+          {/* Financial Summary Box */}
+          <View style={styles.financialBox}>
+            <View style={styles.financialHeader}>
+              <Text style={styles.financialTitle}>Commercial Summary</Text>
             </View>
-
-            {/* Right Sum Box */}
-            <View style={styles.totalsBox}>
-              {/* 1. Subtotal (Products) */}
-              <View style={styles.leaderRow}>
-                <Text style={styles.totalsLabel}>Subtotal (Products)</Text>
-                <View style={styles.leaderDots} />
-                <Text style={styles.totalsValue}>AED {formatCurrency(subtotal)}</Text>
+            <View style={{ padding: 6 }}>
+              <View style={styles.financialRow}>
+                <Text style={styles.financialLabel}>Products Subtotal</Text>
+                <Text style={styles.financialValue}>AED {formatCurrency(subtotal)}</Text>
               </View>
 
-              {/* 2. Additional Cost Items */}
               {(Array.isArray(additionalCharges) ? additionalCharges : [])
                 .filter((c: any) => c.name && Number(c.amount) > 0)
                 .map((charge: any, idx: number) => (
-                  <View key={`charge-${idx}`} style={styles.leaderRow}>
-                    <Text style={styles.totalsLabel}>{charge.name}</Text>
-                    <View style={styles.leaderDots} />
-                    <Text style={styles.totalsValue}>AED {formatCurrency(Number(charge.amount))}</Text>
+                  <View key={`charge-${idx}`} style={styles.financialRow}>
+                    <Text style={styles.financialLabel}>{charge.name}</Text>
+                    <Text style={styles.financialValue}>AED {formatCurrency(Number(charge.amount))}</Text>
                   </View>
                 ))}
 
-              {/* 3. Subtotal After Additional Cost */}
               {hasAdditionalCost && (
-                <View style={styles.leaderRow}>
-                  <Text style={[styles.totalsLabel, { fontWeight: "bold", color: colors.primary }]}>
-                    Subtotal After Additional Cost
-                  </Text>
-                  <View style={styles.leaderDots} />
-                  <Text style={[styles.totalsValue, { fontWeight: "bold" }]}>
-                    AED {formatCurrency(subtotalAfterAdditional)}
-                  </Text>
+                <View style={styles.financialRow}>
+                  <Text style={[styles.financialLabel, { fontWeight: "bold", color: colors.primary }]}>Subtotal Before Discount</Text>
+                  <Text style={styles.financialValue}>AED {formatCurrency(subtotalAfterAdditional)}</Text>
                 </View>
               )}
 
-              {/* 4. Special Discount */}
               {hasDiscount && (
-                <View style={styles.leaderRow}>
-                  <View style={{ flexDirection: "column" }}>
-                    <Text style={[styles.totalsLabel, { color: "#dc2626" }]}>
-                      Special Discount
-                      {specialDiscountType === "PERCENTAGE" && ` (${specialDiscountValue}%)`}
-                    </Text>
-                    {specialDiscountReason && (
-                      <Text style={{ fontSize: 6.5, color: colors.lightText, fontStyle: "italic", marginTop: 1, maxWidth: 100 }}>
-                        Reason: {specialDiscountReason}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={[styles.leaderDots, { borderBottomColor: "#fca5a5" }]} />
-                  <Text style={[styles.totalsValue, { color: "#dc2626" }]}>
-                    AED ({formatCurrency(discountAmount)})
+                <View style={styles.financialRow}>
+                  <Text style={[styles.financialLabel, { color: "#dc2626" }]}>
+                    Discount {specialDiscountType === "PERCENTAGE" && `(${specialDiscountValue}%)`}
+                    {specialDiscountReason && <Text style={{ fontSize: 7, color: colors.lightText }}> - {specialDiscountReason}</Text>}
                   </Text>
+                  <Text style={[styles.financialValue, { color: "#dc2626" }]}>- AED {formatCurrency(discountAmount)}</Text>
                 </View>
               )}
 
-              {/* 5. Taxable Subtotal */}
-              {vatMode !== "INCLUDING" && hasTaxableSubtotal && (
-                <View style={styles.leaderRow}>
-                  <Text style={[styles.totalsLabel, { fontWeight: "bold", color: colors.primary }]}>
-                    Taxable Subtotal
-                  </Text>
-                  <View style={styles.leaderDots} />
-                  <Text style={[styles.totalsValue, { fontWeight: "bold" }]}>
-                    AED {formatCurrency(taxableSubtotal)}
-                  </Text>
+              {hasTaxableSubtotal && (
+                <View style={styles.financialRow}>
+                  <Text style={[styles.financialLabel, { fontWeight: "bold", color: colors.primary }]}>Net Subtotal</Text>
+                  <Text style={styles.financialValue}>AED {formatCurrency(taxableSubtotal)}</Text>
                 </View>
               )}
 
-              {/* 6. VAT */}
-              {vatMode !== "INCLUDING" ? (
-                <View style={styles.leaderRow}>
-                  <Text style={styles.totalsLabel}>
-                    VAT (5%)
-                  </Text>
-                  <View style={styles.leaderDots} />
-                  <Text style={styles.totalsValue}>AED {formatCurrency(vatAmount)}</Text>
-                </View>
-              ) : (
-                <View style={styles.leaderRow}>
-                  <Text style={[styles.totalsLabel, { fontStyle: "italic" }]}>
-                    Includes VAT (5%)
-                  </Text>
-                  <View style={styles.leaderDots} />
-                  <Text style={[styles.totalsValue, { fontStyle: "italic" }]}>AED {formatCurrency(vatAmount)}</Text>
+              {vatMode === "EXCLUDING" && (
+                <View style={styles.financialRow}>
+                  <Text style={styles.financialLabel}>VAT (5%)</Text>
+                  <Text style={styles.financialValue}>AED {formatCurrency(vatAmount)}</Text>
                 </View>
               )}
-
-              {/* 7. Grand Total / Total Payable */}
-              <View style={styles.grandTotalRow}>
-                <Text style={styles.grandTotalLabel}>{vatMode === "INCLUDING" ? "Total Payable" : "Grand Total"}</Text>
-                <View style={[styles.leaderDots, { borderBottomColor: colors.primary }]} />
-                <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
-              </View>
+              {vatMode === "INCLUDING" && (
+                <View style={styles.financialRow}>
+                  <Text style={styles.financialLabel}>VAT (5%) Included in Price</Text>
+                  <Text style={styles.financialValue}>AED {formatCurrency(vatAmount)}</Text>
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.grandTotalRow}>
+              <Text style={styles.grandTotalLabel}>GRAND TOTAL</Text>
+              <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
             </View>
           </View>
 
-          {/* Signatures */}
-          <View style={[styles.signatureSection, items.length === 1 ? { marginTop: 20 } : {}]}>
-            <View style={styles.signatureBox}>
-              <View style={styles.signatureLine} />
-              <Text style={styles.signatureLabel}>Prepared By</Text>
-              <Text style={styles.signatureCompany}>
-                {preparedBy}
-                {preparedByDesignation || formatRole(preparedByRole) ? ` | ${preparedByDesignation || formatRole(preparedByRole)}` : ""}
-              </Text>
+          {/* Terms and Conditions */}
+          {termsConditions && termsConditions.length > 0 && (
+            <View style={styles.termsCard}>
+              <Text style={styles.termsTitle}>Terms & Conditions</Text>
+              {termsConditions.map((term, idx) => (
+                <View key={idx} style={styles.termItem}>
+                  <Text style={styles.termNumber}>{(idx + 1).toString().padStart(2, '0')}.</Text>
+                  <Text style={styles.termText}>{term}</Text>
+                </View>
+              ))}
             </View>
-            <View style={styles.signatureBox}>
+          )}
+
+          {/* Signatures */}
+          <View style={styles.signatureGrid}>
+            <View style={styles.signatureBlock}>
+              <Text style={styles.h3}>Prepared By</Text>
               <View style={styles.signatureLine} />
-              <Text style={styles.signatureLabel}>Accepted & Approved By</Text>
-              <Text style={styles.signatureCompany}>Authorized Customer Signature</Text>
+              <Text style={styles.signatureName}>{preparedBy}</Text>
+              <Text style={styles.signatureRole}>
+                {preparedByDesignation || formatRole(preparedByRole) || "Interior Design Consultant"}
+              </Text>
+              <Text style={[styles.signatureRole, { marginTop: 2 }]}>{preparedByContact || ""}</Text>
+            </View>
+
+            <View style={styles.signatureBlock}>
+              <Text style={styles.h3}>Customer Approval</Text>
+              <View style={styles.signatureLine} />
+              <Text style={styles.signatureName}>{clientName}</Text>
+              <Text style={styles.signatureRole}>{companyName}</Text>
+              <Text style={[styles.signatureRole, { marginTop: 2 }]}>Date: ____________________</Text>
             </View>
           </View>
         </View>
 
-        {/* Absolute Bottom Page Footer */}
-        <View style={styles.footer} fixed>
-          <View style={styles.footerColLeft}>
-            {aynMuskLogoUrl ? (
-              <PdfImage src={aynMuskLogoUrl} style={{ width: 80, height: 20, objectFit: "contain", objectPositionX: "left" }} />
-            ) : (
-              <Text style={{ fontSize: 9, fontWeight: "bold", color: colors.primary }}>AYN MUSK</Text>
-            )}
+        {/* Fixed Absolute Footer */}
+        <View fixed style={styles.footer}>
+          <View style={{ width: "40%" }}>
+            <Text style={styles.footerText}>{companyName}</Text>
+            <Text style={styles.footerText}>{companyAddress}</Text>
           </View>
-          <View style={styles.footerColMiddle}>
-            <Text style={styles.footerText}>{companyName} | {companyAddress}</Text>
-          </View>
-          <View style={styles.footerColRight}>
+          <View style={{ width: "20%", alignItems: "center" }}>
             <Text style={styles.footerText}>TRN: {companyTrn}</Text>
           </View>
-          <Text 
-            style={[styles.footerPageNum, { position: "absolute", right: 0, bottom: -12 }]} 
-            render={({ pageNumber, totalPages }) => `${pageNumber}`} 
-          />
+          <View style={{ width: "40%", alignItems: "flex-end" }}>
+            <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) => (
+              `Page ${pageNumber} of ${totalPages}`
+            )} />
+          </View>
         </View>
 
       </Page>
