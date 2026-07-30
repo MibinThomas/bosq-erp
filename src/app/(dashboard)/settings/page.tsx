@@ -83,6 +83,7 @@ export default function SettingsPage() {
   const [headerLogo, setHeaderLogo] = useState("")
   const [footerLogo, setFooterLogo] = useState("")
   const [watermarkLogo, setWatermarkLogo] = useState("")
+  const [promotionalImage, setPromotionalImage] = useState("")
   const [quotationSequence, setQuotationSequence] = useState<number | "">("")
   const [savingSequence, setSavingSequence] = useState(false)
   const [clientSequence, setClientSequence] = useState<number | "">("")
@@ -299,6 +300,7 @@ export default function SettingsPage() {
         setHeaderLogo(data.quotation_header_logo || "")
         setFooterLogo(data.quotation_footer_logo || "")
         setWatermarkLogo(data.quotation_watermark_logo || "")
+        setPromotionalImage(data.quotation_promotional_image || "")
       }
     } catch (err) {
       console.error(err)
@@ -418,7 +420,8 @@ export default function SettingsPage() {
           sharepoint_drive_id: driveId,
           quotation_header_logo: headerLogo,
           quotation_footer_logo: footerLogo,
-          quotation_watermark_logo: watermarkLogo
+          quotation_watermark_logo: watermarkLogo,
+          quotation_promotional_image: promotionalImage
         })
       })
 
@@ -946,6 +949,56 @@ export default function SettingsPage() {
                         </div>
                         <p className="text-[10px] text-slate-500 italic mt-1">
                           💡 Recommended dimension: <b>Square (e.g. 800x800)</b> with a transparent background.
+                        </p>
+                      </div>
+
+                      {/* Promotional Banner Image Upload */}
+                      <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+                        <div className="flex justify-between items-center">
+                          <Label className="text-sm font-semibold text-slate-200">Quotation Promotional Banner</Label>
+                          {promotionalImage && (
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 text-xs text-red-500 hover:text-red-400 hover:bg-red-950/20 px-2"
+                              onClick={() => setPromotionalImage("")}
+                            >
+                              Remove Image
+                            </Button>
+                          )}
+                        </div>
+
+                        {promotionalImage ? (
+                          <div className="h-24 w-full rounded-lg bg-slate-950 border border-slate-800 p-2 flex items-center justify-center overflow-hidden">
+                            <img src={promotionalImage} alt="Promotional Banner" className="max-h-full max-w-full object-contain" />
+                          </div>
+                        ) : (
+                          <div className="h-24 w-full rounded-lg border border-dashed border-slate-800 flex flex-col items-center justify-center text-xs text-slate-500 bg-slate-950/20">
+                            <span>No Promotional Image Set</span>
+                            <span className="text-[10px] text-slate-600 mt-0.5">(Will fallback to Watermark)</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <Input 
+                            type="file" 
+                            accept="image/png, image/jpeg, image/webp"
+                            className="bg-slate-950 border-slate-800 text-xs text-slate-400 file:bg-slate-800 file:text-slate-200 file:border-0 file:rounded file:px-2.5 file:py-1 file:mr-3 file:cursor-pointer cursor-pointer hover:border-slate-700"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) {
+                                const reader = new FileReader()
+                                reader.onloadend = () => {
+                                  setPromotionalImage(reader.result as string)
+                                }
+                                reader.readAsDataURL(file)
+                              }
+                            }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-500 italic mt-1">
+                          💡 Replaces the watermark next to Cost Breakdown. Recommended: <b>Portrait (e.g. 500x700)</b>.
                         </p>
                       </div>
                     </div>

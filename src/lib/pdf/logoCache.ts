@@ -85,3 +85,15 @@ export async function getAynMuskLogoBase64(): Promise<string> {
   return aynMuskLogoBase64Cache || ""
 }
 
+let promotionalImageBase64Cache: string | null = null
+
+export async function getPromotionalImageBase64(): Promise<string | null> {
+  try {
+    const dbPromotionalImage = await getSetting("quotation_promotional_image")
+    if (dbPromotionalImage) return dbPromotionalImage
+  } catch (err) {
+    console.error("Failed to fetch custom promotional image from database settings:", err)
+  }
+  return null
+}
+

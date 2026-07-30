@@ -10,7 +10,7 @@ import { getSettings } from "@/lib/settings"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64 } from "@/lib/pdf/logoCache"
+import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 
 // Get single quotation with items and revisions history
@@ -782,11 +782,13 @@ export async function PUT(
       let watermarkBase64 = ""
       let aynMuskLogoBase64 = ""
       let barcodeBase64 = ""
+      let promotionalImageBase64: string | null = null
 
       if (resolvedStatus !== "DRAFT") {
         logoBase64 = await getLogoBase64()
         watermarkBase64 = await getWatermarkBase64()
         aynMuskLogoBase64 = await getAynMuskLogoBase64()
+        promotionalImageBase64 = await getPromotionalImageBase64()
         barcodeBase64 = generateCode128DataUri(revQuoteNum)
       }
 
@@ -828,6 +830,7 @@ export async function PUT(
         aynMuskLogoUrl: aynMuskLogoBase64 || null,
         barcodeBase64: barcodeBase64 || null,
         watermarkUrl: watermarkBase64 || null,
+        promotionalImageUrl: promotionalImageBase64,
         clientId: existingQuotation.client.clientId || null,
         items: quotationItemsToCreate,
         vatMode: resolvedVatMode,
@@ -1127,11 +1130,13 @@ export async function PUT(
       let watermarkBase64 = ""
       let aynMuskLogoBase64 = ""
       let barcodeBase64 = ""
+      let promotionalImageBase64: string | null = null
 
       if (resolvedStatus !== "DRAFT") {
         logoBase64 = await getLogoBase64()
         watermarkBase64 = await getWatermarkBase64()
         aynMuskLogoBase64 = await getAynMuskLogoBase64()
+        promotionalImageBase64 = await getPromotionalImageBase64()
         barcodeBase64 = generateCode128DataUri(existingQuotation.quotationNumber)
       }
 
@@ -1187,6 +1192,7 @@ export async function PUT(
         aynMuskLogoUrl: aynMuskLogoBase64 || null,
         barcodeBase64: barcodeBase64 || null,
         watermarkUrl: watermarkBase64 || null,
+        promotionalImageUrl: promotionalImageBase64,
         clientId: currentClient.clientId || null,
         items: quotationItemsToCreate,
         vatMode: resolvedVatMode,

@@ -9,7 +9,7 @@ import fs from "fs"
 import path from "path"
 import { getSettings } from "@/lib/settings"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
-import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64 } from "@/lib/pdf/logoCache"
+import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 
 export const dynamic = "force-dynamic"
@@ -25,6 +25,7 @@ export async function GET(
     const logoBase64 = await getLogoBase64()
     const aynMuskLogoBase64 = await getAynMuskLogoBase64()
     const watermarkBase64 = await getWatermarkBase64()
+    const promotionalImageBase64 = await getPromotionalImageBase64()
 
     // Fetch the quotation with all relations
     const quotation = await prisma.quotation.findFirst({
@@ -179,6 +180,7 @@ export async function GET(
       aynMuskLogoUrl: aynMuskLogoBase64 || null,
       barcodeBase64: barcodeBase64 || null,
       watermarkUrl: watermarkBase64 || null,
+      promotionalImageUrl: promotionalImageBase64,
       clientId: quotation.client.clientId || null,
       items: docItems,
       vatMode: (quotation.vatMode === "INCLUDING" ? "INCLUDING" : "EXCLUDING") as "EXCLUDING" | "INCLUDING",

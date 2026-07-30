@@ -464,6 +464,7 @@ export interface QuotationPdfProps {
   aynMuskLogoUrl?: string | null
   barcodeBase64?: string | null
   watermarkUrl?: string | null
+  promotionalImageUrl?: string | null
   clientId?: string | null
   vatMode?: "EXCLUDING" | "INCLUDING"
   specialDiscountType?: "PERCENTAGE" | "FIXED" | null
@@ -505,6 +506,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   aynMuskLogoUrl,
   barcodeBase64,
   watermarkUrl,
+  promotionalImageUrl,
   clientId,
   items,
   vatMode = "EXCLUDING",
@@ -1025,12 +1027,14 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           );
         })}
 
-        {/* Financial Summary Box & Watermark */}
+        {/* Financial Summary Box & Watermark/Promotional Banner */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 20 }} wrap={false}>
           <View style={{ width: "45%", alignItems: "center", justifyContent: "center" }}>
-            {watermarkUrl && (
+            {promotionalImageUrl ? (
+              <PdfImage src={promotionalImageUrl} style={{ width: 180, objectFit: "contain" }} />
+            ) : watermarkUrl ? (
               <PdfImage src={watermarkUrl} style={{ width: 140, objectFit: "contain", opacity: 0.8 }} />
-            )}
+            ) : null}
           </View>
 
           <View style={[styles.financialBox, { marginTop: 0, width: "50%", alignSelf: "auto" }]}>
