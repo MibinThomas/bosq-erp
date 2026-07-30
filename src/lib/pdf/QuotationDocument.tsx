@@ -221,114 +221,98 @@ const styles = StyleSheet.create({
     objectFit: "contain",
   },
 
-  // Totals layout
-  totalsSection: {
+  // Financial Summary Box (Full Width)
+  financialBox: {
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: colors.lineColor,
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  financialHeader: {
+    backgroundColor: colors.bgLight,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lineColor,
+  },
+  financialTitle: {
+    fontSize: 9.5,
+    fontWeight: "bold",
+    color: colors.primary,
+    textTransform: "uppercase",
+  },
+  financialRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 12,
-    gap: 40,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.lineColor,
+    backgroundColor: colors.white,
   },
-  termsBox: {
-    flex: 1.2,
+  financialLabel: {
+    fontSize: 8.5,
+    color: colors.secondary,
+  },
+  financialValue: {
+    fontSize: 9,
+    fontWeight: "bold",
+    color: colors.primary,
+  },
+  grandTotalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: colors.highlightBg,
+  },
+  grandTotalLabel: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: colors.white,
+  },
+  grandTotalValue: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: colors.white,
+  },
+
+  // Terms and Conditions Card
+  termsCard: {
+    marginTop: 24,
+    backgroundColor: colors.white,
+    borderRadius: 6,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.lineColor,
   },
   termsTitle: {
     fontSize: 9,
     fontWeight: "bold",
     color: colors.primary,
-    marginBottom: 5,
+    marginBottom: 12,
     textTransform: "uppercase",
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.highlightBg,
+    paddingBottom: 8,
   },
-  termRow: {
-    fontSize: 7.5,
-    color: colors.secondary,
-    marginBottom: 3,
-  },
-  
-  totalsBox: {
-    flex: 0.8,
-    borderTopWidth: 1,
-    borderTopColor: colors.primary,
-    paddingTop: 8,
-  },
-  totalsRow: {
+  termItem: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 8,
+    alignItems: "flex-start",
   },
-  totalsLabel: {
+  termNumber: {
+    width: 20,
+    fontSize: 8,
+    fontWeight: "bold",
+    color: colors.highlightBg,
+  },
+  termText: {
+    flex: 1,
+    fontSize: 8,
     color: colors.secondary,
-    fontSize: 8.5,
-  },
-  totalsValue: {
-    fontWeight: "bold",
-    fontSize: 8.5,
-  },
-  leaderRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    marginBottom: 4,
-  },
-  leaderDots: {
-    flexGrow: 1,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lineColor,
-    borderStyle: "dotted",
-    marginHorizontal: 4,
-    marginBottom: 2,
-  },
-  bulletRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingLeft: 8,
-    marginBottom: 3,
-  },
-  bulletLabel: {
-    color: colors.secondary,
-    fontSize: 7.5,
-    fontStyle: "italic",
-    maxWidth: "70%",
-  },
-  bulletValue: {
-    color: colors.secondary,
-    fontSize: 7.5,
-    fontStyle: "italic",
-  },
-  taxableRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: colors.lineColor,
-    borderStyle: "dashed",
-    paddingTop: 4,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  taxableLabel: {
-    fontWeight: "bold",
-    color: colors.secondary,
-    fontSize: 8.5,
-  },
-  taxableValue: {
-    fontWeight: "bold",
-    fontSize: 8.5,
-  },
-  grandTotalRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    borderTopWidth: 1,
-    borderTopColor: colors.primary,
-    paddingTop: 6,
-    marginTop: 6,
-  },
-  grandTotalLabel: {
-    fontWeight: "bold",
-    fontSize: 10.5,
-    color: colors.primary,
-  },
-  grandTotalValue: {
-    fontWeight: "bold",
-    fontSize: 10.5,
-    color: colors.primary,
+    lineHeight: 1.5,
   },
 
   // Signatures
@@ -1044,116 +1028,80 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Group Totals and Signatures to prevent orphaned signature page */}
         <View wrap={false}>
-          {/* Financial Totals & Terms */}
-          <View style={[styles.totalsSection, { marginTop: items.length === 1 ? 24 : 32 }]}>
-            {/* Left Terms & Conditions */}
-            <View style={styles.termsBox}>
-              {termsConditions && termsConditions.length > 0 && (
-                <>
-                  <Text style={styles.termsTitle}>Terms & Conditions</Text>
-                  {termsConditions.map((term, idx) => (
-                    <Text key={idx} style={styles.termRow}>
-                      {idx + 1}. {term}
-                    </Text>
-                  ))}
-                </>
-              )}
+          {/* Financial Summary Box */}
+          <View style={styles.financialBox}>
+            <View style={styles.financialHeader}>
+              <Text style={styles.financialTitle}>Commercial Summary</Text>
             </View>
-
-            {/* Right Sum Box */}
-            <View style={styles.totalsBox}>
-              {/* 1. Subtotal (Products) */}
-              <View style={styles.leaderRow}>
-                <Text style={styles.totalsLabel}>Subtotal (Products)</Text>
-                <View style={styles.leaderDots} />
-                <Text style={styles.totalsValue}>AED {formatCurrency(subtotal)}</Text>
+            <View style={styles.financialRow}>
+                <Text style={styles.financialLabel}>Products Subtotal</Text>
+                <Text style={styles.financialValue}>AED {formatCurrency(subtotal)}</Text>
               </View>
 
-              {/* 2. Additional Cost Items */}
               {(Array.isArray(additionalCharges) ? additionalCharges : [])
                 .filter((c: any) => c.name && Number(c.amount) > 0)
                 .map((charge: any, idx: number) => (
-                  <View key={`charge-${idx}`} style={styles.leaderRow}>
-                    <Text style={styles.totalsLabel}>{charge.name}</Text>
-                    <View style={styles.leaderDots} />
-                    <Text style={styles.totalsValue}>AED {formatCurrency(Number(charge.amount))}</Text>
+                  <View key={`charge-${idx}`} style={styles.financialRow}>
+                    <Text style={styles.financialLabel}>{charge.name}</Text>
+                    <Text style={styles.financialValue}>AED {formatCurrency(Number(charge.amount))}</Text>
                   </View>
                 ))}
 
-              {/* 3. Subtotal After Additional Cost */}
               {hasAdditionalCost && (
-                <View style={styles.leaderRow}>
-                  <Text style={[styles.totalsLabel, { fontWeight: "bold", color: colors.primary }]}>
-                    Subtotal After Additional Cost
-                  </Text>
-                  <View style={styles.leaderDots} />
-                  <Text style={[styles.totalsValue, { fontWeight: "bold" }]}>
-                    AED {formatCurrency(subtotalAfterAdditional)}
-                  </Text>
+                <View style={styles.financialRow}>
+                  <Text style={[styles.financialLabel, { fontWeight: "bold", color: colors.primary }]}>Subtotal Before Discount</Text>
+                  <Text style={styles.financialValue}>AED {formatCurrency(subtotalAfterAdditional)}</Text>
                 </View>
               )}
 
-              {/* 4. Special Discount */}
               {hasDiscount && (
-                <View style={styles.leaderRow}>
-                  <View style={{ flexDirection: "column" }}>
-                    <Text style={[styles.totalsLabel, { color: "#dc2626" }]}>
-                      Special Discount
-                      {specialDiscountType === "PERCENTAGE" && ` (${specialDiscountValue}%)`}
-                    </Text>
-                    {specialDiscountReason && (
-                      <Text style={{ fontSize: 6.5, color: colors.lightText, fontStyle: "italic", marginTop: 1, maxWidth: 100 }}>
-                        Reason: {specialDiscountReason}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={[styles.leaderDots, { borderBottomColor: "#fca5a5" }]} />
-                  <Text style={[styles.totalsValue, { color: "#dc2626" }]}>
-                    AED ({formatCurrency(discountAmount)})
+                <View style={styles.financialRow}>
+                  <Text style={[styles.financialLabel, { color: "#dc2626" }]}>
+                    Discount {specialDiscountType === "PERCENTAGE" && `(${specialDiscountValue}%)`}
+                    {specialDiscountReason && <Text style={{ fontSize: 7, color: colors.lightText }}> - {specialDiscountReason}</Text>}
                   </Text>
+                  <Text style={[styles.financialValue, { color: "#dc2626" }]}>- AED {formatCurrency(discountAmount)}</Text>
                 </View>
               )}
 
-              {/* 5. Taxable Subtotal */}
-              {vatMode !== "INCLUDING" && hasTaxableSubtotal && (
-                <View style={styles.leaderRow}>
-                  <Text style={[styles.totalsLabel, { fontWeight: "bold", color: colors.primary }]}>
-                    Taxable Subtotal
-                  </Text>
-                  <View style={styles.leaderDots} />
-                  <Text style={[styles.totalsValue, { fontWeight: "bold" }]}>
-                    AED {formatCurrency(taxableSubtotal)}
-                  </Text>
+              {hasTaxableSubtotal && (
+                <View style={styles.financialRow}>
+                  <Text style={[styles.financialLabel, { fontWeight: "bold", color: colors.primary }]}>Net Subtotal</Text>
+                  <Text style={styles.financialValue}>AED {formatCurrency(taxableSubtotal)}</Text>
                 </View>
               )}
 
-              {/* 6. VAT */}
-              {vatMode !== "INCLUDING" ? (
-                <View style={styles.leaderRow}>
-                  <Text style={styles.totalsLabel}>
-                    VAT (5%)
-                  </Text>
-                  <View style={styles.leaderDots} />
-                  <Text style={styles.totalsValue}>AED {formatCurrency(vatAmount)}</Text>
-                </View>
-              ) : (
-                <View style={styles.leaderRow}>
-                  <Text style={[styles.totalsLabel, { fontStyle: "italic" }]}>
-                    Includes VAT (5%)
-                  </Text>
-                  <View style={styles.leaderDots} />
-                  <Text style={[styles.totalsValue, { fontStyle: "italic" }]}>AED {formatCurrency(vatAmount)}</Text>
+              {vatMode === "EXCLUDING" && (
+                <View style={[styles.financialRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.financialLabel}>VAT (5%)</Text>
+                  <Text style={styles.financialValue}>AED {formatCurrency(vatAmount)}</Text>
                 </View>
               )}
-
-              {/* 7. Grand Total / Total Payable */}
-              <View style={styles.grandTotalRow}>
-                <Text style={styles.grandTotalLabel}>{vatMode === "INCLUDING" ? "Total Payable" : "Grand Total"}</Text>
-                <View style={[styles.leaderDots, { borderBottomColor: colors.primary }]} />
-                <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
-              </View>
+              {vatMode === "INCLUDING" && (
+                <View style={[styles.financialRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.financialLabel}>VAT (5%) Included in Price</Text>
+                  <Text style={styles.financialValue}>AED {formatCurrency(vatAmount)}</Text>
+                </View>
+              )}
+            
+            <View style={styles.grandTotalRow}>
+              <Text style={styles.grandTotalLabel}>GRAND TOTAL</Text>
+              <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
             </View>
           </View>
+
+          {/* Terms and Conditions */}
+          {termsConditions && termsConditions.length > 0 && (
+            <View style={styles.termsCard}>
+              <Text style={styles.termsTitle}>Terms & Conditions</Text>
+              {termsConditions.map((term, idx) => (
+                <View key={idx} style={styles.termItem}>
+                  <Text style={styles.termNumber}>{(idx + 1).toString().padStart(2, '0')}.</Text>
+                  <Text style={styles.termText}>{term}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* Signatures */}
           <View style={[styles.signatureSection, items.length === 1 ? { marginTop: 20 } : {}]}>
