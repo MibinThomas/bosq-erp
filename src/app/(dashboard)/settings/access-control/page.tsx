@@ -122,6 +122,10 @@ export default function AccessControlPage() {
   const [newRoleDesc, setNewRoleDesc] = useState("")
   const [baseRoleId, setBaseRoleId] = useState("")
 
+  const [editRoleModal, setEditRoleModal] = useState(false)
+  const [editRoleName, setEditRoleName] = useState("")
+  const [editRoleDesc, setEditRoleDesc] = useState("")
+
   // User Profile Edit states
   const [editingUserProfile, setEditingUserProfile] = useState({
     name: "",
@@ -598,6 +602,104 @@ export default function AccessControlPage() {
     }
   }
 
+  const handleCreateRole = async () => {
+    if (!newRoleName) {
+      toast.error("Role name is required")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/settings/access-control", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_role",
+          roleName: newRoleName,
+          description: newRoleDesc,
+          baseRoleId
+        })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success("Role created successfully")
+        setNewRoleModal(false)
+        setNewRoleName("")
+        setNewRoleDesc("")
+        setBaseRoleId("")
+        fetchData()
+        if (data.role?.id) {
+          setSelectedRoleId(data.role.id)
+          loadRolePermissions(data.role.permissions || [])
+        }
+      } else {
+        toast.error(data.error || "Failed to create role")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Error creating role")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateRoleDetails = async () => {
+    if (!editRoleName) {
+      toast.error("Role name is required")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/settings/access-control", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "update_role_details",
+          roleId: selectedRoleId,
+          roleName: editRoleName,
+          description: editRoleDesc
+        })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success("Role details updated")
+        setEditRoleModal(false)
+        fetchData()
+      } else {
+        toast.error(data.error || "Failed to update role")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Error updating role details")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteRole = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this custom role? Users assigned to this role will lose their permissions. This action cannot be undone.")) {
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/settings/access-control?roleId=${id}`, {
+        method: "DELETE"
+      })
+      if (res.ok) {
+        toast.success("Role deleted successfully")
+        setSelectedRoleId("")
+        fetchData()
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to delete role")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Error deleting role")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Filtered lists
   const filteredUsersList = users.filter(u => {
     const search = userSearchTerm.toLowerCase()
@@ -897,6 +999,18 @@ export default function AccessControlPage() {
                     <p className="text-xs text-zinc-400 mt-0.5">{selectedRole.description}</p>
                   </div>
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditRoleName(selectedRole.name)
+                        setEditRoleDesc(selectedRole.description || "")
+                        setEditRoleModal(true)
+                      }}
+                      disabled={selectedRole.name === "SUPER_ADMIN"}
+                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 text-zinc-600 px-3 py-1.5 text-xs font-semibold hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Settings size={12} />
+                      Edit Details
+                    </button>
                     {!selectedRole.isSystem && (
                       <button
                         onClick={() => handleDeleteRole(selectedRole.id)}
@@ -1646,6 +1760,136 @@ export default function AccessControlPage() {
                   className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg"
                 >
                   Reassign &amp; Approve
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      {/* Create Role Modal */}
+      {newRoleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-md w-full shadow-2xl p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                <Plus size={16} className="text-amber-500" />
+                Create Custom Role
+              </h3>
+              <p className="text-[11px] text-zinc-400 mt-1">
+                Define a new role and optionally clone base permissions from an existing role.
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-zinc-500 font-semibold mb-1">Role Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Junior Estimator"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-500 font-semibold mb-1">Description (Optional)</label>
+                <textarea
+                  placeholder="Describe the role's responsibilities"
+                  value={newRoleDesc}
+                  onChange={(e) => setNewRoleDesc(e.target.value)}
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <label className="block text-zinc-500 font-semibold mb-1">Clone Base Permissions</label>
+                <select
+                  value={baseRoleId}
+                  onChange={(e) => setBaseRoleId(e.target.value)}
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                >
+                  <option value="">-- None (Start Blank) --</option>
+                  {roles.map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setNewRoleModal(false)}
+                  className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateRole}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg"
+                >
+                  Create Role
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Role Modal */}
+      {editRoleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-md w-full shadow-2xl p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                <Settings size={16} className="text-amber-500" />
+                Edit Role Details
+              </h3>
+              <p className="text-[11px] text-zinc-400 mt-1">
+                Update the name and description of this role.
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-zinc-500 font-semibold mb-1">Role Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Senior Estimator"
+                  value={editRoleName}
+                  onChange={(e) => setEditRoleName(e.target.value)}
+                  disabled={selectedRole?.isSystem}
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white disabled:opacity-50"
+                />
+                {selectedRole?.isSystem && (
+                  <p className="text-[10px] text-red-500 mt-1">System role names cannot be changed.</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-zinc-500 font-semibold mb-1">Description</label>
+                <textarea
+                  placeholder="Describe the role's responsibilities"
+                  value={editRoleDesc}
+                  onChange={(e) => setEditRoleDesc(e.target.value)}
+                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setEditRoleModal(false)}
+                  className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateRoleDetails}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg"
+                >
+                  Save Changes
                 </button>
               </div>
             </div>

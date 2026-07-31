@@ -298,6 +298,12 @@ export async function POST(request: Request) {
         })
       }
 
+      // Fetch the full role with permissions to return
+      const createdRole = await prisma.role.findUnique({
+        where: { id: newRole.id },
+        include: { permissions: true }
+      })
+
       // Log action
       await prisma.accessControlLog.create({
         data: {
@@ -307,12 +313,52 @@ export async function POST(request: Request) {
         }
       })
 
-      return NextResponse.json({ success: true, role: newRole })
+      return NextResponse.json({ success: true, role: createdRole })
     }
 
     return NextResponse.json({ error: "Invalid Action" }, { status: 400 })
   } catch (error) {
     console.error("POST /api/settings/access-control failed:", error)
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    await ensureDbSchema()
+    const user = await getAuthenticatedUser(request)
+    if (!user || (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN")) {
+      return NextResponse.json({ error: "Unauthorized access" }, { status: 403 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const roleId = searchParams.get("roleId")
+
+    if (roleId) {
+      const role = await prisma.role.findUnique({ where: { id: roleId } })
+      if (!role) {
+        return NextResponse.json({ error: "Role not found" }, { status: 404 })
+      }
+      if (role.isSystem) {
+        return NextResponse.json({ error: "Cannot delete a system role" }, { status: 403 })
+      }
+
+      await prisma.role.delete({ where: { id: roleId } })
+
+      await prisma.accessControlLog.create({
+        data: {
+          userId: user.id,
+          action: "DELETE_ROLE",
+          details: `Deleted custom role ${role.name}`
+        }
+      })
+
+      return NextResponse.json({ success: true })
+    }
+
+    return NextResponse.json({ error: "Invalid Action" }, { status: 400 })
+  } catch (error) {
+    console.error("DELETE /api/settings/access-control failed:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
@@ -419,6 +465,45 @@ export async function PUT(request: Request) {
       })
 
       return NextResponse.json({ success: true })
+    }
+
+    if (type === "update_role_details") {
+      const { roleName, description } = body
+      if (!roleName) return NextResponse.json({ error: "Role name is required" }, { status: 400 })
+
+      const role = await prisma.role.findUnique({ where: { id: roleId } })
+      if (!role) return NextResponse.json({ error: "Role not found" }, { status: 404 })
+
+      const normalizedRoleName = roleName.toUpperCase().replace(/\s+/g, "_")
+      if (role.isSystem && role.name !== normalizedRoleName) {
+        return NextResponse.json({ error: "Cannot rename a system role" }, { status: 403 })
+      }
+
+      if (role.name !== normalizedRoleName) {
+        const existing = await prisma.role.findUnique({ where: { name: normalizedRoleName } })
+        if (existing) {
+          return NextResponse.json({ error: "Role name already exists" }, { status: 400 })
+        }
+      }
+
+      const updatedRole = await prisma.role.update({
+        where: { id: roleId },
+        data: {
+          name: normalizedRoleName,
+          description: description || ""
+        },
+        include: { permissions: true }
+      })
+
+      await prisma.accessControlLog.create({
+        data: {
+          userId: user.id,
+          action: "UPDATE_ROLE_DETAILS",
+          details: `Updated role details for ${normalizedRoleName}`
+        }
+      })
+
+      return NextResponse.json({ success: true, role: updatedRole })
     }
 
     if (type === "update_overrides") {
