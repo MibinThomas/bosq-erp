@@ -748,7 +748,7 @@ function NewQuotationForm() {
     }
   }, [initialClientId, clients])
 
-  const { fields, append, remove, update, insert, move } = useFieldArray({
+  const { fields, append, remove, update, insert, move, replace } = useFieldArray({
     name: "items",
     control: form.control,
   })
@@ -888,7 +888,7 @@ function NewQuotationForm() {
       reordered.push(...itemsInBatch)
     })
 
-    form.setValue("items", reordered, { shouldDirty: true })
+    replace(reordered)
   }
 
   // Ensure all items are assigned to a valid batch in batches state
@@ -1884,16 +1884,6 @@ function NewQuotationForm() {
                 <CardTitle className="text-lg flex items-center gap-2">
                   Line Items Catalog
                 </CardTitle>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddBatch}
-                  className="flex items-center gap-2 cursor-pointer border-primary/30 text-primary hover:bg-primary/5"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Section / Batch
-                </Button>
               </CardHeader>
               <CardContent className="p-6 space-y-8">
                 {batches.map((batch, batchIdx) => {
@@ -2832,7 +2822,7 @@ function NewQuotationForm() {
                                           <FormControl>
                                             <NumericInput
                                               type="number"
-                                              min="1"
+                                              min="0"
                                               className="h-8 text-xs font-medium"
                                               value={field.value}
                                               onChange={(val) => {
@@ -3040,6 +3030,18 @@ function NewQuotationForm() {
                     </div>
                   );
                 })}
+
+                <div className="flex justify-center pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAddBatch}
+                    className="flex items-center gap-2 cursor-pointer border-primary/30 text-primary hover:bg-primary/5 shadow-sm px-6"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Section / Batch
+                  </Button>
+                </div>
               </CardContent>
 
               {/* Financial Calculation Footer */}
