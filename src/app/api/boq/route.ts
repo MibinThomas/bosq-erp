@@ -20,6 +20,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Phase 1 BOQ Rule: strictly limit to SUPER_ADMIN
+    if (dbSessionUser.role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Only Super Admin can access BOQs during Phase 1" }, { status: 403 })
+    }
+
     // Check view permission dynamically
     const canView = await hasPermission(dbSessionUser.id, "BOQS", "view")
     if (!canView) {
@@ -133,6 +138,12 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
     const userId = (session.user as any).id
+    
+    // Phase 1 BOQ Rule: strictly limit to SUPER_ADMIN
+    if ((session.user as any).role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Only Super Admin can access BOQs during Phase 1" }, { status: 403 })
+    }
+
     const canDelete = await hasPermission(userId, "BOQS", "delete")
     if (!canDelete) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to delete BOQs" }, { status: 403 })
@@ -180,6 +191,10 @@ export async function DELETE(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user?.email || (session.user as any).role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden: Only Super Admin can access BOQs during Phase 1" }, { status: 403 })
+    }
     const body = await request.json()
     const {
       clientId,

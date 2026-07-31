@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Plus, Search, Loader2, Edit, FileText, ArrowRightCircle, Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
@@ -33,8 +34,15 @@ interface Boq {
 }
 
 export default function BoqDashboard() {
-  const { data: session } = useSession()
+  const router = useRouter()
+  const { data: session, status: sessionStatus } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && userRole !== "SUPER_ADMIN") {
+      router.push("/dashboard")
+    }
+  }, [sessionStatus, userRole, router])
 
   const [boqs, setBoqs] = useState<Boq[]>([])
   const [loading, setLoading] = useState(true)

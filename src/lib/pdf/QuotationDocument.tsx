@@ -1125,19 +1125,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           </View>
         </View>
 
-        {/* Terms and Conditions */}
         {termsConditions && termsConditions.length > 0 && (
-          <View style={styles.termsCard}>
-            <View wrap={false}>
-              <Text style={styles.termsTitle}>Terms & Conditions</Text>
-              <View style={styles.termItem}>
-                <Text style={styles.termNumber}>01.</Text>
-                <Text style={styles.termText}>{termsConditions[0]}</Text>
-              </View>
-            </View>
-            {termsConditions.slice(1).map((term, idx) => (
-              <View key={idx + 1} style={styles.termItem}>
-                <Text style={styles.termNumber}>{(idx + 2).toString().padStart(2, '0')}.</Text>
+          <View style={styles.termsCard} wrap={false}>
+            <Text style={styles.termsTitle}>Terms & Conditions</Text>
+            {termsConditions.map((term, idx) => (
+              <View key={idx} style={styles.termItem} wrap={false}>
+                <Text style={styles.termNumber}>{(idx + 1).toString().padStart(2, '0')}.</Text>
                 <Text style={styles.termText}>{term}</Text>
               </View>
             ))}

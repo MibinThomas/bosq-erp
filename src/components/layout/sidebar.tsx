@@ -86,6 +86,9 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
       "Access Control": "ACCESS_CONTROL",
       "Settings": "SETTINGS",
     }
+    if (item.name === "BOQs" && !profile.isSuperAdmin) {
+      return false
+    }
 
     const moduleName = permMap[item.name]
     if (moduleName) {

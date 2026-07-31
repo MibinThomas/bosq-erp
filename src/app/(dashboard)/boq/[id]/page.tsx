@@ -48,10 +48,16 @@ export default function BoqBuilderPage() {
   const router = useRouter()
   const isNew = id === "new"
   
-  const { data: session } = useSession()
+  const { data: session, status: sessionStatus } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isIDC = userRole === "SALES_EXECUTIVE" || userRole === "SALES_MANAGER" || userRole === "MANAGER" || userRole === "ADMIN" || userRole === "SUPER_ADMIN"
   const isEstimator = userRole === "ESTIMATOR"
+
+  useEffect(() => {
+    if (sessionStatus === "authenticated" && userRole !== "SUPER_ADMIN") {
+      router.push("/dashboard")
+    }
+  }, [sessionStatus, userRole, router])
 
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
@@ -69,14 +75,7 @@ export default function BoqBuilderPage() {
   const isSentToEstimator = status === "SENT_TO_ESTIMATOR" || status === "PENDING_COSTING"
   const isCostingCompleted = status === "COSTING_COMPLETED"
   
-  let canEditPricing = true
-  if (isCostingCompleted) {
-    canEditPricing = userRole === "ADMIN" // Locked for both IDC and Estimator
-  } else if (isSentToEstimator) {
-    canEditPricing = isEstimator || userRole === "ADMIN"
-  } else {
-    canEditPricing = isIDC || userRole === "ADMIN" || userRole === "SALES_MANAGER"
-  }
+  let canEditPricing = userRole === "SUPER_ADMIN"
   const [termsConditions, setTermsConditions] = useState("Design Approval & Client Responsibility\n\nAll final design approvals—including but not limited to dimensions, materials, colors, layouts, and product specifications—are the sole responsibility of the client. BOSQ provides detailed quotations and design documentation for client review and confirmation prior to production.")
 
   // Clients list for dropdown
