@@ -372,6 +372,11 @@ const styles = StyleSheet.create({
     fontSize: 7.5,
     color: colors.lightText,
   },
+  footerLink: {
+    fontSize: 7.5,
+    color: colors.primary,
+    textDecoration: "none",
+  },
   footerPageNum: {
     fontSize: 8.5,
     color: colors.secondary,
@@ -810,8 +815,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 </View>
 
                 <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>TRNID:</Text>
-                  <Text style={styles.metaValueRight}>{clientTrn || "-"}</Text>
+                  <Text style={styles.metaKeyRight}>TRN:</Text>
+                  <Text style={styles.metaValueRight}>{companyTrn}</Text>
                 </View>
 
                 <View style={styles.metaRowRight}>
@@ -1164,7 +1169,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             <Text style={styles.footerText}>{companyName} | {companyAddress}</Text>
           </View>
           <View style={styles.footerColRight}>
-            <Text style={styles.footerText}>TRN: {companyTrn}</Text>
+            <Link src="https://bosq.ae/" style={styles.footerLink}>WWW.BOSQ.AE</Link>
           </View>
           <Text 
             style={[styles.footerPageNum, { position: "absolute", right: 0, bottom: -12 }]} 

@@ -473,7 +473,8 @@ export async function POST(request: Request) {
     // 3. Calculate financial totals using strict order
     let subtotal = 0
     const quotationItemsToCreate = await Promise.all(items.map(async (item: any, idx: number) => {
-      const qty = parseInt(item.quantity) || 1
+      const parsedQty = parseInt(item.quantity)
+      const qty = isNaN(parsedQty) ? 1 : parsedQty
       const price = parseFloat(item.unitPrice) || 0
       const disc = parseFloat(item.discount) || 0
       const marginVal = parseFloat(item.margin) || 0.0

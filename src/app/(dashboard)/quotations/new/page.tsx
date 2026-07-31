@@ -71,7 +71,7 @@ const quotationSchema = z.object({
       description: z.string().min(1, "Description is required"),
       specifications: z.string(),
       productNotes: z.string().optional(),
-      quantity: z.union([z.number(), z.string()]).refine(val => (val === "" ? 1 : Number(val)) >= 1, "Quantity must be at least 1"),
+      quantity: z.union([z.number(), z.string()]).refine(val => (val === "" ? 1 : Number(val)) >= 0, "Quantity must be at least 0"),
       basePrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Base price must be at least 0"),
       unitPrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Price must be at least 0"),
       discount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Discount must be at least 0"),
@@ -902,6 +902,11 @@ function NewQuotationForm() {
   }, [batches, watchItems])
 
   const handleBatchDragStart = (e: React.DragEvent, id: string) => {
+    const target = e.target as HTMLElement
+    if (!target.closest('.batch-drag-handle')) {
+      e.preventDefault()
+      return
+    }
     setDraggedBatchId(id)
     e.dataTransfer.effectAllowed = "move"
   }
@@ -1907,7 +1912,7 @@ function NewQuotationForm() {
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/30 p-4 rounded-xl border border-border shadow-sm">
                         <div className="flex items-center gap-3 w-full sm:flex-grow">
                           <div
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-muted text-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-border shrink-0 shadow-sm"
+                            className="batch-drag-handle flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-muted text-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-border shrink-0 shadow-sm"
                             title="Drag to reorder sections"
                           >
                             <GripVertical className="h-4 w-4" />
@@ -1920,8 +1925,45 @@ function NewQuotationForm() {
                           />
                         </div>
 
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span className="text-xs font-bold text-foreground bg-background px-3 py-1.5 rounded-lg border border-border shadow-sm">
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            disabled={batchIdx === 0}
+                            onClick={() => {
+                              const newBatches = [...batches]
+                              const temp = newBatches[batchIdx - 1]
+                              newBatches[batchIdx - 1] = newBatches[batchIdx]
+                              newBatches[batchIdx] = temp
+                              setBatches(newBatches)
+                              reorderFlatItemsByBatches(newBatches)
+                            }}
+                            className="h-8 w-8 hover:bg-muted/80 rounded-lg"
+                            title="Move Section Up"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            disabled={batchIdx === batches.length - 1}
+                            onClick={() => {
+                              const newBatches = [...batches]
+                              const temp = newBatches[batchIdx + 1]
+                              newBatches[batchIdx + 1] = newBatches[batchIdx]
+                              newBatches[batchIdx] = temp
+                              setBatches(newBatches)
+                              reorderFlatItemsByBatches(newBatches)
+                            }}
+                            className="h-8 w-8 hover:bg-muted/80 rounded-lg"
+                            title="Move Section Down"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
+                          
+                          <span className="text-xs font-bold text-foreground bg-background px-3 py-1.5 rounded-lg border border-border shadow-sm ml-2">
                             {batchItems.length} Products
                           </span>
                           
@@ -1931,7 +1973,7 @@ function NewQuotationForm() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleDeleteBatch(batch.id)}
-                              className="h-9 w-9 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                              className="h-9 w-9 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer ml-1"
                               title="Delete empty section"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -2363,7 +2405,7 @@ function NewQuotationForm() {
                                           <FormControl>
                                             <NumericInput
                                               type="number"
-                                              min="1"
+                                              min="0"
                                               className="h-9 text-xs font-medium bg-background"
                                               value={field.value}
                                               onChange={(val) => field.onChange(val === "" ? "" : (parseInt(val) || 0))}
