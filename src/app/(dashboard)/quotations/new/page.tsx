@@ -1259,7 +1259,7 @@ function NewQuotationForm() {
   useEffect(() => {
     const intervalId = setInterval(() => {
       handleAutoSave()
-    }, 40000)
+    }, 15000)
 
     return () => clearInterval(intervalId)
   }, [])
@@ -3523,22 +3523,6 @@ function NewQuotationForm() {
                 onClick={() => router.push("/quotations")}
               >
                 Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={submitting}
-                onClick={form.handleSubmit((data) => onSubmit(data, "DRAFT"))}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Draft"
-                )}
-              </Button>
               <Button
                 type="submit"
                 disabled={submitting}
