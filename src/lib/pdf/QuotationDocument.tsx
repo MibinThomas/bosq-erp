@@ -6,6 +6,7 @@ import {
   View,
   StyleSheet,
   Image as PdfImage,
+  Link,
 } from "@react-pdf/renderer"
 import Html from "react-pdf-html"
 
@@ -738,11 +739,13 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", width: "100%", marginBottom: 16 }}>
             {/* Left Logo (BOSQ Logo) */}
             <View style={{ alignItems: "flex-start" }}>
-              {companyLogoUrl ? (
-                <PdfImage src={companyLogoUrl} style={styles.logoImageLeft} />
-              ) : (
-                <Text style={styles.logoTextFallback}>BOSQ</Text>
-              )}
+              <Link src="https://bosq.ae/" style={{ textDecoration: "none" }}>
+                {companyLogoUrl ? (
+                  <PdfImage src={companyLogoUrl} style={styles.logoImageLeft} />
+                ) : (
+                  <Text style={styles.logoTextFallback}>BOSQ</Text>
+                )}
+              </Link>
             </View>
             
             {/* Quotation Title */}
