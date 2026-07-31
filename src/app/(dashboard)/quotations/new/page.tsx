@@ -3523,6 +3523,7 @@ function NewQuotationForm() {
                 onClick={() => router.push("/quotations")}
               >
                 Cancel
+              </Button>
               <Button
                 type="submit"
                 disabled={submitting}
