@@ -1145,7 +1145,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               <Text style={styles.signatureLabel}>Prepared By</Text>
               <Text style={styles.signatureCompany}>
                 {preparedBy}
-                {preparedByDesignation || formatRole(preparedByRole) ? ` | ${preparedByDesignation || formatRole(preparedByRole)}` : ""}
+                {preparedByDesignation || formatRole(preparedByRole) ? ` | ${(preparedByDesignation || formatRole(preparedByRole))?.replace(/Interior Design Consultants/gi, "Interior Design Consultant")}` : ""}
               </Text>
               {preparedBySignatureUrl ? (
                 <PdfImage src={preparedBySignatureUrl} style={{ height: 50, width: 240, objectFit: "contain", marginTop: 4 }} />
