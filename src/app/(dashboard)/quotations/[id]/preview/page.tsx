@@ -455,7 +455,8 @@ export default function QuotationHtmlPreviewPage({
             size="sm"
             onClick={() => window.open(`/api/quotations/${quotation.id}/pdf?preview=true`, "_blank")}
             title="Download PDF"
-            className="cursor-pointer"
+            className="cursor-not-allowed opacity-50"
+            disabled
           >
             <Download className="mr-2 h-4 w-4" /> Download PDF
           </Button>
