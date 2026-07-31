@@ -622,9 +622,9 @@ function NewQuotationForm() {
                   margin: marginVal,
                   manualMargin: marginVal,
                   customImageUrl: item.customImageUrl || "",
-                  productDescription: item.product?.description || "",
-                  categoryName: item.product?.category?.name || "Chairs",
-                  chairType: item.product?.chairType || "",
+                  productDescription: item.productDescription || item.product?.description || "",
+                  categoryName: item.categoryName || item.product?.category?.name || "Chairs",
+                  chairType: item.chairType || item.product?.chairType || "",
                   batchHeading: item.batchHeading || "",
                   saveToCatalog: false,
                 }
