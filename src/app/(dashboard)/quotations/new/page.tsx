@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, Suspense } from "react"
+import React, { useState, useEffect, Suspense, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -442,6 +442,22 @@ function NewQuotationForm() {
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  const [autoSavedQuoteId, setAutoSavedQuoteId] = useState<string | null>(null)
+  const [lastAutoSavedAt, setLastAutoSavedAt] = useState<Date | null>(null)
+  const [isAutoSaving, setIsAutoSaving] = useState(false)
+  const lastSavedDataRef = useRef<string>("")
+  const autoSaveStateRef = useRef({
+    isRevision,
+    isEdit,
+    existingQuote,
+    autoSavedQuoteId,
+    revisionNotes
+  })
+
+  useEffect(() => {
+    autoSaveStateRef.current = { isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes }
+  }, [isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes])
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     const target = e.target as HTMLElement
@@ -1156,6 +1172,97 @@ function NewQuotationForm() {
       setRequestingAccess(false)
     }
   }
+  const handleAutoSave = async () => {
+    const currentData = form.getValues()
+    if (!currentData.clientId || currentData.items.length === 0) return
+
+    const dataString = JSON.stringify(currentData)
+    if (dataString === lastSavedDataRef.current) return
+
+    setIsAutoSaving(true)
+    try {
+      const { isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes } = autoSaveStateRef.current
+
+      let targetUrl = ""
+      let method = ""
+
+      if (isRevision || isEdit) {
+        targetUrl = `/api/quotations/${existingQuote.id}`
+        method = "PUT"
+      } else if (autoSavedQuoteId) {
+        targetUrl = `/api/quotations/${autoSavedQuoteId}`
+        method = "PUT"
+      } else {
+        targetUrl = "/api/quotations"
+        method = "POST"
+      }
+
+      let totalAdditionalCost = 0
+      currentData.additionalCharges?.forEach((c: any) => {
+        totalAdditionalCost += parseFloat(c.amount) || 0
+      })
+
+      const formattedItems = []
+      for (const item of currentData.items) {
+        const hasManual = item.manualMargin !== undefined && item.manualMargin !== ""
+        const finalMargin = hasManual ? item.manualMargin : item.margin
+        const price = item.unitPrice === "" ? 0 : Number(item.unitPrice)
+        const discPercent = item.discount === "" ? 0 : Number(item.discount)
+        const absoluteDiscount = price * (discPercent / 100)
+
+        formattedItems.push({
+          ...item,
+          productId: item.productId || null,
+          quantity: item.quantity === "" ? 1 : Number(item.quantity),
+          basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
+          unitPrice: price,
+          discount: Number(absoluteDiscount.toFixed(2)),
+          margin: finalMargin === "" ? 0 : Number(finalMargin),
+        })
+      }
+
+      const res = await fetch(targetUrl, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...currentData,
+          preparedById: currentData.preparedById,
+          items: formattedItems,
+          deliveryCharge: totalAdditionalCost,
+          specialDiscountValue: currentData.specialDiscountValue === "" ? 0 : Number(currentData.specialDiscountValue),
+          additionalCharges: currentData.additionalCharges.map((c: any) => ({
+            name: c.name,
+            amount: c.amount === "" ? 0 : Number(c.amount)
+          })),
+          isRevision: isRevision,
+          isUpdate: isEdit || !!autoSavedQuoteId,
+          revisionNotes: revisionNotes,
+          status: "DRAFT",
+        }),
+      })
+
+      if (res.ok) {
+        const result = await res.json()
+        if (method === "POST" && result.id) {
+          setAutoSavedQuoteId(result.id)
+        }
+        setLastAutoSavedAt(new Date())
+        lastSavedDataRef.current = dataString
+      }
+    } catch (error) {
+      console.error("Auto-save failed:", error)
+    } finally {
+      setIsAutoSaving(false)
+    }
+  }
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      handleAutoSave()
+    }, 40000)
+
+    return () => clearInterval(intervalId)
+  }, [])
 
   async function onSubmit(data: QuotationFormValues, targetStatus?: "DRAFT" | "SUBMITTED") {
     const resolvedStatus = targetStatus === "DRAFT"
@@ -3402,7 +3509,13 @@ function NewQuotationForm() {
             </Card>
 
             {/* Submission Actions */}
-            <div className="flex justify-end gap-4 mt-6">
+            <div className="flex justify-end items-center gap-4 mt-6">
+              {lastAutoSavedAt && (
+                <span className="text-xs text-muted-foreground mr-auto flex items-center gap-1.5 animate-in fade-in duration-500">
+                  {isAutoSaving && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                  Last auto-saved: {lastAutoSavedAt.toLocaleTimeString()}
+                </span>
+              )}
               <Button
                 type="button"
                 variant="outline"
