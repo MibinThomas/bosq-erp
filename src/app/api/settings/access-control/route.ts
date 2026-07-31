@@ -323,45 +323,6 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
-  try {
-    await ensureDbSchema()
-    const user = await getAuthenticatedUser(request)
-    if (!user || (user.role !== "SUPER_ADMIN" && user.role !== "ADMIN")) {
-      return NextResponse.json({ error: "Unauthorized access" }, { status: 403 })
-    }
-
-    const { searchParams } = new URL(request.url)
-    const roleId = searchParams.get("roleId")
-
-    if (roleId) {
-      const role = await prisma.role.findUnique({ where: { id: roleId } })
-      if (!role) {
-        return NextResponse.json({ error: "Role not found" }, { status: 404 })
-      }
-      if (role.isSystem) {
-        return NextResponse.json({ error: "Cannot delete a system role" }, { status: 403 })
-      }
-
-      await prisma.role.delete({ where: { id: roleId } })
-
-      await prisma.accessControlLog.create({
-        data: {
-          userId: user.id,
-          action: "DELETE_ROLE",
-          details: `Deleted custom role ${role.name}`
-        }
-      })
-
-      return NextResponse.json({ success: true })
-    }
-
-    return NextResponse.json({ error: "Invalid Action" }, { status: 400 })
-  } catch (error) {
-    console.error("DELETE /api/settings/access-control failed:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
-  }
-}
 
 export async function PUT(request: Request) {
   try {
