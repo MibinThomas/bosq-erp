@@ -213,7 +213,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const session = await getServerSession(authOptions)
+
     let creatorId = ""
 
     if (session?.user) {
