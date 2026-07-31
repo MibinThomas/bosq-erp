@@ -612,6 +612,7 @@ export async function PUT(
         salesAgentId,
         salesAgentName,
         salesAgentContactNumber,
+        salesAgentTitle,
         specialDiscountType,
         specialDiscountValue,
         specialDiscountReason,
@@ -737,10 +738,10 @@ export async function PUT(
 
       if (resolvedVatMode === "INCLUDING") {
         vatAmount = (taxableAmount * 0.05) / 1.05
-        grandTotal = taxableAmount
+        grandTotal = Math.round(taxableAmount)
       } else {
         vatAmount = taxableAmount * 0.05
-        grandTotal = taxableAmount + vatAmount
+        grandTotal = Math.round(taxableAmount + vatAmount)
       }
 
       // Fetch Terms & Conditions
@@ -919,6 +920,7 @@ export async function PUT(
             salesAgentId: salesAgentId || existingQuotation.salesAgentId || null,
             salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
             salesAgentContactNumber: salesAgentContactNumber || existingQuotation.salesAgentContactNumber || null,
+            salesAgentTitle: salesAgentTitle || existingQuotation.salesAgentTitle || null,
             parentId: rootId,
             items: {
               create: quotationItemsToCreate.map((item: any) => ({
@@ -988,6 +990,7 @@ export async function PUT(
         salesAgentId,
         salesAgentName,
         salesAgentContactNumber,
+        salesAgentTitle,
         specialDiscountType,
         specialDiscountValue,
         specialDiscountReason,
@@ -1114,10 +1117,10 @@ export async function PUT(
 
       if (resolvedVatMode === "INCLUDING") {
         vatAmount = (taxableAmount * 0.05) / 1.05
-        grandTotal = taxableAmount
+        grandTotal = Math.round(taxableAmount)
       } else {
         vatAmount = taxableAmount * 0.05
-        grandTotal = taxableAmount + vatAmount
+        grandTotal = Math.round(taxableAmount + vatAmount)
       }
 
       // Read brand logo to base64 (only if not draft)
@@ -1261,6 +1264,7 @@ export async function PUT(
             salesAgentId: salesAgentId || existingQuotation.salesAgentId || null,
             salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
             salesAgentContactNumber: salesAgentContactNumber || existingQuotation.salesAgentContactNumber || null,
+            salesAgentTitle: salesAgentTitle || existingQuotation.salesAgentTitle || null,
             items: {
               create: quotationItemsToCreate.map((item: any) => ({
                 itemNo: item.itemNo,

@@ -175,6 +175,7 @@ export async function GET(
       preparedByRole: quotation.preparedBy?.role || null,
       preparedBySignatureUrl: quotation.preparedBy?.signature || null,
       salesAgentName: quotation.salesAgentName || null,
+      salesAgentTitle: (quotation as any).salesAgentTitle || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,

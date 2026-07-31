@@ -504,6 +504,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   preparedByRole,
   preparedBySignatureUrl,
   salesAgentName,
+  salesAgentTitle,
   termsConditions,
   companyLogoUrl,
   aynMuskLogoUrl,
@@ -537,9 +538,13 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
   const hasAdditionalCost = Number(deliveryCharge) > 0
   const hasDiscount = Number(discount) > 0
-  const hasTaxableSubtotal = hasAdditionalCost || hasDiscount
+  const hasItemLevelDiscount = items.some(item => Number(item.discount) > 0)
+  const hasAnyDiscount = hasDiscount || hasItemLevelDiscount
+  const hasTaxableSubtotal = hasAdditionalCost || hasAnyDiscount
 
   const subtotalAfterAdditional = subtotal + Number(deliveryCharge)
+  const grossProductsSubtotal = items.reduce((acc, item) => acc + ((Number(item.unitPrice) || 0) * (Number(item.quantity) || 1)), 0)
+  const grossSubtotalAfterAdditional = grossProductsSubtotal + Number(deliveryCharge)
   const discountAmount = Number(discount) || 0
   const taxableSubtotal = Math.max(0, subtotalAfterAdditional - discountAmount)
 
@@ -844,7 +849,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           {/* Bottom Row: Sales Executive & Project Name */}
           <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%", marginTop: 24 }}>
             <View style={{ flexDirection: "row" }}>
-              <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Sales Executive: </Text>
+              <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>{salesAgentTitle || "Sales Executive"}: </Text>
               <Text style={{ color: "#827f82", fontSize: 6.75 }}>{salesAgentName || preparedBy}</Text>
             </View>
             {projectName && (
@@ -1075,10 +1080,10 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 ));
               })()}
 
-              {hasAdditionalCost && (
+              {hasAnyDiscount && (
                 <View style={styles.financialRow}>
                   <Text style={[styles.financialLabel, { fontWeight: "bold", color: colors.primary }]}>Subtotal Before Discount</Text>
-                  <Text style={styles.financialValue}>AED {formatCurrency(subtotalAfterAdditional)}</Text>
+                  <Text style={styles.financialValue}>AED {formatCurrency(grossSubtotalAfterAdditional)}</Text>
                 </View>
               )}
 
@@ -1114,7 +1119,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             
             <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalLabel}>GRAND TOTAL</Text>
-              <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
+              <Text style={styles.grandTotalValue}>AED {grandTotal.toLocaleString("en-AE", { maximumFractionDigits: 0 })}</Text>
             </View>
           </View>
         </View>

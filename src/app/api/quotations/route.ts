@@ -210,6 +210,7 @@ export async function POST(request: Request) {
       salesAgentId,
       salesAgentName,
       salesAgentContactNumber,
+      salesAgentTitle,
       specialDiscountType,
       specialDiscountValue,
       specialDiscountReason,
@@ -540,10 +541,10 @@ export async function POST(request: Request) {
 
     if (resolvedVatMode === "INCLUDING") {
       vatAmount = (taxableAmount * 0.05) / 1.05
-      grandTotal = taxableAmount
+      grandTotal = Math.round(taxableAmount)
     } else {
       vatAmount = taxableAmount * 0.05
-      grandTotal = taxableAmount + vatAmount
+      grandTotal = Math.round(taxableAmount + vatAmount)
     }
 
     // 4. Get Default Terms & Conditions for the PDF
@@ -592,6 +593,7 @@ export async function POST(request: Request) {
       preparedByRole: creatorUser.role,
       preparedBySignatureUrl: creatorUser.signature || null,
       salesAgentName: salesAgentName || null,
+      salesAgentTitle: salesAgentTitle || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,

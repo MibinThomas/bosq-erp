@@ -61,6 +61,7 @@ const quotationSchema = z.object({
   preparedById: z.string().optional(),
   salesAgentId: z.string().optional(),
   salesAgentName: z.string().optional(),
+  salesAgentTitle: z.string().optional(),
   salesAgentContactNumber: z.string().optional(),
   deliveryCharge: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Delivery charge must be at least 0"),
   notes: z.string().optional(),
@@ -601,6 +602,7 @@ function NewQuotationForm() {
               preparedById: activeData.preparedById || "",
               salesAgentId: activeData.salesAgentId || (activeData.salesAgentName ? "manual" : (activeData.preparedById || "")),
               salesAgentName: activeData.salesAgentName || "",
+              salesAgentTitle: activeData.salesAgentTitle || "",
               salesAgentContactNumber: activeData.salesAgentContactNumber || "",
               date: reviseId ? new Date().toISOString().split("T")[0] : activeData.date.split("T")[0],
               validityDate: reviseId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : activeData.validityDate.split("T")[0],
@@ -982,11 +984,11 @@ function NewQuotationForm() {
   if (watchVatMode === "INCLUDING") {
     // Exclude Tax (VAT is 0)
     vatAmount = 0
-    grandTotal = taxableAmount
+    grandTotal = Math.round(taxableAmount)
   } else {
     // Include Tax (Add 5%)
     vatAmount = taxableAmount * 0.05
-    grandTotal = taxableAmount + vatAmount
+    grandTotal = Math.round(taxableAmount + vatAmount)
   }
 
   // Watch for segment changes and update line item unit prices
@@ -1840,6 +1842,19 @@ function NewQuotationForm() {
                           <FormLabel>Sales Agent Name</FormLabel>
                           <FormControl>
                             <Input placeholder="Enter sales agent name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="salesAgentTitle"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sales Agent Title/Designation</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. Sales Executive, Sales Manager" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -3376,7 +3391,7 @@ function NewQuotationForm() {
                       {/* Grand Total / Total Payable */}
                       <div className="flex justify-between items-center text-xl font-bold pt-4 text-primary">
                         <span>{watchVatMode === "INCLUDING" ? "Total Payable" : "Grand Total"}</span>
-                        <span className="font-mono text-2xl">AED {grandTotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="font-mono text-2xl">AED {grandTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
                       </div>
                     </div>
                   </div>

@@ -180,6 +180,7 @@ model Quotation {
   salesAgentId             String?
   salesAgentName           String?
   salesAgentContactNumber  String?
+  salesAgentTitle          String?
 
   deletedAt       DateTime?
   createdAt       DateTime  @default(now())
