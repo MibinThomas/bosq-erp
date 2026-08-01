@@ -102,6 +102,7 @@ export default function ClientsPage() {
 
   // Admin-level functions still require SUPER_ADMIN or manage permissions for bulk reassign
   const isSuperAdmin = hasPermission("SETTINGS", "manage") // using settings manage as proxy or just rely on hasPermission
+  const isManagerOrAdmin = hasPermission("CLIENTS", "manage") || isSuperAdmin
 
   useEffect(() => {
     if (hasPermission("USER_MANAGEMENT", "view") || userRole === "SUPER_ADMIN") {
