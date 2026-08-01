@@ -37,8 +37,8 @@ import { Switch } from "@/components/ui/switch"
 const boqSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
   projectName: z.string().min(1, "Project name is required"),
-  customerSegment: z.enum(["Interior", "Dealer", "Project", "Special"]).default("Project"),
-  isTemplate: z.boolean().default(false),
+  customerSegment: z.enum(["Interior", "Dealer", "Project", "Special"]),
+  isTemplate: z.boolean().optional(),
   notes: z.string().optional(),
   termsConditions: z.string().optional(),
   items: z.array(
@@ -48,7 +48,7 @@ const boqSchema = z.object({
       specifications: z.string().optional(),
       dimensions: z.string().optional(),
       quantity: z.union([z.number(), z.string()]).refine(val => (val === "" ? 1 : Number(val)) > 0, "Quantity must be greater than 0"),
-      unit: z.string().default("Nos"),
+      unit: z.string().optional(),
       customImageUrl: z.string().nullable().optional(),
     })
   ).min(1, "At least one item is required"),
