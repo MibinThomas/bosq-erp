@@ -37,7 +37,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2 } from "lucide-react"
 
 interface Product {
   id: string
