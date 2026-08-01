@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { Plus, Search, MoreHorizontal, Loader2, Package, Sparkles, LayoutGrid, List, Edit, ShoppingCart, Trash2, X, ChevronRight, UserPlus, AlertCircle } from "lucide-react"
+import {
+  Upload, Download, Plus, Search, Trash2, Edit, AlertCircle, FileSpreadsheet, PackageOpen, LayoutGrid, List, CheckCircle2, MoreVertical, X, Filter, FolderPlus, Tag, Boxes, LayoutDashboard, Copy
+} from "lucide-react"
+import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { useRouter } from "next/navigation"
 import { ProductDetailsModal } from "@/components/products/product-details-modal"
 import { cn } from "@/lib/utils"
@@ -63,31 +66,14 @@ export default function ProductsPage() {
   const router = useRouter()
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role
-  const isManagerOrAdmin = userRole === "SUPER_ADMIN" || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "MANAGER"
+  const { hasPermission } = usePermissions()
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [userPermissions, setUserPermissions] = useState<any>(null)
-  const [productPermissions, setProductPermissions] = useState<any>(null)
-
-  useEffect(() => {
-    fetch("/api/users/me/permissions")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.permissions) {
-          setUserPermissions(data.permissions.QUOTATIONS || {})
-          setProductPermissions(data.permissions.PRODUCTS || {})
-        }
-      })
-      .catch(err => console.error("Failed to load permissions", err))
-  }, [])
-
-  const isSuperAdmin = userRole === "SUPER_ADMIN"
-  const canCreateProduct = isSuperAdmin || (productPermissions ? productPermissions.create === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
-  const canEditProduct = isSuperAdmin || (productPermissions ? productPermissions.edit === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
-  const canDeleteProduct = isSuperAdmin || (productPermissions ? productPermissions.delete === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
-  const canBulkUploadProduct = isSuperAdmin || (productPermissions ? productPermissions.uploadFiles === true : ["ADMIN"].includes(userRole))
-  const canManageCategory = isSuperAdmin || (productPermissions ? productPermissions.manage === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
-  const hasQuoteAccess = isSuperAdmin || (productPermissions ? productPermissions.share === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole))
+  const canCreateProduct = hasPermission("PRODUCTS", "create")
+  const canEditProduct = hasPermission("PRODUCTS", "edit")
+  const canDeleteProduct = hasPermission("PRODUCTS", "delete")
+  const canBulkUploadProduct = hasPermission("PRODUCTS", "uploadFiles")
+  const canManageCategory = hasPermission("PRODUCTS", "manage")
+  const hasQuoteAccess = hasPermission("PRODUCTS", "share")
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isBulkOpen, setIsBulkOpen] = useState(false)
@@ -215,10 +201,10 @@ export default function ProductsPage() {
         console.error("Failed to load clients:", err)
       }
     }
-    if (userRole === "SALES_EXECUTIVE" || userRole === "INTERIOR_DESIGN_CONSULTANT" || isManagerOrAdmin) {
+    if (hasQuoteAccess) {
       loadClients()
     }
-  }, [userRole, isManagerOrAdmin])
+  }, [userRole, hasQuoteAccess])
 
   useEffect(() => {
     const cached = localStorage.getItem("quoteCart")

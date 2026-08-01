@@ -3,6 +3,7 @@
 import { useEffect, useState, Fragment, useCallback } from "react"
 import Link from "next/link"
 import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle, Edit, Map, ChevronDown, ChevronRight, Calendar, User } from "lucide-react"
+import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { useSession } from "next-auth/react"
 
 import { Button } from "@/components/ui/button"
@@ -80,61 +81,37 @@ interface Quotation {
 
 export default function QuotationsPage() {
   const { data: session } = useSession()
-  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
-  const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN"
-
+  const { hasPermission } = usePermissions()
+  
   const [quotations, setQuotations] = useState<Quotation[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const limit = 20
-
   const [statusFilter, setStatusFilter] = useState("all")
   const [segmentFilter, setSegmentFilter] = useState("all")
   const [poStatusFilter, setPoStatusFilter] = useState("all")
   const [sortBy, setSortBy] = useState("quotationNumber")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm)
-      setCurrentPage(1)
-    }, 400)
-    return () => clearTimeout(handler)
-  }, [searchTerm])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [limit] = useState(20)
   
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false)
   const [journeyQuoteId, setJourneyQuoteId] = useState<string | null>(null)
   const [isJourneyOpen, setIsJourneyOpen] = useState(false)
-
-  const [userPermissions, setUserPermissions] = useState<any>(null)
-  const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false)
-  const [conflictingQuoteNo, setConflictingQuoteNo] = useState("")
-  const [targetQuoteToConfirm, setTargetQuoteToConfirm] = useState<any | null>(null)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
-  const [targetStatusQuote, setTargetStatusQuote] = useState<{ id: string; quotationNumber: string; status: string } | null>(null)
-  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false)
-
-  useEffect(() => {
-    fetch("/api/users/me/permissions")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.permissions) {
-          setUserPermissions(data.permissions.QUOTATIONS || {})
-        }
-      })
-      .catch(err => console.error("Failed to load permissions", err))
-  }, [])
-
-  const isSuperAdmin = userRole === "SUPER_ADMIN"
-  const isAuthorizedToConfirm = isSuperAdmin || isManagerOrAdmin || (userPermissions?.canConfirmQuotation === true)
-
-  const canConfirmQuoteItem = (preparedById: string) => {
-    return isAuthorizedToConfirm || preparedById === (session?.user as any)?.id
-  }
+  const [targetStatusQuote, setTargetStatusQuote] = useState<any>(null)
+  const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false)
+  const [conflictingQuoteNo, setConflictingQuoteNo] = useState<string | null>(null)
+  const [targetQuoteToConfirm, setTargetQuoteToConfirm] = useState<any>(null)
+  
+  const canCreate = hasPermission("QUOTATIONS", "create")
+  const canEdit = hasPermission("QUOTATIONS", "edit")
+  const canDelete = hasPermission("QUOTATIONS", "delete")
+  const isSuperAdmin = hasPermission("SETTINGS", "manage")
+  const isManagerOrAdmin = canDelete || isSuperAdmin
+  const isAdminOrSuperAdmin = isSuperAdmin
+  
+  const isAuthorizedToConfirm = isSuperAdmin || isManagerOrAdmin || hasPermission("QUOTATIONS", "canConfirmQuotation")
 
   const handleConfirmQuote = async (quoteId: string, forceReplace: boolean = false) => {
     try {
@@ -159,7 +136,6 @@ export default function QuotationsPage() {
         throw new Error(data.error || "Failed to confirm quotation")
       }
 
-      // Update local state in lists
       setQuotations((prev) =>
         prev.map((q) => (q.id === quoteId ? { ...q, ...data } : q))
       )
@@ -172,15 +148,13 @@ export default function QuotationsPage() {
     }
   }
 
-
-
   const fetchQuotations = useCallback(async () => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
       params.append("page", currentPage.toString())
       params.append("limit", limit.toString())
-      if (debouncedSearch) params.append("search", debouncedSearch)
+      if (searchTerm) params.append("search", searchTerm)
       if (statusFilter && statusFilter !== "all") params.append("status", statusFilter)
       if (segmentFilter && segmentFilter !== "all") params.append("customerSegment", segmentFilter)
       if (poStatusFilter && poStatusFilter !== "all") params.append("poStatus", poStatusFilter)
@@ -202,13 +176,12 @@ export default function QuotationsPage() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, limit, debouncedSearch, statusFilter, segmentFilter, poStatusFilter, sortBy, sortOrder])
+  }, [currentPage, limit, searchTerm, statusFilter, segmentFilter, poStatusFilter, sortBy, sortOrder])
 
   useEffect(() => {
     fetchQuotations()
   }, [fetchQuotations])
 
-  // Clear all filters
   const clearFilters = () => {
     setSearchTerm("")
     setStatusFilter("all")
@@ -220,7 +193,6 @@ export default function QuotationsPage() {
   }
 
   const getStatusBadge = (status: string, revisionNumber?: number) => {
-    // Legacy support: map old APPROVED to CLIENT_APPROVED, QUOTE_CREATED to SUBMITTED, and PO_CONVERTED to PO_RECEIVED
     let resolvedStatus = status
     if (status === "APPROVED") resolvedStatus = "CLIENT_APPROVED"
     else if (status === "QUOTE_CREATED") resolvedStatus = "SUBMITTED"
@@ -242,7 +214,6 @@ export default function QuotationsPage() {
       if (!res.ok) throw new Error("Failed to update status")
       const updated = await res.json()
 
-      // Update state
       setQuotations((prev) =>
         prev.map((q) => (q.id === id ? { ...q, ...updated } : q))
       )
@@ -253,7 +224,6 @@ export default function QuotationsPage() {
     }
   }
 
-  // --- Bulk Delete Logic (Admin Only) ---
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -292,7 +262,6 @@ export default function QuotationsPage() {
 
       toast.success(`Successfully deleted ${selectedIds.length} quotation(s)`)
       
-      // Update local state
       setQuotations(prev => prev.filter(q => !selectedIds.includes(q.id)))
       setSelectedIds([])
     } catch (error: any) {
@@ -302,7 +271,6 @@ export default function QuotationsPage() {
       setIsDeleting(false)
     }
   }
-
 
   return (
     <div className="space-y-6">
@@ -320,12 +288,14 @@ export default function QuotationsPage() {
               Bulk Import
             </Button>
           )}
-          <a href="/quotations/new">
-            <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Quotation
-            </Button>
-          </a>
+          {canCreate && (
+            <a href="/quotations/new">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Plus className="mr-2 h-4 w-4" />
+                Create Quotation
+              </Button>
+            </a>
+          )}
         </div>
       </div>
 
@@ -368,7 +338,6 @@ export default function QuotationsPage() {
         </div>
         
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {/* Status Filter */}
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</label>
             <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val || "all"); setCurrentPage(1); }}>
@@ -395,7 +364,6 @@ export default function QuotationsPage() {
             </Select>
           </div>
 
-          {/* Segment Filter */}
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Segment</label>
             <Select value={segmentFilter} onValueChange={(val) => { setSegmentFilter(val || "all"); setCurrentPage(1); }}>
@@ -410,7 +378,6 @@ export default function QuotationsPage() {
             </Select>
           </div>
 
-          {/* PO Status Filter */}
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">PO Status</label>
             <Select value={poStatusFilter} onValueChange={(val) => { setPoStatusFilter(val || "all"); setCurrentPage(1); }}>
@@ -423,7 +390,6 @@ export default function QuotationsPage() {
             </Select>
           </div>
 
-          {/* Sort By */}
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sort By</label>
             <Select value={sortBy} onValueChange={(val) => { setSortBy(val || "quotationNumber"); setCurrentPage(1); }}>
@@ -438,7 +404,6 @@ export default function QuotationsPage() {
             </Select>
           </div>
 
-          {/* Sort Order */}
           <div className="space-y-1 col-span-2 sm:col-span-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Order</label>
             <Select value={sortOrder} onValueChange={(val) => { setSortOrder((val as "asc" | "desc") || "desc"); setCurrentPage(1); }}>
@@ -504,102 +469,102 @@ export default function QuotationsPage() {
                           />
                         </TableCell>
                       )}
-                  <TableCell className="font-mono font-medium text-primary">
-                    <span 
-                      className="cursor-pointer hover:underline text-blue-600"
-                      onClick={() => {
-                        setJourneyQuoteId(quote.id)
-                        setIsJourneyOpen(true)
-                      }}
-                    >
-                      {quote.quotationNumber}
-                    </span>
-                  </TableCell>
-                  <TableCell>{new Date(quote.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</TableCell>
-                  <TableCell>
-                    <div className="font-semibold">{quote.client.companyName}</div>
-                    <div className="text-xs text-muted-foreground">{quote.projectName || "Office Furnishing"}</div>
-                  </TableCell>
-                  <TableCell>{quote.preparedBy?.name || "Sales Rep"}</TableCell>
-                  <TableCell className="text-right font-mono font-medium">
-                    {quote.grandTotal.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(quote.status, quote.revisionNumber)}</TableCell>
-                  <TableCell>
-                    {quote.poStatus === "RECEIVED" ? (
-                      <Badge variant="outline" className="border-green-600 text-green-600 font-medium">
-                        PO Received
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Pending</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1.5">
-                      {/* Approve button for managers if pending approval */}
-                      {quote.status === "PENDING_APPROVAL" && isManagerOrAdmin && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 hover:bg-green-50 text-green-600 hover:text-green-700"
-                          title="Approve Quotation"
-                          onClick={async () => {
-                            try {
-                              const res = await fetch(`/api/quotations/${quote.id}`, {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ action: "APPROVE" }),
-                              })
-                              if (!res.ok) throw new Error("Failed to approve")
-                              const updated = await res.json()
-                              setQuotations(prev => prev.map(q => q.id === quote.id ? { ...q, ...updated } : q))
-                              toast.success("Quotation approved successfully!")
-                            } catch (e) {
-                              toast.error("Failed to approve quotation.")
-                            }
+                      <TableCell className="font-mono font-medium text-primary">
+                        <span 
+                          className="cursor-pointer hover:underline text-blue-600"
+                          onClick={() => {
+                            setJourneyQuoteId(quote.id)
+                            setIsJourneyOpen(true)
                           }}
                         >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                      )}
-
-                      {/* Download PDF directly */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-muted"
-                        title={quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE" ? "Pending Approval (Locked)" : "Download PDF"}
-                        disabled={quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE"}
-                        onClick={() => window.open(`/api/quotations/${quote.id}/pdf`, "_blank")}
-                      >
-                        {quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE" ? (
-                          <Lock className="h-4 w-4 text-muted-foreground/60" />
+                          {quote.quotationNumber}
+                        </span>
+                      </TableCell>
+                      <TableCell>{new Date(quote.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</TableCell>
+                      <TableCell>
+                        <div className="font-semibold">{quote.client.companyName}</div>
+                        <div className="text-xs text-muted-foreground">{quote.projectName || "Office Furnishing"}</div>
+                      </TableCell>
+                      <TableCell>{quote.preparedBy?.name || "Sales Rep"}</TableCell>
+                      <TableCell className="text-right font-mono font-medium">
+                        {quote.grandTotal.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(quote.status, quote.revisionNumber)}</TableCell>
+                      <TableCell>
+                        {quote.poStatus === "RECEIVED" ? (
+                          <Badge variant="outline" className="border-green-600 text-green-600 font-medium">
+                            PO Received
+                          </Badge>
                         ) : (
-                          <FileDown className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Pending</span>
                         )}
-                      </Button>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1.5">
+                          {/* Approve button for managers if pending approval */}
+                          {quote.status === "PENDING_APPROVAL" && isManagerOrAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-green-50 text-green-600 hover:text-green-700"
+                              title="Approve Quotation"
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch(`/api/quotations/${quote.id}`, {
+                                    method: "PUT",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ action: "APPROVE" }),
+                                  })
+                                  if (!res.ok) throw new Error("Failed to approve")
+                                  const updated = await res.json()
+                                  setQuotations(prev => prev.map(q => q.id === quote.id ? { ...q, ...updated } : q))
+                                  toast.success("Quotation approved successfully!")
+                                } catch (e) {
+                                  toast.error("Failed to approve quotation.")
+                                }
+                              }}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                          )}
 
-                      {/* SharePoint folder link */}
-                      {quote.sharepointUrl && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 hover:bg-muted"
-                          title={quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE" ? "Pending Approval (Locked)" : "Open SharePoint Folder"}
-                          disabled={quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE"}
-                          onClick={() => window.open(quote.sharepointUrl || "", "_blank")}
-                        >
-                          <FolderOpen className={`h-4 w-4 ${quote.status === "PENDING_APPROVAL" && userRole === "SALES_EXECUTIVE" ? "text-muted-foreground/60" : "text-yellow-600"}`} />
-                        </Button>
-                      )}
+                          {/* Download PDF directly */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-muted"
+                            title={quote.status === "PENDING_APPROVAL" && !canEdit ? "Pending Approval (Locked)" : "Download PDF"}
+                            disabled={quote.status === "PENDING_APPROVAL" && !canEdit}
+                            onClick={() => window.open(`/api/quotations/${quote.id}/pdf`, "_blank")}
+                          >
+                            {quote.status === "PENDING_APPROVAL" && !canEdit ? (
+                              <Lock className="h-4 w-4 text-muted-foreground/60" />
+                            ) : (
+                              <FileDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
 
-                      {/* Preview button - always visible for all quotations */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
+                          {/* SharePoint folder link */}
+                          {quote.sharepointUrl && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-muted"
+                              title={quote.status === "PENDING_APPROVAL" && !canEdit ? "Pending Approval (Locked)" : "Open SharePoint Folder"}
+                              disabled={quote.status === "PENDING_APPROVAL" && !canEdit}
+                              onClick={() => window.open(quote.sharepointUrl || "", "_blank")}
+                            >
+                              <FolderOpen className={`h-4 w-4 ${quote.status === "PENDING_APPROVAL" && !canEdit ? "text-muted-foreground/60" : "text-yellow-600"}`} />
+                            </Button>
+                          )}
+
+                          {/* Preview button */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
                         className="h-8 w-8 hover:bg-muted text-blue-600 hover:text-blue-700"
                         title="Preview Quotation"
                         onClick={() => window.open(`/quotations/${quote.id}/preview`, "_blank")}

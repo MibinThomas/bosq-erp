@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { usePermissions } from "@/components/providers/PermissionsProvider"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
@@ -36,32 +36,7 @@ const navItems = [
 export function Sidebar({ className, onNavClick }: { className?: string, onNavClick?: () => void }) {
   const pathname = usePathname()
   const { data: session } = useSession()
-  const [profile, setProfile] = useState<any>(null)
-
-  useEffect(() => {
-    const loadProfile = () => {
-      if (session?.user) {
-        fetch("/api/settings/access-control/profile")
-          .then(res => {
-            if (res.ok) return res.json()
-            throw new Error("Failed to load profile")
-          })
-          .then(data => {
-            if (data && data.permissions) {
-              setProfile(data)
-            }
-          })
-          .catch(err => console.error("Error loading permissions profile:", err))
-      }
-    }
-
-    loadProfile()
-
-    window.addEventListener("visibility-refresh", loadProfile)
-    return () => {
-      window.removeEventListener("visibility-refresh", loadProfile)
-    }
-  }, [session])
+  const { profile } = usePermissions()
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const userName = session?.user?.name || "IDC Consultant"
@@ -86,9 +61,7 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
       "Access Control": "ACCESS_CONTROL",
       "Settings": "SETTINGS",
     }
-    if (item.name === "BOQs" && !profile.isSuperAdmin) {
-      return false
-    }
+    // BOQs are now integrated into standard RBAC; no hardcoded block needed
 
     const moduleName = permMap[item.name]
     if (moduleName) {

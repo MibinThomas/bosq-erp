@@ -137,6 +137,16 @@ export default function AccessControlPage() {
     clientAssignments: [] as string[]
   })
 
+  // Add User State
+  const [showAddUserModal, setShowAddUserModal] = useState(false)
+  const [newUserName, setNewUserName] = useState("")
+  const [newUserEmail, setNewUserEmail] = useState("")
+  const [newUserPassword, setNewUserPassword] = useState("")
+  const [newUserPhone, setNewUserPhone] = useState("")
+  const [newUserDepartment, setNewUserDepartment] = useState("")
+  const [newUserRole, setNewUserRole] = useState("")
+  const [addingUser, setAddingUser] = useState(false)
+
   // Transfer client state
   const [transferModal, setTransferModal] = useState({
     isOpen: false,
@@ -335,6 +345,52 @@ export default function AccessControlPage() {
     }
   }
 
+  // Handle adding new user profile
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newUserRole) {
+      toast.error("Please select a system role")
+      return
+    }
+    if (!newUserName || !newUserEmail || !newUserPassword || !newUserPhone) {
+      toast.error("Name, email, password, and contact number are required")
+      return
+    }
+    setAddingUser(true)
+    try {
+      const res = await fetch("/api/settings/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newUserName,
+          email: newUserEmail,
+          password: newUserPassword,
+          role: newUserRole,
+          phone: newUserPhone,
+          department: newUserDepartment
+        })
+      })
+
+      if (res.ok) {
+        toast.success(`User ${newUserName} added successfully!`)
+        setShowAddUserModal(false)
+        setNewUserName("")
+        setNewUserEmail("")
+        setNewUserPassword("")
+        setNewUserPhone("")
+        setNewUserDepartment("")
+        fetchData()
+      } else {
+        const errData = await res.json()
+        toast.error(errData.error || "Failed to create user account")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Connection failed")
+    } finally {
+      setAddingUser(false)
+    }
+  }
 
   // Update user profile info & client assignments
   const handleSaveUserProfile = async (e: React.FormEvent) => {
@@ -1022,8 +1078,16 @@ export default function AccessControlPage() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* User selection panel */}
           <div className="lg:col-span-1 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">User Accounts</h3>
+              <button
+                onClick={() => setShowAddUserModal(true)}
+                className="inline-flex items-center justify-center gap-1 bg-amber-600 hover:bg-amber-700 text-white rounded px-2 py-1 text-[10px] font-bold"
+              >
+                <Plus size={10} /> Add
+              </button>
+            </div>
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">User Accounts</h3>
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
                 <input
@@ -1826,6 +1890,107 @@ export default function AccessControlPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-250">
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 border dark:border-zinc-800 text-zinc-900 dark:text-white shadow-2xl rounded-xl overflow-hidden">
+            <div className="border-b dark:border-zinc-800 p-4">
+              <h3 className="text-lg font-bold">Add User Account</h3>
+              <p className="text-xs text-zinc-500">Create new credentials to access BOSQ ERP.</p>
+            </div>
+            <form onSubmit={handleAddUser}>
+              <div className="p-6 space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="newName" className="text-xs font-semibold text-zinc-500">Full Name</label>
+                  <input 
+                    id="newName"
+                    placeholder="e.g. Alice Smith"
+                    value={newUserName}
+                    onChange={(e) => setNewUserName(e.target.value)}
+                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="newEmail" className="text-xs font-semibold text-zinc-500">Corporate Email</label>
+                  <input 
+                    id="newEmail"
+                    type="email"
+                    placeholder="e.g. alice@bosq.ae"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="newPass" className="text-xs font-semibold text-zinc-500">Initial Password</label>
+                  <input 
+                    id="newPass"
+                    type="password"
+                    placeholder="Minimum 8 characters"
+                    value={newUserPassword}
+                    onChange={(e) => setNewUserPassword(e.target.value)}
+                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="newPhone" className="text-xs font-semibold text-zinc-500">Contact Number</label>
+                  <input 
+                    id="newPhone"
+                    type="tel"
+                    placeholder="+971 XXXXXXXX"
+                    value={newUserPhone}
+                    onChange={(e) => setNewUserPhone(e.target.value)}
+                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="newDepartment" className="text-xs font-semibold text-zinc-500">Department (Optional)</label>
+                  <input 
+                    id="newDepartment"
+                    type="text"
+                    placeholder="e.g. Sales"
+                    value={newUserDepartment}
+                    onChange={(e) => setNewUserDepartment(e.target.value)}
+                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="newRole" className="text-xs font-semibold text-zinc-500">System Role</label>
+                  <select 
+                    id="newRole"
+                    value={newUserRole}
+                    onChange={(e) => setNewUserRole(e.target.value)}
+                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
+                    required
+                  >
+                    <option value="" disabled>-- Select System Role --</option>
+                    {roles.map((r: any) => {
+                      return (
+                        <option key={r.id} value={r.name}>
+                          {getRoleDisplayName(r.name)}
+                        </option>
+                      )
+                    })}
+                  </select>
+                </div>
+              </div>
+              <div className="p-4 border-t dark:border-zinc-800 flex justify-end gap-3 bg-zinc-50 dark:bg-zinc-900/50">
+                <button type="button" onClick={() => setShowAddUserModal(false)} className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                  Cancel
+                </button>
+                <button type="submit" className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center gap-2 text-xs font-semibold" disabled={addingUser}>
+                  {addingUser ? "Adding..." : "Create Account"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

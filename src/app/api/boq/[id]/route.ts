@@ -16,10 +16,7 @@ export async function GET(
     }
     const userId = (session.user as any).id
 
-    // Phase 1 BOQ Rule: strictly limit to SUPER_ADMIN
-    if ((session.user as any).role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Forbidden: Only Super Admin can access BOQs during Phase 1" }, { status: 403 })
-    }
+    // Phase 1 block removed, RBAC will handle permissions
 
     const canView = await hasPermission(userId, "BOQS", "view")
     if (!canView) {
@@ -87,10 +84,7 @@ export async function PUT(
     }
     const userId = (session.user as any).id
 
-    // Phase 1 BOQ Rule: strictly limit to SUPER_ADMIN
-    if ((session.user as any).role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Forbidden: Only Super Admin can access BOQs during Phase 1" }, { status: 403 })
-    }
+    // Phase 1 block removed, RBAC will handle permissions
 
     const canEdit = await hasPermission(userId, "BOQS", "edit")
     if (!canEdit) {
@@ -250,10 +244,7 @@ export async function DELETE(
     }
     const userId = (session.user as any).id
 
-    // Phase 1 BOQ Rule: strictly limit to SUPER_ADMIN
-    if ((session.user as any).role !== "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Forbidden: Only Super Admin can access BOQs during Phase 1" }, { status: 403 })
-    }
+    // Phase 1 block removed, RBAC will handle permissions
 
     const canDelete = await hasPermission(userId, "BOQS", "delete")
     if (!canDelete) {

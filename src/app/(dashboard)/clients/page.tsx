@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Plus, Search, MoreHorizontal, Loader2, Folder, FileSpreadsheet, Edit, Trash2, Check, X, Eye } from "lucide-react"
+import { usePermissions } from "@/components/providers/PermissionsProvider"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -58,11 +59,12 @@ export default function ClientsPage() {
   const router = useRouter()
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
-  const isSuperAdmin = userRole === "SUPER_ADMIN"
-
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission("CLIENTS", "create")
+  const canBulkUpload = hasPermission("CLIENTS", "uploadFiles")
+  const canManageCategory = hasPermission("CLIENTS", "manage")
+  
   const [clients, setClients] = useState<Client[]>([])
-  const [userPermissions, setUserPermissions] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isBulkOpen, setIsBulkOpen] = useState(false)
@@ -96,21 +98,13 @@ export default function ClientsPage() {
 
   useEffect(() => {
     fetchClients()
-    fetch("/api/users/me/permissions")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.permissions) {
-          setUserPermissions(data.permissions.CLIENTS || {})
-        }
-      })
-      .catch(err => console.error("Failed to load permissions", err))
   }, [])
 
-  const canCreate = isSuperAdmin || (userPermissions ? userPermissions.create === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole))
-  const canBulkUpload = isSuperAdmin || (userPermissions ? userPermissions.uploadFiles === true : (userRole === "MANAGER" || userRole === "SALES_MANAGER" ? false : ["ADMIN", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole)))
+  // Admin-level functions still require SUPER_ADMIN or manage permissions for bulk reassign
+  const isSuperAdmin = hasPermission("SETTINGS", "manage") // using settings manage as proxy or just rely on hasPermission
 
   useEffect(() => {
-    if (isSuperAdmin) {
+    if (hasPermission("USER_MANAGEMENT", "view") || userRole === "SUPER_ADMIN") {
       fetch("/api/settings/users")
         .then(res => {
           if (res.ok) return res.json()

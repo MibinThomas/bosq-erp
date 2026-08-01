@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Plus, Trash2, Save, Send, CheckCircle, FileText, ArrowLeft, Loader2, Download, Search, Upload, X } from "lucide-react"
+import { usePermissions } from "@/components/providers/PermissionsProvider"
 import Link from "next/link"
 import { toast } from "sonner"
 
@@ -50,13 +51,16 @@ export default function BoqBuilderPage() {
   
   const { data: session, status: sessionStatus } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isIDC = userRole === "SALES_EXECUTIVE" || userRole === "SALES_MANAGER" || userRole === "MANAGER" || userRole === "ADMIN" || userRole === "SUPER_ADMIN"
-  const isEstimator = userRole === "ESTIMATOR"
+  
+  const { hasPermission, loading: permsLoading } = usePermissions()
+  const canCreate = hasPermission("BOQS", "create")
+  const canEdit = hasPermission("BOQS", "edit")
+  const canApprove = hasPermission("BOQS", "approve")
+  const isIDC = canCreate || canEdit // Consultants prepare BOQs
+  const isEstimator = canApprove || userRole === "ESTIMATOR" // Estimators handle costing
 
   useEffect(() => {
-    if (sessionStatus === "authenticated" && userRole !== "SUPER_ADMIN") {
-      router.push("/dashboard")
-    }
+    // BOQ now relies on standard RBAC. 
   }, [sessionStatus, userRole, router])
 
   const [loading, setLoading] = useState(!isNew)
@@ -75,7 +79,7 @@ export default function BoqBuilderPage() {
   const isSentToEstimator = status === "SENT_TO_ESTIMATOR" || status === "PENDING_COSTING"
   const isCostingCompleted = status === "COSTING_COMPLETED"
   
-  let canEditPricing = userRole === "SUPER_ADMIN"
+  let canEditPricing = canEdit || canCreate
   const [termsConditions, setTermsConditions] = useState("Design Approval & Client Responsibility\n\nAll final design approvals—including but not limited to dimensions, materials, colors, layouts, and product specifications—are the sole responsibility of the client. BOSQ provides detailed quotations and design documentation for client review and confirmation prior to production.")
 
   // Clients list for dropdown
@@ -449,11 +453,11 @@ export default function BoqBuilderPage() {
     }
   }
 
-  if (loading) {
+  if (loading || permsLoading) {
     return <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
   }
 
-  const canEditCosting = isEstimator || userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
+  const canEditCosting = canApprove || userRole === "ESTIMATOR" || userRole === "SUPER_ADMIN"
 
 
   return (

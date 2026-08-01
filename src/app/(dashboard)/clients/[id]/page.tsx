@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
+import { usePermissions } from "@/components/providers/PermissionsProvider"
 import {
   ArrowLeft,
   Building2,
@@ -200,19 +201,12 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     if (clientId) fetchClient()
-    fetch("/api/users/me/permissions")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.permissions) {
-          setUserPermissions(data.permissions.CLIENTS || {})
-        }
-      })
-      .catch(err => console.error("Failed to load permissions", err))
   }, [clientId, fetchClient])
 
-  const isSuperAdmin = userRole === "SUPER_ADMIN"
-  const canEdit = isSuperAdmin || (userPermissions ? userPermissions.edit === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole))
-  const canApprove = isSuperAdmin || (userPermissions ? userPermissions.approve === true : ["ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole))
+  const { hasPermission } = usePermissions()
+  const isSuperAdmin = hasPermission("SETTINGS", "manage") // proxy
+  const canEdit = hasPermission("CLIENTS", "edit")
+  const canApprove = hasPermission("CLIENTS", "approve")
 
   // ── Lazy load BOQs when tab selected ──────────────────────────────────────
   useEffect(() => {
@@ -510,7 +504,7 @@ export default function ClientDetailPage() {
                   </div>
                 )}
 
-                {(userRole === "SUPER_ADMIN" || userRole === "ADMIN") && (
+                {canApprove && (
                   <Button 
                     variant="outline" 
                     className="w-full text-xs font-semibold mt-2" 

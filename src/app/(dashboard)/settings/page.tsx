@@ -715,10 +715,7 @@ export default function SettingsPage() {
             <Tag className="h-4 w-4" />
             Pricing Margins
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
-            <Users className="h-4 w-4" />
-            Users Console
-          </TabsTrigger>
+
           <TabsTrigger value="terms" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
             <FileText className="h-4 w-4" />
             Default Terms

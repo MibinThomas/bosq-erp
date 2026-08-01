@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Loader2, Save, Building2, User, Mail, Phone, MapPin, FileText, Hash, UploadCloud, X, FileIcon } from "lucide-react"
 import { useSession } from "next-auth/react"
+import { usePermissions } from "@/components/providers/PermissionsProvider"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,9 +27,9 @@ function ClientFormContent() {
   
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isSuperAdmin = userRole === "SUPER_ADMIN"
-  const [userPermissions, setUserPermissions] = useState<any>(null)
-  const [loadingPerms, setLoadingPerms] = useState(true)
+  const { hasPermission, loading: loadingPerms } = usePermissions()
+  const canCreate = hasPermission("CLIENTS", "create")
+  const canEdit = hasPermission("CLIENTS", "edit")
 
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(!!editId)
@@ -46,20 +47,7 @@ function ClientFormContent() {
   const [documents, setDocuments] = useState<{ file: File; title: string; documentType: string }[]>([])
   const [docUploadProgress, setDocUploadProgress] = useState<{ current: number; total: number } | null>(null)
 
-  useEffect(() => {
-    fetch("/api/users/me/permissions")
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.permissions) {
-          setUserPermissions(data.permissions.CLIENTS || {})
-        }
-        setLoadingPerms(false)
-      })
-      .catch(err => {
-        console.error("Failed to load permissions", err)
-        setLoadingPerms(false)
-      })
-  }, [])
+
 
   useEffect(() => {
     if (editId) {
@@ -172,9 +160,6 @@ function ClientFormContent() {
   const removeDocument = (index: number) => {
     setDocuments(prev => prev.filter((_, i) => i !== index))
   }
-
-  const canCreate = isSuperAdmin || (userPermissions ? userPermissions.create === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole))
-  const canEdit = isSuperAdmin || (userPermissions ? userPermissions.edit === true : ["ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole))
 
   if (loadingPerms || loading) {
     return (

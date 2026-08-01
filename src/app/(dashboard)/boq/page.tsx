@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Plus, Search, Loader2, Edit, FileText, ArrowRightCircle, Trash2 } from "lucide-react"
+import { Search, Plus, FileText, ChevronDown, Download, Filter, Trash2, ShieldAlert, Loader2, Edit, ArrowRightCircle } from "lucide-react"
+import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 
@@ -37,11 +38,13 @@ export default function BoqDashboard() {
   const router = useRouter()
   const { data: session, status: sessionStatus } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const { hasPermission } = usePermissions()
+  const canDelete = hasPermission("BOQS", "delete")
   
   useEffect(() => {
-    if (sessionStatus === "authenticated" && userRole !== "SUPER_ADMIN") {
-      router.push("/dashboard")
-    }
+    // BOQ now relies on standard RBAC. 
+    // Usually an unauthorized user wouldn't see the link, 
+    // but if they navigate directly, API checks will protect data.
   }, [sessionStatus, userRole, router])
 
   const [boqs, setBoqs] = useState<Boq[]>([])
@@ -172,7 +175,7 @@ export default function BoqDashboard() {
         >
           Templates
         </Button>
-        {userRole === "ADMIN" && selectedBoqs.length > 0 && (
+        {canDelete && selectedBoqs.length > 0 && (
           <Button 
             variant="destructive" 
             onClick={handleDeleteSelected}
@@ -216,7 +219,7 @@ export default function BoqDashboard() {
             <Table className="min-w-[800px]">
               <TableHeader className="bg-muted/50">
               <TableRow>
-                {userRole === "ADMIN" && (
+                {canDelete && (
                   <TableHead className="w-12">
                     <Checkbox 
                       checked={selectedBoqs.length === filteredBoqs.length && filteredBoqs.length > 0}
@@ -237,7 +240,7 @@ export default function BoqDashboard() {
             <TableBody>
               {filteredBoqs.map((boq) => (
                 <TableRow key={boq.id} className="hover:bg-muted/30 transition-colors">
-                  {userRole === "ADMIN" && (
+                  {canDelete && (
                     <TableCell>
                       <Checkbox 
                         checked={selectedBoqs.includes(boq.id)}
