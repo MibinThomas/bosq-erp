@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import {
-  Upload, Download, Plus, Search, Trash2, Edit, AlertCircle, FileSpreadsheet, PackageOpen, LayoutGrid, List, CheckCircle2, MoreVertical, X, Filter, FolderPlus, Tag, Boxes, LayoutDashboard, Copy
+  Upload, Download, Plus, Search, Trash2, Edit, AlertCircle, FileSpreadsheet, PackageOpen, LayoutGrid, List, CheckCircle2, MoreVertical, X, Filter, FolderPlus, Tag, Boxes, LayoutDashboard, Copy, MoreHorizontal
 } from "lucide-react"
 import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { useRouter } from "next/navigation"
@@ -37,7 +37,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2 } from "lucide-react"
+import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2, ChevronRight, UserPlus } from "lucide-react"
 
 interface Product {
   id: string
