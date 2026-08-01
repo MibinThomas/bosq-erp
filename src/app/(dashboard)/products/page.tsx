@@ -74,6 +74,7 @@ export default function ProductsPage() {
   const canBulkUploadProduct = hasPermission("PRODUCTS", "uploadFiles")
   const canManageCategory = hasPermission("PRODUCTS", "manage")
   const hasQuoteAccess = hasPermission("PRODUCTS", "share")
+  const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isBulkOpen, setIsBulkOpen] = useState(false)
@@ -205,6 +206,25 @@ export default function ProductsPage() {
       loadClients()
     }
   }, [userRole, hasQuoteAccess])
+
+  async function fetchProducts() {
+    try {
+      setLoading(true)
+      const res = await fetch("/api/products")
+      if (!res.ok) throw new Error("Failed to fetch products")
+      const data = await res.json()
+      setProducts(data)
+    } catch (error) {
+      console.error("Failed to load products:", error)
+      toast.error("Failed to load products")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchProducts()
+  }, [])
 
   useEffect(() => {
     const cached = localStorage.getItem("quoteCart")
