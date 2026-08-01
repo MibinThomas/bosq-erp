@@ -2732,7 +2732,7 @@ function NewBOQForm() {
                                     variant="outline"
                                     size="sm"
                                     className="h-9 text-[11px] px-4 bg-background"
-                                    onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: watchItems[index]?.batchHeading || "", saveToCatalog: false })}
+                                    onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: watchItems[index]?.batchHeading || "", saveToCatalog: false, isCostingRequired: true, type: "custom", materialCost: 0, laborCost: 0, installationCost: 0, transportCost: 0, overheadCost: 0 })}
                                   >
                                     <Plus className="h-3.5 w-3.5 mr-2" />
                                     Add Custom Item
