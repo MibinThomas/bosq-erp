@@ -345,6 +345,8 @@ model BoqItem {
   product         Product?  @relation(fields: [productId], references: [id])
   
   itemNo          Int
+  type            String    @default("custom") // standard, custom
+  isCostingRequired Boolean @default(false)
   description     String
   specifications  String?
   dimensions      String?

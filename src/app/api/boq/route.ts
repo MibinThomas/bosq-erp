@@ -288,6 +288,8 @@ export async function POST(request: Request) {
 
       return {
         itemNo: idx + 1,
+        type: item.type || "custom",
+        isCostingRequired: item.isCostingRequired === true,
         productId: item.productId || null,
         description: item.description,
         specifications: item.specifications || "",

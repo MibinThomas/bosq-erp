@@ -131,19 +131,33 @@ export async function PUT(
     // For items, we will delete all old items and recreate them. 
     // In a production system, upsert is better, but this is simpler for drafts.
     
-    const boqItemsToCreate = items.map((item: any, idx: number) => {
-      const qty = parseInt(item.quantity) || 1
+    const userRole = (session.user as any).role || "SALES_EXECUTIVE"
+    const isEstimator = userRole === "ESTIMATOR"
+
+    // If estimator, they can't change the number of items or non-cost fields
+    const sourceItems = isEstimator ? existingBoq.items : items;
+
+    const boqItemsToCreate = sourceItems.map((sourceItem: any, idx: number) => {
+      // Find the corresponding incoming item if we are mapping over existing items (for estimator)
+      const incomingItem = isEstimator ? (items.find((i: any) => i.id === sourceItem.id || i.itemNo === sourceItem.itemNo) || sourceItem) : sourceItem;
+
+      // If estimator, they can only update cost fields, and ONLY if isCostingRequired is true.
+      // Otherwise, cost fields remain unchanged from the database.
+      const canEditCost = isEstimator ? sourceItem.isCostingRequired === true : true;
+
+      const qty = parseInt(isEstimator ? sourceItem.quantity : incomingItem.quantity) || 1
       
-      const mat = parseFloat(item.materialCost) || 0
-      const lab = parseFloat(item.laborCost) || 0
-      const inst = parseFloat(item.installationCost) || 0
-      const trans = parseFloat(item.transportCost) || 0
-      const ovh = parseFloat(item.overheadCost) || 0
+      const mat = canEditCost ? (parseFloat(incomingItem.materialCost) || 0) : (parseFloat(sourceItem.materialCost) || 0)
+      const lab = canEditCost ? (parseFloat(incomingItem.laborCost) || 0) : (parseFloat(sourceItem.laborCost) || 0)
+      const inst = canEditCost ? (parseFloat(incomingItem.installationCost) || 0) : (parseFloat(sourceItem.installationCost) || 0)
+      const trans = canEditCost ? (parseFloat(incomingItem.transportCost) || 0) : (parseFloat(sourceItem.transportCost) || 0)
+      const ovh = canEditCost ? (parseFloat(incomingItem.overheadCost) || 0) : (parseFloat(sourceItem.overheadCost) || 0)
       
       const unitCost = mat + lab + inst + trans + ovh
       const itemTotalCost = unitCost * qty
       
-      const margin = Math.min(99.99, parseFloat(item.marginPercentage) || 0)
+      // Margin and selling price can NEVER be edited by an Estimator
+      const margin = isEstimator ? (parseFloat(sourceItem.marginPercentage) || 0) : Math.min(99.99, parseFloat(incomingItem.marginPercentage) || 0)
       const unitSell = unitCost / (1 - (margin / 100))
       const itemTotalSell = unitSell * qty
 
@@ -157,13 +171,15 @@ export async function PUT(
 
       return {
         itemNo: idx + 1,
-        productId: item.productId || null,
-        description: item.description,
-        specifications: item.specifications || "",
-        dimensions: item.dimensions || "",
-        customImageUrl: item.customImageUrl || null,
+        type: isEstimator ? sourceItem.type : (incomingItem.type || "custom"),
+        isCostingRequired: isEstimator ? sourceItem.isCostingRequired : (incomingItem.isCostingRequired === true),
+        productId: isEstimator ? sourceItem.productId : (incomingItem.productId || null),
+        description: isEstimator ? sourceItem.description : incomingItem.description,
+        specifications: isEstimator ? sourceItem.specifications : (incomingItem.specifications || ""),
+        dimensions: isEstimator ? sourceItem.dimensions : (incomingItem.dimensions || ""),
+        customImageUrl: isEstimator ? sourceItem.customImageUrl : (incomingItem.customImageUrl || null),
         quantity: qty,
-        unit: item.unit || "Nos",
+        unit: isEstimator ? sourceItem.unit : (incomingItem.unit || "Nos"),
         materialCost: mat,
         laborCost: lab,
         installationCost: inst,
