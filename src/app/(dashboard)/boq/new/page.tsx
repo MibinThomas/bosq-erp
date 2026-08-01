@@ -192,20 +192,20 @@ export default function NewBoqPage() {
                   <FormItem className="flex flex-col">
                     <FormLabel>Client</FormLabel>
                     <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
+                      <FormControl>
+                        <PopoverTrigger render={
                           <Button
                             variant="outline"
                             role="combobox"
-                            className={cn("justify-between", !field.value && "text-muted-foreground")}
+                            className={cn("justify-between w-full", !field.value && "text-muted-foreground")}
                           >
                             {field.value
                               ? clients.find((c) => c.id === field.value)?.companyName
                               : "Select client"}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
-                        </FormControl>
-                      </PopoverTrigger>
+                        } />
+                      </FormControl>
                       <PopoverContent className="w-[400px] p-0">
                         <Command>
                           <CommandInput placeholder="Search client..." />
