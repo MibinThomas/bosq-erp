@@ -10,10 +10,6 @@ export async function GET() {
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    const canView = await hasPermission((session.user as any).id, "PRODUCTS", "view")
-    if (!canView) {
-      return NextResponse.json({ error: "Forbidden: You do not have permission to view products" }, { status: 403 })
-    }
 
     const categories = await prisma.productCategory.findMany({
       orderBy: { name: "asc" },

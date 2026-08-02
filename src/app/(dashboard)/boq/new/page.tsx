@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, Suspense, useRef } from "react"
+import React, { useState, useEffect, useMemo, Suspense, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -415,7 +415,18 @@ function NewBOQForm() {
 
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
+
+  const categoryOptions = useMemo(() => {
+    const names = new Set<string>()
+    dbCategories.forEach((c) => {
+      if (c.name) names.add(c.name)
+    })
+    const defaultCategories = ["Chairs", "Desks", "Tables", "General"]
+    defaultCategories.forEach((cat) => names.add(cat))
+    return Array.from(names)
+  }, [dbCategories])
   const [submitting, setSubmitting] = useState(false)
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
   const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false)
@@ -580,13 +591,18 @@ function NewBOQForm() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [clientsRes, productsRes] = await Promise.all([
+        const [clientsRes, productsRes, categoriesRes] = await Promise.all([
           fetch("/api/clients?all=true"),
           fetch("/api/products"),
+          fetch("/api/products/categories"),
         ])
         if (!clientsRes.ok || !productsRes.ok) throw new Error("Failed to load catalog data")
         const clientsData = await clientsRes.json()
         const productsData = await productsRes.json()
+        if (categoriesRes.ok) {
+          const categoriesData = await categoriesRes.json()
+          if (Array.isArray(categoriesData)) setDbCategories(categoriesData)
+        }
 
         setClients(clientsData)
         setProducts(productsData)
@@ -633,15 +649,42 @@ function NewBOQForm() {
               paymentTerms: activeData.paymentTerms || "50% Advance, 50% on Delivery",
               items: activeData.items.map((item: any) => {
                 const marginVal = item.margin || 0
-                const basePriceVal = item.unitPrice * (1 - marginVal / 100)
+                const loadedBase = (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== 0)
+                  ? item.basePrice
+                  : Number((item.unitPrice * (1 - marginVal / 100)).toFixed(2))
+
+                let resolvedPriceSource = item.priceSource
+                if (!resolvedPriceSource) {
+                  if (!item.productId) {
+                    resolvedPriceSource = "manual"
+                  } else {
+                    const matchedProd = productsData.find((p: any) => p.id === item.productId)
+                    if (matchedProd) {
+                      let segPrice = matchedProd.unitPrice
+                      if (activeData.customerSegment === "Interior") segPrice = matchedProd.interiorPrice ?? matchedProd.unitPrice
+                      else if (activeData.customerSegment === "Dealer") segPrice = matchedProd.dealerPrice ?? matchedProd.unitPrice
+                      else if (activeData.customerSegment === "Project") segPrice = matchedProd.projectPrice ?? matchedProd.unitPrice
+                      else if (activeData.customerSegment === "Special") segPrice = matchedProd.specialPrice ?? matchedProd.unitPrice
+
+                      if (Math.abs(loadedBase - segPrice) > 0.05) {
+                        resolvedPriceSource = "manual"
+                      } else {
+                        resolvedPriceSource = "standard"
+                      }
+                    } else {
+                      resolvedPriceSource = "manual"
+                    }
+                  }
+                }
+
                 return {
                   productId: item.productId || "",
-                  priceSource: item.productId ? "standard" : "manual",
+                  priceSource: resolvedPriceSource,
                   description: item.description,
                   specifications: item.specifications || "",
                   productNotes: item.productNotes || "",
                   quantity: item.quantity,
-                  basePrice: Number(basePriceVal.toFixed(2)),
+                  basePrice: loadedBase,
                   unitPrice: item.unitPrice,
                   discount: item.unitPrice > 0 ? Number(((item.discount || 0) / item.unitPrice * 100).toFixed(2)) : 0,
                   margin: marginVal,
@@ -706,7 +749,7 @@ function NewBOQForm() {
           paymentTerms: "50% Advance, 50% on Delivery",
           items: data.items.map((item: any) => ({
             productId: item.productId || "",
-            priceSource: item.productId ? "standard" : "manual",
+            priceSource: item.priceSource || (item.productId ? "standard" : "manual"),
             description: item.description,
             specifications: item.specifications || "",
             productNotes: "",
@@ -2403,11 +2446,11 @@ function NewBOQForm() {
                                           <Select
                                             onValueChange={(val) => {
                                               field.onChange(val)
-                                              if (val !== "Chairs") {
+                                              if (val?.toLowerCase() !== "chairs" && val?.toLowerCase() !== "chair") {
                                                 form.setValue(`items.${index}.chairType`, "")
                                               }
                                             }}
-                                            value={field.value || "Chairs"}
+                                            value={field.value || (categoryOptions[0] || "Chairs")}
                                           >
                                             <FormControl>
                                               <SelectTrigger className="bg-muted/10 focus:bg-background">
@@ -2415,10 +2458,16 @@ function NewBOQForm() {
                                               </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
-                                              <SelectItem value="Chairs">Chairs</SelectItem>
-                                              <SelectItem value="Desks">Desks</SelectItem>
-                                              <SelectItem value="Tables">Tables</SelectItem>
-                                              <SelectItem value="General">General / Other</SelectItem>
+                                              {categoryOptions.map((catName) => (
+                                                <SelectItem key={catName} value={catName}>
+                                                  {catName === "General" ? "General / Other" : catName}
+                                                </SelectItem>
+                                              ))}
+                                              {field.value && !categoryOptions.includes(field.value) && (
+                                                <SelectItem key={field.value} value={field.value}>
+                                                  {field.value}
+                                                </SelectItem>
+                                              )}
                                             </SelectContent>
                                           </Select>
                                           <FormMessage />
@@ -2426,7 +2475,7 @@ function NewBOQForm() {
                                       )}
                                     />
 
-                                    {watchItems[index]?.categoryName === "Chairs" && (
+                                    {(watchItems[index]?.categoryName?.toLowerCase() === "chairs" || watchItems[index]?.categoryName?.toLowerCase() === "chair") && (
                                       <FormField
                                         control={form.control}
                                         name={`items.${index}.chairType`}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X, Loader2, Sparkles, Image as ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,7 +33,19 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
   const [name, setName] = useState("")
   const [code, setCode] = useState("")
   const [categoryName, setCategoryName] = useState("Chairs")
+  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string }[]>([])
   const [price, setPrice] = useState("")
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch("/api/products/categories")
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) setCategoriesList(data)
+        })
+        .catch(console.error)
+    }
+  }, [isOpen])
   const [warranty, setWarranty] = useState("5 Years")
   const [description, setDescription] = useState("")
   const [specifications, setSpecifications] = useState("")
@@ -252,11 +264,17 @@ export function QuickAddProductModal({ isOpen, onClose, onSuccess, userRole }: Q
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold">Category <span className="text-destructive">*</span></label>
                   <Input 
+                    list="quick-add-categories-list"
                     value={categoryName} 
                     onChange={(e) => setCategoryName(e.target.value)} 
                     placeholder="E.g., Chairs, Desks"
                     required 
                   />
+                  <datalist id="quick-add-categories-list">
+                    {categoriesList.map((cat) => (
+                      <option key={cat.id || cat.name} value={cat.name} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
             )}
