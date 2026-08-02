@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
 
   // Terms and Conditions Card
   termsCard: {
-    marginTop: 12,
+    marginTop: 8,
     backgroundColor: colors.white,
     borderRadius: 6,
     padding: 16,
@@ -805,7 +805,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         
         {/* Dynamic Top Margin & Padding (Replaces page paddingTop) */}
         <View fixed render={({ pageNumber }) => (
-          <View style={{ paddingTop: 45, paddingBottom: pageNumber > 1 ? 16 : 0, width: "100%" }}>
+          <View style={{ paddingTop: 36, paddingBottom: pageNumber > 1 ? 4 : 0, width: "100%" }}>
             {pageNumber > 1 && <View style={{ borderTopWidth: 1, borderTopColor: colors.lineColor }} />}
           </View>
         )} />
@@ -1113,7 +1113,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         })}
 
         {/* Financial Summary Box & Company Bank Details */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "stretch", marginTop: 20 }} wrap={false}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "stretch", marginTop: 6 }} wrap={false}>
           <View style={[styles.financialBox, { marginTop: 0, width: "48%", alignSelf: "stretch", display: "flex", flexDirection: "column" }]}>
             <View style={styles.financialHeader}>
               <Text style={styles.financialTitle}>Company Bank Details</Text>
@@ -1204,7 +1204,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Disclaimers Section */}
         {disclaimer && disclaimer.trim().length > 0 && (
-          <View style={[styles.termsCard, { marginTop: 14, backgroundColor: "#FAFBFD", borderColor: "#CBD5E1", padding: 14 }]} wrap={false}>
+          <View style={[styles.termsCard, { marginTop: 8, backgroundColor: "#FAFBFD", borderColor: "#CBD5E1", padding: 12 }]} wrap={false}>
             <Text style={styles.termsTitle}>{disclaimerTitle || "Disclaimers"}</Text>
             {renderFormattedDisclaimer(disclaimer)}
           </View>
