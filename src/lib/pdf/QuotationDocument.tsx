@@ -481,6 +481,74 @@ export interface QuotationPdfProps {
   status?: string | null
 }
 
+function parseFormattedInlineText(text: string) {
+  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|__.*?__)/g)
+  return parts.map((part, index) => {
+    if ((part.startsWith("**") && part.endsWith("**")) || (part.startsWith("__") && part.endsWith("__"))) {
+      return (
+        <Text key={index} style={{ fontWeight: "bold", color: colors.primary }}>
+          {part.slice(2, -2)}
+        </Text>
+      )
+    }
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return (
+        <Text key={index} style={{ fontStyle: "italic" }}>
+          {part.slice(1, -1)}
+        </Text>
+      )
+    }
+    return <Text key={index}>{part}</Text>
+  })
+}
+
+function renderFormattedDisclaimer(disclaimerText: string) {
+  if (!disclaimerText) return null
+  const paragraphs = disclaimerText.split(/\n\s*\n/)
+
+  return paragraphs.map((para, pIdx) => {
+    const lines = para.split("\n").map(l => l.trim()).filter(Boolean)
+
+    return (
+      <View key={`para-${pIdx}`} style={{ marginBottom: pIdx === paragraphs.length - 1 ? 0 : 8 }}>
+        {lines.map((line, lIdx) => {
+          const isHeading = line.startsWith("#") || line.startsWith("##") || line.startsWith("###") ||
+            (line.startsWith("**") && line.endsWith("**") && line.length < 80)
+
+          if (isHeading) {
+            const cleanHeading = line.replace(/^[#\*\_\s]+|[#\*\_\s]+$/g, "")
+            return (
+              <Text key={`line-${lIdx}`} style={{ fontSize: 8.5, fontWeight: "bold", color: colors.primary, marginTop: lIdx > 0 ? 6 : 0, marginBottom: 4 }}>
+                {cleanHeading}
+              </Text>
+            )
+          }
+
+          const isBullet = line.startsWith("•") || line.startsWith("- ") || line.startsWith("* ") || /^\d+\.\s/.test(line)
+          if (isBullet) {
+            const bulletChar = line.startsWith("•") ? "•" : line.startsWith("- ") ? "•" : line.startsWith("* ") ? "•" : line.match(/^\d+\./)?.[0] || "•"
+            const content = line.replace(/^([•\-\*]|\d+\.)\s*/, "")
+            return (
+              <View key={`line-${lIdx}`} style={{ flexDirection: "row", marginTop: 2, paddingLeft: 4 }}>
+                <Text style={{ fontSize: 7.5, fontWeight: "bold", color: colors.primary, width: 12 }}>{bulletChar}</Text>
+                <Text style={{ fontSize: 7.5, color: colors.secondary, lineHeight: 1.45, flex: 1 }}>
+                  {parseFormattedInlineText(content)}
+                </Text>
+              </View>
+            )
+          }
+
+          return (
+            <Text key={`line-${lIdx}`} style={{ fontSize: 7.5, color: colors.secondary, lineHeight: 1.45, marginBottom: lIdx === lines.length - 1 ? 0 : 3 }}>
+              {parseFormattedInlineText(line)}
+            </Text>
+          )
+        })}
+      </View>
+    )
+  })
+}
+
 export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationPdfItem[] }> = ({
   quotationNumber,
   date,
@@ -1044,18 +1112,18 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Financial Summary Box & Company Bank Details */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "stretch", marginTop: 20 }} wrap={false}>
-          <View style={[styles.financialBox, { marginTop: 0, width: "47%" }]}>
+          <View style={[styles.financialBox, { marginTop: 0, width: "48%", alignSelf: "stretch", display: "flex", flexDirection: "column" }]}>
             <View style={styles.financialHeader}>
               <Text style={styles.financialTitle}>Company Bank Details</Text>
             </View>
-            <View style={{ padding: 6 }}>
-              <Text style={{ fontSize: 7.5, color: colors.secondary, lineHeight: 1.45 }}>
+            <View style={{ paddingVertical: 10, paddingHorizontal: 14, flex: 1, justifyContent: "center", backgroundColor: colors.white }}>
+              <Text style={{ fontSize: 8, color: colors.primary, lineHeight: 1.55 }}>
                 {bankDetails || "Bank Name: Emirates NBD\nAccount Name: BOSQ OFFICE FURNITURE TRADING LLC\nAccount No: 10158492048201\nIBAN: AE28020000010158492048201\nSWIFT / BIC: EBILAEADXXX\nBranch: Dubai Main Branch, UAE"}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.financialBox, { marginTop: 0, width: "50%", alignSelf: "auto" }]}>
+          <View style={[styles.financialBox, { marginTop: 0, width: "49%", alignSelf: "stretch", display: "flex", flexDirection: "column" }]}>
             <View style={styles.financialHeader}>
               <Text style={styles.financialTitle}>Cost Breakdown</Text>
             </View>
@@ -1134,11 +1202,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Disclaimers Section */}
         {disclaimer && disclaimer.trim().length > 0 && (
-          <View style={[styles.termsCard, { marginTop: 12, backgroundColor: "#FAFBFD", borderColor: "#CBD5E1" }]} wrap={false}>
-            <Text style={[styles.termsTitle, { color: colors.secondary }]}>Disclaimers</Text>
-            <Text style={{ fontSize: 7.5, color: colors.secondary, lineHeight: 1.45, marginTop: 4 }}>
-              {disclaimer}
-            </Text>
+          <View style={[styles.termsCard, { marginTop: 14, backgroundColor: "#FAFBFD", borderColor: "#CBD5E1", padding: 14 }]} wrap={false}>
+            <Text style={styles.termsTitle}>Disclaimers</Text>
+            {renderFormattedDisclaimer(disclaimer)}
           </View>
         )}
 
