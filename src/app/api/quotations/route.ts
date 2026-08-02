@@ -217,6 +217,7 @@ export async function POST(request: Request) {
       vatMode,
       additionalCharges,
       disclaimer,
+      disclaimerTitle,
     } = body
 
     if (!clientId || !items || items.length === 0 || !paymentTerms) {
@@ -566,6 +567,7 @@ export async function POST(request: Request) {
       "company_address",
       "company_trn",
       "company_bank_details",
+      "company_disclaimer_title",
       "company_disclaimer",
     ])
 
@@ -604,6 +606,7 @@ export async function POST(request: Request) {
       watermarkUrl: watermarkBase64 || null,
       promotionalImageUrl: promotionalImageBase64,
       bankDetails: companySettings.company_bank_details || null,
+      disclaimerTitle: disclaimerTitle || companySettings.company_disclaimer_title || "Disclaimers",
       disclaimer: disclaimer || companySettings.company_disclaimer || null,
       clientId: clientObj.clientId || null,
       items: quotationItemsToCreate,
@@ -674,6 +677,7 @@ export async function POST(request: Request) {
         additionalCharges: parsedAdditionalCharges as any,
         sharepointUrl,
         notes: notes || null,
+        disclaimerTitle: disclaimerTitle || null,
         disclaimer: disclaimer || null,
         salesAgentId: salesAgentId || null,
         salesAgentName: salesAgentName || null,

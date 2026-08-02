@@ -65,6 +65,7 @@ const quotationSchema = z.object({
   salesAgentContactNumber: z.string().optional(),
   deliveryCharge: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Delivery charge must be at least 0"),
   notes: z.string().optional(),
+  disclaimerTitle: z.string().optional(),
   disclaimer: z.string().optional(),
   items: z.array(
     z.object({
@@ -593,9 +594,11 @@ function NewQuotationForm() {
         if (!clientsRes.ok || !productsRes.ok) throw new Error("Failed to load catalog data")
         const clientsData = await clientsRes.json()
         const productsData = await productsRes.json()
+        let sysDisclaimerTitle = "Disclaimers"
         let sysDisclaimer = ""
         if (settingsRes.ok) {
           const sysData = await settingsRes.json()
+          sysDisclaimerTitle = sysData.company_disclaimer_title || "Disclaimers"
           sysDisclaimer = sysData.company_disclaimer || ""
         }
         if (categoriesRes.ok) {
@@ -698,6 +701,7 @@ function NewQuotationForm() {
               }),
               deliveryCharge: activeData.deliveryCharge || 0,
               notes: activeData.notes || "",
+              disclaimerTitle: activeData.disclaimerTitle || sysDisclaimerTitle,
               disclaimer: activeData.disclaimer || sysDisclaimer,
               vatMode: activeData.vatMode || "EXCLUDING",
               specialDiscountType: activeData.specialDiscountType || null,
@@ -706,8 +710,9 @@ function NewQuotationForm() {
               additionalCharges: activeData.additionalCharges || [{ name: "", amount: "" }],
             })
           }
-        } else if (sysDisclaimer) {
-          form.setValue("disclaimer", sysDisclaimer)
+        } else {
+          if (sysDisclaimerTitle) form.setValue("disclaimerTitle", sysDisclaimerTitle)
+          if (sysDisclaimer) form.setValue("disclaimer", sysDisclaimer)
         }
       } catch (error) {
         console.error("Error loading form options:", error)
@@ -3388,27 +3393,53 @@ function NewQuotationForm() {
 
                 {/* Quotation Disclaimers Section */}
                 <div className="w-full space-y-3">
-                  <h4 className="text-sm font-semibold text-foreground tracking-wider uppercase border-b pb-2 flex items-center justify-between">
-                    <span>Quotation Disclaimers</span>
-                    <span className="text-[11px] text-muted-foreground font-normal normal-case">Appears above Terms & Conditions on exported PDF</span>
-                  </h4>
-                  <FormField
-                    control={form.control}
-                    name="disclaimer"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Textarea
-                            rows={3}
-                            placeholder="Enter quotation disclaimers..."
-                            className="bg-card border-muted-foreground/20 text-xs font-normal focus:border-primary resize-y"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h4 className="text-sm font-semibold text-foreground tracking-wider uppercase">
+                      Quotation Disclaimers
+                    </h4>
+                    <span className="text-[11px] text-muted-foreground font-normal">Appears above Terms & Conditions on exported PDF (Leave content empty to omit section)</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-1">
+                      <FormField
+                        control={form.control}
+                        name="disclaimerTitle"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-foreground">Section Heading / Title</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="e.g. Disclaimers, Special Notes"
+                                className="bg-card border-muted-foreground/20 text-xs h-9"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FormField
+                        control={form.control}
+                        name="disclaimer"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-foreground">Disclaimer Content (Optional)</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                rows={3}
+                                placeholder="Enter disclaimers... Leave empty if no disclaimers should appear"
+                                className="bg-card border-muted-foreground/20 text-xs font-normal focus:border-primary resize-y"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* 2. Bottom Row: Additional Costs & Calculation Breakdown */}

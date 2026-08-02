@@ -86,6 +86,7 @@ export default function SettingsPage() {
   const [watermarkLogo, setWatermarkLogo] = useState("")
   const [promotionalImage, setPromotionalImage] = useState("")
   const [bankDetails, setBankDetails] = useState("")
+  const [disclaimerTitle, setDisclaimerTitle] = useState("Disclaimers")
   const [disclaimer, setDisclaimer] = useState("")
   const [quotationSequence, setQuotationSequence] = useState<number | "">("")
   const [savingSequence, setSavingSequence] = useState(false)
@@ -305,6 +306,7 @@ export default function SettingsPage() {
         setWatermarkLogo(data.quotation_watermark_logo || "")
         setPromotionalImage(data.quotation_promotional_image || "")
         setBankDetails(data.company_bank_details || "")
+        setDisclaimerTitle(data.company_disclaimer_title || "Disclaimers")
         setDisclaimer(data.company_disclaimer || "")
       }
     } catch (err) {
@@ -428,6 +430,7 @@ export default function SettingsPage() {
           quotation_watermark_logo: watermarkLogo,
           quotation_promotional_image: promotionalImage,
           company_bank_details: bankDetails,
+          company_disclaimer_title: disclaimerTitle,
           company_disclaimer: disclaimer,
         })
       })
@@ -931,15 +934,30 @@ export default function SettingsPage() {
                           <Label className="text-sm font-semibold text-slate-200">Default Quotation Disclaimers</Label>
                           <span className="text-[10px] text-orange-400 font-medium">Appears above Terms & Conditions</span>
                         </div>
-                        <Textarea
-                          rows={4}
-                          value={disclaimer}
-                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDisclaimer(e.target.value)}
-                          placeholder="Enter default quotation disclaimers..."
-                          className="bg-slate-950 border-slate-800 text-xs text-slate-200 focus:border-orange-500"
-                        />
+                        
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-slate-400">Disclaimer Heading / Title</Label>
+                          <Input
+                            value={disclaimerTitle}
+                            onChange={(e) => setDisclaimerTitle(e.target.value)}
+                            placeholder="e.g. Disclaimers, Special Notes"
+                            className="bg-slate-950 border-slate-800 text-xs text-slate-200 focus:border-orange-500 h-9"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-slate-400">Default Disclaimer Content (Optional)</Label>
+                          <Textarea
+                            rows={4}
+                            value={disclaimer}
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDisclaimer(e.target.value)}
+                            placeholder="Leave empty if no disclaimer should appear by default..."
+                            className="bg-slate-950 border-slate-800 text-xs text-slate-200 focus:border-orange-500"
+                          />
+                        </div>
+
                         <p className="text-[10px] text-slate-500 italic">
-                          💡 Displays directly above the Terms & Conditions section on PDF exports.
+                          💡 If left empty, no disclaimer section will appear on PDF exports.
                         </p>
                       </div>
 

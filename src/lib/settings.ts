@@ -17,7 +17,8 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   client_allow_admin_assignment: "true",
   client_default_admin_user_id: "",
   company_bank_details: "Bank Name: Emirates NBD\nAccount Name: BOSQ OFFICE FURNITURE TRADING LLC\nAccount No: 10158492048201\nIBAN: AE28020000010158492048201\nSWIFT / BIC: EBILAEADXXX\nBranch: Dubai Main Branch, UAE",
-  company_disclaimer: "• All products supplied remain the property of BOSQ until paid in full.\n• Goods once delivered and accepted cannot be returned unless defective.\n• Quotation prices are subject to site measurements and confirmation of final specifications.",
+  company_disclaimer_title: "Disclaimers",
+  company_disclaimer: "",
 }
 
 export async function getSetting(key: string): Promise<string> {

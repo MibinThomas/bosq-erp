@@ -619,6 +619,7 @@ export async function PUT(
         vatMode,
         additionalCharges,
         disclaimer,
+        disclaimerTitle,
       } = body
 
       // Validate VAT Mode Override
@@ -793,6 +794,7 @@ export async function PUT(
         "company_address",
         "company_trn",
         "company_bank_details",
+        "company_disclaimer_title",
         "company_disclaimer",
       ])
 
@@ -830,6 +832,7 @@ export async function PUT(
         watermarkUrl: watermarkBase64 || null,
         promotionalImageUrl: promotionalImageBase64,
         bankDetails: companySettings.company_bank_details || null,
+        disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || companySettings.company_disclaimer_title || "Disclaimers",
         disclaimer: disclaimer || existingQuotation.disclaimer || companySettings.company_disclaimer || null,
         clientId: existingQuotation.client.clientId || null,
         items: quotationItemsToCreate,
@@ -922,6 +925,7 @@ export async function PUT(
             additionalCharges: parsedAdditionalCharges as any,
             sharepointUrl,
             notes: notes || existingQuotation.notes || null,
+            disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || null,
             disclaimer: disclaimer || existingQuotation.disclaimer || null,
             salesAgentId: salesAgentId || existingQuotation.salesAgentId || null,
             salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
@@ -1003,6 +1007,7 @@ export async function PUT(
         vatMode,
         additionalCharges,
         disclaimer,
+        disclaimerTitle,
       } = body
 
       // Validate VAT Mode Override
@@ -1150,6 +1155,7 @@ export async function PUT(
         "company_address",
         "company_trn",
         "company_bank_details",
+        "company_disclaimer_title",
         "company_disclaimer",
       ])
 
@@ -1201,6 +1207,7 @@ export async function PUT(
         watermarkUrl: watermarkBase64 || null,
         promotionalImageUrl: promotionalImageBase64,
         bankDetails: companySettings.company_bank_details || null,
+        disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || companySettings.company_disclaimer_title || "Disclaimers",
         disclaimer: disclaimer || existingQuotation.disclaimer || companySettings.company_disclaimer || null,
         clientId: currentClient.clientId || null,
         items: quotationItemsToCreate,
@@ -1272,6 +1279,7 @@ export async function PUT(
             additionalCharges: parsedAdditionalCharges as any,
             sharepointUrl,
             notes: notes || null,
+            disclaimerTitle: disclaimerTitle || null,
             disclaimer: disclaimer || null,
             salesAgentId: salesAgentId || existingQuotation.salesAgentId || null,
             salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,

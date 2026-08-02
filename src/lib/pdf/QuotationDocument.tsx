@@ -470,6 +470,7 @@ export interface QuotationPdfProps {
   watermarkUrl?: string | null
   promotionalImageUrl?: string | null
   bankDetails?: string | null
+  disclaimerTitle?: string | null
   disclaimer?: string | null
   clientId?: string | null
   vatMode?: "EXCLUDING" | "INCLUDING"
@@ -583,6 +584,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   watermarkUrl,
   promotionalImageUrl,
   bankDetails,
+  disclaimerTitle,
   disclaimer,
   clientId,
   items,
@@ -1203,7 +1205,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         {/* Disclaimers Section */}
         {disclaimer && disclaimer.trim().length > 0 && (
           <View style={[styles.termsCard, { marginTop: 14, backgroundColor: "#FAFBFD", borderColor: "#CBD5E1", padding: 14 }]} wrap={false}>
-            <Text style={styles.termsTitle}>Disclaimers</Text>
+            <Text style={styles.termsTitle}>{disclaimerTitle || "Disclaimers"}</Text>
             {renderFormattedDisclaimer(disclaimer)}
           </View>
         )}

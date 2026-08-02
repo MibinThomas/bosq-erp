@@ -22,6 +22,7 @@ const SETTING_KEYS = [
   "quotation_watermark_logo",
   "quotation_promotional_image",
   "company_bank_details",
+  "company_disclaimer_title",
   "company_disclaimer"
 ]
 
