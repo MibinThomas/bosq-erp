@@ -65,6 +65,7 @@ const boqSchema = z.object({
   salesAgentContactNumber: z.string().optional(),
   deliveryCharge: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Delivery charge must be at least 0"),
   notes: z.string().optional(),
+  disclaimer: z.string().optional(),
   items: z.array(
     z.object({
       productId: z.string().nullable().optional(),

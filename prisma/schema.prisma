@@ -168,6 +168,7 @@ model Quotation {
   vatAmount       Float     @default(0.0)
   grandTotal      Float     @default(0.0)
   termsConditions String?
+  disclaimer      String?
   notes           String?
   sharepointUrl   String?
   
@@ -322,6 +323,7 @@ model Boq {
   isTemplate        Boolean @default(false)
   notes             String?
   termsConditions   String?
+  disclaimer        String?
   sharepointUrl     String?
 
   createdAt       DateTime  @default(now())

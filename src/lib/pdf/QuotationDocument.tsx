@@ -469,6 +469,8 @@ export interface QuotationPdfProps {
   barcodeBase64?: string | null
   watermarkUrl?: string | null
   promotionalImageUrl?: string | null
+  bankDetails?: string | null
+  disclaimer?: string | null
   clientId?: string | null
   vatMode?: "EXCLUDING" | "INCLUDING"
   specialDiscountType?: "PERCENTAGE" | "FIXED" | null
@@ -512,6 +514,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   barcodeBase64,
   watermarkUrl,
   promotionalImageUrl,
+  bankDetails,
+  disclaimer,
   clientId,
   items,
   vatMode = "EXCLUDING",
@@ -1038,14 +1042,17 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           );
         })}
 
-        {/* Financial Summary Box & Watermark/Promotional Banner */}
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 20 }} wrap={false}>
-          <View style={{ width: "45%", alignItems: "center", justifyContent: "center" }}>
-            {promotionalImageUrl ? (
-              <PdfImage src={promotionalImageUrl} style={{ width: 180, objectFit: "contain" }} />
-            ) : watermarkUrl ? (
-              <PdfImage src={watermarkUrl} style={{ width: 140, objectFit: "contain", opacity: 0.8 }} />
-            ) : null}
+        {/* Financial Summary Box & Company Bank Details */}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "stretch", marginTop: 20 }} wrap={false}>
+          <View style={[styles.financialBox, { marginTop: 0, width: "47%" }]}>
+            <View style={styles.financialHeader}>
+              <Text style={styles.financialTitle}>Company Bank Details</Text>
+            </View>
+            <View style={{ padding: 6 }}>
+              <Text style={{ fontSize: 7.5, color: colors.secondary, lineHeight: 1.45 }}>
+                {bankDetails || "Bank Name: Emirates NBD\nAccount Name: BOSQ OFFICE FURNITURE TRADING LLC\nAccount No: 10158492048201\nIBAN: AE28020000010158492048201\nSWIFT / BIC: EBILAEADXXX\nBranch: Dubai Main Branch, UAE"}
+              </Text>
+            </View>
           </View>
 
           <View style={[styles.financialBox, { marginTop: 0, width: "50%", alignSelf: "auto" }]}>
@@ -1124,6 +1131,16 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             </View>
           </View>
         </View>
+
+        {/* Disclaimers Section */}
+        {disclaimer && disclaimer.trim().length > 0 && (
+          <View style={[styles.termsCard, { marginTop: 12, backgroundColor: "#FAFBFD", borderColor: "#CBD5E1" }]} wrap={false}>
+            <Text style={[styles.termsTitle, { color: colors.secondary }]}>Disclaimers</Text>
+            <Text style={{ fontSize: 7.5, color: colors.secondary, lineHeight: 1.45, marginTop: 4 }}>
+              {disclaimer}
+            </Text>
+          </View>
+        )}
 
         {termsConditions && termsConditions.length > 0 && (
           <View style={styles.termsCard} wrap={false}>

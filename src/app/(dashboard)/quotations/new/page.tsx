@@ -65,6 +65,7 @@ const quotationSchema = z.object({
   salesAgentContactNumber: z.string().optional(),
   deliveryCharge: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Delivery charge must be at least 0"),
   notes: z.string().optional(),
+  disclaimer: z.string().optional(),
   items: z.array(
     z.object({
       productId: z.string().nullable().optional(),
@@ -583,15 +584,20 @@ function NewQuotationForm() {
   // Fetch clients and products catalog
   useEffect(() => {
     async function loadData() {
-      try {
-        const [clientsRes, productsRes, categoriesRes] = await Promise.all([
+      try {        const [clientsRes, productsRes, categoriesRes, settingsRes] = await Promise.all([
           fetch("/api/clients?all=true"),
           fetch("/api/products"),
           fetch("/api/products/categories"),
+          fetch("/api/settings/system"),
         ])
         if (!clientsRes.ok || !productsRes.ok) throw new Error("Failed to load catalog data")
         const clientsData = await clientsRes.json()
         const productsData = await productsRes.json()
+        let sysDisclaimer = ""
+        if (settingsRes.ok) {
+          const sysData = await settingsRes.json()
+          sysDisclaimer = sysData.company_disclaimer || ""
+        }
         if (categoriesRes.ok) {
           const categoriesData = await categoriesRes.json()
           if (Array.isArray(categoriesData)) setDbCategories(categoriesData)
@@ -631,8 +637,8 @@ function NewQuotationForm() {
               projectName: activeData.projectName || "",
               quotationNumber: activeData.quotationNumber || "",
               customerSegment: activeData.customerSegment || "Project",
-              preparedById: activeData.preparedById || "",
-              salesAgentId: activeData.salesAgentId || (activeData.salesAgentName ? "manual" : (activeData.preparedById || "")),
+              preparedById: activeData.preparedById,
+              salesAgentId: activeData.salesAgentId || "",
               salesAgentName: activeData.salesAgentName || "",
               salesAgentTitle: activeData.salesAgentTitle || "",
               salesAgentContactNumber: activeData.salesAgentContactNumber || "",
@@ -692,6 +698,7 @@ function NewQuotationForm() {
               }),
               deliveryCharge: activeData.deliveryCharge || 0,
               notes: activeData.notes || "",
+              disclaimer: activeData.disclaimer || sysDisclaimer,
               vatMode: activeData.vatMode || "EXCLUDING",
               specialDiscountType: activeData.specialDiscountType || null,
               specialDiscountValue: activeData.specialDiscountValue || 0,
@@ -699,6 +706,8 @@ function NewQuotationForm() {
               additionalCharges: activeData.additionalCharges || [{ name: "", amount: "" }],
             })
           }
+        } else if (sysDisclaimer) {
+          form.setValue("disclaimer", sysDisclaimer)
         }
       } catch (error) {
         console.error("Error loading form options:", error)
@@ -3375,6 +3384,31 @@ function NewQuotationForm() {
                       )
                     })()}
                   </div>
+                </div>
+
+                {/* Quotation Disclaimers Section */}
+                <div className="w-full space-y-3">
+                  <h4 className="text-sm font-semibold text-foreground tracking-wider uppercase border-b pb-2 flex items-center justify-between">
+                    <span>Quotation Disclaimers</span>
+                    <span className="text-[11px] text-muted-foreground font-normal normal-case">Appears above Terms & Conditions on exported PDF</span>
+                  </h4>
+                  <FormField
+                    control={form.control}
+                    name="disclaimer"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <Textarea
+                            rows={3}
+                            placeholder="Enter quotation disclaimers..."
+                            className="bg-card border-muted-foreground/20 text-xs font-normal focus:border-primary resize-y"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
                 {/* 2. Bottom Row: Additional Costs & Calculation Breakdown */}

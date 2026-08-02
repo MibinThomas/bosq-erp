@@ -26,6 +26,7 @@ export async function GET(
     const aynMuskLogoBase64 = await getAynMuskLogoBase64()
     const watermarkBase64 = await getWatermarkBase64()
     const promotionalImageBase64 = await getPromotionalImageBase64()
+    const systemSettings = await getSettings(["company_bank_details", "company_disclaimer"])
 
     // Fetch the quotation with all relations
     const quotation = await prisma.quotation.findFirst({
@@ -182,6 +183,8 @@ export async function GET(
       barcodeBase64: barcodeBase64 || null,
       watermarkUrl: watermarkBase64 || null,
       promotionalImageUrl: promotionalImageBase64,
+      bankDetails: systemSettings.company_bank_details || null,
+      disclaimer: quotation.disclaimer || systemSettings.company_disclaimer || null,
       clientId: quotation.client.clientId || null,
       items: docItems,
       vatMode: (quotation.vatMode === "INCLUDING" ? "INCLUDING" : "EXCLUDING") as "EXCLUDING" | "INCLUDING",

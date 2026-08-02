@@ -618,6 +618,7 @@ export async function PUT(
         specialDiscountReason,
         vatMode,
         additionalCharges,
+        disclaimer,
       } = body
 
       // Validate VAT Mode Override
@@ -790,7 +791,9 @@ export async function PUT(
       const companySettings = await getSettings([
         "company_name",
         "company_address",
-        "company_trn"
+        "company_trn",
+        "company_bank_details",
+        "company_disclaimer",
       ])
 
       // Construct Revised PDF props (e.g. quote number P2231-1)
@@ -826,6 +829,8 @@ export async function PUT(
         barcodeBase64: barcodeBase64 || null,
         watermarkUrl: watermarkBase64 || null,
         promotionalImageUrl: promotionalImageBase64,
+        bankDetails: companySettings.company_bank_details || null,
+        disclaimer: disclaimer || existingQuotation.disclaimer || companySettings.company_disclaimer || null,
         clientId: existingQuotation.client.clientId || null,
         items: quotationItemsToCreate,
         vatMode: resolvedVatMode,
@@ -917,6 +922,7 @@ export async function PUT(
             additionalCharges: parsedAdditionalCharges as any,
             sharepointUrl,
             notes: notes || existingQuotation.notes || null,
+            disclaimer: disclaimer || existingQuotation.disclaimer || null,
             salesAgentId: salesAgentId || existingQuotation.salesAgentId || null,
             salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
             salesAgentContactNumber: salesAgentContactNumber || existingQuotation.salesAgentContactNumber || null,
@@ -996,6 +1002,7 @@ export async function PUT(
         specialDiscountReason,
         vatMode,
         additionalCharges,
+        disclaimer,
       } = body
 
       // Validate VAT Mode Override
@@ -1141,7 +1148,9 @@ export async function PUT(
       const companySettings = await getSettings([
         "company_name",
         "company_address",
-        "company_trn"
+        "company_trn",
+        "company_bank_details",
+        "company_disclaimer",
       ])
 
       // Re-fetch client in case it changed
@@ -1191,6 +1200,8 @@ export async function PUT(
         barcodeBase64: barcodeBase64 || null,
         watermarkUrl: watermarkBase64 || null,
         promotionalImageUrl: promotionalImageBase64,
+        bankDetails: companySettings.company_bank_details || null,
+        disclaimer: disclaimer || existingQuotation.disclaimer || companySettings.company_disclaimer || null,
         clientId: currentClient.clientId || null,
         items: quotationItemsToCreate,
         vatMode: resolvedVatMode,
@@ -1261,6 +1272,7 @@ export async function PUT(
             additionalCharges: parsedAdditionalCharges as any,
             sharepointUrl,
             notes: notes || null,
+            disclaimer: disclaimer || null,
             salesAgentId: salesAgentId || existingQuotation.salesAgentId || null,
             salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
             salesAgentContactNumber: salesAgentContactNumber || existingQuotation.salesAgentContactNumber || null,

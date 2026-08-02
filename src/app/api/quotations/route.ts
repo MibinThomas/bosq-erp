@@ -216,6 +216,7 @@ export async function POST(request: Request) {
       specialDiscountReason,
       vatMode,
       additionalCharges,
+      disclaimer,
     } = body
 
     if (!clientId || !items || items.length === 0 || !paymentTerms) {
@@ -563,7 +564,9 @@ export async function POST(request: Request) {
     const companySettings = await getSettings([
       "company_name",
       "company_address",
-      "company_trn"
+      "company_trn",
+      "company_bank_details",
+      "company_disclaimer",
     ])
 
     // 5. Generate PDF server-side using @react-pdf/renderer
@@ -600,6 +603,8 @@ export async function POST(request: Request) {
       barcodeBase64: barcodeBase64 || null,
       watermarkUrl: watermarkBase64 || null,
       promotionalImageUrl: promotionalImageBase64,
+      bankDetails: companySettings.company_bank_details || null,
+      disclaimer: disclaimer || companySettings.company_disclaimer || null,
       clientId: clientObj.clientId || null,
       items: quotationItemsToCreate,
       vatMode: resolvedVatMode,
@@ -669,6 +674,7 @@ export async function POST(request: Request) {
         additionalCharges: parsedAdditionalCharges as any,
         sharepointUrl,
         notes: notes || null,
+        disclaimer: disclaimer || null,
         salesAgentId: salesAgentId || null,
         salesAgentName: salesAgentName || null,
         salesAgentContactNumber: salesAgentContactNumber || null,

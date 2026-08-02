@@ -20,7 +20,9 @@ const SETTING_KEYS = [
   "quotation_header_logo",
   "quotation_footer_logo",
   "quotation_watermark_logo",
-  "quotation_promotional_image"
+  "quotation_promotional_image",
+  "company_bank_details",
+  "company_disclaimer"
 ]
 
 export async function GET() {
