@@ -151,7 +151,7 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
     
-    const existingQuotation = await prisma.quotation.findFirst({
+    const originalQuotation = await prisma.quotation.findFirst({
       where: {
         OR: [
           { id: id },
@@ -165,12 +165,14 @@ export async function PUT(
       }
     })
 
-    if (!existingQuotation) {
+    if (!originalQuotation) {
       return NextResponse.json(
         { error: "Quotation not found" },
         { status: 404 }
       )
     }
+
+    let existingQuotation = originalQuotation
 
     // Resolve log user from session (prefer actual session user, fallback to first exec)
     const session = await getServerSession(authOptions)
@@ -602,6 +604,35 @@ export async function PUT(
       if (logUserRole === "SALES_EXECUTIVE" && existingQuotation.preparedById !== logUserId) {
         return NextResponse.json({ error: "Unauthorized: You can only revise your own quotations" }, { status: 403 })
       }
+
+      const rootId = existingQuotation.parentId || existingQuotation.id
+
+      // Lock / Idempotency Check: Check if a draft revision already exists for this parent root
+      // created by the same user within the last 15 minutes
+      const existingDraftRevision = await prisma.quotation.findFirst({
+        where: {
+          parentId: rootId,
+          status: "DRAFT",
+          preparedById: logUserId,
+          createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) }
+        },
+        include: {
+          client: true,
+          items: true,
+          preparedBy: true,
+        },
+        orderBy: { createdAt: "desc" }
+      })
+
+      if (existingDraftRevision) {
+        // Update the existing draft revision in-place instead of creating another revision record
+        existingQuotation = existingDraftRevision
+        body.isRevision = false
+        body.isUpdate = true
+      }
+    }
+
+    if (body.isRevision === true) {
       const {
         items,
         projectName,

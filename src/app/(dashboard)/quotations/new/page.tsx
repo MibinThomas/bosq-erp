@@ -1299,16 +1299,20 @@ function NewQuotationForm() {
 
       let targetUrl = ""
       let method = ""
+      let sendIsRevision = false
 
-      if (isRevision || isEdit) {
-        targetUrl = `/api/quotations/${existingQuote.id}`
-        method = "PUT"
-      } else if (autoSavedQuoteId) {
+      if (autoSavedQuoteId) {
         targetUrl = `/api/quotations/${autoSavedQuoteId}`
         method = "PUT"
+        sendIsRevision = false
+      } else if (isRevision || isEdit) {
+        targetUrl = `/api/quotations/${existingQuote.id}`
+        method = "PUT"
+        sendIsRevision = isRevision
       } else {
         targetUrl = "/api/quotations"
         method = "POST"
+        sendIsRevision = false
       }
 
       let totalAdditionalCost = 0
@@ -1348,7 +1352,7 @@ function NewQuotationForm() {
             name: c.name,
             amount: c.amount === "" ? 0 : Number(c.amount)
           })),
-          isRevision: isRevision,
+          isRevision: sendIsRevision,
           isUpdate: isEdit || !!autoSavedQuoteId,
           revisionNotes: revisionNotes,
           status: "DRAFT",
@@ -1357,7 +1361,7 @@ function NewQuotationForm() {
 
       if (res.ok) {
         const result = await res.json()
-        if (method === "POST" && result.id) {
+        if (result.id) {
           setAutoSavedQuoteId(result.id)
         }
         setLastAutoSavedAt(new Date())
@@ -1379,6 +1383,8 @@ function NewQuotationForm() {
   }, [])
 
   async function onSubmit(data: QuotationFormValues, targetStatus?: "DRAFT" | "SUBMITTED") {
+    if (submitting) return
+
     const resolvedStatus = targetStatus === "DRAFT"
       ? "DRAFT"
       : (targetStatus || "SUBMITTED")
@@ -1390,8 +1396,14 @@ function NewQuotationForm() {
 
     setSubmitting(true)
     try {
-      const url = (isRevision || isEdit) ? `/api/quotations/${existingQuote.id}` : "/api/quotations"
-      const method = (isRevision || isEdit) ? "PUT" : "POST"
+      const url = autoSavedQuoteId 
+        ? `/api/quotations/${autoSavedQuoteId}`
+        : (isRevision || isEdit) 
+          ? `/api/quotations/${existingQuote.id}` 
+          : "/api/quotations"
+
+      const method = (isRevision || isEdit || autoSavedQuoteId) ? "PUT" : "POST"
+      const sendIsRevision = isRevision && !autoSavedQuoteId
 
       const formattedItems = []
       for (const item of data.items) {
@@ -1460,8 +1472,8 @@ function NewQuotationForm() {
             name: c.name,
             amount: c.amount === "" ? 0 : Number(c.amount)
           })),
-          isRevision: isRevision,
-          isUpdate: isEdit,
+          isRevision: sendIsRevision,
+          isUpdate: isEdit || !!autoSavedQuoteId,
           revisionNotes: revisionNotes,
           status: resolvedStatus,
         }),
