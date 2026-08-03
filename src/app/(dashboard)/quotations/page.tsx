@@ -614,17 +614,6 @@ export default function QuotationsPage() {
                         </Link>
                       )}
 
-                      {/* Copy button */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-muted text-teal-600 hover:text-teal-700"
-                        title="Copy / Duplicate Quotation"
-                        onClick={() => handleCopyQuote(quote.id)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-
                       {/* Options Dropdown */}
                       <DropdownMenu>
                         <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
