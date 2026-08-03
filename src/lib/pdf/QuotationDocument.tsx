@@ -464,6 +464,7 @@ export interface QuotationPdfProps {
   salesAgentName?: string | null
   salesAgentTitle?: string | null
   salesAgentEmail?: string | null
+  salesAgentContactNumber?: string | null
   termsConditions: string[]
   companyLogoUrl?: string | null // Base64 logo png
   aynMuskLogoUrl?: string | null
@@ -578,6 +579,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   preparedBySignatureUrl,
   salesAgentName,
   salesAgentTitle,
+  salesAgentEmail,
+  salesAgentContactNumber,
   termsConditions,
   companyLogoUrl,
   aynMuskLogoUrl,
@@ -912,8 +915,15 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
                 <View style={styles.metaRowRight}>
                   <Text style={styles.metaKeyRight}>Contact Number:</Text>
-                  <Text style={styles.metaValueRight}>{preparedByContact || "-"}</Text>
+                  <Text style={styles.metaValueRight}>{salesAgentContactNumber || preparedByContact || "-"}</Text>
                 </View>
+
+                {salesAgentEmail && (
+                  <View style={styles.metaRowRight}>
+                    <Text style={styles.metaKeyRight}>Email:</Text>
+                    <Text style={styles.metaValueRight}>{salesAgentEmail}</Text>
+                  </View>
+                )}
 
               </View>
 
@@ -923,13 +933,27 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           </View>
 
           {/* Bottom Row: Sales Executive & Project Name */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%", marginTop: 24 }}>
-            <View style={{ flexDirection: "row" }}>
-              <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>{salesAgentTitle || "Sales Executive"}: </Text>
-              <Text style={{ color: "#827f82", fontSize: 6.75 }}>{salesAgentName || preparedBy}</Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%", marginTop: 20 }}>
+            <View style={{ flexDirection: "column" }}>
+              <View style={{ flexDirection: "row" }}>
+                <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>{salesAgentTitle || "Sales Executive"}: </Text>
+                <Text style={{ color: "#827f82", fontSize: 6.75 }}>{salesAgentName || preparedBy}</Text>
+              </View>
+              {(salesAgentContactNumber || preparedByContact) && (
+                <View style={{ flexDirection: "row", marginTop: 1.5 }}>
+                  <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Contact: </Text>
+                  <Text style={{ color: "#827f82", fontSize: 6.75 }}>{salesAgentContactNumber || preparedByContact}</Text>
+                </View>
+              )}
+              {salesAgentEmail && (
+                <View style={{ flexDirection: "row", marginTop: 1.5 }}>
+                  <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Email: </Text>
+                  <Text style={{ color: "#827f82", fontSize: 6.75 }}>{salesAgentEmail}</Text>
+                </View>
+              )}
             </View>
             {projectName && (
-              <View style={{ flexDirection: "row" }}>
+              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
                 <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Project: </Text>
                 <Text style={{ color: "#827f82", fontSize: 6.75 }}>{projectName}</Text>
               </View>

@@ -441,6 +441,7 @@ function NewQuotationForm() {
   const [existingQuote, setExistingQuote] = useState<any>(null)
   const [revisionNotes, setRevisionNotes] = useState("")
   const [contactNumbers, setContactNumbers] = useState<string[]>([""])
+  const [agentEmails, setAgentEmails] = useState<string[]>([""])
 
   const [users, setUsers] = useState<any[]>([])
   const [userPermissions, setUserPermissions] = useState<any>(null)
@@ -646,6 +647,10 @@ function NewQuotationForm() {
             const rawPhones = activeData.salesAgentContactNumber || ""
             const phoneList = rawPhones ? rawPhones.split(/[,;\/]+/).map((s: string) => s.trim()).filter(Boolean) : []
             setContactNumbers(phoneList.length > 0 ? phoneList : [""])
+
+            const rawEmails = activeData.salesAgentEmail || ""
+            const emailList = rawEmails ? rawEmails.split(/[,;\/]+/).map((s: string) => s.trim()).filter(Boolean) : []
+            setAgentEmails(emailList.length > 0 ? emailList : [""])
 
             const headings = Array.from(
               new Set((activeData.items || []).map((item: any) => item.batchHeading || "").filter(Boolean))
@@ -2122,19 +2127,53 @@ function NewQuotationForm() {
                         ))}
                       </div>
                     </FormItem>
-                    <FormField
-                      control={form.control}
-                      name="salesAgentEmail"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Sales Agent / Consultant Email</FormLabel>
-                          <FormControl>
-                            <Input type="email" placeholder="e.g. consultant@example.com" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <FormItem>
+                      <FormLabel className="flex items-center justify-between text-xs font-medium">
+                        <span>Sales Agent / Consultant Email(s)</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setAgentEmails([...agentEmails, ""])}
+                          className="h-6 text-[11px] text-primary font-semibold hover:bg-primary/10 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3" /> Add Email
+                        </Button>
+                      </FormLabel>
+                      <div className="space-y-2">
+                        {agentEmails.map((emailVal, emailIdx) => (
+                          <div key={emailIdx} className="flex items-center gap-2">
+                            <Input
+                              type="email"
+                              placeholder={`e.g. consultant${emailIdx > 0 ? emailIdx + 1 : ''}@example.com`}
+                              value={emailVal}
+                              onChange={(e) => {
+                                const newArr = [...agentEmails]
+                                newArr[emailIdx] = e.target.value
+                                setAgentEmails(newArr)
+                                form.setValue("salesAgentEmail", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
+                              }}
+                            />
+                            {agentEmails.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const newArr = agentEmails.filter((_, idx) => idx !== emailIdx)
+                                  setAgentEmails(newArr.length > 0 ? newArr : [""])
+                                  form.setValue("salesAgentEmail", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
+                                }}
+                                className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
+                                title="Remove email address"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </FormItem>
                   </div>
                 </CardContent>
               </Card>

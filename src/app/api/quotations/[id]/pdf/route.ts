@@ -178,6 +178,7 @@ export async function GET(
       salesAgentName: quotation.salesAgentName || null,
       salesAgentTitle: (quotation as any).salesAgentTitle || null,
       salesAgentEmail: (quotation as any).salesAgentEmail || null,
+      salesAgentContactNumber: (quotation as any).salesAgentContactNumber || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,

@@ -601,6 +601,7 @@ export async function POST(request: Request) {
       salesAgentName: salesAgentName || null,
       salesAgentTitle: salesAgentTitle || null,
       salesAgentEmail: salesAgentEmail || null,
+      salesAgentContactNumber: salesAgentContactNumber || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,
