@@ -2030,48 +2030,8 @@ function NewQuotationForm() {
                   </div>
                 )}
 
-                {/* Additional Row: Payment Terms & Consultant */}
+                {/* Consultant Select Row */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 border-t pt-4">
-                  {/* Payment Terms Select */}
-                  <FormField
-                    control={form.control}
-                    name="paymentTerms"
-                    render={({ field }) => {
-                      const displayOptions: { id: string; name: string }[] = [...paymentTermsOptions]
-                      if (field.value && !displayOptions.some(o => o.name === field.value)) {
-                        displayOptions.unshift({ id: "current-selected", name: field.value })
-                      }
-                      if (displayOptions.length === 0) {
-                        displayOptions.push(
-                          { id: "1", name: "100% Advance" },
-                          { id: "2", name: "50% Advance, 50% on Delivery" },
-                          { id: "3", name: "100% on Delivery" },
-                          { id: "4", name: "30 Days PDC" }
-                        )
-                      }
-                      return (
-                        <FormItem>
-                          <FormLabel className="text-xs font-semibold text-foreground">Payment Terms</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
-                            <FormControl>
-                              <SelectTrigger className="h-10 text-xs sm:text-sm bg-background">
-                                <SelectValue placeholder="Select payment terms" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {displayOptions.map((term) => (
-                                <SelectItem key={term.id || term.name} value={term.name} className="text-xs">
-                                  {term.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )
-                    }}
-                  />
-
                   {/* Consultant Select */}
                   <FormField
                     control={form.control}
@@ -2079,7 +2039,7 @@ function NewQuotationForm() {
                     render={({ field }) => {
                       const selectedConsultant = users.find(u => u.id === field.value)
                       return (
-                        <FormItem>
+                        <FormItem className="md:col-span-1">
                           <FormLabel className="text-xs font-semibold text-foreground">
                             Interior Design Consultant <span className="text-destructive">*</span>
                           </FormLabel>
