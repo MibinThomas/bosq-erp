@@ -2055,12 +2055,15 @@ function NewQuotationForm() {
                   )}
 
                   <div className="space-y-4 pt-2 border-t border-dashed">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sales Agent Details (Optional)</span>
+                    </div>
                     <FormField
                       control={form.control}
                       name="salesAgentName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Sales Agent Name</FormLabel>
+                          <FormLabel>Sales Agent Name <span className="text-muted-foreground font-normal text-xs">(Optional)</span></FormLabel>
                           <FormControl>
                             <Input placeholder="Enter sales agent name" {...field} />
                           </FormControl>
@@ -2073,7 +2076,7 @@ function NewQuotationForm() {
                       name="salesAgentTitle"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Sales Agent Title/Designation</FormLabel>
+                          <FormLabel>Sales Agent Title/Designation <span className="text-muted-foreground font-normal text-xs">(Optional)</span></FormLabel>
                           <FormControl>
                             <Input placeholder="e.g. Sales Executive, Sales Manager" {...field} />
                           </FormControl>
@@ -2083,7 +2086,7 @@ function NewQuotationForm() {
                     />
                     <FormItem>
                       <FormLabel className="flex items-center justify-between text-xs font-medium">
-                        <span>Sales Agent Contact Number(s)</span>
+                        <span>Sales Agent Contact Number(s) <span className="text-muted-foreground font-normal text-xs">(Optional)</span></span>
                         <Button
                           type="button"
                           variant="ghost"
@@ -2129,7 +2132,7 @@ function NewQuotationForm() {
                     </FormItem>
                     <FormItem>
                       <FormLabel className="flex items-center justify-between text-xs font-medium">
-                        <span>Sales Agent / Consultant Email(s)</span>
+                        <span>Sales Agent Email(s) <span className="text-muted-foreground font-normal text-xs">(Optional)</span></span>
                         <Button
                           type="button"
                           variant="ghost"

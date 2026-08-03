@@ -172,6 +172,7 @@ export async function GET(
       grandTotal: quotation.grandTotal,
       preparedBy: quotation.preparedBy?.name || "Sales Executive",
       preparedByContact: quotation.preparedBy?.phone || null,
+      preparedByEmail: quotation.preparedBy?.email || null,
       preparedByDesignation: quotation.preparedBy?.designation || null,
       preparedByRole: quotation.preparedBy?.role || null,
       preparedBySignatureUrl: quotation.preparedBy?.signature || null,

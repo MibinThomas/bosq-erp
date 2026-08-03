@@ -348,7 +348,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to add additional costs" }, { status: 403 })
     }
 
-    let creatorUser = { id: "", name: "Sales Rep", role: "SALES_EXECUTIVE", designation: null as string | null, phone: null as string | null, signature: null as string | null }
+    let creatorUser = { id: "", name: "Sales Rep", email: null as string | null, role: "SALES_EXECUTIVE", designation: null as string | null, phone: null as string | null, signature: null as string | null }
 
     if (session.user) {
       const userRole = (session.user as any).role || "SALES_EXECUTIVE"
@@ -366,6 +366,7 @@ export async function POST(request: Request) {
         creatorUser = {
           id: dbUser.id,
           name: dbUser.name || "Sales Rep",
+          email: dbUser.email,
           role: dbUser.role,
           designation: dbUser.designation || null,
           phone: dbUser.phone,
@@ -375,6 +376,7 @@ export async function POST(request: Request) {
         creatorUser = {
           id: finalId,
           name: session.user.name || "Sales Rep",
+          email: session.user.email || null,
           role: userRole,
           designation: null,
           phone: null,
@@ -595,6 +597,7 @@ export async function POST(request: Request) {
       grandTotal: grandTotal,
       preparedBy: creatorUser.name,
       preparedByContact: creatorUser.phone,
+      preparedByEmail: creatorUser.email || null,
       preparedByDesignation: creatorUser.designation,
       preparedByRole: creatorUser.role,
       preparedBySignatureUrl: creatorUser.signature || null,
