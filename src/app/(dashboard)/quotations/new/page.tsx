@@ -1708,7 +1708,7 @@ function NewQuotationForm() {
                               </FormControl>
                             }
                           />
-                          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[450px] p-0" align="start">
+                          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[540px] md:w-[620px] min-w-[360px] p-0" align="start">
                             <Command shouldFilter={false}>
                               <CommandInput 
                                 placeholder="Search client name, ID, contact..." 
@@ -2049,12 +2049,14 @@ function NewQuotationForm() {
                           >
                             <FormControl>
                               <SelectTrigger className="h-10 text-xs sm:text-sm bg-background">
-                                <SelectValue placeholder="Select consultant" />
+                                <SelectValue placeholder="Select consultant">
+                                  {selectedConsultant ? (selectedConsultant.name || selectedConsultant.email) : undefined}
+                                </SelectValue>
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent>
+                            <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[360px] max-w-[550px] shadow-lg">
                               {users.map((u) => (
-                                <SelectItem key={u.id} value={u.id} className="text-xs">
+                                <SelectItem key={u.id} value={u.id} className="text-xs py-2 cursor-pointer">
                                   {u.name || u.email} {u.designation ? `(${u.designation})` : u.role ? `(${u.role})` : ""}
                                 </SelectItem>
                               ))}
