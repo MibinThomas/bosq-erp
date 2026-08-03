@@ -254,9 +254,8 @@ export async function POST(request: Request) {
     const creatorUserId = dbSessionUser.id
     const userRole = dbSessionUser.role
 
-    // Check if user has permission to approve immediately, else needs approval
-    const canApprove = await hasPermission(dbSessionUser.id, "CLIENTS", "approve")
-    const initialStatus = canApprove ? "Approved" : "Pending Approval"
+    // All clients created by any authorized user are immediately Approved and auto-assigned
+    const initialStatus = "Approved"
 
     const newClient = await prisma.client.create({
       data: {
@@ -325,27 +324,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Create notifications for Admin/Managers if pending approval
-    if (initialStatus === "Pending Approval") {
-      const managers = await prisma.user.findMany({
-        where: {
-          role: { in: ["ADMIN", "SALES_MANAGER", "MANAGER"] },
-          isActive: true
-        }
-      })
 
-      if (managers.length > 0) {
-        await prisma.notification.createMany({
-          data: managers.map(mgr => ({
-            userId: mgr.id,
-            title: "New Client Pending Approval",
-            message: `${companyName} (${nextClientId}) was created and requires approval.`,
-            type: "CLIENT_APPROVAL",
-            link: `/clients/${newClient.id}`
-          }))
-        })
-      }
-    }
 
     return NextResponse.json(newClient, { status: 201 })
   } catch (error) {

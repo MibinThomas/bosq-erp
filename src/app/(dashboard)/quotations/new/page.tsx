@@ -443,6 +443,33 @@ function NewQuotationForm() {
   const [contactNumbers, setContactNumbers] = useState<string[]>([""])
   const [agentEmails, setAgentEmails] = useState<string[]>([""])
 
+  const handleDeleteSection = (batchId: string) => {
+    if (batches.length <= 1) {
+      toast.error("At least one quotation section must remain.")
+      return
+    }
+
+    const targetBatch = batches.find(b => b.id === batchId)
+    if (!targetBatch) return
+
+    const currentItems = form.getValues("items") || []
+    const itemsInBatch = currentItems.filter(item => (item.batchHeading || "General Items") === targetBatch.name)
+
+    if (itemsInBatch.length > 0) {
+      const confirmDelete = window.confirm(
+        `Are you sure you want to delete section "${targetBatch.name}" along with its ${itemsInBatch.length} product(s)?`
+      )
+      if (!confirmDelete) return
+    }
+
+    const updatedItems = currentItems.filter(item => (item.batchHeading || "General Items") !== targetBatch.name)
+    form.setValue("items", updatedItems, { shouldDirty: true, shouldValidate: true })
+
+    const updatedBatches = batches.filter(b => b.id !== batchId)
+    setBatches(updatedBatches)
+    toast.success(`Section "${targetBatch.name}" deleted.`)
+  }
+
   const [users, setUsers] = useState<any[]>([])
   const [userPermissions, setUserPermissions] = useState<any>(null)
   const [canCreateClient, setCanCreateClient] = useState<boolean>(false)
@@ -2022,21 +2049,22 @@ function NewQuotationForm() {
                     }}
                   />
 
-                  {isManagerOrAdmin && (
-                    <FormField
-                      control={form.control}
-                      name="preparedById"
-                      render={({ field }) => (
-                        <FormItem>
+                  <FormField
+                    control={form.control}
+                    name="preparedById"
+                    render={({ field }) => {
+                      const selectedConsultant = users.find(u => u.id === field.value)
+                      return (
+                        <FormItem className="space-y-3">
                           <FormLabel>Interior Design Consultant <span className="text-red-500">*</span></FormLabel>
                           <Select
-                            onValueChange={field.onChange}
+                            onValueChange={(val) => field.onChange(val)}
                             value={field.value || ""}
                           >
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select consultant">
-                                  {users.find(u => u.id === field.value)?.name || "Select consultant"}
+                                  {selectedConsultant?.name || "Select consultant"}
                                 </SelectValue>
                               </SelectTrigger>
                             </FormControl>
@@ -2048,16 +2076,71 @@ function NewQuotationForm() {
                               ))}
                             </SelectContent>
                           </Select>
+
+                          {selectedConsultant && (
+                            <div className="bg-muted/40 border border-border rounded-xl p-3.5 space-y-1.5 text-xs text-muted-foreground">
+                              <div className="flex items-center justify-between font-semibold text-foreground text-sm">
+                                <span>{selectedConsultant.name}</span>
+                                <Badge variant="outline" className="text-[10px] uppercase font-mono">{selectedConsultant.designation || selectedConsultant.role || "Interior Design Consultant"}</Badge>
+                              </div>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-border/60">
+                                {selectedConsultant.phone && (
+                                  <div><span className="font-medium text-foreground">Phone:</span> {selectedConsultant.phone}</div>
+                                )}
+                                {selectedConsultant.email && (
+                                  <div><span className="font-medium text-foreground">Email:</span> {selectedConsultant.email}</div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                           <FormMessage />
                         </FormItem>
-                      )}
-                    />
-                  )}
+                      )
+                    }}
+                  />
 
                   <div className="space-y-4 pt-2 border-t border-dashed">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sales Agent Details (Optional)</span>
                     </div>
+
+                    <FormItem>
+                      <FormLabel>Select Sales Agent <span className="text-muted-foreground font-normal text-xs">(Optional - Auto-fills fields below)</span></FormLabel>
+                      <Select
+                        onValueChange={(selectedUserId) => {
+                          const selectedUser = users.find(u => u.id === selectedUserId)
+                          if (selectedUser) {
+                            form.setValue("salesAgentId", selectedUser.id, { shouldDirty: true })
+                            form.setValue("salesAgentName", selectedUser.name || "", { shouldDirty: true })
+                            form.setValue("salesAgentTitle", selectedUser.designation || selectedUser.role || "Sales Executive", { shouldDirty: true })
+                            if (selectedUser.phone) {
+                              setContactNumbers([selectedUser.phone])
+                              form.setValue("salesAgentContactNumber", selectedUser.phone, { shouldDirty: true })
+                            }
+                            if (selectedUser.email) {
+                              setAgentEmails([selectedUser.email])
+                              form.setValue("salesAgentEmail", selectedUser.email, { shouldDirty: true })
+                            }
+                          }
+                        }}
+                        value={form.watch("salesAgentId") || ""}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select sales agent (or type manually below)">
+                              {users.find(u => u.id === form.watch("salesAgentId"))?.name || "Select sales agent"}
+                            </SelectValue>
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {users.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name} {u.role && `(${u.role})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
                     <FormField
                       control={form.control}
                       name="salesAgentName"
@@ -2276,18 +2359,16 @@ function NewQuotationForm() {
                             {batchItems.length} Products
                           </span>
                           
-                          {batchItems.length === 0 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteBatch(batch.id)}
-                              className="h-9 w-9 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer ml-1"
-                              title="Delete empty section"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteSection(batch.id)}
+                            className="h-9 w-9 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer ml-1"
+                            title="Delete section"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
 
