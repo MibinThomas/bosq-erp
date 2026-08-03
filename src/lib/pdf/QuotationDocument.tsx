@@ -884,6 +884,39 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                   <Text style={styles.infoValueInline}>{clientTrn || "-"}</Text>
                 </View>
               </View>
+
+              {/* Interior Design Consultant Section (Left Side, Below Client Info) */}
+              <View style={[styles.clientInfoBlock, { marginTop: 6 }]}>
+                <Text style={[styles.companyNameText, { marginBottom: 4, textTransform: "uppercase" }]}>
+                  INTERIOR DESIGN CONSULTANT
+                </Text>
+
+                <View style={styles.infoRowInline}>
+                  <Text style={styles.infoKeyInline}>Designation:</Text>
+                  <Text style={styles.infoValueInline}>
+                    {(preparedByDesignation || formatRole(preparedByRole))?.replace(/Interior Design Consultants/gi, "Interior Design Consultant") || "Interior Design Consultant"}
+                  </Text>
+                </View>
+
+                <View style={styles.infoRowInline}>
+                  <Text style={styles.infoKeyInline}>Name:</Text>
+                  <Text style={styles.infoValueInline}>{preparedBy || "-"}</Text>
+                </View>
+
+                {preparedByContact && (
+                  <View style={styles.infoRowInline}>
+                    <Text style={styles.infoKeyInline}>Contact Number:</Text>
+                    <Text style={styles.infoValueInline}>{preparedByContact}</Text>
+                  </View>
+                )}
+
+                {preparedByEmail && (
+                  <View style={styles.infoRowInline}>
+                    <Text style={styles.infoKeyInline}>Email Address:</Text>
+                    <Text style={styles.infoValueInline}>{preparedByEmail}</Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             {/* Right Column: Quotation Meta details */}
@@ -915,56 +948,46 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                   <Text style={styles.metaValueRight}>{validityDate}</Text>
                 </View>
 
-                {salesAgentContactNumber && (
-                  <View style={styles.metaRowRight}>
-                    <Text style={styles.metaKeyRight}>Sales Agent Phone:</Text>
-                    <Text style={styles.metaValueRight}>{salesAgentContactNumber}</Text>
-                  </View>
-                )}
+                {/* Sales Agent Details (Conditional - appears ONLY when at least one detail is provided) */}
+                {(salesAgentName || salesAgentContactNumber || salesAgentEmail) && (
+                  <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 0.5, borderTopColor: colors.lineColor }}>
+                    {salesAgentName && (
+                      <View style={styles.metaRowRight}>
+                        <Text style={styles.metaKeyRight}>{salesAgentTitle || "Sales Representative"}:</Text>
+                        <Text style={styles.metaValueRight}>{salesAgentName}</Text>
+                      </View>
+                    )}
 
-                {salesAgentEmail && (
-                  <View style={styles.metaRowRight}>
-                    <Text style={styles.metaKeyRight}>Sales Agent Email:</Text>
-                    <Text style={styles.metaValueRight}>{salesAgentEmail}</Text>
+                    {salesAgentContactNumber && (
+                      <View style={styles.metaRowRight}>
+                        <Text style={styles.metaKeyRight}>Contact Number:</Text>
+                        <Text style={styles.metaValueRight}>{salesAgentContactNumber}</Text>
+                      </View>
+                    )}
+
+                    {salesAgentEmail && (
+                      <View style={styles.metaRowRight}>
+                        <Text style={styles.metaKeyRight}>Email Address:</Text>
+                        <Text style={styles.metaValueRight}>{salesAgentEmail}</Text>
+                      </View>
+                    )}
                   </View>
                 )}
 
               </View>
-
-              {/* Removed Barcode per user request */}
             </View>
 
           </View>
 
-          {/* Bottom Row: Sales Executive & Project Name */}
-          <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%", marginTop: 20 }}>
-            {salesAgentName ? (
-              <View style={{ flexDirection: "column" }}>
-                <View style={{ flexDirection: "row" }}>
-                  <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>{salesAgentTitle || "Sales Executive"}: </Text>
-                  <Text style={{ color: "#827f82", fontSize: 6.75 }}>{salesAgentName}</Text>
-                </View>
-                {salesAgentContactNumber && (
-                  <View style={{ flexDirection: "row", marginTop: 1.5 }}>
-                    <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Contact: </Text>
-                    <Text style={{ color: "#827f82", fontSize: 6.75 }}>{salesAgentContactNumber}</Text>
-                  </View>
-                )}
-                {salesAgentEmail && (
-                  <View style={{ flexDirection: "row", marginTop: 1.5 }}>
-                    <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Email: </Text>
-                    <Text style={{ color: "#827f82", fontSize: 6.75 }}>{salesAgentEmail}</Text>
-                  </View>
-                )}
-              </View>
-            ) : <View />}
-            {projectName && (
+          {/* Bottom Row: Project Name */}
+          {projectName && (
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", width: "100%", marginTop: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
                 <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Project: </Text>
                 <Text style={{ color: "#827f82", fontSize: 6.75 }}>{projectName}</Text>
               </View>
-            )}
-          </View>
+            </View>
+          )}
         </View>
 
         {/* Table Headers (Rendered only once at the top of the table) */}
