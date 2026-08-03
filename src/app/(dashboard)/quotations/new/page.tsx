@@ -437,8 +437,10 @@ function NewQuotationForm() {
 
   const [isRevision, setIsRevision] = useState(false)
   const [isEdit, setIsEdit] = useState(false)
+  const [isCopy, setIsCopy] = useState(false)
   const [existingQuote, setExistingQuote] = useState<any>(null)
   const [revisionNotes, setRevisionNotes] = useState("")
+  const [contactNumbers, setContactNumbers] = useState<string[]>([""])
 
   const [users, setUsers] = useState<any[]>([])
   const [userPermissions, setUserPermissions] = useState<any>(null)
@@ -623,10 +625,10 @@ function NewQuotationForm() {
         setClients(clientsData)
         setProducts(productsData)
 
-        // Load details for revision or update if ID is provided
         const reviseId = searchParams.get("reviseId")
         const editId = searchParams.get("editId")
-        const activeId = reviseId || editId
+        const copyId = searchParams.get("copyId")
+        const activeId = reviseId || editId || copyId
 
         if (activeId) {
           const fetchRes = await fetch(`/api/quotations/${activeId}`)
@@ -635,9 +637,15 @@ function NewQuotationForm() {
             setExistingQuote(activeData)
             if (reviseId) {
               setIsRevision(true)
-            } else {
+            } else if (editId) {
               setIsEdit(true)
+            } else if (copyId) {
+              setIsCopy(true)
             }
+
+            const rawPhones = activeData.salesAgentContactNumber || ""
+            const phoneList = rawPhones ? rawPhones.split(/[,;\/]+/).map((s: string) => s.trim()).filter(Boolean) : []
+            setContactNumbers(phoneList.length > 0 ? phoneList : [""])
 
             const headings = Array.from(
               new Set((activeData.items || []).map((item: any) => item.batchHeading || "").filter(Boolean))
@@ -652,7 +660,7 @@ function NewQuotationForm() {
             form.reset({
               clientId: activeData.clientId,
               projectName: activeData.projectName || "",
-              quotationNumber: activeData.quotationNumber || "",
+              quotationNumber: copyId ? "" : (activeData.quotationNumber || ""),
               customerSegment: activeData.customerSegment || "Project",
               preparedById: activeData.preparedById,
               salesAgentId: activeData.salesAgentId || "",
@@ -1514,6 +1522,18 @@ function NewQuotationForm() {
         </div>
       )}
 
+      {isCopy && existingQuote && (
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-xl p-4 flex items-start gap-3 text-blue-950 dark:text-blue-300">
+          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+          <div>
+            <h3 className="font-semibold">Creating Copy of Quotation {existingQuote.quotationNumber}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              You are creating a new sequential copy of Quotation **{existingQuote.quotationNumber}**. Line items, client details, payment terms, and contact numbers have been pre-filled.
+            </p>
+          </div>
+        </div>
+      )}
+
       {loadingOptions ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -2056,19 +2076,52 @@ function NewQuotationForm() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="salesAgentContactNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Sales Agent Contact Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. +971 50 123 4567" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <FormItem>
+                      <FormLabel className="flex items-center justify-between text-xs font-medium">
+                        <span>Sales Agent Contact Number(s)</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setContactNumbers([...contactNumbers, ""])}
+                          className="h-6 text-[11px] text-primary font-semibold hover:bg-primary/10 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3" /> Add Phone
+                        </Button>
+                      </FormLabel>
+                      <div className="space-y-2">
+                        {contactNumbers.map((num, numIdx) => (
+                          <div key={numIdx} className="flex items-center gap-2">
+                            <Input
+                              placeholder={`e.g. +971 50 ${numIdx === 0 ? '123 4567' : '987 6543'}`}
+                              value={num}
+                              onChange={(e) => {
+                                const newArr = [...contactNumbers]
+                                newArr[numIdx] = e.target.value
+                                setContactNumbers(newArr)
+                                form.setValue("salesAgentContactNumber", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
+                              }}
+                            />
+                            {contactNumbers.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const newArr = contactNumbers.filter((_, idx) => idx !== numIdx)
+                                  setContactNumbers(newArr.length > 0 ? newArr : [""])
+                                  form.setValue("salesAgentContactNumber", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
+                                }}
+                                className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
+                                title="Remove phone number"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </FormItem>
                     <FormField
                       control={form.control}
                       name="salesAgentEmail"

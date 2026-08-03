@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment, useCallback } from "react"
 import Link from "next/link"
-import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle, Edit, Map, ChevronDown, ChevronRight, Calendar, User } from "lucide-react"
+import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle, Edit, Map, ChevronDown, ChevronRight, Calendar, User, Copy } from "lucide-react"
 import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { useSession } from "next-auth/react"
 
@@ -145,6 +145,23 @@ export default function QuotationsPage() {
       toast.success("Quotation marked as Client Approved successfully!")
     } catch (error: any) {
       toast.error(error.message || "Failed to confirm quotation.")
+    }
+  }
+
+  const handleCopyQuote = async (quoteId: string) => {
+    try {
+      const res = await fetch(`/api/quotations/${quoteId}/copy`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to copy quotation")
+      }
+      const newQuote = await res.json()
+      toast.success(`Created copy "${newQuote.quotationNumber}"!`)
+      fetchQuotations()
+    } catch (error: any) {
+      toast.error(error.message || "Failed to copy quotation.")
     }
   }
 
@@ -597,6 +614,17 @@ export default function QuotationsPage() {
                         </Link>
                       )}
 
+                      {/* Copy button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:bg-muted text-teal-600 hover:text-teal-700"
+                        title="Copy / Duplicate Quotation"
+                        onClick={() => handleCopyQuote(quote.id)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+
                       {/* Options Dropdown */}
                       <DropdownMenu>
                         <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
@@ -649,6 +677,13 @@ export default function QuotationsPage() {
                               </DropdownMenuItem>
                             </Link>
                           )}
+                          <DropdownMenuItem
+                            onClick={() => handleCopyQuote(quote.id)}
+                            className="flex items-center text-teal-600 focus:text-teal-600 focus:bg-teal-50 cursor-pointer font-medium"
+                          >
+                            <Copy className="mr-2 h-4 w-4 text-teal-600" />
+                            Copy Quotation...
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

@@ -3,7 +3,7 @@
 import React, { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2, Download, ExternalLink, Check, X, Edit } from "lucide-react"
+import { ArrowLeft, Loader2, Download, ExternalLink, Check, X, Edit, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -439,6 +439,28 @@ export default function QuotationHtmlPreviewPage({
               </Button>
             </Link>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                const res = await fetch(`/api/quotations/${quotation.id}/copy`, { method: "POST" })
+                if (!res.ok) {
+                  const err = await res.json()
+                  throw new Error(err.error || "Failed to copy quotation")
+                }
+                const newQuote = await res.json()
+                toast.success(`Created copy "${newQuote.quotationNumber}"!`)
+                router.push(`/quotations/${newQuote.id}/preview`)
+              } catch (err: any) {
+                toast.error(err.message || "Failed to copy quotation.")
+              }
+            }}
+            title="Make a Copy"
+            className="border-teal-600/50 text-teal-700 hover:bg-teal-50 dark:text-teal-300 font-semibold cursor-pointer"
+          >
+            <Copy className="mr-2 h-4 w-4 text-teal-600" /> Copy Quotation
+          </Button>
           {quotation.sharepointUrl && (
             <Button
               variant="outline"
