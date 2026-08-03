@@ -1370,6 +1370,9 @@ export async function PUT(
     if (poStatus) updateData.poStatus = poStatus
     if (paymentStatus) updateData.paymentStatus = paymentStatus
     if (notes !== undefined) updateData.notes = notes
+    if (body.quotationNumber && ["SUPER_ADMIN", "ADMIN"].includes(logUserRole)) {
+      updateData.quotationNumber = body.quotationNumber.trim()
+    }
 
     const updatedQuotation = await prisma.quotation.update({
       where: { id: existingQuotation.id },
@@ -1401,6 +1404,100 @@ export async function PUT(
     return NextResponse.json(updatedQuotation)
   } catch (error: any) {
     console.error("Failed to update quotation:", error)
+    return NextResponse.json(
+      { error: error?.message || "Internal Server Error" },
+      { status: 500 }
+    )
+  }
+}
+
+// Rename / Edit Quotation Number (Super Admin & Admin feature)
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { email: session.user.email }
+    })
+
+    if (!dbUser || !["SUPER_ADMIN", "ADMIN"].includes(dbUser.role)) {
+      return NextResponse.json(
+        { error: "Forbidden: Only Super Admin can edit quotation numbers" },
+        { status: 403 }
+      )
+    }
+
+    const body = await request.json()
+    const { quotationNumber } = body
+
+    if (!quotationNumber || typeof quotationNumber !== "string" || !quotationNumber.trim()) {
+      return NextResponse.json(
+        { error: "Quotation number is required" },
+        { status: 400 }
+      )
+    }
+
+    const newQuotationNumber = quotationNumber.trim()
+
+    const existingQuotation = await prisma.quotation.findFirst({
+      where: {
+        OR: [
+          { id: id },
+          { quotationNumber: id }
+        ]
+      }
+    })
+
+    if (!existingQuotation) {
+      return NextResponse.json(
+        { error: "Quotation not found" },
+        { status: 404 }
+      )
+    }
+
+    // Check for duplicate quotation number if changed
+    if (newQuotationNumber !== existingQuotation.quotationNumber) {
+      const duplicate = await prisma.quotation.findFirst({
+        where: {
+          quotationNumber: newQuotationNumber,
+          id: { not: existingQuotation.id }
+        }
+      })
+
+      if (duplicate) {
+        return NextResponse.json(
+          { error: `Quotation number "${newQuotationNumber}" is already in use by another quotation.` },
+          { status: 409 }
+        )
+      }
+    }
+
+    const updatedQuotation = await prisma.quotation.update({
+      where: { id: existingQuotation.id },
+      data: { quotationNumber: newQuotationNumber }
+    })
+
+    // Log Activity
+    await prisma.activityLog.create({
+      data: {
+        userId: dbUser.id,
+        action: "EDITED_QUOTATION_NUMBER",
+        entityType: "QUOTATION",
+        entityId: updatedQuotation.id,
+        details: `Super Admin updated quotation number from ${existingQuotation.quotationNumber} to ${newQuotationNumber}`,
+      }
+    })
+
+    return NextResponse.json(updatedQuotation)
+  } catch (error: any) {
+    console.error("Failed to update quotation number:", error)
     return NextResponse.json(
       { error: error?.message || "Internal Server Error" },
       { status: 500 }

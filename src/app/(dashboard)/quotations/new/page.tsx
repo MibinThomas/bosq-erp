@@ -1954,7 +1954,7 @@ function NewQuotationForm() {
                     )}
                   />
 
-                  {userRole === "SUPER_ADMIN" && !isRevision && (
+                  {(userRole === "SUPER_ADMIN" || userRole === "ADMIN") && (
                     <FormField
                       control={form.control}
                       name="quotationNumber"

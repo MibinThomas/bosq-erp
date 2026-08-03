@@ -104,6 +104,40 @@ export default function QuotationsPage() {
   const [conflictingQuoteNo, setConflictingQuoteNo] = useState<string | null>(null)
   const [targetQuoteToConfirm, setTargetQuoteToConfirm] = useState<any>(null)
   
+  const [editNameQuote, setEditNameQuote] = useState<{ id: string; quotationNumber: string } | null>(null)
+  const [newQuotationNumber, setNewQuotationNumber] = useState("")
+  const [isUpdatingName, setIsUpdatingName] = useState(false)
+
+  const handleOpenEditName = (quote: Quotation) => {
+    setEditNameQuote({ id: quote.id, quotationNumber: quote.quotationNumber })
+    setNewQuotationNumber(quote.quotationNumber)
+  }
+
+  const handleSaveQuotationName = async () => {
+    if (!editNameQuote || !newQuotationNumber.trim()) return
+    setIsUpdatingName(true)
+    try {
+      const res = await fetch(`/api/quotations/${editNameQuote.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quotationNumber: newQuotationNumber.trim() })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error || "Failed to update quotation name")
+        return
+      }
+      toast.success(`Quotation name updated to "${data.quotationNumber}"`)
+      setEditNameQuote(null)
+      fetchQuotations()
+    } catch (err) {
+      console.error(err)
+      toast.error("Failed to update quotation name")
+    } finally {
+      setIsUpdatingName(false)
+    }
+  }
+
   const canCreate = hasPermission("QUOTATIONS", "create")
   const canEdit = hasPermission("QUOTATIONS", "edit")
   const canDelete = hasPermission("QUOTATIONS", "delete")
@@ -673,6 +707,16 @@ export default function QuotationsPage() {
                             <Copy className="mr-2 h-4 w-4 text-teal-600" />
                             Copy Quotation...
                           </DropdownMenuItem>
+
+                          {isSuperAdmin && (
+                            <DropdownMenuItem
+                              onClick={() => handleOpenEditName(quote)}
+                              className="flex items-center text-indigo-600 focus:text-indigo-600 focus:bg-indigo-50 cursor-pointer font-medium"
+                            >
+                              <Edit className="mr-2 h-4 w-4 text-indigo-600" />
+                              Edit Quotation Name...
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -773,6 +817,52 @@ export default function QuotationsPage() {
           fetchQuotations()
         }}
       />
+
+      {/* Edit Quotation Name / Number Modal (Super Admin) */}
+      <Dialog open={!!editNameQuote} onOpenChange={(open) => !open && setEditNameQuote(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-primary" />
+              Edit Quotation Name / Number
+            </DialogTitle>
+            <DialogDescription>
+              As Super Admin, you can edit the identifier name or number for this quotation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Quotation Number / Name</label>
+              <Input
+                value={newQuotationNumber}
+                onChange={(e) => setNewQuotationNumber(e.target.value)}
+                placeholder="e.g. P1001-1 or Custom Name"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newQuotationNumber.trim() && !isUpdatingName) {
+                    handleSaveQuotationName()
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setEditNameQuote(null)} disabled={isUpdatingName}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveQuotationName} disabled={isUpdatingName || !newQuotationNumber.trim()}>
+              {isUpdatingName ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
