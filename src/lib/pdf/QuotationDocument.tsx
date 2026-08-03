@@ -462,6 +462,7 @@ export interface QuotationPdfProps {
   preparedByDesignation?: string | null
   preparedByRole?: string | null
   preparedBySignatureUrl?: string | null
+  includeSalesAgent?: boolean
   salesAgentName?: string | null
   salesAgentTitle?: string | null
   salesAgentEmail?: string | null
@@ -488,30 +489,30 @@ export interface QuotationPdfProps {
 function parseFormattedInlineText(text: string) {
   const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|__.*?__)/g)
   return parts.map((part, index) => {
-    if ((part.startsWith("**") && part.endsWith("**")) || (part.startsWith("__") && part.endsWith("__"))) {
-      return (
-        <Text key={index} style={{ fontWeight: "bold", color: colors.primary }}>
-          {part.slice(2, -2)}
-        </Text>
-      )
-    }
-    if (part.startsWith("*") && part.endsWith("*")) {
-      return (
-        <Text key={index} style={{ fontStyle: "italic" }}>
-          {part.slice(1, -1)}
-        </Text>
-      )
-    }
-    return <Text key={index}>{part}</Text>
+    const isBold = part.startsWith("**") && part.endsWith("**")
+    const isItalic = (part.startsWith("*") && part.endsWith("*")) || (part.startsWith("__") && part.endsWith("__"))
+    const cleanText = part.replace(/^[\*\_\s]+|[\*\_\s]+$/g, "")
+
+    return (
+      <Text
+        key={index}
+        style={[
+          isBold ? { fontWeight: "bold", color: colors.primary } : {},
+          isItalic ? { fontStyle: "italic" } : {},
+        ]}
+      >
+        {cleanText}
+      </Text>
+    )
   })
 }
 
-function renderFormattedDisclaimer(disclaimerText: string) {
-  if (!disclaimerText) return null
-  const paragraphs = disclaimerText.split(/\n\s*\n/)
+function renderFormattedMarkdownBlock(rawText: string) {
+  if (!rawText) return null
+  const paragraphs = rawText.split(/\n\s*\n/)
 
-  return paragraphs.map((para, pIdx) => {
-    const lines = para.split("\n").map(l => l.trim()).filter(Boolean)
+  return paragraphs.map((pText, pIdx) => {
+    const lines = pText.split("\n").map(l => l.trim()).filter(Boolean)
 
     return (
       <View key={`para-${pIdx}`} style={{ marginBottom: pIdx === paragraphs.length - 1 ? 0 : 8 }}>
@@ -579,6 +580,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   preparedByDesignation,
   preparedByRole,
   preparedBySignatureUrl,
+  includeSalesAgent = false,
   salesAgentName,
   salesAgentTitle,
   salesAgentEmail,
@@ -885,35 +887,31 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 </View>
               </View>
 
-              {/* Interior Design Consultant Section (Left Side, Below Client Info) */}
-              <View style={[styles.clientInfoBlock, { marginTop: 6 }]}>
+              {/* Interior Design Consultant Section (Left Side, Below Client Info - Project Name Typography Style) */}
+              {(preparedBy || preparedByContact || preparedByEmail) && (
+                <View style={{ marginTop: 6, paddingTop: 4 }}>
+                  {preparedBy && (
+                    <View style={{ flexDirection: "row", marginTop: 1.5 }}>
+                      <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Design Consultant: </Text>
+                      <Text style={{ color: "#827f82", fontSize: 6.75 }}>{preparedBy}</Text>
+                    </View>
+                  )}
 
-                <View style={styles.infoRowInline}>
-                  <Text style={styles.infoKeyInline}>Designation:</Text>
-                  <Text style={styles.infoValueInline}>
-                    {(preparedByDesignation || formatRole(preparedByRole))?.replace(/Interior Design Consultants/gi, "Interior Design Consultant") || "Interior Design Consultant"}
-                  </Text>
+                  {preparedByContact && (
+                    <View style={{ flexDirection: "row", marginTop: 1.5 }}>
+                      <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Contact Number: </Text>
+                      <Text style={{ color: "#827f82", fontSize: 6.75 }}>{preparedByContact}</Text>
+                    </View>
+                  )}
+
+                  {preparedByEmail && (
+                    <View style={{ flexDirection: "row", marginTop: 1.5 }}>
+                      <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Email: </Text>
+                      <Text style={{ color: "#827f82", fontSize: 6.75 }}>{preparedByEmail}</Text>
+                    </View>
+                  )}
                 </View>
-
-                <View style={styles.infoRowInline}>
-                  <Text style={styles.infoKeyInline}>Name:</Text>
-                  <Text style={styles.infoValueInline}>{preparedBy || "-"}</Text>
-                </View>
-
-                {preparedByContact && (
-                  <View style={styles.infoRowInline}>
-                    <Text style={styles.infoKeyInline}>Contact Number:</Text>
-                    <Text style={styles.infoValueInline}>{preparedByContact}</Text>
-                  </View>
-                )}
-
-                {preparedByEmail && (
-                  <View style={styles.infoRowInline}>
-                    <Text style={styles.infoKeyInline}>Email Address:</Text>
-                    <Text style={styles.infoValueInline}>{preparedByEmail}</Text>
-                  </View>
-                )}
-              </View>
+              )}
             </View>
 
             {/* Right Column: Quotation Meta details */}
@@ -945,8 +943,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                   <Text style={styles.metaValueRight}>{validityDate}</Text>
                 </View>
 
-                {/* Sales Agent Details (Conditional - appears ONLY when at least one detail is provided) */}
-                {(salesAgentName || salesAgentContactNumber || salesAgentEmail) && (
+                {/* Sales Agent Details (Conditional - appears ONLY when includeSalesAgent is true and at least one detail is provided) */}
+                {includeSalesAgent && (salesAgentName || salesAgentContactNumber || salesAgentEmail) && (
                   <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 0.5, borderTopColor: colors.lineColor }}>
                     {salesAgentName && (
                       <View style={styles.metaRowRight}>
@@ -1257,7 +1255,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         {disclaimer && disclaimer.trim().length > 0 && (
           <View style={[styles.termsCard, { marginTop: 8, backgroundColor: "#FAFBFD", borderColor: "#CBD5E1", padding: 12 }]} wrap={false}>
             <Text style={styles.termsTitle}>{disclaimerTitle || "Disclaimers"}</Text>
-            {renderFormattedDisclaimer(disclaimer)}
+            {renderFormattedMarkdownBlock(disclaimer)}
           </View>
         )}
 

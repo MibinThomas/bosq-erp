@@ -179,6 +179,7 @@ model Quotation {
   vatMode               String    @default("EXCLUDING") // "EXCLUDING" | "INCLUDING"
   additionalCharges     Json?     // array of { name: string, amount: number }
   
+  includeSalesAgent        Boolean   @default(false)
   salesAgentId             String?
   salesAgentName           String?
   salesAgentContactNumber  String?

@@ -59,6 +59,7 @@ const quotationSchema = z.object({
   deliveryDate: z.string().optional(),
   paymentTerms: z.string().min(1, "Payment terms is required"),
   preparedById: z.string().optional(),
+  includeSalesAgent: z.boolean().default(false).optional(),
   salesAgentId: z.string().optional(),
   salesAgentName: z.string().optional(),
   salesAgentTitle: z.string().optional(),
@@ -695,6 +696,7 @@ function NewQuotationForm() {
               quotationNumber: copyId ? "" : (activeData.quotationNumber || ""),
               customerSegment: activeData.customerSegment || "Project",
               preparedById: activeData.preparedById,
+              includeSalesAgent: activeData.includeSalesAgent ?? !!(activeData.salesAgentName || activeData.salesAgentContactNumber || activeData.salesAgentEmail),
               salesAgentId: activeData.salesAgentId || "",
               salesAgentName: activeData.salesAgentName || "",
               salesAgentTitle: activeData.salesAgentTitle || "",
@@ -852,10 +854,11 @@ function NewQuotationForm() {
       projectName: "",
       customerSegment: "Project",
       preparedById: (session?.user as any)?.id || "",
-      salesAgentId: (session?.user as any)?.id || "",
-      salesAgentName: (session?.user as any)?.name || "",
-      salesAgentContactNumber: (session?.user as any)?.phone || "",
-      salesAgentEmail: (session?.user as any)?.email || "",
+      includeSalesAgent: false,
+      salesAgentId: "",
+      salesAgentName: "",
+      salesAgentContactNumber: "",
+      salesAgentEmail: "",
       date: new Date().toISOString().split("T")[0],
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -2112,128 +2115,152 @@ function NewQuotationForm() {
                   />
 
                   <div className="space-y-4 pt-2 border-t border-dashed">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sales Agent Details (Optional)</span>
-                    </div>
                     <FormField
                       control={form.control}
-                      name="salesAgentName"
+                      name="includeSalesAgent"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Sales Agent Name <span className="text-muted-foreground font-normal text-xs">(Optional)</span></FormLabel>
+                        <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-sm font-medium cursor-pointer">
+                              Include Sales Representative Details
+                            </FormLabel>
+                            <p className="text-xs text-muted-foreground">
+                              Enable to add Sales Representative details to this quotation and PDF.
+                            </p>
+                          </div>
                           <FormControl>
-                            <Input placeholder="Enter sales agent name" {...field} />
+                            <Switch
+                              checked={!!field.value}
+                              onCheckedChange={field.onChange}
+                            />
                           </FormControl>
-                          <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="salesAgentTitle"
-                      render={({ field }) => (
+
+                    {form.watch("includeSalesAgent") && (
+                      <div className="space-y-4 pt-2 border-t border-dashed">
+                        <FormField
+                          control={form.control}
+                          name="salesAgentName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sales Agent Name <span className="text-muted-foreground font-normal text-xs">(Optional)</span></FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter sales agent name" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="salesAgentTitle"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sales Agent Title/Designation <span className="text-muted-foreground font-normal text-xs">(Optional)</span></FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g. Sales Executive, Sales Manager" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                         <FormItem>
-                          <FormLabel>Sales Agent Title/Designation <span className="text-muted-foreground font-normal text-xs">(Optional)</span></FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. Sales Executive, Sales Manager" {...field} />
-                          </FormControl>
-                          <FormMessage />
+                          <FormLabel className="flex items-center justify-between text-xs font-medium">
+                            <span>Sales Agent Contact Number(s) <span className="text-muted-foreground font-normal text-xs">(Optional)</span></span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setContactNumbers([...contactNumbers, ""])}
+                              className="h-6 text-[11px] text-primary font-semibold hover:bg-primary/10 flex items-center gap-1 cursor-pointer"
+                            >
+                              <Plus className="h-3 w-3" /> Add Phone
+                            </Button>
+                          </FormLabel>
+                          <div className="space-y-2">
+                            {contactNumbers.map((num, numIdx) => (
+                              <div key={numIdx} className="flex items-center gap-2">
+                                <Input
+                                  placeholder={`e.g. +971 50 ${numIdx === 0 ? '123 4567' : '987 6543'}`}
+                                  value={num}
+                                  onChange={(e) => {
+                                    const newArr = [...contactNumbers]
+                                    newArr[numIdx] = e.target.value
+                                    setContactNumbers(newArr)
+                                    form.setValue("salesAgentContactNumber", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
+                                  }}
+                                />
+                                {contactNumbers.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      const newArr = contactNumbers.filter((_, idx) => idx !== numIdx)
+                                      setContactNumbers(newArr.length > 0 ? newArr : [""])
+                                      form.setValue("salesAgentContactNumber", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
+                                    }}
+                                    className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
+                                    title="Remove phone number"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </FormItem>
-                      )}
-                    />
-                    <FormItem>
-                      <FormLabel className="flex items-center justify-between text-xs font-medium">
-                        <span>Sales Agent Contact Number(s) <span className="text-muted-foreground font-normal text-xs">(Optional)</span></span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setContactNumbers([...contactNumbers, ""])}
-                          className="h-6 text-[11px] text-primary font-semibold hover:bg-primary/10 flex items-center gap-1 cursor-pointer"
-                        >
-                          <Plus className="h-3 w-3" /> Add Phone
-                        </Button>
-                      </FormLabel>
-                      <div className="space-y-2">
-                        {contactNumbers.map((num, numIdx) => (
-                          <div key={numIdx} className="flex items-center gap-2">
-                            <Input
-                              placeholder={`e.g. +971 50 ${numIdx === 0 ? '123 4567' : '987 6543'}`}
-                              value={num}
-                              onChange={(e) => {
-                                const newArr = [...contactNumbers]
-                                newArr[numIdx] = e.target.value
-                                setContactNumbers(newArr)
-                                form.setValue("salesAgentContactNumber", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
-                              }}
-                            />
-                            {contactNumbers.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  const newArr = contactNumbers.filter((_, idx) => idx !== numIdx)
-                                  setContactNumbers(newArr.length > 0 ? newArr : [""])
-                                  form.setValue("salesAgentContactNumber", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
-                                }}
-                                className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
-                                title="Remove phone number"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
+                        <FormItem>
+                          <FormLabel className="flex items-center justify-between text-xs font-medium">
+                            <span>Sales Agent Email(s) <span className="text-muted-foreground font-normal text-xs">(Optional)</span></span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setAgentEmails([...agentEmails, ""])}
+                              className="h-6 text-[11px] text-primary font-semibold hover:bg-primary/10 flex items-center gap-1 cursor-pointer"
+                            >
+                              <Plus className="h-3 w-3" /> Add Email
+                            </Button>
+                          </FormLabel>
+                          <div className="space-y-2">
+                            {agentEmails.map((emailVal, emailIdx) => (
+                              <div key={emailIdx} className="flex items-center gap-2">
+                                <Input
+                                  type="email"
+                                  placeholder={`e.g. consultant${emailIdx > 0 ? emailIdx + 1 : ''}@example.com`}
+                                  value={emailVal}
+                                  onChange={(e) => {
+                                    const newArr = [...agentEmails]
+                                    newArr[emailIdx] = e.target.value
+                                    setAgentEmails(newArr)
+                                    form.setValue("salesAgentEmail", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
+                                  }}
+                                />
+                                {agentEmails.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      const newArr = agentEmails.filter((_, idx) => idx !== emailIdx)
+                                      setAgentEmails(newArr.length > 0 ? newArr : [""])
+                                      form.setValue("salesAgentEmail", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
+                                    }}
+                                    className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
+                                    title="Remove email address"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        </FormItem>
                       </div>
-                    </FormItem>
-                    <FormItem>
-                      <FormLabel className="flex items-center justify-between text-xs font-medium">
-                        <span>Sales Agent Email(s) <span className="text-muted-foreground font-normal text-xs">(Optional)</span></span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setAgentEmails([...agentEmails, ""])}
-                          className="h-6 text-[11px] text-primary font-semibold hover:bg-primary/10 flex items-center gap-1 cursor-pointer"
-                        >
-                          <Plus className="h-3 w-3" /> Add Email
-                        </Button>
-                      </FormLabel>
-                      <div className="space-y-2">
-                        {agentEmails.map((emailVal, emailIdx) => (
-                          <div key={emailIdx} className="flex items-center gap-2">
-                            <Input
-                              type="email"
-                              placeholder={`e.g. consultant${emailIdx > 0 ? emailIdx + 1 : ''}@example.com`}
-                              value={emailVal}
-                              onChange={(e) => {
-                                const newArr = [...agentEmails]
-                                newArr[emailIdx] = e.target.value
-                                setAgentEmails(newArr)
-                                form.setValue("salesAgentEmail", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
-                              }}
-                            />
-                            {agentEmails.length > 1 && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  const newArr = agentEmails.filter((_, idx) => idx !== emailIdx)
-                                  setAgentEmails(newArr.length > 0 ? newArr : [""])
-                                  form.setValue("salesAgentEmail", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
-                                }}
-                                className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
-                                title="Remove email address"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </FormItem>
+                    )}
                   </div>
                 </CardContent>
               </Card>
