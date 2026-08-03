@@ -692,11 +692,15 @@ function NewQuotationForm() {
   }
 
   useEffect(() => {
-    fetch("/api/users?all=true")
+    fetch("/api/users")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
           setUsers(data)
+          const sessionUserId = (session?.user as any)?.id
+          if (sessionUserId && !form.getValues("preparedById")) {
+            form.setValue("preparedById", sessionUserId)
+          }
         }
       })
       .catch(err => console.error("Failed to load users", err))
@@ -710,7 +714,7 @@ function NewQuotationForm() {
         }
       })
       .catch(err => console.error("Failed to load permissions", err))
-  }, [])
+  }, [session])
 
   useEffect(() => {
     async function loadData() {
@@ -2085,19 +2089,31 @@ function NewQuotationForm() {
                           >
                             <FormControl>
                               <SelectTrigger className="h-10 text-xs sm:text-sm bg-background">
-                                <SelectValue placeholder="Select consultant">
-                                  {selectedConsultant?.name || "Select consultant"}
-                                </SelectValue>
+                                <SelectValue placeholder="Select consultant" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {users.map((u) => (
                                 <SelectItem key={u.id} value={u.id} className="text-xs">
-                                  {u.name} {u.role && `(${u.role})`}
+                                  {u.name || u.email} {u.designation ? `(${u.designation})` : u.role ? `(${u.role})` : ""}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
+                          {selectedConsultant && (
+                            <div className="mt-2 p-3 border rounded-xl bg-muted/20 text-xs space-y-1 animate-in fade-in">
+                              <div className="flex justify-between items-center font-semibold text-foreground">
+                                <span>{selectedConsultant.name || selectedConsultant.email}</span>
+                                <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                                  {selectedConsultant.designation || selectedConsultant.role || "Consultant"}
+                                </Badge>
+                              </div>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-[11px] pt-0.5">
+                                {selectedConsultant.phone && <span>Phone: {selectedConsultant.phone}</span>}
+                                {selectedConsultant.email && <span>Email: {selectedConsultant.email}</span>}
+                              </div>
+                            </div>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )
