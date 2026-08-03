@@ -914,63 +914,75 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               )}
             </View>
 
-            {/* Right Column: Quotation Meta details */}
-            <View style={styles.rightColumn}>
-              <View style={styles.quotationDetailsBlock}>
-                
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>Date:</Text>
-                  <Text style={styles.metaValueRight}>{date}</Text>
-                </View>
-
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>Quotation #:</Text>
-                  <Text style={styles.metaValueRight}>{quotationNumber}</Text>
-                </View>
-
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>TRN:</Text>
-                  <Text style={styles.metaValueRight}>{companyTrn}</Text>
-                </View>
-
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>Customer ID:</Text>
-                  <Text style={styles.metaValueRight}>{clientId || "-"}</Text>
-                </View>
-
-                <View style={styles.metaRowRight}>
-                  <Text style={styles.metaKeyRight}>Quotation Valid Until:</Text>
-                  <Text style={styles.metaValueRight}>{validityDate}</Text>
-                </View>
-
-                {/* Sales Agent Details (Conditional - appears ONLY when includeSalesAgent is true and at least one detail is provided) */}
-                {includeSalesAgent && (salesAgentName || salesAgentContactNumber || salesAgentEmail) && (
-                  <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 0.5, borderTopColor: colors.lineColor }}>
-                    {salesAgentName && (
-                      <View style={styles.metaRowRight}>
-                        <Text style={styles.metaKeyRight}>{salesAgentTitle || "Sales Representative"}:</Text>
-                        <Text style={styles.metaValueRight}>{salesAgentName}</Text>
-                      </View>
-                    )}
-
-                    {salesAgentContactNumber && (
-                      <View style={styles.metaRowRight}>
-                        <Text style={styles.metaKeyRight}>Contact Number:</Text>
-                        <Text style={styles.metaValueRight}>{salesAgentContactNumber}</Text>
-                      </View>
-                    )}
-
-                    {salesAgentEmail && (
-                      <View style={styles.metaRowRight}>
-                        <Text style={styles.metaKeyRight}>Email Address:</Text>
-                        <Text style={styles.metaValueRight}>{salesAgentEmail}</Text>
-                      </View>
-                    )}
+              {/* Right Column: Quotation Meta details */}
+              <View style={styles.rightColumn}>
+                <View style={styles.quotationDetailsBlock}>
+                  
+                  <View style={styles.metaRowRight}>
+                    <Text style={styles.metaKeyRight}>Date:</Text>
+                    <Text style={styles.metaValueRight}>{date}</Text>
                   </View>
-                )}
 
+                  <View style={styles.metaRowRight}>
+                    <Text style={styles.metaKeyRight}>Quotation #:</Text>
+                    <Text style={styles.metaValueRight}>{(quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()}</Text>
+                  </View>
+
+                  <View style={styles.metaRowRight}>
+                    <Text style={styles.metaKeyRight}>TRN:</Text>
+                    <Text style={styles.metaValueRight}>{companyTrn}</Text>
+                  </View>
+
+                  <View style={styles.metaRowRight}>
+                    <Text style={styles.metaKeyRight}>Customer ID:</Text>
+                    <Text style={styles.metaValueRight}>{clientId || "-"}</Text>
+                  </View>
+
+                  <View style={styles.metaRowRight}>
+                    <Text style={styles.metaKeyRight}>Quotation Valid Until:</Text>
+                    <Text style={styles.metaValueRight}>{validityDate}</Text>
+                  </View>
+
+                  {/* Sales Agent Details (Conditional - appears ONLY when includeSalesAgent is true and at least one detail is provided) */}
+                  {includeSalesAgent && (salesAgentName || salesAgentContactNumber || salesAgentEmail) && (
+                    <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 0.5, borderTopColor: colors.lineColor, width: "100%", alignItems: "flex-end" }}>
+                      {salesAgentName && (
+                        <View style={styles.metaRowRight}>
+                          <Text style={styles.metaKeyRight}>{salesAgentTitle || "Sales Representative"}:</Text>
+                          <Text style={styles.metaValueRight}>{salesAgentName}</Text>
+                        </View>
+                      )}
+
+                      {(() => {
+                        const salesAgentContacts = salesAgentContactNumber
+                          ? salesAgentContactNumber.split(/[,/\n]+/).map(s => s.trim()).filter(Boolean)
+                          : [];
+                        if (salesAgentContacts.length === 0) return null;
+                        return salesAgentContacts.map((contact, idx) => (
+                          <View key={`sales-contact-${idx}`} style={styles.metaRowRight}>
+                            {idx === 0 && <Text style={styles.metaKeyRight}>Contact Number:</Text>}
+                            <Text style={styles.metaValueRight}>{contact}</Text>
+                          </View>
+                        ));
+                      })()}
+
+                      {(() => {
+                        const salesAgentEmails = salesAgentEmail
+                          ? salesAgentEmail.split(/[,/\n]+/).map(s => s.trim()).filter(Boolean)
+                          : [];
+                        if (salesAgentEmails.length === 0) return null;
+                        return salesAgentEmails.map((email, idx) => (
+                          <View key={`sales-email-${idx}`} style={styles.metaRowRight}>
+                            {idx === 0 && <Text style={styles.metaKeyRight}>Email Address:</Text>}
+                            <Text style={styles.metaValueRight}>{email}</Text>
+                          </View>
+                        ));
+                      })()}
+                    </View>
+                  )}
+
+                </View>
               </View>
-            </View>
 
           </View>
 

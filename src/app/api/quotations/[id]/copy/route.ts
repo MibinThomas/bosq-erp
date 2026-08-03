@@ -47,7 +47,7 @@ export async function POST(
       )
     }
 
-    const sourceNumber = sourceQuotation.quotationNumber.trim()
+    const sourceNumber = sourceQuotation.quotationNumber.replace(/\s+Copy.*$/gi, "").trim()
 
     // Find all existing quotations with quotationNumber matching sourceNumber or sourceNumber + " Copy ..."
     const existingQuotesWithBase = await prisma.quotation.findMany({

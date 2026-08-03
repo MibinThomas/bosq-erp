@@ -413,7 +413,7 @@ export default function QuotationHtmlPreviewPage({
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold tracking-tight">
-                Quotation Preview ({quotation.quotationNumber})
+                Quotation Preview ({(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()})
               </h1>
               {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(quotation.status) && (
                 <Badge className="bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center gap-1 shrink-0">
@@ -500,7 +500,7 @@ export default function QuotationHtmlPreviewPage({
         <iframe
           src={`/api/quotations/${quotation.id}/pdf?preview=true#toolbar=0&navpanes=0`}
           className="w-full flex-1 min-h-[85vh] border-0 shadow-xl rounded-md bg-white"
-          title={`Quotation ${quotation.quotationNumber} Preview`}
+          title={`Quotation ${(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()} Preview`}
         />
       </div>
       

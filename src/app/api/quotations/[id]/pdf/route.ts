@@ -108,7 +108,8 @@ export async function GET(
     }
 
     // Generate barcode image dynamically
-    const barcodeBase64 = generateCode128DataUri(quotation.quotationNumber)
+    const cleanQuotationNum = (quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()
+    const barcodeBase64 = generateCode128DataUri(cleanQuotationNum)
 
 
     // Get Terms & Conditions
@@ -151,7 +152,7 @@ export async function GET(
 
     // Construct PDF props
     const pdfProps = {
-      quotationNumber: quotation.quotationNumber,
+      quotationNumber: cleanQuotationNum,
       date: quotation.date.toISOString().split("T")[0],
       validityDate: quotation.validityDate.toISOString().split("T")[0],
       companyName: companySettings.company_name,
@@ -208,8 +209,8 @@ export async function GET(
 
     const sanitizedClientName = quotation.client.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
     const filename = quotation.status === "CLIENT_APPROVED"
-      ? `${quotation.quotationNumber}_ClientApproved_${sanitizedClientName}.pdf`
-      : `${quotation.quotationNumber}_${sanitizedClientName}.pdf`
+      ? `${cleanQuotationNum}_ClientApproved_${sanitizedClientName}.pdf`
+      : `${cleanQuotationNum}_${sanitizedClientName}.pdf`
 
     // Return PDF Stream
     return new Response(pdfBuffer as any, {
