@@ -220,6 +220,7 @@ export async function POST(request: Request) {
       additionalCharges,
       disclaimer,
       disclaimerTitle,
+      termsConditions,
     } = body
 
     if (!clientId || !items || items.length === 0 || !paymentTerms) {
@@ -553,17 +554,38 @@ export async function POST(request: Request) {
       grandTotal = Math.round(taxableAmount + vatAmount)
     }
 
-    // 4. Get Default Terms & Conditions for the PDF
-    const dbTerms = await prisma.termsCondition.findMany({
-      where: { isDefault: true },
-    })
-    const termsArray = dbTerms.map((t) => `${t.title}: ${t.content}`)
+    // 4. Get Terms & Conditions for the PDF & Database
+    let termsArray: string[] = []
+    let storedTermsConditions: string | null = null
+
+    if (Array.isArray(termsConditions) && termsConditions.length > 0) {
+      termsArray = termsConditions.map((t: any) => typeof t === "string" ? t : `${t.title ? t.title + ": " : ""}${t.content || ""}`.trim()).filter(Boolean)
+      storedTermsConditions = JSON.stringify(termsArray)
+    } else if (typeof termsConditions === "string" && termsConditions.trim()) {
+      try {
+        const parsed = JSON.parse(termsConditions)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          termsArray = parsed.map((t: any) => typeof t === "string" ? t : `${t.title ? t.title + ": " : ""}${t.content || ""}`.trim()).filter(Boolean)
+        }
+      } catch (e) {
+        termsArray = termsConditions.split("\n").map((s: string) => s.trim()).filter(Boolean)
+      }
+      storedTermsConditions = JSON.stringify(termsArray)
+    }
+
     if (termsArray.length === 0) {
-      termsArray.push(
+      const dbTerms = await prisma.termsCondition.findMany({
+        where: { isDefault: true },
+      })
+      termsArray = dbTerms.map((t) => `${t.title}: ${t.content}`)
+    }
+
+    if (termsArray.length === 0) {
+      termsArray = [
         "Validity: This quotation is valid for 30 days from date of issue.",
         "Delivery: Delivery within 4-6 weeks of order approval.",
         "Warranty: All structural elements carry a 5-year warranty."
-      )
+      ]
     }
 
     const companySettings = await getSettings([
@@ -687,6 +709,7 @@ export async function POST(request: Request) {
         notes: notes || null,
         disclaimerTitle: disclaimerTitle || null,
         disclaimer: disclaimer || null,
+        termsConditions: storedTermsConditions,
         includeSalesAgent: !!includeSalesAgent,
         salesAgentId: includeSalesAgent ? (salesAgentId || null) : null,
         salesAgentName: includeSalesAgent ? (salesAgentName || null) : null,

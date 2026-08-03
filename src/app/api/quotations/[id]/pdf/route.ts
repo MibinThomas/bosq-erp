@@ -113,16 +113,33 @@ export async function GET(
 
 
     // Get Terms & Conditions
-    const dbTerms = await prisma.termsCondition.findMany({
-      where: { isDefault: true },
-    })
-    const termsArray = dbTerms.map((t) => `${t.title}: ${t.content}`)
+    let termsArray: string[] = []
+    if (quotation.termsConditions) {
+      try {
+        const parsed = JSON.parse(quotation.termsConditions)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          termsArray = parsed.map(t => typeof t === "string" ? t : `${t.title ? t.title + ": " : ""}${t.content || ""}`.trim())
+        }
+      } catch (e) {
+        if (typeof quotation.termsConditions === "string" && quotation.termsConditions.trim()) {
+          termsArray = quotation.termsConditions.split("\n").map(s => s.trim()).filter(Boolean)
+        }
+      }
+    }
+
     if (termsArray.length === 0) {
-      termsArray.push(
+      const dbTerms = await prisma.termsCondition.findMany({
+        where: { isDefault: true },
+      })
+      termsArray = dbTerms.map((t) => `${t.title}: ${t.content}`)
+    }
+
+    if (termsArray.length === 0) {
+      termsArray = [
         "Validity: This quotation is valid for 30 days from date of issue.",
         "Delivery: Delivery within 4-6 weeks of order approval.",
         "Warranty: All structural elements carry a 5-year warranty."
-      )
+      ]
     }
 
     // Convert items format for QuotationDocument

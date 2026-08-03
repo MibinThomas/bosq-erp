@@ -5,7 +5,35 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical } from "lucide-react"
+import { 
+  Plus, 
+  Trash2, 
+  Save, 
+  Send, 
+  ArrowLeft, 
+  Loader2, 
+  Info, 
+  Sparkles, 
+  Lock, 
+  Check, 
+  ChevronsUpDown, 
+  Search, 
+  AlertCircle, 
+  RefreshCw, 
+  UserPlus, 
+  ChevronUp, 
+  ChevronDown, 
+  GripVertical,
+  Copy,
+  Calendar,
+  CreditCard,
+  Building2,
+  FileText,
+  DollarSign,
+  Layers,
+  SlidersHorizontal,
+  ChevronRight
+} from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -80,7 +108,7 @@ const quotationSchema = z.object({
       basePrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Base price must be at least 0"),
       unitPrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Price must be at least 0"),
       discount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Discount must be at least 0"),
-      margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= -100, "Margin must be at least -100").refine(val => (val === "" ? 0 : Number(val)) < 100, "Margin must be less than 100%"),
+      margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? -100 : Number(val)) >= -100, "Margin must be at least -100").refine(val => (val === "" ? 0 : Number(val)) < 100, "Margin must be less than 100%"),
       manualMargin: z.union([z.number(), z.string()]).optional(),
       customImageUrl: z.string().nullable().optional(),
       productDescription: z.string().optional(),
@@ -100,6 +128,7 @@ const quotationSchema = z.object({
       amount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Amount must be at least 0"),
     })
   ).default([{ name: "", amount: "" }]),
+  termsConditions: z.array(z.string()).optional(),
 })
 
 type QuotationFormValues = z.infer<typeof quotationSchema>
@@ -152,6 +181,7 @@ interface Product {
   warranty?: string | null
   dimensions?: string | null
 }
+
 interface ProductSearchSelectProps {
   productId: string | null | undefined
   products: Product[]
@@ -188,11 +218,11 @@ const ProductSearchSelect = React.memo(({
             role="combobox"
             title={label || "Search catalog product by name or code..."}
             className={cn(
-              "w-full justify-between font-normal bg-card overflow-hidden",
+              "w-full justify-between font-normal bg-background h-10 border-border/80 hover:border-primary/50 text-xs sm:text-sm overflow-hidden",
               !productId && "text-muted-foreground"
             )}
           >
-            <span className="block truncate flex-1 text-left min-w-0">
+            <span className="block truncate flex-1 text-left min-w-0 font-medium">
               {productId ? label : "Search catalog product by name or code..."}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -204,21 +234,21 @@ const ProductSearchSelect = React.memo(({
           if (value.toLowerCase().includes(search.toLowerCase())) return 1
           return 0
         }}>
-          <CommandInput placeholder="Search products..." />
+          <CommandInput placeholder="Search products by code or name..." className="h-10 text-xs" />
           <CommandList className="max-h-[350px] overflow-y-auto overflow-x-hidden">
-            <CommandEmpty className="p-3 text-center flex flex-col items-center justify-center">
-              <p className="text-xs text-muted-foreground mb-2">No product found.</p>
+            <CommandEmpty className="p-4 text-center flex flex-col items-center justify-center">
+              <p className="text-xs text-muted-foreground mb-3">No matching product found in catalog.</p>
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className="w-full flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full flex items-center justify-center gap-1.5 cursor-pointer text-xs h-9"
                 onClick={() => {
                   onCustomProductClick()
                   setOpen(false)
                 }}
               >
-                <Plus className="h-3.5 w-3.5" />
+                <Plus className="h-3.5 w-3.5 text-primary" />
                 Create New Custom Product
               </Button>
             </CommandEmpty>
@@ -240,11 +270,11 @@ const ProductSearchSelect = React.memo(({
                       onProductSelect(product.id)
                       setOpen(false)
                     }}
-                    className="p-2 border-b last:border-b-0 border-muted/50 aria-selected:bg-muted/40 cursor-pointer"
+                    className="p-2.5 border-b last:border-b-0 border-muted/50 aria-selected:bg-accent cursor-pointer transition-colors"
                   >
-                    <div className="flex items-start gap-4 w-full min-w-0">
+                    <div className="flex items-start gap-3 w-full min-w-0">
                       {/* Product Thumbnail */}
-                      <div className="h-14 w-14 shrink-0 border rounded-md overflow-hidden flex items-center justify-center bg-white shadow-sm">
+                      <div className="h-12 w-12 shrink-0 border rounded-md overflow-hidden flex items-center justify-center bg-card shadow-xs">
                         {product.imageUrl ? (
                           <img src={product.imageUrl} alt={product.productName} className="object-cover w-full h-full" />
                         ) : (
@@ -254,32 +284,32 @@ const ProductSearchSelect = React.memo(({
                       
                       {/* Product Details Stack */}
                       <div className="flex flex-col flex-1 min-w-0">
-                        <span className="font-semibold text-[13px] text-foreground line-clamp-2 leading-tight" title={product.productName}>
+                        <span className="font-semibold text-xs text-foreground line-clamp-1 leading-tight" title={product.productName}>
                           {product.productName}
                         </span>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground mt-1">
-                          <span className="truncate" title={`SKU: ${product.productCode}`}>
-                            SKU: <span className="font-medium text-foreground/80">{product.productCode}</span>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground mt-0.5">
+                          <span className="truncate font-mono" title={`SKU: ${product.productCode}`}>
+                            SKU: <span className="font-medium text-foreground">{product.productCode}</span>
                           </span>
                           {(product as any).category?.name && (
                             <>
-                              <span className="text-muted-foreground/30 hidden sm:inline">•</span>
+                              <span>•</span>
                               <span className="truncate" title={`Category: ${(product as any).category.name}`}>
-                                Category: {(product as any).category.name}
+                                {(product as any).category.name}
                               </span>
                             </>
                           )}
                         </div>
-                        <div className="text-xs font-semibold text-primary mt-1.5">
+                        <div className="text-xs font-bold text-primary mt-1">
                           {watchSegment} Price: AED {basePrice.toFixed(2)}
                         </div>
                       </div>
 
-                      {/* Check Icon (only visible when selected) */}
+                      {/* Check Icon */}
                       <div className="shrink-0 flex items-center h-full pt-1 pr-1">
                         <Check
                           className={cn(
-                            "h-5 w-5 text-primary",
+                            "h-4 w-4 text-primary",
                             product.id === productId ? "opacity-100" : "opacity-0"
                           )}
                         />
@@ -291,12 +321,12 @@ const ProductSearchSelect = React.memo(({
             </CommandGroup>
           </CommandList>
           {/* Bottom Action Footer */}
-          <div className="p-2 border-t border-muted/60 bg-muted/5 sticky bottom-0">
+          <div className="p-2 border-t border-border bg-muted/20 sticky bottom-0">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="w-full justify-start text-primary hover:text-primary hover:bg-primary/10 font-semibold flex items-center gap-2 h-10 cursor-pointer rounded-md"
+              className="w-full justify-start text-primary hover:text-primary hover:bg-primary/10 font-medium flex items-center gap-2 h-9 cursor-pointer rounded-md text-xs"
               onClick={() => {
                 onCustomProductClick()
                 setOpen(false)
@@ -372,7 +402,7 @@ const BatchHeadingInput: React.FC<BatchHeadingInputProps> = ({ value, onChange }
 
   return (
     <Input
-      placeholder="e.g. MD Cabin, Reception Area, Meeting Room (Leave empty to ungroup)"
+      placeholder="e.g. Executive Cabin, Conference Room, Main Office (Leave blank for default section)"
       value={localValue}
       onChange={(e) => setLocalValue(e.target.value)}
       onBlur={() => {
@@ -386,7 +416,7 @@ const BatchHeadingInput: React.FC<BatchHeadingInputProps> = ({ value, onChange }
           e.currentTarget.blur()
         }
       }}
-      className="h-9 text-xs bg-white font-medium border-muted-foreground/20 focus-visible:ring-primary"
+      className="h-9 text-xs bg-background font-semibold border-border/70 focus-visible:ring-primary"
     />
   )
 }
@@ -403,38 +433,36 @@ function NewQuotationForm() {
   const searchParams = useSearchParams()
   const initialClientId = searchParams.get("clientId") || ""
   const { data: session } = useSession()
-  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
-  const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
-  const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN"
-  
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
-  const [assigningClient, setAssigningClient] = useState<{ id: string, name: string } | null>(null)
+  const userRole = (session?.user as any)?.role
 
+  const [loadingOptions, setLoadingOptions] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([])
   const [paymentTermsOptions, setPaymentTermsOptions] = useState<{ id: string; name: string; description?: string | null; isDefault?: boolean }[]>([])
-  const [loadingOptions, setLoadingOptions] = useState(true)
 
-  const categoryOptions = useMemo(() => {
-    const names = new Set<string>()
-    dbCategories.forEach((c) => {
-      if (c.name) names.add(c.name)
-    })
-    const defaultCategories = ["Chairs", "Desks", "Tables", "General"]
-    defaultCategories.forEach((cat) => names.add(cat))
-    return Array.from(names)
-  }, [dbCategories])
-  const [submitting, setSubmitting] = useState(false)
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
-  const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false)
   const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false)
   const [clientSearch, setClientSearch] = useState("")
-  const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
 
-  const [requestAccessClient, setRequestAccessClient] = useState<{ id: string; name: string } | null>(null)
-  const [requestNotes, setRequestNotes] = useState("")
-  const [requestingAccess, setRequestingAccess] = useState(false)
+  const selectedClientId = useForm().watch("clientId")
+  const selectedClientObj = useMemo(() => {
+    return clients.find((c) => c.id === selectedClientId)
+  }, [clients, selectedClientId])
+
+  const watchSegment = useForm().watch("customerSegment") || "Project"
+
+  useEffect(() => {
+    if (!selectedClientObj) return
+    let resolvedSegment: "Interior" | "Dealer" | "Project" | "Special" = "Project"
+    const cType = (selectedClientObj.clientType || "").toLowerCase()
+    if (cType.includes("interior")) resolvedSegment = "Interior"
+    else if (cType.includes("dealer")) resolvedSegment = "Dealer"
+    else if (cType.includes("special") || cType.includes("online")) resolvedSegment = "Special"
+    else resolvedSegment = "Project"
+
+    form.setValue("customerSegment", resolvedSegment)
+  }, [selectedClientObj])
 
   const [isRevision, setIsRevision] = useState(false)
   const [isEdit, setIsEdit] = useState(false)
@@ -443,6 +471,44 @@ function NewQuotationForm() {
   const [revisionNotes, setRevisionNotes] = useState("")
   const [contactNumbers, setContactNumbers] = useState<string[]>([""])
   const [agentEmails, setAgentEmails] = useState<string[]>([""])
+  const [defaultTermsConditions, setDefaultTermsConditions] = useState<string[]>([
+    "Validity: This quotation is valid for 30 days from date of issue.",
+    "Delivery: Delivery within 4-6 weeks of order approval.",
+    "Warranty: All structural elements carry a 5-year warranty."
+  ])
+
+  const handleMoveTerm = (index: number, direction: -1 | 1) => {
+    const current = [...(form.getValues("termsConditions") || [])]
+    const newIndex = index + direction
+    if (newIndex < 0 || newIndex >= current.length) return
+    const temp = current[index]
+    current[index] = current[newIndex]
+    current[newIndex] = temp
+    form.setValue("termsConditions", current, { shouldDirty: true, shouldValidate: true })
+  }
+
+  const handleEditTerm = (index: number, val: string) => {
+    const current = [...(form.getValues("termsConditions") || [])]
+    current[index] = val
+    form.setValue("termsConditions", current, { shouldDirty: true, shouldValidate: true })
+  }
+
+  const handleRemoveTerm = (index: number) => {
+    const current = [...(form.getValues("termsConditions") || [])]
+    const updated = current.filter((_, i) => i !== index)
+    form.setValue("termsConditions", updated, { shouldDirty: true, shouldValidate: true })
+  }
+
+  const handleAddTerm = () => {
+    const current = [...(form.getValues("termsConditions") || [])]
+    current.push("")
+    form.setValue("termsConditions", current, { shouldDirty: true, shouldValidate: true })
+  }
+
+  const handleResetTermsToDefault = () => {
+    form.setValue("termsConditions", [...defaultTermsConditions], { shouldDirty: true, shouldValidate: true })
+    toast.success("Terms & Conditions reset to default settings.")
+  }
 
   const handleDeleteSection = (batchId: string) => {
     if (batches.length <= 1) {
@@ -522,80 +588,111 @@ function NewQuotationForm() {
     }
   }
 
-  const handleDrop = (e: React.DragEvent, index: number) => {
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault()
-    if (draggedIndex !== null && draggedIndex !== index) {
-      move(draggedIndex, index)
-      setTimeout(() => {
-        const currentItems = form.getValues("items")
-        const targetHeading = index > 0 
-          ? currentItems[index - 1]?.batchHeading 
-          : (currentItems[index + 1]?.batchHeading || "")
-        form.setValue(`items.${index}.batchHeading`, targetHeading || "", { shouldValidate: true, shouldDirty: true })
-      }, 50)
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null)
+      setDragOverIndex(null)
+      return
     }
+
+    const currentItems = [...form.getValues("items")]
+    const draggedItem = currentItems[draggedIndex]
+    
+    currentItems.splice(draggedIndex, 1)
+    currentItems.splice(dropIndex, 0, draggedItem)
+    
+    form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
     setDraggedIndex(null)
     setDragOverIndex(null)
   }
 
-  const handleDragEnd = () => {
-    setDraggedIndex(null)
-    setDragOverIndex(null)
-  }
-
-  // Utility to convert Base64 Data URL to a File
-  const dataURLtoFile = (dataurl: string, filename: string): File => {
-    const arr = dataurl.split(",")
-    const mime = arr[0].match(/:(.*?);/)![1]
-    const bstr = atob(arr[1])
-    let n = bstr.length
-    const u8arr = new Uint8Array(n)
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n)
+  const handleBatchDragStart = (e: React.DragEvent, batchId: string) => {
+    const target = e.target as HTMLElement
+    if (!target.closest('.batch-drag-handle')) {
+      e.preventDefault()
+      return
     }
-    return new File([u8arr], filename, { type: mime })
+    e.dataTransfer.effectAllowed = 'move'
+    setDraggedBatchId(batchId)
   }
 
-  const handleCropSave = async (croppedBase64: string) => {
-    if (cropperLineIndex === null) return
-    setIsCropperOpen(false)
-    setUploadingImage(true)
+  const handleBatchDragOver = (e: React.DragEvent, batchId: string) => {
+    e.preventDefault()
+    if (draggedBatchId !== batchId) {
+      setDragOverBatchId(batchId)
+    }
+  }
+
+  const handleBatchDrop = (e: React.DragEvent, dropBatchId: string) => {
+    e.preventDefault()
+    if (draggedBatchId === null || draggedBatchId === dropBatchId) {
+      setDraggedBatchId(null)
+      setDragOverBatchId(null)
+      return
+    }
+
+    const draggedBatchIndex = batches.findIndex(b => b.id === draggedBatchId)
+    const dropBatchIndex = batches.findIndex(b => b.id === dropBatchId)
+
+    if (draggedBatchIndex === -1 || dropBatchIndex === -1) return
+
+    const updatedBatches = [...batches]
+    const [draggedBatch] = updatedBatches.splice(draggedBatchIndex, 1)
+    updatedBatches.splice(dropBatchIndex, 0, draggedBatch)
+    setBatches(updatedBatches)
+
+    const currentItems = [...form.getValues("items")]
+    const reorderedItems: any[] = []
+
+    updatedBatches.forEach(b => {
+      const itemsInBatch = currentItems.filter(item => (item.batchHeading || "General Items") === b.name)
+      reorderedItems.push(...itemsInBatch)
+    })
+
+    const unassignedItems = currentItems.filter(item => !updatedBatches.some(b => b.name === (item.batchHeading || "General Items")))
+    reorderedItems.push(...unassignedItems)
+
+    form.setValue("items", reorderedItems, { shouldDirty: true, shouldValidate: true })
+    setDraggedBatchId(null)
+    setDragOverBatchId(null)
+  }
+
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
+  const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
+  const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false)
+
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
+  const [assigningClient, setAssigningClient] = useState<{ id: string; name: string } | null>(null)
+
+  const [requestAccessClient, setRequestAccessClient] = useState<{ id: string; name: string } | null>(null)
+  const [requestNotes, setRequestNotes] = useState("")
+  const [requestingAccess, setRequestingAccess] = useState(false)
+
+  const handleRequestAccess = async (clientId: string, clientName: string, notes?: string) => {
     try {
-      if (process.env.NODE_ENV === "development") {
-        form.setValue(`items.${cropperLineIndex}.customImageUrl`, croppedBase64, { shouldValidate: true, shouldDirty: true })
-        toast.success("Image cropped and saved locally (Dev Mode Base64)!")
-        return
-      }
-      const croppedFile = dataURLtoFile(croppedBase64, `product-cropped-${Date.now()}.png`)
-      const formData = new FormData()
-      formData.append("file", croppedFile)
-      const uploadRes = await fetch("/api/upload?type=product", {
+      const res = await fetch("/api/clients/access-requests", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId, requestNotes: notes }),
       })
-      if (uploadRes.ok) {
-        const data = await uploadRes.json()
-        if (data.url) {
-          form.setValue(`items.${cropperLineIndex}.customImageUrl`, data.url, { shouldValidate: true, shouldDirty: true })
-          toast.success("Image cropped and uploaded successfully!")
-        } else {
-          form.setValue(`items.${cropperLineIndex}.customImageUrl`, croppedBase64, { shouldValidate: true, shouldDirty: true })
-        }
-      } else {
-        form.setValue(`items.${cropperLineIndex}.customImageUrl`, croppedBase64, { shouldValidate: true, shouldDirty: true })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to submit request")
       }
-    } catch (err) {
-      console.error("Failed to upload cropped image:", err)
-      form.setValue(`items.${cropperLineIndex}.customImageUrl`, croppedBase64, { shouldValidate: true, shouldDirty: true })
-    } finally {
-      setUploadingImage(false)
-      setCropperLineIndex(null)
+      toast.success(`Access request submitted for ${clientName}! Admin will review your request.`)
+      const clientsRes = await fetch("/api/clients?all=true")
+      if (clientsRes.ok) {
+        setClients(await clientsRes.json())
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Error submitting access request")
+      throw err
     }
   }
 
-  // Fetch users for selecting sales agent
   useEffect(() => {
-    fetch("/api/users/sales-agents")
+    fetch("/api/users?all=true")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -615,7 +712,6 @@ function NewQuotationForm() {
       .catch(err => console.error("Failed to load permissions", err))
   }, [])
 
-  // Fetch clients and products catalog
   useEffect(() => {
     async function loadData() {
       try {
@@ -642,12 +738,25 @@ function NewQuotationForm() {
         }
 
         let fetchedTerms: { id: string; name: string; description?: string | null; isDefault?: boolean }[] = []
+        let loadedDefaultTerms: string[] = []
+
         if (termsRes.ok) {
           const termsData = await termsRes.json()
           if (Array.isArray(termsData.paymentTerms)) {
             fetchedTerms = termsData.paymentTerms
             setPaymentTermsOptions(termsData.paymentTerms)
           }
+          if (Array.isArray(termsData.termsConditions) && termsData.termsConditions.length > 0) {
+            loadedDefaultTerms = termsData.termsConditions.map((t: any) => `${t.title}: ${t.content}`)
+            setDefaultTermsConditions(loadedDefaultTerms)
+          }
+        }
+        if (loadedDefaultTerms.length === 0) {
+          loadedDefaultTerms = [
+            "Validity: This quotation is valid for 30 days from date of issue.",
+            "Delivery: Delivery within 4-6 weeks of order approval.",
+            "Warranty: All structural elements carry a 5-year warranty."
+          ]
         }
         const defaultPaymentTerm = fetchedTerms.find((t) => t.isDefault)?.name || (fetchedTerms.length > 0 ? fetchedTerms[0].name : "50% Advance, 50% on Delivery")
 
@@ -689,6 +798,21 @@ function NewQuotationForm() {
               setBatches([{ id: "default", name: "General Items" }])
             }
 
+            let activeTerms: string[] = []
+            if (activeData.termsConditions) {
+              try {
+                const parsed = JSON.parse(activeData.termsConditions)
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  activeTerms = parsed.map((t: any) => typeof t === "string" ? t : `${t.title ? t.title + ": " : ""}${t.content || ""}`.trim()).filter(Boolean)
+                }
+              } catch (e) {
+                activeTerms = activeData.termsConditions.split("\n").map((s: string) => s.trim()).filter(Boolean)
+              }
+            }
+            if (activeTerms.length === 0) {
+              activeTerms = loadedDefaultTerms
+            }
+
             // Populate form values
             form.reset({
               clientId: activeData.clientId,
@@ -706,6 +830,7 @@ function NewQuotationForm() {
               validityDate: reviseId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : activeData.validityDate.split("T")[0],
               deliveryDate: activeData.deliveryDate ? new Date(activeData.deliveryDate).toISOString().split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
               paymentTerms: activeData.paymentTerms || defaultPaymentTerm,
+              termsConditions: activeTerms,
               items: activeData.items.map((item: any) => {
                 const marginVal = item.margin || 0
                 const loadedBase = (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== 0)
@@ -771,6 +896,7 @@ function NewQuotationForm() {
           if (sysDisclaimerTitle) form.setValue("disclaimerTitle", sysDisclaimerTitle)
           if (sysDisclaimer) form.setValue("disclaimer", sysDisclaimer)
           if (defaultPaymentTerm) form.setValue("paymentTerms", defaultPaymentTerm)
+          form.setValue("termsConditions", loadedDefaultTerms)
         }
       } catch (error) {
         console.error("Error loading form options:", error)
@@ -871,6 +997,11 @@ function NewQuotationForm() {
       specialDiscountValue: 0,
       specialDiscountReason: "",
       additionalCharges: [{ name: "", amount: "" }],
+      termsConditions: [
+        "Validity: This quotation is valid for 30 days from date of issue.",
+        "Delivery: Delivery within 4-6 weeks of order approval.",
+        "Warranty: All structural elements carry a 5-year warranty."
+      ],
     },
   })
 
@@ -894,79 +1025,158 @@ function NewQuotationForm() {
   const watchItems = form.watch("items")
   const watchClientId = form.watch("clientId")
   const watchAdditionalCharges = form.watch("additionalCharges") || []
+  const watchTermsConditions = form.watch("termsConditions") || []
   const watchSpecialDiscountType = form.watch("specialDiscountType")
   const watchSpecialDiscountValue = form.watch("specialDiscountValue")
   const watchVatMode = form.watch("vatMode") || "EXCLUDING"
 
-  const selectedClientObj = clients.find((c) => c.id === watchClientId)
+  // Calculation Breakdown
+  const subtotal = useMemo(() => {
+    return watchItems.reduce((sum, item) => {
+      const qty = item.quantity === "" ? 0 : Number(item.quantity) || 0
+      const price = item.unitPrice === "" ? 0 : Number(item.unitPrice) || 0
+      return sum + qty * price
+    }, 0)
+  }, [watchItems])
 
-  const watchSegment = form.watch("customerSegment") || "Project"
+  const totalAdditionalCost = useMemo(() => {
+    return watchAdditionalCharges.reduce((sum, c) => {
+      const amt = c.amount === "" ? 0 : Number(c.amount) || 0
+      return sum + amt
+    }, 0)
+  }, [watchAdditionalCharges])
 
-  const handleAddBatch = () => {
-    const newName = `Section ${batches.length + 1}`
-    let finalName = newName
-    let counter = 1
-    while (batches.some((b) => b.name.toLowerCase() === finalName.toLowerCase())) {
-      finalName = `Section ${batches.length + 1} (${counter})`
-      counter++
+  const specialDiscountAmount = useMemo(() => {
+    const val = watchSpecialDiscountValue === "" ? 0 : Number(watchSpecialDiscountValue) || 0
+    if (!watchSpecialDiscountType || val <= 0) return 0
+
+    if (watchSpecialDiscountType === "PERCENTAGE") {
+      const grossSub = subtotal + totalAdditionalCost
+      return (grossSub * val) / 100
+    } else {
+      return val
     }
-    setBatches([...batches, { id: Math.random().toString(), name: finalName }])
-    toast.success(`Created section "${finalName}"`)
-  }
+  }, [watchSpecialDiscountType, watchSpecialDiscountValue, subtotal, totalAdditionalCost])
 
-  const handleRenameBatch = (batchId: string, newName: string) => {
-    if (!newName.trim()) return
-    if (batches.some((b) => b.id !== batchId && b.name.toLowerCase() === newName.trim().toLowerCase())) {
-      toast.error("A section with this name already exists!")
+  const taxableAmount = useMemo(() => {
+    const grossSub = subtotal + totalAdditionalCost
+    return Math.max(0, grossSub - specialDiscountAmount)
+  }, [subtotal, totalAdditionalCost, specialDiscountAmount])
+
+  const vatAmount = useMemo(() => {
+    if (watchVatMode === "INCLUDING") return 0
+    return taxableAmount * 0.05
+  }, [taxableAmount, watchVatMode])
+
+  const grandTotal = useMemo(() => {
+    if (watchVatMode === "INCLUDING") {
+      return taxableAmount
+    }
+    return taxableAmount + vatAmount
+  }, [taxableAmount, vatAmount, watchVatMode])
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size must be less than 10MB")
       return
     }
 
-    const oldBatch = batches.find((b) => b.id === batchId)
-    if (!oldBatch) return
-    const oldName = oldBatch.name
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setRawImageSrc(event.target?.result as string)
+      setCropperLineIndex(index)
+      setIsCropperOpen(true)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ""
+  }
 
-    setBatches(batches.map((b) => (b.id === batchId ? { ...b, name: newName.trim() } : b)))
+  const handleCropSave = async (croppedBase64: string) => {
+    if (cropperLineIndex === null) return
+    setUploadingImage(true)
 
-    const currentItems = form.getValues("items") || []
-    currentItems.forEach((item, index) => {
-      if (item.batchHeading === oldName) {
-        form.setValue(`items.${index}.batchHeading`, newName.trim(), { shouldDirty: true, shouldValidate: true })
-      }
+    try {
+      const fetchRes = await fetch(croppedBase64)
+      const croppedBlob = await fetchRes.blob()
+
+      const formData = new FormData()
+      formData.append("file", croppedBlob, "custom-product.jpg")
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!res.ok) throw new Error("Failed to upload cropped image")
+      const data = await res.json()
+
+      form.setValue(`items.${cropperLineIndex}.customImageUrl`, data.url, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+
+      toast.success("Image cropped & uploaded successfully!")
+    } catch (err) {
+      console.error(err)
+      toast.error("Error saving cropped image")
+    } finally {
+      setUploadingImage(false)
+      setIsCropperOpen(false)
+      setRawImageSrc(null)
+      setCropperLineIndex(null)
+    }
+  }
+
+  const handleProductSelect = (index: number, productId: string) => {
+    const prod = products.find((p) => p.id === productId)
+    if (!prod) return
+
+    let basePrice = prod.unitPrice
+    if (watchSegment === "Interior") basePrice = prod.interiorPrice ?? prod.unitPrice
+    else if (watchSegment === "Dealer") basePrice = prod.dealerPrice ?? prod.unitPrice
+    else if (watchSegment === "Project") basePrice = prod.projectPrice ?? prod.unitPrice
+    else if (watchSegment === "Special") basePrice = prod.specialPrice ?? prod.unitPrice
+
+    const currentItem = form.getValues(`items.${index}`)
+
+    form.setValue(`items.${index}.productId`, prod.id)
+    form.setValue(`items.${index}.priceSource`, "standard")
+    form.setValue(`items.${index}.description`, prod.productName)
+    form.setValue(`items.${index}.specifications`, prod.specifications || "")
+    form.setValue(`items.${index}.customImageUrl`, prod.imageUrl || "")
+    form.setValue(`items.${index}.basePrice`, basePrice)
+
+    const marginVal = Number(currentItem.margin) || 0
+    const marginMultiplier = 1 + marginVal / 100
+    const calculatedUnitPrice = Number((basePrice * marginMultiplier).toFixed(2))
+
+    form.setValue(`items.${index}.unitPrice`, calculatedUnitPrice)
+    form.setValue(`items.${index}.manualMargin`, marginVal)
+    form.setValue(`items.${index}.productDescription`, prod.description || prod.specifications || "")
+
+    if (prod.category?.name) {
+      form.setValue(`items.${index}.categoryName`, prod.category.name)
+    }
+    if (prod.chairType) {
+      form.setValue(`items.${index}.chairType`, prod.chairType)
+    }
+  }
+
+  const handleDuplicateItem = (index: number) => {
+    const itemToCopy = form.getValues(`items.${index}`)
+    insert(index + 1, {
+      ...itemToCopy,
     })
+    toast.success("Item duplicated")
   }
 
-  const handleDeleteBatch = (batchId: string) => {
-    const batch = batches.find((b) => b.id === batchId)
-    if (!batch) return
-
-    const hasItems = watchItems.some((item) => item.batchHeading === batch.name)
-    if (hasItems) {
-      toast.error("Cannot delete a section that contains items. Move or delete the products first.")
-      return
-    }
-
-    if (batches.length <= 1) {
-      toast.error("Quotation must have at least one section.")
-      return
-    }
-
-    setBatches(batches.filter((b) => b.id !== batchId))
-    toast.success(`Section "${batch.name}" removed.`)
-  }
-
-  const handleAddItemToBatch = (batchName: string, isCustom: boolean = false) => {
-    const currentItems = form.getValues("items") || []
-    let insertIndex = currentItems.length
-    for (let i = currentItems.length - 1; i >= 0; i--) {
-      if (currentItems[i]?.batchHeading === batchName) {
-        insertIndex = i + 1
-        break
-      }
-    }
-
-    insert(insertIndex, {
+  const handleAddItemToBatch = (batchName: string) => {
+    append({
       productId: "",
-      priceSource: isCustom ? "manual" : "standard",
+      priceSource: "standard",
       description: "",
       specifications: "",
       productNotes: "",
@@ -980,315 +1190,167 @@ function NewQuotationForm() {
       productDescription: "",
       categoryName: "Chairs",
       chairType: "",
-      batchHeading: batchName,
+      batchHeading: batchName === "General Items" ? "" : batchName,
       saveToCatalog: false,
     })
-    toast.success(`Product added to ${batchName}`)
   }
 
-  const handleMoveItemInBatch = (fromIndex: number, direction: "up" | "down") => {
-    const currentItems = form.getValues("items") || []
-    const currentBatchName = currentItems[fromIndex]?.batchHeading
-
-    let siblingIndex = -1
-    if (direction === "up") {
-      for (let i = fromIndex - 1; i >= 0; i--) {
-        if (currentItems[i]?.batchHeading === currentBatchName) {
-          siblingIndex = i
-          break
-        }
-      }
-    } else {
-      for (let i = fromIndex + 1; i < currentItems.length; i++) {
-        if (currentItems[i]?.batchHeading === currentBatchName) {
-          siblingIndex = i
-          break
-        }
-      }
-    }
-
-    if (siblingIndex !== -1) {
-      move(fromIndex, siblingIndex)
-    }
+  const handleAddBatch = () => {
+    const newBatchName = `Section ${batches.length + 1}`
+    const newBatchId = Math.random().toString()
+    setBatches([...batches, { id: newBatchId, name: newBatchName }])
+    handleAddItemToBatch(newBatchName)
   }
 
-  const reorderFlatItemsByBatches = (newBatches: typeof batches) => {
-    const currentItems = form.getValues("items") || []
-    const reordered: typeof currentItems = []
+  const onSubmit = async (data: QuotationFormValues, resolvedStatus: "DRAFT" | "SUBMITTED" = "SUBMITTED") => {
+    setSubmitting(true)
 
-    newBatches.forEach((batch) => {
-      const itemsInBatch = currentItems.filter((item) => item.batchHeading === batch.name)
-      reordered.push(...itemsInBatch)
-    })
-
-    replace(reordered)
-  }
-
-  // Ensure all items are assigned to a valid batch in batches state
-  useEffect(() => {
-    if (batches.length > 0 && watchItems && watchItems.length > 0) {
-      const batchNames = new Set(batches.map((b) => b.name))
-      watchItems.forEach((item, index) => {
-        if (!item?.batchHeading || !batchNames.has(item.batchHeading)) {
-          form.setValue(`items.${index}.batchHeading`, batches[0].name, { shouldValidate: true })
-        }
-      })
-    }
-  }, [batches, watchItems])
-
-  const handleBatchDragStart = (e: React.DragEvent, id: string) => {
-    const target = e.target as HTMLElement
-    if (!target.closest('.batch-drag-handle')) {
-      e.preventDefault()
-      return
-    }
-    setDraggedBatchId(id)
-    e.dataTransfer.effectAllowed = "move"
-  }
-
-  const handleBatchDragOver = (e: React.DragEvent, id: string) => {
-    e.preventDefault()
-    if (draggedBatchId !== id) {
-      setDragOverBatchId(id)
-    }
-  }
-
-  const handleBatchDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault()
-    if (!draggedBatchId || draggedBatchId === targetId) return
-
-    const fromIdx = batches.findIndex((b) => b.id === draggedBatchId)
-    const toIdx = batches.findIndex((b) => b.id === targetId)
-    if (fromIdx === -1 || toIdx === -1) return
-
-    const newBatches = [...batches]
-    const [movedBatch] = newBatches.splice(fromIdx, 1)
-    newBatches.splice(toIdx, 0, movedBatch)
-
-    setBatches(newBatches)
-    reorderFlatItemsByBatches(newBatches)
-
-    setDraggedBatchId(null)
-    setDragOverBatchId(null)
-  }
-
-  // Automatically select segment based on client type
-  useEffect(() => {
-    if (selectedClientObj && selectedClientObj.clientType) {
-      const validTypes = ["Dealer", "Interior", "Project", "Special"]
-      if (validTypes.includes(selectedClientObj.clientType)) {
-        form.setValue("customerSegment", selectedClientObj.clientType as any, { shouldValidate: true, shouldDirty: true })
-        toast.info(`Pricing updated to ${selectedClientObj.clientType} Segment based on client profile.`)
-      }
-    }
-  }, [watchClientId, selectedClientObj, form])
-
-  // 1. Subtotal
-  const subtotal = watchItems.reduce((acc, item) => {
-    const qty = Number(item.quantity) || 0
-    const price = Number(item.unitPrice) || 0
-    const discPercent = Number(item.discount) || 0
-    const discAmt = price * (discPercent / 100)
-    return acc + (price - discAmt) * qty
-  }, 0)
-
-  // 2. Sum of Additional Costs
-  const totalAdditionalCost = watchAdditionalCharges.reduce((acc: number, item: any) => {
-    return acc + (Number(item?.amount) || 0)
-  }, 0)
-
-  // 3. Special Discount
-  const discValue = Number(watchSpecialDiscountValue) || 0
-  let specialDiscountAmount = 0
-  if (discValue > 0) {
-    if (watchSpecialDiscountType === "PERCENTAGE") {
-      specialDiscountAmount = (subtotal + totalAdditionalCost) * (discValue / 100)
-    } else if (watchSpecialDiscountType === "FIXED") {
-      specialDiscountAmount = discValue
-    }
-  }
-
-  // 4. Taxable Amount
-  const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - specialDiscountAmount)
-
-  // 5. VAT and Grand Total
-  let vatAmount = 0
-  let grandTotal = 0
-  if (watchVatMode === "INCLUDING") {
-    // Exclude Tax (VAT is 0)
-    vatAmount = 0
-    grandTotal = Math.round(taxableAmount)
-  } else {
-    // Include Tax (Add 5%)
-    vatAmount = taxableAmount * 0.05
-    grandTotal = Math.round(taxableAmount + vatAmount)
-  }
-
-  // Watch for segment changes and update line item unit prices
-  useEffect(() => {
-    const currentItems = form.getValues("items") || []
-    currentItems.forEach((item, index) => {
-      if (item.productId && item.priceSource === "standard") {
-        const matchedProduct = products.find((p) => p.id === item.productId)
-        if (matchedProduct) {
-          let basePrice = matchedProduct.unitPrice
-          if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice || matchedProduct.unitPrice
-          else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
-          else if (watchSegment === "Project") basePrice = matchedProduct.projectPrice || matchedProduct.unitPrice
-          else if (watchSegment === "Special") basePrice = matchedProduct.specialPrice || matchedProduct.unitPrice
-
-          form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
-          const margin = Number(item.margin) || 0
-          const marginDecimal = margin / 100
-          const calculatedPrice = marginDecimal === 1 ? basePrice : basePrice / (1 - marginDecimal)
-          form.setValue(`items.${index}.unitPrice`, Number(calculatedPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
-        }
-      }
-    })
-  }, [watchSegment, products])
-
-  const handleProductSelect = (index: number, productId: string | null) => {
-    if (!productId) return
-    const matchedProduct = products.find((p) => p.id === productId)
-    if (matchedProduct) {
-      let basePrice = matchedProduct.unitPrice
-      if (watchSegment === "Interior") basePrice = matchedProduct.interiorPrice || matchedProduct.unitPrice
-      else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
-      else if (watchSegment === "Project") basePrice = matchedProduct.projectPrice || matchedProduct.unitPrice
-      else if (watchSegment === "Special") basePrice = matchedProduct.specialPrice || matchedProduct.unitPrice
-
-      form.setValue(`items.${index}.productId`, matchedProduct.id, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.description`, matchedProduct.productName, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.productDescription`, matchedProduct.description || "", { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.specifications`, matchedProduct.specifications ? matchedProduct.specifications.replace(/【/g, '• ').replace(/】 ?/g, ': ') : "", { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.manualMargin`, 0, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.unitPrice`, basePrice, { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.categoryName`, matchedProduct.category?.name || "General", { shouldValidate: true, shouldDirty: true })
-      form.setValue(`items.${index}.chairType`, matchedProduct.chairType || "", { shouldValidate: true, shouldDirty: true })
-
-      toast.info(`Populated ${matchedProduct.productName} for ${watchSegment} segment at base price AED ${basePrice}!`)
-    }
-  }
-
-  const recalculateRow = (
-    index: number,
-    fieldChanged: "basePrice" | "margin" | "unitPrice" | "priceSource" | "productId",
-    newValue: any
-  ) => {
-    const item = form.getValues(`items.${index}`)
-    if (!item) return
-
-    let priceSource = fieldChanged === "priceSource" ? newValue : item.priceSource
-    let productId = fieldChanged === "productId" ? newValue : item.productId
-    let basePrice = fieldChanged === "basePrice" ? (newValue === "" ? 0 : parseFloat(newValue) || 0) : (item.basePrice === "" ? 0 : parseFloat(item.basePrice as any) || 0)
-    let margin = fieldChanged === "margin" ? (newValue === "" ? 0 : parseFloat(newValue) || 0) : (item.margin === "" ? 0 : parseFloat(item.margin as any) || 0)
-    let unitPrice = fieldChanged === "unitPrice" ? (newValue === "" ? 0 : parseFloat(newValue) || 0) : (item.unitPrice === "" ? 0 : parseFloat(item.unitPrice as any) || 0)
-
-    // Set the changed field itself in react-hook-form state so it persists
-    if (fieldChanged === "basePrice") {
-      form.setValue(`items.${index}.basePrice`, newValue, { shouldValidate: false, shouldDirty: true })
-    } else if (fieldChanged === "margin") {
-      form.setValue(`items.${index}.margin`, newValue, { shouldValidate: false, shouldDirty: true })
-      form.setValue(`items.${index}.manualMargin`, newValue, { shouldValidate: false, shouldDirty: true })
-    } else if (fieldChanged === "unitPrice") {
-      form.setValue(`items.${index}.unitPrice`, newValue, { shouldValidate: false, shouldDirty: true })
-    } else if (fieldChanged === "priceSource") {
-      form.setValue(`items.${index}.priceSource`, newValue, { shouldValidate: false, shouldDirty: true })
-    }
-
-    // 1. Resolve standard catalog base price if priceSource is standard
-    if (priceSource === "standard" && productId) {
-      const matchedProduct = products.find((p) => p.id === productId)
-      if (matchedProduct) {
-        let segmentPrice = matchedProduct.unitPrice
-        if (watchSegment === "Interior") segmentPrice = matchedProduct.interiorPrice ?? matchedProduct.unitPrice
-        else if (watchSegment === "Dealer") segmentPrice = matchedProduct.dealerPrice ?? matchedProduct.unitPrice
-        else if (watchSegment === "Project") segmentPrice = matchedProduct.projectPrice ?? matchedProduct.unitPrice
-        else if (watchSegment === "Special") segmentPrice = matchedProduct.specialPrice ?? matchedProduct.unitPrice
-        
-        basePrice = segmentPrice
-        form.setValue(`items.${index}.basePrice`, segmentPrice, { shouldValidate: false, shouldDirty: true })
-      }
-    }
-
-    // 2. Perform math based on what changed
-    if (fieldChanged === "unitPrice") {
-      if (newValue === "") {
-        margin = 0
-        form.setValue(`items.${index}.margin`, "", { shouldValidate: false, shouldDirty: true })
-        form.setValue(`items.${index}.manualMargin`, "", { shouldValidate: false, shouldDirty: true })
-      } else if (unitPrice > 0) {
-        // Unit Price = Base Price / (1 - Margin % / 100) => Margin % = (1 - (Base Price / Unit Price)) * 100
-        margin = (1 - (basePrice / unitPrice)) * 100
-        const roundedMargin = Number(margin.toFixed(2))
-        form.setValue(`items.${index}.margin`, roundedMargin, { shouldValidate: false, shouldDirty: true })
-        form.setValue(`items.${index}.manualMargin`, roundedMargin, { shouldValidate: false, shouldDirty: true })
-      } else {
-        margin = 0
-        form.setValue(`items.${index}.margin`, 0, { shouldValidate: false, shouldDirty: true })
-        form.setValue(`items.${index}.manualMargin`, 0, { shouldValidate: false, shouldDirty: true })
-      }
-    } else {
-      let marginDecimal = margin / 100
-      if (marginDecimal >= 1) {
-        marginDecimal = 0.9999 // Prevent division by zero
-      }
-      unitPrice = basePrice / (1 - marginDecimal)
-      const finalPrice = (newValue === "" && fieldChanged === "margin") || (fieldChanged === "basePrice" && newValue === "") ? "" : Number(unitPrice.toFixed(2))
-      form.setValue(`items.${index}.unitPrice`, finalPrice, { shouldValidate: false, shouldDirty: true })
-    }
-  }
-
-  const fetchClientsList = async () => {
     try {
-      const res = await fetch("/api/clients?all=true")
-      if (res.ok) {
-        const data = await res.json()
-        setClients(data)
-      }
-    } catch (err) {
-      console.error("Failed to refresh clients list:", err)
-    }
-  }
+      const selectedClient = clients.find(c => c.id === data.clientId)
+      const isSuperAdmin = userRole === "SUPER_ADMIN"
+      const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
+      const isNewQuote = !existingQuote
 
-  const handleRequestAccess = async (clientId: string, clientName: string, notes?: string) => {
-    try {
-      const res = await fetch(`/api/clients/${clientId}/request-access`, {
-        method: "POST",
+      if (selectedClient && selectedClient.status !== "Approved" && !isRevision) {
+        toast.error(
+          selectedClient.status === "Pending Approval"
+            ? "Cannot create quotation: Client is pending approval."
+            : "Cannot create quotation: Client has been rejected."
+        )
+        setSubmitting(false)
+        return
+      }
+
+      if (selectedClient && !isSuperAdmin && !isCreator && !isRevision && !isNewQuote) {
+        const isUserAssigned = selectedClient.salespersonId === (session?.user as any)?.id || selectedClient.assignments?.some((a: any) => a.userId === (session?.user as any)?.id)
+        if (!isUserAssigned) {
+          toast.error("Forbidden: You are not assigned to this client. Please request access or contact Admin.")
+          setSubmitting(false)
+          return
+        }
+      }
+
+      let url = "/api/quotations"
+      let method = "POST"
+      let sendIsRevision = false
+
+      if (isRevision && existingQuote) {
+        url = `/api/quotations/${existingQuote.id}`
+        method = "PUT"
+        sendIsRevision = true
+        if (!revisionNotes.trim()) {
+          toast.error("Please provide revision notes explaining the changes.")
+          setSubmitting(false)
+          return
+        }
+      } else if (isEdit && existingQuote) {
+        url = `/api/quotations/${existingQuote.id}`
+        method = "PUT"
+        sendIsRevision = false
+      }
+
+      const formattedItems = []
+      for (const item of data.items) {
+        if (!item.description || item.description.trim() === "") {
+          toast.error("Product Description is required for all line items.")
+          setSubmitting(false)
+          return
+        }
+
+        if (item.saveToCatalog && userRole === "SUPER_ADMIN") {
+          try {
+            let categoryId = ""
+            if (item.categoryName) {
+              const matchedCat = dbCategories.find(c => c.name.toLowerCase() === item.categoryName?.toLowerCase())
+              if (matchedCat) categoryId = matchedCat.id
+            }
+
+            const catRes = await fetch("/api/products", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                productName: item.description,
+                unitPrice: item.unitPrice === "" ? 0 : Number(item.unitPrice),
+                description: item.productDescription || item.description,
+                specifications: item.specifications || "",
+                imageUrl: item.customImageUrl || null,
+                categoryId: categoryId || null,
+                chairType: item.chairType || null,
+              }),
+            })
+            if (catRes.ok) {
+              const newProd = await catRes.json()
+              item.productId = newProd.id
+              toast.success(`Saved "${item.description}" to product master catalog!`)
+            }
+          } catch (e) {
+            console.error("Failed to auto-save item to catalog:", e)
+          }
+        }
+
+        const hasManual = item.manualMargin !== undefined && item.manualMargin !== ""
+        const finalMargin = hasManual ? item.manualMargin : item.margin
+        const price = item.unitPrice === "" ? 0 : Number(item.unitPrice)
+        const discPercent = item.discount === "" ? 0 : Number(item.discount)
+        const absoluteDiscount = price * (discPercent / 100)
+
+        formattedItems.push({
+          ...item,
+          productId: item.productId || null,
+          quantity: item.quantity === "" ? 1 : Number(item.quantity),
+          basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
+          unitPrice: price,
+          discount: Number(absoluteDiscount.toFixed(2)),
+          margin: finalMargin === "" ? 0 : Number(finalMargin),
+        })
+      }
+
+      const res = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: notes || "Requested access to client via quotations page." })
+        body: JSON.stringify({
+          ...data,
+          preparedById: data.preparedById,
+          items: formattedItems,
+          deliveryCharge: totalAdditionalCost,
+          specialDiscountValue: data.specialDiscountValue === "" ? 0 : Number(data.specialDiscountValue),
+          additionalCharges: data.additionalCharges.map((c: any) => ({
+            name: c.name,
+            amount: c.amount === "" ? 0 : Number(c.amount)
+          })),
+          isRevision: sendIsRevision,
+          isUpdate: isEdit || !!autoSavedQuoteId,
+          revisionNotes: revisionNotes,
+          status: resolvedStatus,
+        }),
       })
 
       if (!res.ok) {
         const err = await res.json()
-        throw new Error(err.error || "Failed to request access")
+        throw new Error(err.error || "Failed to submit quotation")
       }
 
-      toast.success(`Access request submitted for "${clientName}"! Admin will be notified.`)
-      await fetchClientsList()
+      const result = await res.json()
+      toast.success(
+        isRevision
+          ? `Quotation revised successfully to Revision #${result.revisionNumber}! PDF updated on SharePoint.`
+          : isEdit
+            ? (resolvedStatus === "DRAFT"
+                ? `Quotation draft updated successfully!`
+                : `Quotation ${result.quotationNumber} updated and compiled successfully! PDF updated on SharePoint.`)
+            : (resolvedStatus === "DRAFT"
+                ? `Quotation draft saved successfully!`
+                : `Quotation ${result.quotationNumber} compiled & uploaded to SharePoint!`)
+      )
+      router.push("/quotations")
     } catch (error: any) {
-      toast.error(error.message || "Failed to request access. Please try again.")
-      throw error
+      console.error("Error submitting quotation:", error)
+      toast.error(error.message || "Failed to submit quotation. Please try again.")
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  const handleRequestAccessSubmit = async () => {
-    if (!requestAccessClient) return
-    setRequestingAccess(true)
-    try {
-      await handleRequestAccess(requestAccessClient.id, requestAccessClient.name, requestNotes)
-      setRequestAccessClient(null)
-      setRequestNotes("")
-    } catch (err) {
-      // toast already handled
-    } finally {
-      setRequestingAccess(false)
-    }
-  }
   const handleAutoSave = async () => {
     const currentData = form.getValues()
     if (!currentData.clientId || currentData.items.length === 0) return
@@ -1378,213 +1440,158 @@ function NewQuotationForm() {
   }
 
   useEffect(() => {
-    const intervalId = setInterval(() => {
+    const timer = setInterval(() => {
       handleAutoSave()
-    }, 15000)
-
-    return () => clearInterval(intervalId)
+    }, 30000)
+    return () => clearInterval(timer)
   }, [])
 
-  async function onSubmit(data: QuotationFormValues, targetStatus?: "DRAFT" | "SUBMITTED") {
-    if (submitting) return
-
-    const resolvedStatus = targetStatus === "DRAFT"
-      ? "DRAFT"
-      : (targetStatus || "SUBMITTED")
-
-    if (isRevision && resolvedStatus !== "DRAFT" && !revisionNotes.trim()) {
-      toast.error("Revision notes are required to revise this quotation!")
-      return
-    }
-
-    setSubmitting(true)
+  const handleRequestAccessSubmit = async () => {
+    if (!requestAccessClient) return
+    setRequestingAccess(true)
     try {
-      const url = autoSavedQuoteId 
-        ? `/api/quotations/${autoSavedQuoteId}`
-        : (isRevision || isEdit) 
-          ? `/api/quotations/${existingQuote.id}` 
-          : "/api/quotations"
-
-      const method = (isRevision || isEdit || autoSavedQuoteId) ? "PUT" : "POST"
-      const sendIsRevision = isRevision && !autoSavedQuoteId
-
-      const formattedItems = []
-      for (const item of data.items) {
-        const isCustom = item.priceSource === "manual" && !item.productId
-        if (isCustom) {
-          if (!item.description.trim()) {
-            throw new Error("Product Name is required for custom products.")
-          }
-          if (isManagerOrAdmin) {
-          }
-          if (item.categoryName === "Chairs" && !item.chairType) {
-            throw new Error(`Chair Type is required for custom chair "${item.description}".`)
-          }
-
-          if (isAdminOrSuperAdmin && item.saveToCatalog) {
-            const prodRes = await fetch("/api/products", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                productName: item.description,
-                categoryName: item.categoryName || "General",
-                unitPrice: Number(item.unitPrice) || 0.0,
-                description: item.productDescription,
-                specifications: item.specifications || undefined,
-                warranty: "5 Years",
-                imageUrl: item.customImageUrl || undefined,
-                chairType: item.categoryName === "Chairs" ? item.chairType : undefined,
-              }),
-            })
-            if (!prodRes.ok) {
-              const errData = await prodRes.json()
-              throw new Error(errData.error || `Failed to save custom product "${item.description}" to catalog.`)
-            }
-            const createdProduct = await prodRes.json()
-            item.productId = createdProduct.id
-          }
-        }
-
-        const hasManual = item.manualMargin !== undefined && item.manualMargin !== ""
-        const finalMargin = hasManual ? item.manualMargin : item.margin
-        const price = item.unitPrice === "" ? 0 : Number(item.unitPrice)
-        const discPercent = item.discount === "" ? 0 : Number(item.discount)
-        const absoluteDiscount = price * (discPercent / 100)
-
-        formattedItems.push({
-          ...item,
-          productId: item.productId || null,
-          quantity: item.quantity === "" ? 1 : Number(item.quantity),
-          basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
-          unitPrice: price,
-          discount: Number(absoluteDiscount.toFixed(2)),
-          margin: finalMargin === "" ? 0 : Number(finalMargin),
-        })
-      }
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...data,
-          preparedById: data.preparedById,
-          items: formattedItems,
-          deliveryCharge: totalAdditionalCost,
-          specialDiscountValue: data.specialDiscountValue === "" ? 0 : Number(data.specialDiscountValue),
-          additionalCharges: data.additionalCharges.map((c: any) => ({
-            name: c.name,
-            amount: c.amount === "" ? 0 : Number(c.amount)
-          })),
-          isRevision: sendIsRevision,
-          isUpdate: isEdit || !!autoSavedQuoteId,
-          revisionNotes: revisionNotes,
-          status: resolvedStatus,
-        }),
-      })
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || "Failed to submit quotation")
-      }
-
-      const result = await res.json()
-      toast.success(
-        isRevision
-          ? `Quotation revised successfully to Revision #${result.revisionNumber}! PDF updated on SharePoint.`
-          : isEdit
-            ? (resolvedStatus === "DRAFT"
-                ? `Quotation draft updated successfully!`
-                : `Quotation ${result.quotationNumber} updated and compiled successfully! PDF updated on SharePoint.`)
-            : (resolvedStatus === "DRAFT"
-                ? `Quotation draft saved successfully!`
-                : `Quotation ${result.quotationNumber} compiled & uploaded to SharePoint!`)
-      )
-      router.push("/quotations")
-    } catch (error: any) {
-      console.error("Error submitting quotation:", error)
-      toast.error(error.message || "Failed to submit quotation. Please try again.")
+      await handleRequestAccess(requestAccessClient.id, requestAccessClient.name, requestNotes)
+      setRequestAccessClient(null)
+      setRequestNotes("")
+    } catch (err) {
+      // handled
     } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const getSegmentPriceInfo = (productId: string | null | undefined) => {
-    if (!productId) return null
-    const product = products.find(p => p.id === productId)
-    if (!product) return null
-    let basePrice = product.unitPrice
-    if (watchSegment === "Interior") basePrice = product.interiorPrice ?? product.unitPrice
-    else if (watchSegment === "Dealer") basePrice = product.dealerPrice ?? product.unitPrice
-    else if (watchSegment === "Project") basePrice = product.projectPrice ?? product.unitPrice
-    else if (watchSegment === "Special") basePrice = product.specialPrice ?? product.unitPrice
-    return {
-      label: `Standard ${watchSegment} Price`,
-      price: basePrice
+      setRequestingAccess(false)
     }
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      <div className="flex items-center space-x-4">
-        <Link href="/quotations">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <ArrowLeft className="h-5 w-5" />
+    <div className="max-w-[1400px] mx-auto space-y-6 pb-32 px-3 sm:px-6 lg:px-8">
+      {/* 1. Header Navigation & Dynamic Title */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <Link href="/quotations">
+            <Button variant="outline" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0 shadow-xs hover:bg-muted">
+              <ArrowLeft className="h-4 w-4 text-foreground" />
+            </Button>
+          </Link>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                {isRevision ? "Revise Quotation" : isEdit ? "Update Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"}
+              </h1>
+              {isRevision && existingQuote && (
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs font-semibold py-0.5 px-2">
+                  Rev #{existingQuote.revisionNumber + 1}
+                </Badge>
+              )}
+              {isEdit && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold py-0.5 px-2">
+                  Edit Mode
+                </Badge>
+              )}
+              {isCopy && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-semibold py-0.5 px-2">
+                  Copy Mode
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              {isRevision
+                ? `Creating Revision #${existingQuote?.revisionNumber + 1} for ${existingQuote?.quotationNumber}`
+                : isEdit
+                  ? `Editing Quotation ${existingQuote?.quotationNumber}`
+                  : isCopy
+                    ? `Generating sequential copy of ${existingQuote?.quotationNumber}`
+                    : "Select a client, build custom catalog line items, and generate a quotation PDF."}
+            </p>
+          </div>
+        </div>
+
+        {/* Top Header Desktop Action Bar */}
+        <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
+          {/* Real-time Auto-save Indicator */}
+          <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50">
+            {isAutoSaving ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                <span>Auto-saving...</span>
+              </>
+            ) : lastAutoSavedAt ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Saved {lastAutoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </>
+            ) : (
+              <span>Draft ready</span>
+            )}
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting}
+            onClick={() => onSubmit(form.getValues(), "DRAFT")}
+            className="text-xs h-9 font-medium flex items-center gap-1.5 cursor-pointer"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span>Save Draft</span>
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isRevision ? "Revise Quotation" : isEdit ? "Update Quotation" : "Create Quotation"}
-          </h1>
-          <p className="text-muted-foreground">
-            {isRevision
-              ? `Create a new revised version of Quotation ${existingQuote?.quotationNumber}`
-              : isEdit
-                ? `Modify and update Quotation ${existingQuote?.quotationNumber}`
-                : "Select a client, add catalog products, and compile a PDF immediately."}
-          </p>
+
+          <Button
+            type="button"
+            size="sm"
+            disabled={submitting}
+            onClick={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"))}
+            className="text-xs h-9 font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5" />
+            )}
+            <span>{isRevision ? "Save Revision" : "Compile & Create"}</span>
+          </Button>
         </div>
       </div>
 
+      {/* Context Banner Alerts */}
       {isRevision && existingQuote && (
-        <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 rounded-xl p-4 flex items-start gap-3 text-purple-950 dark:text-purple-300">
-          <Info className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5" />
-          <div>
-            <h3 className="font-semibold">Revising Quotation {existingQuote.quotationNumber}</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              You are creating **Revision #{existingQuote.revisionNumber + 1}** for this quotation. A new PDF will be compiled and uploaded as the active revision on SharePoint, and the revision history will be logged.
+        <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 rounded-xl p-3.5 sm:p-4 flex items-start gap-3 text-purple-950 dark:text-purple-300">
+          <Info className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+          <div className="text-xs sm:text-sm">
+            <span className="font-semibold">Revising Quotation {existingQuote.quotationNumber}</span>
+            <p className="text-muted-foreground mt-0.5">
+              Creating Revision #{existingQuote.revisionNumber + 1}. The updated compiled PDF will be uploaded to SharePoint as the active revision while logging revision history.
             </p>
           </div>
         </div>
       )}
 
       {isEdit && existingQuote && (
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-xl p-4 flex items-start gap-3 text-amber-950 dark:text-amber-300">
-          <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
-          <div>
-            <h3 className="font-semibold">Updating Quotation {existingQuote.quotationNumber}</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              You are updating this quotation draft directly. Changes will overwrite the current draft version and update the compiled PDF on SharePoint without creating a new revision.
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-xl p-3.5 sm:p-4 flex items-start gap-3 text-amber-950 dark:text-amber-300">
+          <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs sm:text-sm">
+            <span className="font-semibold">Updating Quotation {existingQuote.quotationNumber}</span>
+            <p className="text-muted-foreground mt-0.5">
+              Modifying existing quotation draft directly. Changes will overwrite current draft data and update the compiled PDF on SharePoint without incrementing revision number.
             </p>
           </div>
         </div>
       )}
 
       {isCopy && existingQuote && (
-        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-xl p-4 flex items-start gap-3 text-blue-950 dark:text-blue-300">
-          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
-          <div>
-            <h3 className="font-semibold">Creating Copy of Quotation {existingQuote.quotationNumber}</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              You are creating a new sequential copy of Quotation **{existingQuote.quotationNumber}**. Line items, client details, payment terms, and contact numbers have been pre-filled.
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-xl p-3.5 sm:p-4 flex items-start gap-3 text-blue-950 dark:text-blue-300">
+          <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          <div className="text-xs sm:text-sm">
+            <span className="font-semibold">Creating Copy of Quotation {existingQuote.quotationNumber}</span>
+            <p className="text-muted-foreground mt-0.5">
+              Generating a sequential copy of Quotation {existingQuote.quotationNumber}. Line items, client info, and terms & conditions have been copied into draft.
             </p>
           </div>
         </div>
       )}
 
       {loadingOptions ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <div className="flex flex-col items-center justify-center py-24 gap-3 bg-card border rounded-2xl shadow-xs">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading catalog and clients...</p>
+          <p className="text-xs sm:text-sm font-medium text-muted-foreground">Loading quotation builder, clients catalog & pricing configurations...</p>
         </div>
       ) : (
         <Form {...form}>
@@ -1603,54 +1610,77 @@ function NewQuotationForm() {
                 e.preventDefault()
               }
             }}
-            className="space-y-8"
+            className="space-y-6"
           >
+            {/* Revision Notes Card */}
             {isRevision && (
-              <Card className="rounded-xl border border-purple-200 dark:border-purple-900/30 bg-purple-50/10">
-                <CardHeader>
-                  <CardTitle className="text-base text-purple-700 dark:text-purple-400">
+              <Card className="border border-purple-200 dark:border-purple-900/40 bg-purple-50/10 shadow-xs">
+                <CardHeader className="py-3 px-4 sm:px-6 bg-purple-50/20 border-b border-purple-100">
+                  <CardTitle className="text-xs sm:text-sm text-purple-800 dark:text-purple-300 font-semibold uppercase tracking-wider flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-purple-600" />
                     Revision Notes <span className="text-destructive">*</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-4 sm:p-6">
                   <Textarea
-                    placeholder="Describe the updates in this revision (e.g., 'Reduced price on workstation clusters by 10% per sales manager instructions')."
+                    placeholder="Describe the specific updates made in this revision (e.g., 'Discounted workstation line items by 5% as per client request')."
                     value={revisionNotes}
                     onChange={(e) => setRevisionNotes(e.target.value)}
-                    className="min-h-[80px]"
+                    className="min-h-[80px] bg-background text-xs sm:text-sm"
                   />
                 </CardContent>
               </Card>
             )}
 
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Client Selection Card */}
-              <Card className="rounded-xl shadow-sm border bg-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    Client Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {selectedClientObj && selectedClientObj.status !== "Approved" && !isRevision && (
-                    <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3 text-destructive animate-in fade-in">
-                      <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
-                      <div>
-                        <h3 className="font-semibold text-sm">Quotation Revision Blocked</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {selectedClientObj.status === "Pending Approval"
-                            ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
-                            : "This client has been rejected. Please contact Admin/Manager before creating quotation."}
-                        </p>
-                      </div>
+            {/* CARD 1: Quotation Information (Client & Project Metadata) */}
+            <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">
+              <CardHeader className="bg-muted/30 border-b py-3 px-4 sm:px-6 flex flex-row items-center justify-between">
+                <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  1. Quotation & Client Details
+                </CardTitle>
+                {selectedClientObj && (
+                  <Badge variant="outline" className="text-[11px] font-medium bg-background border-border/80">
+                    Client ID: {selectedClientObj.clientId || selectedClientObj.id}
+                  </Badge>
+                )}
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 space-y-6">
+                {/* Client Block Alert if Blocked */}
+                {selectedClientObj && selectedClientObj.status !== "Approved" && !isRevision && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3.5 flex items-start gap-3 text-destructive animate-in fade-in">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <span className="font-semibold">Quotation Creation Blocked</span>
+                      <p className="text-muted-foreground mt-0.5">
+                        {selectedClientObj.status === "Pending Approval"
+                          ? "This client is pending approval. Please contact Admin/Manager before creating quotation."
+                          : "This client has been rejected. Please contact Admin/Manager before creating quotation."}
+                      </p>
                     </div>
-                  )}
+                  </div>
+                )}
+
+                {/* 4-Column Responsive Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                  {/* Client Selector */}
                   <FormField
                     control={form.control}
                     name="clientId"
                     render={({ field }) => (
-                      <FormItem className="flex flex-col mt-2">
-                        <FormLabel>Client Company</FormLabel>
+                      <FormItem className="flex flex-col lg:col-span-2">
+                        <FormLabel className="text-xs font-semibold text-foreground flex items-center justify-between">
+                          <span>Client Company <span className="text-destructive">*</span></span>
+                          {canCreateClient && (
+                            <button
+                              type="button"
+                              onClick={() => setIsQuickAddClientOpen(true)}
+                              className="text-[11px] text-primary hover:underline font-normal flex items-center gap-1 cursor-pointer"
+                            >
+                              <Plus className="h-3 w-3" /> Quick Add Client
+                            </button>
+                          )}
+                        </FormLabel>
                         <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
                           <PopoverTrigger
                             render={
@@ -1660,56 +1690,47 @@ function NewQuotationForm() {
                                   role="combobox"
                                   disabled={isRevision}
                                   className={cn(
-                                    "w-full justify-between font-normal bg-card",
+                                    "w-full justify-between font-normal bg-background h-10 text-xs sm:text-sm border-border/80 hover:border-primary/50",
                                     !field.value && "text-muted-foreground"
                                   )}
                                 >
-                                  {field.value
-                                    ? clients.find((client) => client.id === field.value)?.companyName
-                                    : "Search and select a client..."}
+                                  <span className="truncate">
+                                    {field.value
+                                      ? clients.find((client) => client.id === field.value)?.companyName
+                                      : "Search and select client company..."}
+                                  </span>
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </FormControl>
                             }
                           />
-                          <PopoverContent className="w-[400px] p-0" align="start">
+                          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[450px] p-0" align="start">
                             <Command shouldFilter={false}>
                               <CommandInput 
-                                placeholder="Search client name..." 
+                                placeholder="Search client name, ID, contact..." 
                                 value={clientSearch}
                                 onValueChange={setClientSearch}
+                                className="h-10 text-xs"
                               />
-                              <CommandList>
-                                <CommandEmpty className="p-3 text-center">
-                                  <p className="text-xs text-muted-foreground mb-2">No client found.</p>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    className="w-full flex items-center justify-center gap-1.5"
-                                    onClick={() => {
-                                      setIsQuickAddClientOpen(true)
-                                      setIsClientPopoverOpen(false)
-                                      setClientSearch("")
-                                    }}
-                                  >
-                                    <Plus className="h-3.5 w-3.5" />
-                                    Quick Add Client
-                                  </Button>
+                              <CommandList className="max-h-[300px]">
+                                <CommandEmpty className="p-3 text-center text-xs text-muted-foreground">
+                                  No client found.
                                 </CommandEmpty>
                                 <CommandGroup>
-                                  <CommandItem
-                                    value="--quick-add-client--"
-                                    onSelect={() => {
-                                      setIsQuickAddClientOpen(true)
-                                      setIsClientPopoverOpen(false)
-                                      setClientSearch("")
-                                    }}
-                                    className="text-primary font-medium flex items-center gap-1.5 cursor-pointer"
-                                  >
-                                    <Plus className="h-4 w-4 text-primary" />
-                                    <span>Quick Add Client...</span>
-                                  </CommandItem>
+                                  {canCreateClient && (
+                                    <CommandItem
+                                      value="--quick-add-client--"
+                                      onSelect={() => {
+                                        setIsQuickAddClientOpen(true)
+                                        setIsClientPopoverOpen(false)
+                                        setClientSearch("")
+                                      }}
+                                      className="text-primary font-medium flex items-center gap-1.5 cursor-pointer text-xs p-2.5"
+                                    >
+                                      <Plus className="h-4 w-4 text-primary" />
+                                      <span>+ Quick Add New Client...</span>
+                                    </CommandItem>
+                                  )}
                                   {(() => {
                                     let matchedClients = clients.filter((c) => c.status === "Approved")
                                     
@@ -1721,8 +1742,8 @@ function NewQuotationForm() {
                                       })
                                     }
                                     
-                                    const MAX_RESULTS = 50;
-                                    matchedClients = matchedClients.slice(0, MAX_RESULTS);
+                                    const MAX_RESULTS = 50
+                                    matchedClients = matchedClients.slice(0, MAX_RESULTS)
 
                                     const isExcluded = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
                                     
@@ -1762,7 +1783,7 @@ function NewQuotationForm() {
                                             setClientSearch("")
                                           }}
                                           className={cn(
-                                            "flex flex-col items-start p-2 border-b last:border-b-0 border-muted/50 aria-selected:bg-muted/40 cursor-pointer",
+                                            "flex flex-col items-start p-2.5 border-b last:border-b-0 border-muted/50 aria-selected:bg-accent cursor-pointer",
                                             !canSelect && "opacity-85 cursor-default hover:bg-transparent"
                                           )}
                                         >
@@ -1770,33 +1791,33 @@ function NewQuotationForm() {
                                             <div className="flex items-center gap-2">
                                               <Check
                                                 className={cn(
-                                                  "h-4 w-4 text-primary",
+                                                  "h-4 w-4 text-primary shrink-0",
                                                   isSelected ? "opacity-100" : "opacity-0"
                                                 )}
                                               />
-                                              <span className="font-semibold text-sm">{client.companyName}</span>
+                                              <span className="font-semibold text-xs text-foreground">{client.companyName}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                               {canSelect ? (
                                                 isUserAssigned && (
-                                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-250 text-[10px] py-0 px-1.5 font-normal">
+                                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] py-0 px-1.5 font-normal">
                                                     Assigned
                                                   </Badge>
                                                 )
                                               ) : (
                                                 <>
                                                   {isRequested && (
-                                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-250 text-[10px] py-0 px-1.5 font-normal">
+                                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] py-0 px-1.5 font-normal">
                                                       Requested
                                                     </Badge>
                                                   )}
                                                   {isRejected && (
-                                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-250 text-[10px] py-0 px-1.5 font-normal">
+                                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px] py-0 px-1.5 font-normal">
                                                       Rejected
                                                     </Badge>
                                                   )}
                                                   {!isRequested && !isRejected && (
-                                                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-[10px] py-0 px-1.5 font-normal">
+                                                    <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[10px] py-0 px-1.5 font-normal">
                                                       Unassigned
                                                     </Badge>
                                                   )}
@@ -1816,42 +1837,29 @@ function NewQuotationForm() {
                                           {!canSelect && (() => {
                                             if (isRequested) {
                                               return (
-                                                <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                                <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex items-center justify-between gap-2"
                                                      onClick={(e) => e.stopPropagation()}
                                                 >
-                                                  <div className="flex items-start gap-1">
-                                                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                    <span>Access request is pending approval.</span>
-                                                  </div>
-                                                  <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    disabled
-                                                    className="text-[10px] h-7 px-2 border-amber-200 bg-amber-100 text-amber-600 dark:bg-amber-950/40 shrink-0 self-end sm:self-auto opacity-75 cursor-not-allowed"
-                                                  >
+                                                  <span className="truncate">Access request is pending approval.</span>
+                                                  <Button type="button" size="sm" variant="outline" disabled className="text-[10px] h-6 px-2 opacity-75">
                                                     Requested
                                                   </Button>
                                                 </div>
                                               )
                                             }
-
                                             if (isRejected) {
                                               const isRequestAgainAllowed = client.allowRequestAgain !== false
                                               return (
-                                                <div className="mt-2 ml-6 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg text-[11px] text-red-850 dark:text-red-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                                <div className="mt-2 ml-6 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 rounded-lg text-[11px] text-red-800 dark:text-red-300 w-full flex items-center justify-between gap-2"
                                                      onClick={(e) => e.stopPropagation()}
                                                 >
-                                                  <div className="flex items-start gap-1">
-                                                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                    <span>Access request rejected{activeReq.rejectionReason ? `: ${activeReq.rejectionReason}` : "."}</span>
-                                                  </div>
+                                                  <span className="truncate">Access request rejected.</span>
                                                   {isRequestAgainAllowed && (
                                                     <Button
                                                       type="button"
                                                       size="sm"
                                                       variant="outline"
-                                                      className="text-[10px] h-7 px-2 border-red-300 hover:bg-red-100 dark:hover:bg-red-950 text-red-900 dark:text-red-200 shrink-0 self-end sm:self-auto cursor-pointer"
+                                                      className="text-[10px] h-6 px-2 border-red-300 text-red-900 cursor-pointer"
                                                       onClick={(e) => {
                                                         e.stopPropagation()
                                                         setRequestAccessClient({ id: client.id, name: client.companyName })
@@ -1864,20 +1872,16 @@ function NewQuotationForm() {
                                                 </div>
                                               )
                                             }
-
                                             return (
-                                              <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                                              <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex items-center justify-between gap-2"
                                                    onClick={(e) => e.stopPropagation()}
                                               >
-                                                <div className="flex items-start gap-1">
-                                                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                  <span>You can view this client, but cannot create quotation unless assigned.</span>
-                                                </div>
+                                                <span className="truncate">Viewable, but cannot create quotation unless assigned.</span>
                                                 <Button
                                                   type="button"
                                                   size="sm"
                                                   variant="outline"
-                                                  className="text-[10px] h-7 px-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0 self-end sm:self-auto cursor-pointer"
+                                                  className="text-[10px] h-6 px-2 border-amber-300 text-amber-900 cursor-pointer"
                                                   onClick={(e) => {
                                                     e.stopPropagation()
                                                     setRequestAccessClient({ id: client.id, name: client.companyName })
@@ -1918,15 +1922,33 @@ function NewQuotationForm() {
                     )}
                   />
 
+                  {/* Project Name */}
+                  <FormField
+                    control={form.control}
+                    name="projectName"
+                    render={({ field }) => (
+                      <FormItem className="lg:col-span-2">
+                        <FormLabel className="text-xs font-semibold text-foreground">
+                          Project Name <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Executive Office Renovation Phase 1" {...field} disabled={isRevision} className="h-10 text-xs sm:text-sm bg-background" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Customer Segment */}
                   <FormField
                     control={form.control}
                     name="customerSegment"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Customer Segment <span className="text-red-500">*</span></FormLabel>
+                        <FormLabel className="text-xs font-semibold text-foreground">Customer Segment</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value} disabled>
                           <FormControl>
-                            <SelectTrigger className="bg-muted/30">
+                            <SelectTrigger className="bg-muted/40 h-10 text-xs sm:text-sm">
                               <SelectValue placeholder="Select customer segment" />
                             </SelectTrigger>
                           </FormControl>
@@ -1942,89 +1964,71 @@ function NewQuotationForm() {
                     )}
                   />
 
-                  {selectedClientObj && (
-                    <div className="p-3 border rounded-lg bg-muted/40 text-xs space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Contact Person:</span>
-                        <span className="font-semibold">{selectedClientObj.contactPerson || "-"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">TRN Number:</span>
-                        <span className="font-mono font-semibold">{selectedClientObj.trn || "Not Registered"}</span>
-                      </div>
-                    </div>
-                  )}
-
+                  {/* Date Fields */}
                   <FormField
                     control={form.control}
-                    name="projectName"
+                    name="date"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Project Name</FormLabel>
+                        <FormLabel className="text-xs font-semibold text-foreground">Issue Date</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. Corporate HQ Fitout" {...field} disabled={isRevision} />
+                          <Input type="date" {...field} className="h-10 text-xs bg-background" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  {(userRole === "SUPER_ADMIN" || userRole === "ADMIN") && (
-                    <FormField
-                      control={form.control}
-                      name="quotationNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Quotation Number (Optional Override)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. D4000-1" {...field} />
-                          </FormControl>
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            Leave blank to auto-generate. If provided, this exact number will be used.
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </CardContent>
-              </Card>
+                  <FormField
+                    control={form.control}
+                    name="validityDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold text-foreground">Valid Until</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} className="h-10 text-xs bg-background" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              {/* Quotation Specs Card */}
-              <Card className="rounded-xl shadow-sm border bg-card">
-                <CardHeader>
-                  <CardTitle className="text-lg">Quotation Metadata</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="date"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Issue Date</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="validityDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Valid Until</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="deliveryDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold text-foreground">Expected Delivery</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} className="h-10 text-xs bg-background" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Selected Client Summary Card */}
+                {selectedClientObj && (
+                  <div className="p-3.5 border rounded-xl bg-muted/20 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Contact Person:</span>
+                      <span className="font-semibold text-foreground">{selectedClientObj.contactPerson || "-"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">TRN Number:</span>
+                      <span className="font-mono font-semibold text-foreground">{selectedClientObj.trn || "Not Registered"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Phone / Contact:</span>
+                      <span className="font-medium text-foreground">{selectedClientObj.phone || selectedClientObj.email || "-"}</span>
+                    </div>
                   </div>
+                )}
 
+                {/* Additional Row: Payment Terms & Consultant */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 border-t pt-4">
+                  {/* Payment Terms Select */}
                   <FormField
                     control={form.control}
                     name="paymentTerms"
@@ -2043,16 +2047,16 @@ function NewQuotationForm() {
                       }
                       return (
                         <FormItem>
-                          <FormLabel>Payment Terms</FormLabel>
+                          <FormLabel className="text-xs font-semibold text-foreground">Payment Terms</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value || ""}>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select terms" />
+                              <SelectTrigger className="h-10 text-xs sm:text-sm bg-background">
+                                <SelectValue placeholder="Select payment terms" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                               {displayOptions.map((term) => (
-                                <SelectItem key={term.id || term.name} value={term.name}>
+                                <SelectItem key={term.id || term.name} value={term.name} className="text-xs">
                                   {term.name}
                                 </SelectItem>
                               ))}
@@ -2064,20 +2068,23 @@ function NewQuotationForm() {
                     }}
                   />
 
+                  {/* Consultant Select */}
                   <FormField
                     control={form.control}
                     name="preparedById"
                     render={({ field }) => {
                       const selectedConsultant = users.find(u => u.id === field.value)
                       return (
-                        <FormItem className="space-y-3">
-                          <FormLabel>Interior Design Consultant <span className="text-red-500">*</span></FormLabel>
+                        <FormItem>
+                          <FormLabel className="text-xs font-semibold text-foreground">
+                            Interior Design Consultant <span className="text-destructive">*</span>
+                          </FormLabel>
                           <Select
                             onValueChange={(val) => field.onChange(val)}
                             value={field.value || ""}
                           >
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-10 text-xs sm:text-sm bg-background">
                                 <SelectValue placeholder="Select consultant">
                                   {selectedConsultant?.name || "Select consultant"}
                                 </SelectValue>
@@ -2085,207 +2092,173 @@ function NewQuotationForm() {
                             </FormControl>
                             <SelectContent>
                               {users.map((u) => (
-                                <SelectItem key={u.id} value={u.id}>
+                                <SelectItem key={u.id} value={u.id} className="text-xs">
                                   {u.name} {u.role && `(${u.role})`}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-
-                          {selectedConsultant && (
-                            <div className="bg-muted/40 border border-border rounded-xl p-3.5 space-y-1.5 text-xs text-muted-foreground">
-                              <div className="flex items-center justify-between font-semibold text-foreground text-sm">
-                                <span>{selectedConsultant.name}</span>
-                                <Badge variant="outline" className="text-[10px] uppercase font-mono">{selectedConsultant.designation || selectedConsultant.role || "Interior Design Consultant"}</Badge>
-                              </div>
-                              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-1 border-t border-border/60">
-                                {selectedConsultant.phone && (
-                                  <div><span className="font-medium text-foreground">Phone:</span> {selectedConsultant.phone}</div>
-                                )}
-                                {selectedConsultant.email && (
-                                  <div><span className="font-medium text-foreground">Email:</span> {selectedConsultant.email}</div>
-                                )}
-                              </div>
-                            </div>
-                          )}
                           <FormMessage />
                         </FormItem>
                       )
                     }}
                   />
+                </div>
 
-                  <div className="space-y-4 pt-2 border-t border-dashed">
-                    <FormField
-                      control={form.control}
-                      name="includeSalesAgent"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-sm font-medium cursor-pointer">
-                              Include Sales Representative Details
-                            </FormLabel>
-                            <p className="text-xs text-muted-foreground">
-                              Enable to add Sales Representative details to this quotation and PDF.
-                            </p>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={!!field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                {/* Sales Representative Details Section */}
+                <div className="space-y-4 pt-4 border-t">
+                  <FormField
+                    control={form.control}
+                    name="includeSalesAgent"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground">
+                            Include Sales Representative Info on Exported PDF
+                          </FormLabel>
+                          <p className="text-[11px] text-muted-foreground">
+                            Toggle to specify sales agent contact info on quotation header/footer.
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
 
-                    {form.watch("includeSalesAgent") && (
-                      <div className="space-y-4 pt-2 border-t border-dashed">
+                  {form.watch("includeSalesAgent") && (
+                    <div className="p-4 rounded-xl border bg-card space-y-4 animate-in fade-in duration-200">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
                           name="salesAgentName"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Sales Agent Name <span className="text-muted-foreground font-normal text-xs">(Optional)</span></FormLabel>
+                              <FormLabel className="text-xs font-semibold text-foreground">Sales Rep Name</FormLabel>
                               <FormControl>
-                                <Input placeholder="Enter sales agent name" {...field} />
+                                <Input placeholder="e.g. John Smith" className="h-9 text-xs bg-background" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
+
                         <FormField
                           control={form.control}
                           name="salesAgentTitle"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Sales Agent Title/Designation <span className="text-muted-foreground font-normal text-xs">(Optional)</span></FormLabel>
+                              <FormLabel className="text-xs font-semibold text-foreground">Title / Designation</FormLabel>
                               <FormControl>
-                                <Input placeholder="e.g. Sales Executive, Sales Manager" {...field} />
+                                <Input placeholder="e.g. Senior Sales Consultant" className="h-9 text-xs bg-background" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        <FormItem>
-                          <FormLabel className="flex items-center justify-between text-xs font-medium">
-                            <span>Sales Agent Contact Number(s) <span className="text-muted-foreground font-normal text-xs">(Optional)</span></span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setContactNumbers([...contactNumbers, ""])}
-                              className="h-6 text-[11px] text-primary font-semibold hover:bg-primary/10 flex items-center gap-1 cursor-pointer"
-                            >
-                              <Plus className="h-3 w-3" /> Add Phone
-                            </Button>
-                          </FormLabel>
-                          <div className="space-y-2">
-                            {contactNumbers.map((num, numIdx) => (
-                              <div key={numIdx} className="flex items-center gap-2">
-                                <Input
-                                  placeholder={`e.g. +971 50 ${numIdx === 0 ? '123 4567' : '987 6543'}`}
-                                  value={num}
-                                  onChange={(e) => {
-                                    const newArr = [...contactNumbers]
-                                    newArr[numIdx] = e.target.value
-                                    setContactNumbers(newArr)
-                                    form.setValue("salesAgentContactNumber", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
-                                  }}
-                                />
-                                {contactNumbers.length > 1 && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => {
-                                      const newArr = contactNumbers.filter((_, idx) => idx !== numIdx)
-                                      setContactNumbers(newArr.length > 0 ? newArr : [""])
-                                      form.setValue("salesAgentContactNumber", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
-                                    }}
-                                    className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
-                                    title="Remove phone number"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </FormItem>
-                        <FormItem>
-                          <FormLabel className="flex items-center justify-between text-xs font-medium">
-                            <span>Sales Agent Email(s) <span className="text-muted-foreground font-normal text-xs">(Optional)</span></span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setAgentEmails([...agentEmails, ""])}
-                              className="h-6 text-[11px] text-primary font-semibold hover:bg-primary/10 flex items-center gap-1 cursor-pointer"
-                            >
-                              <Plus className="h-3 w-3" /> Add Email
-                            </Button>
-                          </FormLabel>
-                          <div className="space-y-2">
-                            {agentEmails.map((emailVal, emailIdx) => (
-                              <div key={emailIdx} className="flex items-center gap-2">
-                                <Input
-                                  type="email"
-                                  placeholder={`e.g. consultant${emailIdx > 0 ? emailIdx + 1 : ''}@example.com`}
-                                  value={emailVal}
-                                  onChange={(e) => {
-                                    const newArr = [...agentEmails]
-                                    newArr[emailIdx] = e.target.value
-                                    setAgentEmails(newArr)
-                                    form.setValue("salesAgentEmail", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
-                                  }}
-                                />
-                                {agentEmails.length > 1 && (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => {
-                                      const newArr = agentEmails.filter((_, idx) => idx !== emailIdx)
-                                      setAgentEmails(newArr.length > 0 ? newArr : [""])
-                                      form.setValue("salesAgentEmail", newArr.filter(b => b.trim() !== "").join(", "), { shouldDirty: true, shouldValidate: true })
-                                    }}
-                                    className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
-                                    title="Remove email address"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </FormItem>
                       </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
 
-            {/* Line Items Card */}
-            <Card className="rounded-xl shadow-sm border bg-card">
-              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  Line Items Catalog
-                </CardTitle>
+                      {/* Contact Numbers List */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-foreground block">Contact Phone Numbers</label>
+                        {contactNumbers.map((phone, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <Input
+                              value={phone}
+                              onChange={(e) => {
+                                const updated = [...contactNumbers]
+                                updated[idx] = e.target.value
+                                setContactNumbers(updated)
+                                form.setValue("salesAgentContactNumber", updated.filter(Boolean).join(", "))
+                              }}
+                              placeholder={`Phone #${idx + 1}`}
+                              className="h-9 text-xs bg-background flex-1"
+                            />
+                            {contactNumbers.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const updated = contactNumbers.filter((_, i) => i !== idx)
+                                  setContactNumbers(updated)
+                                  form.setValue("salesAgentContactNumber", updated.filter(Boolean).join(", "))
+                                }}
+                                className="h-8 w-8 text-destructive shrink-0 cursor-pointer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setContactNumbers([...contactNumbers, ""])}
+                          className="text-[11px] h-7 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3" /> Add Phone Number
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* CARD 2: Line Items Catalog & Product Sections */}
+            <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">
+              <CardHeader className="bg-muted/30 border-b py-3 px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    2. Quotation Line Items ({watchItems.length} Products)
+                  </CardTitle>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddBatch}
+                    className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Section
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={() => {
+                      setActiveLineIndex(fields.length)
+                      setIsQuickAddOpen(true)
+                    }}
+                    className="text-xs h-8 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Quick Add Product
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent className="p-6 space-y-8">
-                {batches.map((batch, batchIdx) => {
-                  const batchItems = fields
-                    .map((field, index) => ({ field, index, item: watchItems[index] }))
-                    .filter(x => x.item?.batchHeading === batch.name)
+              <CardContent className="p-4 sm:p-6 space-y-6">
+                {/* Batches Loop */}
+                {batches.map((batch) => {
+                  const itemsInBatch = fields.filter((_, idx) => {
+                    const itemBatch = form.watch(`items.${idx}.batchHeading`) || ""
+                    if (batch.name === "General Items") {
+                      return !itemBatch || itemBatch === "General Items"
+                    }
+                    return itemBatch === batch.name
+                  })
 
-                  const batchSubtotal = batchItems.reduce((acc, { item }) => {
-                    if (!item) return acc
-                    const qty = Number(item.quantity) || 0
-                    const price = Number(item.unitPrice) || 0
-                    const discPercent = Number(item.discount) || 0
-                    const discAmt = price * (discPercent / 100)
-                    return acc + (price - discAmt) * qty
+                  const batchSubtotal = itemsInBatch.reduce((sum, item) => {
+                    const qty = item.quantity === "" ? 0 : Number(item.quantity) || 0
+                    const price = item.unitPrice === "" ? 0 : Number(item.unitPrice) || 0
+                    return sum + qty * price
                   }, 0)
 
                   return (
@@ -2296,519 +2269,297 @@ function NewQuotationForm() {
                       onDragOver={(e) => handleBatchDragOver(e, batch.id)}
                       onDrop={(e) => handleBatchDrop(e, batch.id)}
                       className={cn(
-                        "border-2 rounded-xl bg-card p-5 space-y-4 transition-all duration-300 relative border-border hover:border-primary/30 shadow-sm",
-                        draggedBatchId === batch.id && "opacity-50",
-                        dragOverBatchId === batch.id && "border-primary bg-primary/5 scale-[1.01]"
+                        "space-y-4 rounded-xl border p-4 bg-muted/10 transition-all",
+                        dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5"
                       )}
                     >
-                      {/* Batch Header Bar */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/30 p-4 rounded-xl border border-border shadow-sm">
-                        <div className="flex items-center gap-3 w-full sm:flex-grow">
-                          <div
-                            className="batch-drag-handle flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-muted text-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-border shrink-0 shadow-sm"
-                            title="Drag to reorder sections"
-                          >
+                      {/* Section Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="batch-drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
                             <GripVertical className="h-4 w-4" />
-                            <span>Section</span>
-                          </div>
-                          
-                          <BatchHeadingInput
-                            value={batch.name}
-                            onChange={(newName) => handleRenameBatch(batch.id, newName)}
-                          />
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            disabled={batchIdx === 0}
-                            onClick={() => {
-                              const newBatches = [...batches]
-                              const temp = newBatches[batchIdx - 1]
-                              newBatches[batchIdx - 1] = newBatches[batchIdx]
-                              newBatches[batchIdx] = temp
-                              setBatches(newBatches)
-                              reorderFlatItemsByBatches(newBatches)
-                            }}
-                            className="h-8 w-8 hover:bg-muted/80 rounded-lg"
-                            title="Move Section Up"
-                          >
-                            <ChevronUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            disabled={batchIdx === batches.length - 1}
-                            onClick={() => {
-                              const newBatches = [...batches]
-                              const temp = newBatches[batchIdx + 1]
-                              newBatches[batchIdx + 1] = newBatches[batchIdx]
-                              newBatches[batchIdx] = temp
-                              setBatches(newBatches)
-                              reorderFlatItemsByBatches(newBatches)
-                            }}
-                            className="h-8 w-8 hover:bg-muted/80 rounded-lg"
-                            title="Move Section Down"
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                          </Button>
-                          
-                          <span className="text-xs font-bold text-foreground bg-background px-3 py-1.5 rounded-lg border border-border shadow-sm ml-2">
-                            {batchItems.length} Products
                           </span>
-                          
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteSection(batch.id)}
-                            className="h-9 w-9 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer ml-1"
-                            title="Delete section"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                          <div className="max-w-md flex-1">
+                            <BatchHeadingInput
+                              value={batch.name}
+                              onChange={(val) => {
+                                const oldName = batch.name
+                                const updatedBatches = batches.map(b => b.id === batch.id ? { ...b, name: val } : b)
+                                setBatches(updatedBatches)
 
-                      {/* Batch Items List */}
-                      <div className="space-y-6">
-                        {batchItems.length === 0 ? (
-                          <div
-                            onDragOver={(e) => {
-                              e.preventDefault()
-                              setDragOverBatchId(batch.id)
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault()
-                              if (draggedIndex !== null) {
-                                form.setValue(`items.${draggedIndex}.batchHeading`, batch.name, { shouldDirty: true })
-                                const currentItems = form.getValues("items") || []
-                                move(draggedIndex, currentItems.length - 1)
-                                setDraggedIndex(null)
-                                setDragOverBatchId(null)
-                              }
-                            }}
-                            className={cn(
-                              "border-2 border-dashed border-muted-foreground/20 rounded-xl p-8 text-center text-xs text-muted-foreground bg-muted/10 transition-colors",
-                              dragOverBatchId === batch.id && "border-primary bg-primary/5"
-                            )}
-                          >
-                            No products in this section. Drag a product here or click "Add Catalog Product" / "Add Custom Product".
-                          </div>
-                        ) : (
-                          batchItems.map(({ field, index }) => {
-                            const showDetails = !!(watchItems[index]?.productId || watchItems[index]?.priceSource === "manual")
-                            const isFirstInBatch = batchItems[0]?.index === index
-                            const isLastInBatch = batchItems[batchItems.length - 1]?.index === index
-
-                            return (
-                              <div
-                                key={field.id}
-                                draggable
-                                onDragStart={(e) => {
-                                  e.stopPropagation()
-                                  handleDragStart(e, index)
-                                }}
-                                onDragOver={(e) => handleDragOver(e, index)}
-                                onDrop={(e) => {
-                                  e.stopPropagation()
-                                  handleDrop(e, index)
-                                }}
-                                onDragEnd={handleDragEnd}
-                                className={cn(
-                                  "group relative p-6 border rounded-xl bg-background shadow-sm hover:shadow-md transition-all duration-300 border-border hover:border-primary/40 space-y-4",
-                                  dragOverIndex === index && "border-primary bg-primary/5 scale-[1.01]",
-                                  draggedIndex === index && "opacity-50"
-                                )}
-                              >
-                                {/* Drag Handle & Mobile Ordering Fallback Row */}
-                                <div className="flex items-center gap-2 border-b border-border pb-3 mb-2">
-                                  <div
-                                    className="drag-handle flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-border shadow-sm"
-                                    title="Click and drag to reorder item"
-                                  >
-                                    <GripVertical className="h-3.5 w-3.5 shrink-0" />
-                                    <span>☰ Drag</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 rounded-md hover:bg-muted/80"
-                                      disabled={isFirstInBatch}
-                                      onClick={() => handleMoveItemInBatch(index, "up")}
-                                      title="Move Up"
-                                    >
-                                      <ChevronUp className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 rounded-md hover:bg-muted/80"
-                                      disabled={isLastInBatch}
-                                      onClick={() => handleMoveItemInBatch(index, "down")}
-                                      title="Move Down"
-                                    >
-                                      <ChevronDown className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                        <span className="text-xs text-muted-foreground/80 font-medium ml-auto bg-muted/40 px-2 py-0.5 rounded-md border border-muted-foreground/5">
-                          Item #{index + 1}
-                        </span>
-                      </div>
-
-                      {/* Catalog Autopopulate Select Row */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-primary shrink-0">
-                          <Sparkles className="h-3.5 w-3.5" />
-                          Select from Product Catalog:
-                        </div>
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
-                          <div className="w-full sm:flex-1">
-                            <ProductSearchSelect
-                              productId={watchItems[index]?.productId}
-                              products={products}
-                              watchSegment={watchSegment}
-                              onProductSelect={(prodId) => handleProductSelect(index, prodId)}
-                              onCustomProductClick={() => {
-                                form.setValue(`items.${index}.productId`, "", { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.priceSource`, "manual", { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.description`, "", { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.productDescription`, "", { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.categoryName`, "Chairs", { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.chairType`, "", { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.quantity`, 1, { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.basePrice`, 0, { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.unitPrice`, 0, { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.margin`, 0, { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.discount`, 0, { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.specifications`, "", { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.productNotes`, "", { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })
-                                form.setValue(`items.${index}.saveToCatalog`, false, { shouldValidate: true, shouldDirty: true })
+                                fields.forEach((_, idx) => {
+                                  const currentHeading = form.getValues(`items.${idx}.batchHeading`)
+                                  if ((oldName === "General Items" && !currentHeading) || currentHeading === oldName) {
+                                    form.setValue(`items.${idx}.batchHeading`, val)
+                                  }
+                                })
                               }}
                             />
                           </div>
+                          <Badge variant="outline" className="text-[11px] font-mono shrink-0 bg-background">
+                            {itemsInBatch.length} {itemsInBatch.length === 1 ? 'item' : 'items'}
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                          <span className="text-xs font-semibold text-foreground font-mono">
+                            Subtotal: AED {formatCurrency(batchSubtotal)}
+                          </span>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddItemToBatch(batch.name)}
+                            className="text-[11px] h-7 flex items-center gap-1 cursor-pointer bg-background"
+                          >
+                            <Plus className="h-3 w-3" /> Add Item
+                          </Button>
+
+                          {batches.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteSection(batch.id)}
+                              className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer"
+                              title="Delete Section"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
 
+                      {/* Line Item Cards in Section */}
+                      <div className="space-y-4">
+                        {fields.map((fieldItem, index) => {
+                          const itemBatch = form.watch(`items.${index}.batchHeading`) || ""
+                          const belongsToBatch = batch.name === "General Items" ? (!itemBatch || itemBatch === "General Items") : itemBatch === batch.name
+                          if (!belongsToBatch) return null
 
+                          const currentProductId = form.watch(`items.${index}.productId`)
+                          const currentUnitPrice = form.watch(`items.${index}.unitPrice`)
+                          const currentQuantity = form.watch(`items.${index}.quantity`)
+                          const currentBasePrice = form.watch(`items.${index}.basePrice`)
+                          const currentMargin = form.watch(`items.${index}.margin`)
+                          const currentPriceSource = form.watch(`items.${index}.priceSource`) || "standard"
+                          const currentImg = form.watch(`items.${index}.customImageUrl`)
 
-                      {(() => {
-                        const isCustom = watchItems[index]?.priceSource === "manual" && !watchItems[index]?.productId
-                        
-                        if (!showDetails) return null;
+                          const qtyNum = currentQuantity === "" ? 0 : Number(currentQuantity) || 0
+                          const unitPriceNum = currentUnitPrice === "" ? 0 : Number(currentUnitPrice) || 0
+                          const lineTotal = qtyNum * unitPriceNum
 
-
-                        if (isCustom) {
                           return (
-                            <div className="flex flex-col gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                              
-                              {/* TOP ROW: Product Identity */}
-                              <div className="flex flex-col xl:flex-row gap-6">
-                                {/* Image Upload - Left Side */}
-                                <div className="w-full xl:w-48 shrink-0 space-y-2">
-                                  <FormLabel className="text-xs font-semibold text-foreground">Product Image</FormLabel>
-                                  {watchItems[index]?.customImageUrl ? (
-                                    <div className="flex flex-col items-center gap-3 p-3 border rounded-xl bg-muted/30">
-                                      <div className="h-32 w-32 border rounded-lg bg-white overflow-hidden relative flex items-center justify-center shadow-sm">
-                                        <img src={watchItems[index]?.customImageUrl || ""} alt="Preview" className="object-contain h-full w-full" />
-                                        {uploadingImage && cropperLineIndex === index && (
-                                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                            <Loader2 className="h-4 w-4 animate-spin text-white" />
-                                          </div>
-                                        )}
-                                      </div>
-                                      <div className="flex gap-2 w-full">
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => {
-                                            setCropperLineIndex(index)
-                                            setRawImageSrc(watchItems[index]?.customImageUrl || "")
-                                            setIsCropperOpen(true)
-                                          }}
-                                          className="text-[11px] py-1 h-7 flex-1"
-                                        >
-                                          Crop
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
-                                          className="text-[11px] py-1 h-7 text-destructive hover:bg-destructive/10 hover:text-destructive flex-1"
-                                        >
-                                          Remove
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div
-                                      className={cn(
-                                        "border-2 border-dashed rounded-xl p-4 h-[178px] flex flex-col items-center justify-center gap-3 cursor-pointer transition-all bg-muted/20 hover:bg-muted/40 hover:border-primary/50",
-                                        uploadingImage && cropperLineIndex === index && "opacity-50 pointer-events-none"
-                                      )}
-                                      onDragOver={(e) => e.preventDefault()}
-                                      onDrop={(e) => {
-                                        e.preventDefault()
-                                        const file = e.dataTransfer.files?.[0]
-                                        if (file && file.type.startsWith("image/")) {
-                                          setCropperLineIndex(index)
-                                          const reader = new FileReader()
-                                          reader.onloadend = () => {
-                                            setRawImageSrc(reader.result as string)
-                                            setIsCropperOpen(true)
-                                          }
-                                          reader.readAsDataURL(file)
-                                        }
-                                      }}
-                                      onClick={() => {
-                                        const input = document.getElementById(`image-upload-input-${index}`)
-                                        input?.click()
-                                      }}
-                                    >
-                                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                        <UploadCloud className="h-5 w-5" />
-                                      </div>
-                                      <span className="text-[11px] font-semibold text-muted-foreground text-center px-2">
-                                        Click or drag image to upload
-                                      </span>
-                                      <input
-                                        id={`image-upload-input-${index}`}
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0]
-                                          if (file) {
-                                            setCropperLineIndex(index)
-                                            const reader = new FileReader()
-                                            reader.onloadend = () => {
-                                              setRawImageSrc(reader.result as string)
-                                              setIsCropperOpen(true)
-                                            }
-                                            reader.readAsDataURL(file)
-                                          }
-                                        }}
-                                      />
-                                    </div>
+                            <div
+                              key={fieldItem.id}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, index)}
+                              onDragOver={(e) => handleDragOver(e, index)}
+                              onDrop={(e) => handleDrop(e, index)}
+                              className={cn(
+                                "p-4 sm:p-5 rounded-xl border bg-card shadow-2xs space-y-4 transition-all hover:border-primary/40",
+                                dragOverIndex === index && "border-primary border-dashed bg-primary/5"
+                              )}
+                            >
+                              {/* Item Header Row */}
+                              <div className="flex items-center justify-between border-b pb-3 gap-2 flex-wrap">
+                                <div className="flex items-center gap-2">
+                                  <span className="drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+                                    <GripVertical className="h-4 w-4" />
+                                  </span>
+                                  <Badge variant="outline" className="font-mono text-xs font-bold bg-muted/40">
+                                    #{index + 1}
+                                  </Badge>
+                                  {form.watch(`items.${index}.categoryName`) && (
+                                    <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
+                                      {form.watch(`items.${index}.categoryName`)}
+                                    </Badge>
                                   )}
                                 </div>
 
-                                {/* Product Details - Right Side */}
-                                <div className="flex-1 space-y-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.description`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-xs font-semibold text-foreground">Product Name *</FormLabel>
-                                          <FormControl>
-                                            <Input placeholder="Enter product name" {...field} className="bg-muted/10 focus-visible:bg-background" />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
+                                <div className="flex items-center gap-1.5">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDuplicateItem(index)}
+                                    className="text-[11px] h-7 flex items-center gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                                  >
+                                    <Copy className="h-3 w-3" /> Duplicate
+                                  </Button>
+
+                                  {fields.length > 1 && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => remove(index)}
+                                      className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer"
+                                      title="Remove item"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Product Search Selector */}
+                              <div className="space-y-1.5">
+                                <label className="text-xs font-semibold text-foreground">Catalog Product</label>
+                                <ProductSearchSelect
+                                  productId={currentProductId}
+                                  products={products}
+                                  watchSegment={watchSegment}
+                                  onProductSelect={(prodId) => handleProductSelect(index, prodId)}
+                                  onCustomProductClick={() => {
+                                    form.setValue(`items.${index}.productId`, "")
+                                    form.setValue(`items.${index}.priceSource`, "manual")
+                                  }}
+                                />
+                              </div>
+
+                              {/* 2-Column Responsive Layout (Details & Pricing) */}
+                              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
+                                {/* Left Side: Image & Description Info */}
+                                <div className="lg:col-span-6 space-y-3">
+                                  <div className="flex gap-3 items-start">
+                                    {/* Thumbnail Box */}
+                                    <div className="relative group shrink-0 h-20 w-20 border rounded-lg overflow-hidden bg-muted/20 flex items-center justify-center">
+                                      {currentImg ? (
+                                        <img src={currentImg} alt="Product" className="object-cover w-full h-full" />
+                                      ) : (
+                                        <div className="text-[10px] text-muted-foreground text-center p-1">No Image</div>
                                       )}
-                                    />
-                                    
-                                    {isAdminOrSuperAdmin && (
+                                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white cursor-pointer transition-opacity">
+                                        <UploadCloud className="h-5 w-5" />
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          className="hidden"
+                                          onChange={(e) => handleImageUpload(e, index)}
+                                        />
+                                      </label>
+                                    </div>
+
+                                    {/* Product Description */}
+                                    <div className="flex-1 space-y-2">
                                       <FormField
                                         control={form.control}
-                                        name={`items.${index}.saveToCatalog`}
+                                        name={`items.${index}.description`}
                                         render={({ field }) => (
-                                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/10 h-[68px] mt-0 md:mt-5">
-                                            <div className="space-y-0.5 flex-1 pr-2">
-                                              <FormLabel className="text-xs font-semibold text-muted-foreground block">Save to Product Catalog</FormLabel>
-                                              <span className="text-[10px] text-muted-foreground block leading-tight">
-                                                Add this custom product to the database.
-                                              </span>
-                                            </div>
+                                          <FormItem>
+                                            <FormLabel className="text-xs font-semibold text-foreground">Product Title / Heading</FormLabel>
                                             <FormControl>
-                                              <Switch
-                                                checked={field.value || false}
-                                                onCheckedChange={field.onChange}
-                                              />
+                                              <Input placeholder="Enter product title..." className="h-9 text-xs bg-background" {...field} />
                                             </FormControl>
-                                          </FormItem>
-                                        )}
-                                      />
-                                    )}
-                                  </div>
-
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.categoryName`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-xs font-semibold text-foreground">Category *</FormLabel>
-                                          <Select
-                                            onValueChange={(val) => {
-                                              field.onChange(val)
-                                              if (val?.toLowerCase() !== "chairs" && val?.toLowerCase() !== "chair") {
-                                                form.setValue(`items.${index}.chairType`, "")
-                                              }
-                                            }}
-                                            value={field.value || (categoryOptions[0] || "Chairs")}
-                                          >
-                                            <FormControl>
-                                              <SelectTrigger className="bg-muted/10 focus:bg-background">
-                                                <SelectValue placeholder="Category" />
-                                              </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                               {categoryOptions.map((catName) => (
-                                                 <SelectItem key={catName} value={catName}>
-                                                   {catName === "General" ? "General / Other" : catName}
-                                                 </SelectItem>
-                                               ))}
-                                               {field.value && !categoryOptions.includes(field.value) && (
-                                                 <SelectItem key={field.value} value={field.value}>
-                                                   {field.value}
-                                                 </SelectItem>
-                                               )}
-                                             </SelectContent>
-                                          </Select>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {(watchItems[index]?.categoryName?.toLowerCase() === "chairs" || watchItems[index]?.categoryName?.toLowerCase() === "chair") && (
-                                      <FormField
-                                        control={form.control}
-                                        name={`items.${index}.chairType`}
-                                        render={({ field }) => (
-                                          <FormItem className="space-y-1">
-                                            <FormLabel className="text-xs font-semibold text-foreground">Chair Type *</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value || ""}>
-                                              <FormControl>
-                                                <SelectTrigger className="bg-muted/10 focus:bg-background">
-                                                  <SelectValue placeholder="Chair Type" />
-                                                </SelectTrigger>
-                                              </FormControl>
-                                              <SelectContent>
-                                                <SelectItem value="Task Chair">Task Chair</SelectItem>
-                                                <SelectItem value="Executive Chair">Executive Chair</SelectItem>
-                                                <SelectItem value="Ergonomic Chair">Ergonomic Chair</SelectItem>
-                                                <SelectItem value="Visitor Chair">Visitor Chair</SelectItem>
-                                                <SelectItem value="Lounge Chair">Lounge Chair</SelectItem>
-                                                <SelectItem value="Stool">Stool</SelectItem>
-                                                <SelectItem value="Other">Other</SelectItem>
-                                              </SelectContent>
-                                            </Select>
                                             <FormMessage />
                                           </FormItem>
                                         )}
                                       />
-                                    )}
-                                  </div>
-
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.productDescription`}
-                                    render={({ field }) => {
-                                      const valLength = (field.value || "").length
-                                      return (
-                                        <FormItem className="space-y-1">
-                                          <div className="flex justify-between items-center">
-                                            <FormLabel className="text-xs font-semibold text-foreground">Product Description</FormLabel>
-                                            <span className="text-[9px] font-medium text-muted-foreground">
-                                              {valLength} chars
-                                            </span>
-                                          </div>
-                                          <FormControl>
-                                            <Textarea
-                                              placeholder="Premium ergonomic chair designed for long-hour comfort..."
-                                              {...field}
-                                              rows={2}
-                                              className="resize-none bg-muted/10 focus-visible:bg-background text-xs min-h-[50px]"
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )
-                                    }}
-                                  />
-                                </div>
-                              </div>
-
-                              {/* MIDDLE ROW: Specs & Notes */}
-                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 bg-muted/10 p-5 rounded-xl border border-border/50">
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.specifications`}
-                                  render={({ field }) => (
-                                    <FormItem className="space-y-1 flex-1 flex flex-col">
-                                      <FormLabel className="text-xs font-semibold text-foreground">Quotation Specifications</FormLabel>
-                                      <FormControl className="flex-1">
-                                        <div className="h-full min-h-[160px]">
-                                          <RichTextEditor
-                                            placeholder="Technical specs, dimensions, materials..."
-                                            value={field.value || ""}
-                                            onChange={(val) => field.onChange(val)}
-                                          />
-                                        </div>
-                                      </FormControl>
-                                    </FormItem>
-                                  )}
-                                />
-
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.productNotes`}
-                                  render={({ field }) => (
-                                    <FormItem className="space-y-1 h-full flex flex-col">
-                                      <FormLabel className="text-xs font-semibold text-foreground">Special / Customization Notes</FormLabel>
-                                      <FormControl className="flex-1">
-                                        <Textarea
-                                          placeholder="Special instructions or customer specific requirements..."
-                                          {...field}
-                                          className="resize-none bg-background focus-visible:bg-background text-xs h-[160px]"
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-
-                              {/* BOTTOM ROW: Pricing & Actions */}
-                              <div className="flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-end bg-primary/[0.03] p-5 rounded-xl border border-primary/10">
-                                <div className="flex flex-col gap-3 w-full xl:w-auto">
-                                  <div className="flex justify-between items-center mb-1">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-bold text-foreground">Pricing Details</span>
-                                      <span className="text-amber-600 font-medium text-[10px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Manual Base Price Source</span>
                                     </div>
                                   </div>
-                                  
-                                  <div className="flex flex-wrap md:flex-nowrap gap-3 items-end">
+
+                                  {/* Additional Category / Chair Type Selects */}
+                                  <div className="grid grid-cols-2 gap-3">
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.categoryName`}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel className="text-[11px] font-medium text-muted-foreground">Category</FormLabel>
+                                          <Select onValueChange={field.onChange} value={field.value || "Chairs"}>
+                                            <FormControl>
+                                              <SelectTrigger className="h-8 text-xs bg-background">
+                                                <SelectValue placeholder="Category" />
+                                              </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                              {dbCategories.map(cat => (
+                                                <SelectItem key={cat.id} value={cat.name} className="text-xs">{cat.name}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {form.watch(`items.${index}.categoryName`) === "Chairs" && (
+                                      <FormField
+                                        control={form.control}
+                                        name={`items.${index}.chairType`}
+                                        render={({ field }) => (
+                                          <FormItem>
+                                            <FormLabel className="text-[11px] font-medium text-muted-foreground">Chair Type</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                                              <FormControl>
+                                                <SelectTrigger className="h-8 text-xs bg-background">
+                                                  <SelectValue placeholder="Type" />
+                                                </SelectTrigger>
+                                              </FormControl>
+                                              <SelectContent>
+                                                <SelectItem value="Executive Chair" className="text-xs">Executive Chair</SelectItem>
+                                                <SelectItem value="Workstation Chair" className="text-xs">Workstation Chair</SelectItem>
+                                                <SelectItem value="Meeting Chair" className="text-xs">Meeting Chair</SelectItem>
+                                                <SelectItem value="Lounge Chair" className="text-xs">Lounge Chair</SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                          </FormItem>
+                                        )}
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Right Side: Pricing & Margins Grid Controls */}
+                                <div className="lg:col-span-6 space-y-3 bg-muted/20 p-3.5 rounded-xl border border-border/60">
+                                  {/* Price Source Toggle */}
+                                  <div className="flex items-center justify-between border-b pb-2">
+                                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                      Pricing Mode
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        variant={currentPriceSource === "standard" ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => {
+                                          form.setValue(`items.${index}.priceSource`, "standard")
+                                          if (currentProductId) handleProductSelect(index, currentProductId)
+                                        }}
+                                        className="h-6 text-[10px] px-2 cursor-pointer"
+                                      >
+                                        Standard Price
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant={currentPriceSource === "manual" ? "default" : "outline"}
+                                        size="sm"
+                                        onClick={() => form.setValue(`items.${index}.priceSource`, "manual")}
+                                        className="h-6 text-[10px] px-2 cursor-pointer"
+                                      >
+                                        Manual Override
+                                      </Button>
+                                    </div>
+                                  </div>
+
+                                  {/* 5-Column Pricing Fields */}
+                                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
                                     {/* Quantity */}
                                     <FormField
                                       control={form.control}
                                       name={`items.${index}.quantity`}
                                       render={({ field }) => (
-                                        <FormItem className="space-y-1.5 w-20 shrink-0">
-                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Qty</FormLabel>
+                                        <FormItem>
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Qty</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
-                                              min="0"
-                                              className="h-9 text-xs font-medium bg-background"
+                                              className="h-8 text-xs font-mono text-center bg-background"
                                               value={field.value}
-                                              onChange={(val) => field.onChange(val === "" ? "" : (parseInt(val) || 0))}
+                                              onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
                                             />
                                           </FormControl>
-                                          <FormMessage />
                                         </FormItem>
                                       )}
                                     />
@@ -2818,19 +2569,24 @@ function NewQuotationForm() {
                                       control={form.control}
                                       name={`items.${index}.basePrice`}
                                       render={({ field }) => (
-                                        <FormItem className="space-y-1.5 w-28 shrink-0">
-                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Base Price</FormLabel>
+                                        <FormItem>
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Base AED</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
-                                              min="0"
                                               step="0.01"
-                                              className="h-9 text-xs font-mono bg-background"
+                                              disabled={currentPriceSource === "standard"}
+                                              className="h-8 text-xs font-mono bg-background"
                                               value={field.value}
-                                              onChange={(val) => recalculateRow(index, "basePrice", val)}
+                                              onChange={(val) => {
+                                                const bPrice = val === "" ? 0 : Number(val)
+                                                field.onChange(bPrice)
+                                                const marginVal = Number(form.getValues(`items.${index}.margin`)) || 0
+                                                const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
+                                                form.setValue(`items.${index}.unitPrice`, uPrice)
+                                              }}
                                             />
                                           </FormControl>
-                                          <FormMessage />
                                         </FormItem>
                                       )}
                                     />
@@ -2840,20 +2596,24 @@ function NewQuotationForm() {
                                       control={form.control}
                                       name={`items.${index}.margin`}
                                       render={({ field }) => (
-                                        <FormItem className="space-y-1.5 w-20 shrink-0">
-                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Margin %</FormLabel>
+                                        <FormItem>
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin %</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
-                                              min="-100"
-                                              max="99.9"
                                               step="0.1"
-                                              className="h-9 text-xs font-mono bg-background"
+                                              className="h-8 text-xs font-mono text-center bg-background"
                                               value={field.value}
-                                              onChange={(val) => recalculateRow(index, "margin", val)}
+                                              onChange={(val) => {
+                                                const marginVal = val === "" ? 0 : Number(val)
+                                                field.onChange(marginVal)
+                                                form.setValue(`items.${index}.manualMargin`, marginVal)
+                                                const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
+                                                const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
+                                                form.setValue(`items.${index}.unitPrice`, uPrice)
+                                              }}
                                             />
                                           </FormControl>
-                                          <FormMessage />
                                         </FormItem>
                                       )}
                                     />
@@ -2863,763 +2623,83 @@ function NewQuotationForm() {
                                       control={form.control}
                                       name={`items.${index}.unitPrice`}
                                       render={({ field }) => (
-                                        <FormItem className="space-y-1.5 w-28 shrink-0">
-                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Unit Price</FormLabel>
+                                        <FormItem>
+                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Unit AED</FormLabel>
                                           <FormControl>
                                             <NumericInput
                                               type="number"
-                                              min="0"
                                               step="0.01"
-                                              className="h-9 text-xs font-mono bg-muted/50 cursor-not-allowed"
-                                              disabled
+                                              className="h-8 text-xs font-mono bg-background font-bold text-primary"
                                               value={field.value}
-                                              onChange={(val) => recalculateRow(index, "unitPrice", val)}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Discount */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.discount`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1.5 w-24 shrink-0">
-                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Discount %</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              min="0"
-                                              max="100"
-                                              step="0.1"
-                                              className="h-9 text-xs font-mono bg-background"
-                                              value={field.value}
-                                              onChange={(val) => field.onChange(val === "" ? "" : (parseFloat(val) || 0))}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Line Total */}
-                                    <div className="space-y-1.5 w-32 shrink-0 flex flex-col justify-end">
-                                      <span className="text-[10px] uppercase font-bold text-primary block">Line Total</span>
-                                      <div className="h-9 px-3 rounded-md bg-primary text-primary-foreground flex items-center justify-between font-semibold font-mono text-[12px] shadow-sm">
-                                        <span className="opacity-70 text-[10px]">AED</span>
-                                        <span>
-                                          {(() => {
-                                            const qty = Number(watchItems[index]?.quantity) || 0
-                                            const price = Number(watchItems[index]?.unitPrice) || 0
-                                            const discPercent = Number(watchItems[index]?.discount) || 0
-                                            const discAmt = price * (discPercent / 100)
-                                            return ((price - discAmt) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                          })()}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-1">
-                                    <Info className="h-3 w-3 shrink-0" />
-                                    <span>Formula: Base Price ÷ (1 - Margin %)</span>
-                                  </div>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto shrink-0 mt-2 xl:mt-0 pb-1">
-                                  {fields.length > 1 && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => remove(index)}
-                                      className="text-destructive hover:bg-destructive/10 h-9 text-[11px] px-4"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                      Remove Line
-                                    </Button>
-                                  )}
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-9 text-[11px] px-4 bg-background"
-                                    onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: watchItems[index]?.batchHeading || "", saveToCatalog: false })}
-                                  >
-                                    <Plus className="h-3.5 w-3.5 mr-2" />
-                                    Add Custom Item
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        }
-
-
-                        else {
-                          // Standard Product
-                          return (
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                              {/* Left Column: Image & Title */}
-                              <div className="xl:col-span-4 space-y-4 flex flex-col">
-                                  {/* Thumbnail Image & Crop Controls */}
-                                  {(() => {
-                                    const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
-                                    const imageUrl = watchItems[index]?.customImageUrl || (selectedProd ? (selectedProd.imageUrl || "") : "")
-                                    return (
-                                      <div className="flex flex-col gap-2 p-3 border rounded-xl bg-muted/30 w-full">
-                                        <div className="flex items-center gap-4">
-                                          <div className="h-20 w-20 border rounded-lg bg-white overflow-hidden relative shrink-0 flex items-center justify-center shadow-sm">
-                                            {imageUrl ? (
-                                              <img src={imageUrl} alt="Preview" className="object-contain h-full w-full" />
-                                            ) : (
-                                              <span className="text-[10px] text-muted-foreground text-center px-1 font-medium">No Image</span>
-                                            )}
-                                            {uploadingImage && cropperLineIndex === index && (
-                                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                                <Loader2 className="h-4 w-4 animate-spin text-white" />
-                                              </div>
-                                            )}
-                                          </div>
-                                          <div className="flex flex-wrap gap-2">
-                                            {imageUrl && (
-                                              <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => {
-                                                  setCropperLineIndex(index)
-                                                  setRawImageSrc(imageUrl)
-                                                  setIsCropperOpen(true)
-                                                }}
-                                                className="text-xs py-1 h-8 cursor-pointer"
-                                              >
-                                                Crop / Adjust
-                                              </Button>
-                                            )}
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() => {
-                                                const input = document.getElementById(`catalog-image-upload-input-${index}`)
-                                                input?.click()
-                                              }}
-                                              className="text-xs py-1 h-8 cursor-pointer"
-                                            >
-                                              Upload Custom
-                                            </Button>
-                                            <input
-                                              id={`catalog-image-upload-input-${index}`}
-                                              type="file"
-                                              accept="image/*"
-                                              className="hidden"
-                                              onChange={(e) => {
-                                                const file = e.target.files?.[0]
-                                                if (file) {
-                                                  setCropperLineIndex(index)
-                                                  const reader = new FileReader()
-                                                  reader.onloadend = () => {
-                                                    setRawImageSrc(reader.result as string)
-                                                    setIsCropperOpen(true)
-                                                  }
-                                                  reader.readAsDataURL(file)
+                                              onChange={(val) => {
+                                                const uPrice = val === "" ? 0 : Number(val)
+                                                field.onChange(uPrice)
+                                                const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
+                                                if (bPrice > 0) {
+                                                  const calculatedMargin = Number((((uPrice - bPrice) / bPrice) * 100).toFixed(2))
+                                                  form.setValue(`items.${index}.margin`, calculatedMargin)
+                                                  form.setValue(`items.${index}.manualMargin`, calculatedMargin)
                                                 }
                                               }}
                                             />
-                                            {watchItems[index]?.customImageUrl && (
-                                              <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
-                                                className="text-xs py-1 h-8 text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
-                                              >
-                                                Reset
-                                              </Button>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )
-                                  })()}
-                                  
-                                  {/* Product Title & Metadata Badges */}
-                                  <div className="flex-1 space-y-2">
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.description`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-xs font-semibold text-foreground">Product Name</FormLabel>
-                                          <FormControl>
-                                            <Input placeholder="Product name" {...field} className="bg-muted/30 text-foreground text-xs cursor-not-allowed font-semibold opacity-100 disabled:opacity-100" disabled />
                                           </FormControl>
-                                          <FormMessage />
                                         </FormItem>
                                       )}
                                     />
-                                    {(() => {
-                                      const selectedProd = products.find(p => p.id === watchItems[index]?.productId)
-                                      if (!selectedProd) return null
-                                      return (
-                                        <div className="space-y-1.5 pt-1">
-                                          <div className="flex flex-wrap gap-1">
-                                            <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-muted/40 border-muted">
-                                              SKU: {selectedProd.productCode}
-                                            </Badge>
-                                            {selectedProd.category?.name && (
-                                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-muted/40 border-muted">
-                                                Cat: {selectedProd.category.name}
-                                              </Badge>
-                                            )}
-                                            {selectedProd.chairType && (
-                                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-muted/40 border-muted">
-                                                Type: {selectedProd.chairType}
-                                              </Badge>
-                                            )}
-                                            {selectedProd.warranty && (
-                                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-emerald-50 text-emerald-700 border-emerald-200">
-                                                Warranty: {selectedProd.warranty}
-                                              </Badge>
-                                            )}
-                                            {selectedProd.dimensions && (
-                                              <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal bg-blue-50 text-blue-700 border-blue-200">
-                                                Dims: {selectedProd.dimensions}
-                                              </Badge>
-                                            )}
-                                          </div>
-                                          {selectedProd.description && (
-                                            <p className="text-[10px] text-muted-foreground line-clamp-2 leading-tight mt-1 italic" title={selectedProd.description}>
-                                              {selectedProd.description}
-                                            </p>
-                                          )}
-                                        </div>
-                                      )
-                                    })()}
+
+                                    {/* Total Amount */}
+                                    <div className="col-span-2 sm:col-span-1">
+                                      <label className="text-[11px] font-semibold text-muted-foreground block">Total AED</label>
+                                      <div className="h-8 flex items-center justify-end px-2 bg-background border rounded-md font-mono text-xs font-bold text-foreground">
+                                        {formatCurrency(lineTotal)}
+                                      </div>
+                                    </div>
                                   </div>
+                                </div>
                               </div>
 
-                              {/* Middle Column: Specs & Notes */}
-                              <div className="xl:col-span-4 space-y-4 xl:border-l border-muted xl:pl-6 flex flex-col">
+                              {/* Accordion / Collapsible for Specifications & Notes */}
+                              <div className="pt-2">
                                 <FormField
                                   control={form.control}
                                   name={`items.${index}.specifications`}
                                   render={({ field }) => (
-                                    <FormItem className="space-y-1 flex-1 flex flex-col">
-                                      <FormLabel className="text-xs font-semibold text-foreground">Quotation Specifications</FormLabel>
-                                      <FormControl className="flex-1">
-                                        <div className="h-full min-h-[150px]">
-                                          <RichTextEditor
-                                            placeholder="Technical specs, dimensions, materials..."
-                                            value={field.value || ""}
-                                            onChange={(val) => field.onChange(val)}
-                                          />
-                                        </div>
-                                      </FormControl>
-                                    </FormItem>
-                                  )}
-                                />
-
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.productNotes`}
-                                  render={({ field }) => (
-                                    <FormItem className="space-y-1">
-                                      <FormLabel className="text-xs font-semibold text-foreground">Special / Customization Notes</FormLabel>
+                                    <FormItem>
+                                      <FormLabel className="text-[11px] font-semibold text-muted-foreground">Product Specifications (Formatted text on PDF)</FormLabel>
                                       <FormControl>
-                                        <Textarea
-                                          placeholder="Special instructions or customer specific requirements..."
-                                          {...field}
-                                          rows={3}
-                                          className="resize-none bg-muted/10 focus-visible:bg-background text-xs min-h-[60px]"
+                                        <RichTextEditor
+                                          value={field.value || ""}
+                                          onChange={field.onChange}
                                         />
                                       </FormControl>
-                                      <FormMessage />
                                     </FormItem>
                                   )}
                                 />
-                              </div>
-
-                              {/* Right Column: Pricing Controls */}
-                              <div className="xl:col-span-4 space-y-4 xl:border-l border-muted xl:pl-6 flex flex-col justify-between">
-                                <div className="space-y-4">
-                                  {/* Price Source & Helper Row */}
-                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 p-2.5 rounded-md border border-muted/50">
-                                    <div className="space-y-0.5">
-                                      <span className="text-xs font-semibold text-foreground">Base Price Source</span>
-                                      <div className="text-[10px] text-muted-foreground">
-                                        {(() => {
-                                          const info = getSegmentPriceInfo(watchItems[index]?.productId)
-                                          if (watchItems[index]?.priceSource === "standard" && info) {
-                                            return (
-                                              <span className="text-primary font-medium flex items-center gap-1">
-                                                <Check className="h-3 w-3 text-emerald-500" />
-                                                Using {info.label}: AED {info.price.toFixed(2)}
-                                              </span>
-                                            )
-                                          }
-                                          return <span className="text-amber-600 font-medium">Using Manual Base Price</span>
-                                        })()}
-                                      </div>
-                                    </div>
-
-                                    {/* Pricing Segment Toggle */}
-                                    <div className="flex items-center gap-1 bg-background border border-muted-foreground/10 p-1 rounded-md shrink-0">
-                                      <button
-                                        type="button"
-                                        disabled={!watchItems[index]?.productId}
-                                        onClick={() => {
-                                          form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
-                                          recalculateRow(index, "priceSource", "standard")
-                                        }}
-                                        className={cn(
-                                          "px-2 py-1 text-[10px] font-medium rounded transition-all",
-                                          watchItems[index]?.priceSource === "standard"
-                                            ? "bg-primary text-primary-foreground shadow-sm"
-                                            : "text-muted-foreground hover:text-foreground disabled:opacity-40"
-                                        )}
-                                      >
-                                        Standard Price
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          form.setValue(`items.${index}.priceSource`, "manual", { shouldValidate: true, shouldDirty: true })
-                                          recalculateRow(index, "priceSource", "manual")
-                                        }}
-                                        className={cn(
-                                          "px-2 py-1 text-[10px] font-medium rounded transition-all",
-                                          watchItems[index]?.priceSource === "manual"
-                                            ? "bg-primary text-primary-foreground shadow-sm"
-                                            : "text-muted-foreground hover:text-foreground"
-                                        )}
-                                      >
-                                        Manual Price
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {/* 3x2 Grid for Pricing */}
-                                  <div className="grid grid-cols-3 gap-3">
-                                    {/* Quantity */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.quantity`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-foreground">Quantity</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              min="0"
-                                              className="h-8 text-xs font-medium"
-                                              value={field.value}
-                                              onChange={(val) => {
-                                                field.onChange(val === "" ? "" : (parseInt(val) || 0))
-                                              }}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Base Price */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.basePrice`}
-                                      render={({ field }) => {
-                                        const isStandard = watchItems[index]?.priceSource === "standard"
-                                        return (
-                                          <FormItem className="space-y-1">
-                                            <FormLabel className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                                              Base Price
-                                              {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
-                                            </FormLabel>
-                                            <FormControl>
-                                              <NumericInput
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                className={cn("h-8 text-xs font-mono", isStandard && "bg-muted/30 text-foreground cursor-not-allowed font-semibold opacity-100 disabled:opacity-100")}
-                                                disabled={isStandard}
-                                                value={field.value}
-                                                onChange={(val) => {
-                                                  recalculateRow(index, "basePrice", val)
-                                                }}
-                                              />
-                                            </FormControl>
-                                            <FormMessage />
-                                          </FormItem>
-                                        )
-                                      }}
-                                    />
-
-                                    {/* Margin % */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.margin`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-foreground">Margin (%)</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              min="-100"
-                                              max="99.9"
-                                              step="0.1"
-                                              className="h-8 text-xs font-mono"
-                                              value={field.value}
-                                              onChange={(val) => {
-                                                recalculateRow(index, "margin", val)
-                                              }}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Unit Price (AED) */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.unitPrice`}
-                                      render={({ field }) => {
-                                        const isStandard = watchItems[index]?.priceSource === "standard"
-                                        return (
-                                          <FormItem className="space-y-1">
-                                            <FormLabel className="text-[11px] font-semibold text-foreground flex items-center gap-1">
-                                              Unit Price
-                                              {isStandard && <Lock className="h-3 w-3 text-muted-foreground" />}
-                                            </FormLabel>
-                                            <FormControl>
-                                              <NumericInput
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                className={cn("h-8 text-xs font-mono", isStandard && "bg-muted/30 text-foreground cursor-not-allowed font-semibold opacity-100 disabled:opacity-100")}
-                                                disabled={isStandard}
-                                                value={field.value}
-                                                onChange={(val) => {
-                                                  recalculateRow(index, "unitPrice", val)
-                                                }}
-                                              />
-                                            </FormControl>
-                                            <FormMessage />
-                                          </FormItem>
-                                        )
-                                      }}
-                                    />
-
-                                    {/* Discount (%) */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.discount`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-[11px] font-semibold text-foreground">Discount (%)</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              min="0"
-                                              max="100"
-                                              step="0.1"
-                                              className="h-8 text-xs font-mono text-destructive focus-visible:ring-destructive"
-                                              value={field.value}
-                                              onChange={(val) => {
-                                                field.onChange(val === "" ? "" : (parseFloat(val) || 0))
-                                              }}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Calculated Line Total Display */}
-                                    <div className="space-y-1 flex flex-col justify-end">
-                                      <span className="text-[11px] font-semibold text-muted-foreground block">Line Total</span>
-                                      <div className="h-8 px-2 rounded-md bg-primary/5 border border-primary/10 flex items-center justify-between text-primary font-semibold font-mono text-[11px] shadow-inner">
-                                        <span className="opacity-70">AED</span>
-                                        <span>
-                                          {(() => {
-                                            const qty = Number(watchItems[index]?.quantity) || 0
-                                            const price = Number(watchItems[index]?.unitPrice) || 0
-                                            const discPercent = Number(watchItems[index]?.discount) || 0
-                                            const discAmt = price * (discPercent / 100)
-                                            return ((price - discAmt) * qty).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                          })()}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Visual Helper + Delete Row + Add Custom Item */}
-                                <div className="flex flex-col gap-2 pt-4 mt-auto">
-                                  <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2 py-1 rounded">
-                                    <Info className="h-3 w-3 text-muted-foreground/75 shrink-0" />
-                                    <span>Formula: Base Price ÷ (1 - Margin %)</span>
-                                  </div>
-                                  
-                                  <div className="flex gap-2 w-full">
-                                    {fields.length > 1 && (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => remove(index)}
-                                        className="text-destructive hover:bg-destructive/10 flex-1 h-8 text-[11px]"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5 mr-1" />
-                                        Remove Line
-                                      </Button>
-                                    )}
-                                  </div>
-                                </div>
                               </div>
                             </div>
                           )
-                        }
-
-                      })()}
-                            </div>
-                          )})
-                        )}
-                      </div>
-
-                      {/* Batch Container Footer */}
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t pt-4 mt-2">
-                        <div className="text-xs font-bold text-slate-700">
-                          {batch.name} Subtotal: AED {formatCurrency(batchSubtotal)}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAddItemToBatch(batch.name, false)}
-                            className="h-8 text-[11px] border-primary/20 hover:border-primary/40 text-primary hover:bg-primary/5 cursor-pointer"
-                          >
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            Add Catalog Product
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAddItemToBatch(batch.name, true)}
-                            className="h-8 text-[11px] border-accent/20 hover:border-accent/40 text-accent hover:bg-accent/5 cursor-pointer"
-                          >
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            Add Custom Product
-                          </Button>
-                        </div>
+                        })}
                       </div>
                     </div>
-                  );
+                  )
                 })}
-
-                <div className="flex justify-center pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleAddBatch}
-                    className="flex items-center gap-2 cursor-pointer border-primary/30 text-primary hover:bg-primary/5 shadow-sm px-6"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Section / Batch
-                  </Button>
-                </div>
               </CardContent>
+            </Card>
 
-              {/* Financial Calculation Footer */}
-              <CardFooter className="border-t pt-8 bg-muted/5 shadow-inner flex flex-col gap-8 w-full">
-                {/* 1. Discount & Tax Settings Section */}
-                <div className="w-full space-y-4">
-                  <h4 className="text-sm font-semibold text-foreground tracking-wider uppercase border-b pb-2">Discount & Tax Settings</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end bg-card p-5 rounded-xl border shadow-sm">
-                    {/* VAT Mode */}
-                    <FormField
-                      control={form.control}
-                      name="vatMode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-semibold text-foreground">
-                            VAT Mode
-                          </FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger className="h-10 bg-background border-muted-foreground/20">
-                                <SelectValue placeholder="Select VAT Mode" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="EXCLUDING">Include Tax</SelectItem>
-                              <SelectItem value="INCLUDING">Exclude Tax</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    {/* Special Discount Type */}
-                    {(() => {
-                      const hasDiscountAccess = true
-                      const hasExistingDiscount = (watchSpecialDiscountType === "PERCENTAGE" || watchSpecialDiscountType === "FIXED") && 
-                                                  Number(watchSpecialDiscountValue) > 0
-                      const showDiscountFields = hasDiscountAccess || hasExistingDiscount
-                      const isDiscountFieldsDisabled = !hasDiscountAccess
-
-                      if (!showDiscountFields) return null
-
-                      return (
-                        <>
-                          <FormField
-                            control={form.control}
-                            name="specialDiscountType"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                                  Special Discount Type
-                                  {isDiscountFieldsDisabled && <Lock className="h-3 w-3 text-muted-foreground/50" />}
-                                </FormLabel>
-                                <Select
-                                  onValueChange={(val) => {
-                                    field.onChange(val === "none" ? null : val)
-                                    if (val === "none") {
-                                      form.setValue("specialDiscountValue", 0)
-                                      form.setValue("specialDiscountReason", "")
-                                    }
-                                  }}
-                                  value={field.value || "none"}
-                                  disabled={isDiscountFieldsDisabled}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger className="h-10 bg-background border-muted-foreground/20">
-                                      <SelectValue placeholder="No Discount" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="none">No Discount</SelectItem>
-                                    <SelectItem value="PERCENTAGE">Percentage (%)</SelectItem>
-                                    <SelectItem value="FIXED">Fixed Amount (AED)</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          {/* Special Discount Value */}
-                          {watchSpecialDiscountType ? (
-                            <FormField
-                              control={form.control}
-                              name="specialDiscountValue"
-                              render={({ field }) => {
-                                const val = field.value === 0 ? "" : field.value
-                                return (
-                                  <FormItem className="animate-in fade-in duration-200">
-                                    <FormLabel className="text-xs font-semibold text-foreground">
-                                      Discount Value {watchSpecialDiscountType === "PERCENTAGE" ? "(%)" : "(AED)"}
-                                    </FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        step="0.01"
-                                        placeholder="0.00"
-                                        className="h-10 bg-background border-muted-foreground/20 font-mono [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        value={val}
-                                        disabled={isDiscountFieldsDisabled}
-                                        onChange={(e) => {
-                                          const rawVal = e.target.value
-                                          const numVal = rawVal === "" ? 0 : parseFloat(rawVal) || 0
-                                          field.onChange(rawVal === "" ? "" : numVal)
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )
-                              }}
-                            />
-                          ) : (
-                            <div className="h-[68px] hidden md:block"></div>
-                          )}
-
-                          {/* Preview / Reason Block */}
-                          {watchSpecialDiscountType && (
-                            <div className="md:col-span-1 space-y-2 animate-in fade-in duration-200 h-[68px] flex flex-col justify-end">
-                              {(() => {
-                                const isSuperAdmin = userRole === "SUPER_ADMIN"
-                                const allowedDiscount = isSuperAdmin ? 100 : (userPermissions?.maxDiscountPercent ?? 0)
-                                
-                                let currentAppliedDiscountPercent = 0
-                                const discValue = Number(watchSpecialDiscountValue) || 0
-                                if (discValue > 0) {
-                                  if (watchSpecialDiscountType === "PERCENTAGE") {
-                                    currentAppliedDiscountPercent = discValue
-                                  } else if (watchSpecialDiscountType === "FIXED") {
-                                    const baseForDiscount = subtotal + totalAdditionalCost
-                                    currentAppliedDiscountPercent = baseForDiscount > 0 ? (discValue / baseForDiscount) * 100 : 0
-                                  }
-                                }
-
-                                const isLimitExceeded = false
-
-                                return (
-                                  <div className="flex flex-col gap-1 w-full text-right bg-muted/50 rounded p-2 border border-muted">
-                                     <span className="text-[10px] text-muted-foreground font-semibold uppercase">Discount Applied</span>
-                                     <span className={cn("text-sm font-bold font-mono", isLimitExceeded ? "text-destructive" : "text-emerald-600 dark:text-emerald-500")}>
-                                       - AED {specialDiscountAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                     </span>
-                                  </div>
-                                )
-                              })()}
-                            </div>
-                          )}
-                          
-                          {/* Discount Reason & Limit Exceeded Row */}
-                          {watchSpecialDiscountType && (
-                            <div className="md:col-span-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                              <FormField
-                                control={form.control}
-                                name="specialDiscountReason"
-                                render={({ field }) => (
-                                  <FormItem className="animate-in fade-in duration-200">
-                                    <FormLabel className="text-xs font-semibold text-foreground">Discount Reason (Optional)</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        placeholder="e.g. Special Approval, Project Discount"
-                                        className="h-10 bg-background border-muted-foreground/20"
-                                        disabled={isDiscountFieldsDisabled}
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              {/* Limit Exceeded Warning - Removed to allow all roles to apply unlimited discount */}
-                            </div>
-                          )}
-                        </>
-                      )
-                    })()}
-                  </div>
-                </div>
-
+            {/* CARD 3: Disclaimers & Terms & Conditions Manager */}
+            <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">
+              <CardHeader className="bg-muted/30 border-b py-3 px-4 sm:px-6">
+                <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4 text-primary" />
+                  3. Disclaimers & Quotation Terms
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 space-y-6">
                 {/* Quotation Disclaimers Section */}
-                <div className="w-full space-y-3">
+                <div className="space-y-3">
                   <div className="flex items-center justify-between border-b pb-2">
-                    <h4 className="text-sm font-semibold text-foreground tracking-wider uppercase">
-                      Quotation Disclaimers
-                    </h4>
-                    <span className="text-[11px] text-muted-foreground font-normal">Appears above Terms & Conditions on exported PDF (Leave content empty to omit section)</span>
+                    <h4 className="text-xs font-semibold text-foreground uppercase">Quotation Disclaimers</h4>
+                    <span className="text-[11px] text-muted-foreground">Appears above Terms on exported PDF</span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-1">
@@ -3628,15 +2708,10 @@ function NewQuotationForm() {
                         name="disclaimerTitle"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs font-semibold text-foreground">Section Heading / Title</FormLabel>
+                            <FormLabel className="text-xs font-semibold text-foreground">Heading Title</FormLabel>
                             <FormControl>
-                              <Input
-                                placeholder="e.g. Disclaimers, Special Notes"
-                                className="bg-card border-muted-foreground/20 text-xs h-9"
-                                {...field}
-                              />
+                              <Input placeholder="e.g. Disclaimers" className="bg-background text-xs h-9" {...field} />
                             </FormControl>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -3649,14 +2724,8 @@ function NewQuotationForm() {
                           <FormItem>
                             <FormLabel className="text-xs font-semibold text-foreground">Disclaimer Content (Optional)</FormLabel>
                             <FormControl>
-                              <Textarea
-                                rows={3}
-                                placeholder="Enter disclaimers... Leave empty if no disclaimers should appear"
-                                className="bg-card border-muted-foreground/20 text-xs font-normal focus:border-primary resize-y"
-                                {...field}
-                              />
+                              <Textarea rows={2} placeholder="Enter disclaimers... Leave empty to omit" className="bg-background text-xs" {...field} />
                             </FormControl>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -3664,12 +2733,117 @@ function NewQuotationForm() {
                   </div>
                 </div>
 
-                {/* 2. Bottom Row: Additional Costs & Calculation Breakdown */}
+                {/* Quotation Terms & Conditions Section */}
+                <div className="space-y-3 pt-4 border-t">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b pb-2">
+                    <div>
+                      <h4 className="text-xs font-semibold text-foreground uppercase">Terms & Conditions</h4>
+                      <p className="text-[11px] text-muted-foreground">
+                        Customize, reorder, or add custom terms for this quotation. Order below will be reflected on PDF.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResetTermsToDefault}
+                      className="text-xs h-8 flex items-center gap-1.5 cursor-pointer shrink-0 bg-background"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Reset to Defaults
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {watchTermsConditions && watchTermsConditions.length > 0 ? (
+                      watchTermsConditions.map((termText, termIdx) => (
+                        <div key={termIdx} className="flex items-start gap-2 bg-card border rounded-lg p-2.5 shadow-2xs transition-all hover:border-primary/40">
+                          {/* Reorder Buttons */}
+                          <div className="flex flex-col gap-1 pt-1 shrink-0">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={termIdx === 0}
+                              onClick={() => handleMoveTerm(termIdx, -1)}
+                              className="h-6 w-6 text-muted-foreground hover:bg-muted cursor-pointer disabled:opacity-30"
+                              title="Move Up"
+                            >
+                              <ChevronUp className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={termIdx === watchTermsConditions.length - 1}
+                              onClick={() => handleMoveTerm(termIdx, 1)}
+                              className="h-6 w-6 text-muted-foreground hover:bg-muted cursor-pointer disabled:opacity-30"
+                              title="Move Down"
+                            >
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+
+                          <span className="text-xs font-bold text-muted-foreground pt-2.5 w-6 text-center shrink-0 font-mono">
+                            {(termIdx + 1).toString().padStart(2, '0')}.
+                          </span>
+
+                          <div className="flex-1">
+                            <Textarea
+                              value={termText}
+                              rows={2}
+                              onChange={(e) => handleEditTerm(termIdx, e.target.value)}
+                              placeholder="e.g. Validity: Valid for 30 days..."
+                              className="bg-background text-xs min-h-[48px] leading-relaxed"
+                            />
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveTerm(termIdx)}
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer mt-1"
+                            title="Remove term"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
+                        No terms added. Click "Add Term" below to add custom terms.
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddTerm}
+                    className="text-xs h-8 flex items-center gap-1.5 cursor-pointer mt-2 bg-background"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Term / Condition
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* CARD 4: Additional Costs & Financial Summary */}
+            <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">
+              <CardHeader className="bg-muted/30 border-b py-3 px-4 sm:px-6">
+                <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  4. Additional Costs & Financial Calculation Breakdown
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full">
-                  {/* Left Column: Additional Cost Repeater */}
+                  {/* Left Column: Additional Costs Repeater */}
                   <div className="lg:col-span-7 space-y-4">
-                    <h4 className="text-sm font-semibold text-foreground tracking-wider uppercase border-b pb-2 flex items-center gap-2">
-                      Additional Costs
+                    <h4 className="text-xs font-semibold text-foreground uppercase border-b pb-2 flex items-center gap-2">
+                      Additional Costs & Custom Fees
                       {(() => {
                         const isSuperAdmin = userRole === "SUPER_ADMIN"
                         const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
@@ -3679,7 +2853,7 @@ function NewQuotationForm() {
                       })()}
                     </h4>
                     
-                    <div className="space-y-3 p-4 rounded-xl border bg-card shadow-sm">
+                    <div className="space-y-3 p-4 rounded-xl border bg-card shadow-2xs">
                       {additionalFields.map((field, index) => {
                         const isSuperAdmin = userRole === "SUPER_ADMIN"
                         const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
@@ -3687,20 +2861,18 @@ function NewQuotationForm() {
                         const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
                         
                         return (
-                          <div key={field.id} className="flex items-center gap-3 animate-in fade-in duration-200">
-                            {/* Left side remove button */}
+                          <div key={field.id} className="flex items-center gap-3">
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
                               disabled={additionalFields.length === 1 || !allowedAddCustomCharges}
                               onClick={() => removeAdditional(index)}
-                              className="h-9 w-9 text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0 cursor-pointer disabled:opacity-40"
+                              className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer disabled:opacity-40"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
 
-                            {/* Cost Item Description */}
                             <div className="flex-1">
                               <FormField
                                 control={form.control}
@@ -3708,8 +2880,8 @@ function NewQuotationForm() {
                                 render={({ field }) => (
                                   <FormControl>
                                     <Input
-                                      placeholder="Enter cost item"
-                                      className="h-9 bg-background border-muted-foreground/20"
+                                      placeholder="e.g. Delivery & Unloading, Assembly Fee"
+                                      className="h-9 bg-background text-xs"
                                       disabled={!allowedAddCustomCharges}
                                       {...field}
                                     />
@@ -3718,7 +2890,6 @@ function NewQuotationForm() {
                               />
                             </div>
 
-                            {/* Cost Item Amount */}
                             <div className="w-36">
                               <FormField
                                 control={form.control}
@@ -3733,7 +2904,7 @@ function NewQuotationForm() {
                                           type="number"
                                           step="0.01"
                                           placeholder="0.00"
-                                          className="h-9 pl-10 pr-3 font-mono text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none bg-background border-muted-foreground/20 w-full"
+                                          className="h-9 pl-10 pr-3 font-mono text-right text-xs bg-background w-full"
                                           disabled={!allowedAddCustomCharges}
                                           value={val}
                                           onChange={(e) => {
@@ -3765,10 +2936,9 @@ function NewQuotationForm() {
                               variant="outline"
                               size="sm"
                               onClick={() => appendAdditional({ name: "", amount: "" })}
-                              className="mt-3 text-xs flex items-center gap-1.5 cursor-pointer"
+                              className="mt-3 text-xs flex items-center gap-1.5 cursor-pointer bg-background"
                             >
-                              <Plus className="h-3.5 w-3.5" />
-                              Add Cost Item
+                              <Plus className="h-3.5 w-3.5" /> Add Cost Item
                             </Button>
                           )
                         }
@@ -3779,107 +2949,115 @@ function NewQuotationForm() {
 
                   {/* Right Column: Financial Calculations Summary */}
                   <div className="lg:col-span-5 space-y-4">
-                    <h4 className="text-sm font-semibold text-foreground tracking-wider uppercase border-b pb-2">Calculation Breakdown</h4>
+                    <h4 className="text-xs font-semibold text-foreground uppercase border-b pb-2">Calculation Summary</h4>
                     
-                    <div className="bg-card p-6 rounded-xl border shadow-sm">
-                      <div className="space-y-3.5 text-sm border-b border-muted-foreground/10 pb-4">
+                    <div className="bg-card p-5 rounded-xl border shadow-2xs space-y-4">
+                      <div className="space-y-3 text-xs sm:text-sm border-b border-border/80 pb-4">
                         {/* Subtotal */}
                         <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Subtotal (Products)</span>
-                          <span className="font-medium font-mono text-foreground">AED {subtotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <span className="text-muted-foreground">Products Subtotal</span>
+                          <span className="font-semibold font-mono text-foreground">AED {formatCurrency(subtotal)}</span>
                         </div>
 
-                        {/* Total Additional Cost */}
+                        {/* Additional Costs */}
                         {totalAdditionalCost > 0 && (
-                          <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-500 font-medium animate-in fade-in duration-300">
-                            <span className="text-muted-foreground">Additional Cost</span>
-                            <span className="font-mono">+ AED {totalAdditionalCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          <div className="flex justify-between items-center text-emerald-600 font-medium">
+                            <span className="text-muted-foreground">Additional Charges</span>
+                            <span className="font-mono font-semibold">+ AED {formatCurrency(totalAdditionalCost)}</span>
                           </div>
                         )}
 
                         {/* Special Discount */}
                         {specialDiscountAmount > 0 && (
-                          <div className="flex justify-between items-center text-destructive font-medium animate-in fade-in duration-300">
+                          <div className="flex justify-between items-center text-destructive font-medium">
                             <span className="text-muted-foreground flex flex-col">
                               <span>Special Discount</span>
                               {form.watch("specialDiscountReason") && (
-                                <span className="text-[10px] text-muted-foreground/85 italic max-w-[180px] truncate">
-                                  Reason: {form.watch("specialDiscountReason")}
+                                <span className="text-[10px] text-muted-foreground/80 italic truncate max-w-[160px]">
+                                  {form.watch("specialDiscountReason")}
                                 </span>
                               )}
                             </span>
-                            <span className="font-mono">- AED {specialDiscountAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="font-mono font-semibold">- AED {formatCurrency(specialDiscountAmount)}</span>
                           </div>
                         )}
 
-                        {/* Taxable Amount */}
+                        {/* Taxable Subtotal */}
                         {watchVatMode !== "INCLUDING" && (totalAdditionalCost > 0 || specialDiscountAmount > 0) && (
-                          <div className="flex justify-between items-center pt-3 border-t border-dashed border-muted-foreground/20 animate-in fade-in duration-300">
+                          <div className="flex justify-between items-center pt-2 border-t border-dashed border-border/60">
                             <span className="text-muted-foreground font-semibold">Taxable Subtotal</span>
-                            <span className="font-semibold font-mono text-foreground">AED {taxableAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            <span className="font-semibold font-mono text-foreground">AED {formatCurrency(taxableAmount)}</span>
                           </div>
                         )}
 
-                        {/* VAT */}
+                        {/* VAT Amount */}
                         {watchVatMode !== "INCLUDING" && (
-                          <div className="flex items-center justify-between text-muted-foreground/80 font-medium animate-in fade-in duration-300">
-                            <span className="flex items-center gap-1.5">
-                              VAT (5%)
-                            </span>
-                            <span className="font-mono flex items-center text-foreground">
-                              AED {vatAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
+                          <div className="flex items-center justify-between text-muted-foreground font-medium">
+                            <span>VAT (5%)</span>
+                            <span className="font-mono font-semibold text-foreground">AED {formatCurrency(vatAmount)}</span>
                           </div>
                         )}
                       </div>
 
-                      {/* Grand Total / Total Payable */}
-                      <div className="flex justify-between items-center text-xl font-bold pt-4 text-primary">
+                      {/* Grand Total Highlight */}
+                      <div className="flex justify-between items-center text-lg sm:text-xl font-bold text-primary pt-1">
                         <span>{watchVatMode === "INCLUDING" ? "Total Payable" : "Grand Total"}</span>
-                        <span className="font-mono text-2xl">AED {grandTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
+                        <span className="font-mono text-xl sm:text-2xl font-black">
+                          AED {grandTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
-              </CardFooter>
+              </CardContent>
             </Card>
-
-            {/* Submission Actions */}
-            <div className="flex justify-end items-center gap-4 mt-6">
-              {lastAutoSavedAt && (
-                <span className="text-xs text-muted-foreground mr-auto flex items-center gap-1.5 animate-in fade-in duration-500">
-                  {isAutoSaving && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                  Last auto-saved: {lastAutoSavedAt.toLocaleTimeString()}
-                </span>
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                disabled={submitting}
-                onClick={() => router.push("/quotations")}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : isRevision ? (
-                  "Save Revision"
-                ) : (
-                  "Compile & Create"
-                )}
-              </Button>
-            </div>
           </form>
         </Form>
       )}
 
+      {/* STICKY FLOATING ACTION DOCK (MOBILE & DESKTOP) */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
+        <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground hidden sm:inline">Grand Total:</span>
+            <span className="text-base sm:text-xl font-black font-mono text-primary">
+              AED {grandTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={submitting}
+              onClick={() => onSubmit(form.getValues(), "DRAFT")}
+              className="text-xs h-9 sm:h-10 px-3 sm:px-4 font-medium flex items-center gap-1.5 cursor-pointer bg-background"
+            >
+              <Save className="h-4 w-4" />
+              <span className="hidden sm:inline">Save Draft</span>
+              <span className="sm:hidden">Draft</span>
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              disabled={submitting}
+              onClick={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"))}
+              className="text-xs h-9 sm:h-10 px-4 sm:px-6 font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              <span>{isRevision ? "Save Revision" : "Compile & Create"}</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals & Dialogs */}
       <QuickAddProductModal
         isOpen={isQuickAddOpen}
         onClose={() => setIsQuickAddOpen(false)}
@@ -3923,25 +3101,25 @@ function NewQuotationForm() {
 
       {/* Request Access Note Dialog */}
       <Dialog open={requestAccessClient !== null} onOpenChange={(open) => !open && setRequestAccessClient(null)}>
-        <DialogContent className="sm:max-w-[425px] bg-slate-950 border-slate-800 text-white">
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2 text-white">
-              <UserPlus className="h-5 w-5 text-orange-500" />
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" />
               Request Client Access
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
+            <DialogDescription className="text-xs text-muted-foreground">
               Provide an optional note to justify your request for "{requestAccessClient?.name}".
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-3">
             <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-300">Optional Note</label>
+              <label className="text-xs font-semibold text-foreground">Optional Request Note</label>
               <Textarea
                 placeholder="e.g., Client wants to place a new quotation for chairs..."
                 value={requestNotes}
                 onChange={(e) => setRequestNotes(e.target.value)}
                 rows={3}
-                className="bg-slate-900 border-slate-800 text-xs text-white"
+                className="text-xs bg-background"
               />
             </div>
           </div>
@@ -3953,7 +3131,7 @@ function NewQuotationForm() {
                 setRequestAccessClient(null)
                 setRequestNotes("")
               }}
-              className="text-xs h-9 text-slate-400 hover:text-white"
+              className="text-xs h-9"
               disabled={requestingAccess}
             >
               Cancel
@@ -3963,7 +3141,7 @@ function NewQuotationForm() {
               size="sm"
               onClick={handleRequestAccessSubmit}
               disabled={requestingAccess}
-              className="text-xs h-9 font-medium bg-orange-600 hover:bg-orange-500 text-white border-0"
+              className="text-xs h-9 font-medium"
             >
               {requestingAccess ? (
                 <>
@@ -3986,7 +3164,7 @@ export default function NewQuotationPage() {
     <Suspense fallback={
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Loading quotation builder...</p>
+        <p className="text-xs sm:text-sm text-muted-foreground">Loading quotation builder...</p>
       </div>
     }>
       <NewQuotationForm />
