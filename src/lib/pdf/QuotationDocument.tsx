@@ -887,9 +887,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
               {/* Interior Design Consultant Section (Left Side, Below Client Info) */}
               <View style={[styles.clientInfoBlock, { marginTop: 6 }]}>
-                <Text style={[styles.companyNameText, { marginBottom: 4, textTransform: "uppercase" }]}>
-                  INTERIOR DESIGN CONSULTANT
-                </Text>
 
                 <View style={styles.infoRowInline}>
                   <Text style={styles.infoKeyInline}>Designation:</Text>
