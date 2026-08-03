@@ -10,18 +10,11 @@ const prisma = new PrismaClient({ adapter });
 
 async function run() {
   try {
-    console.log("Querying database tables and columns...");
-    
-    // Query columns of the User table
-    const columns = await prisma.$queryRawUnsafe(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_name = 'User'
-    `);
-    console.log("User table columns in PostgreSQL:", columns);
-    
-    const users = await prisma.$queryRawUnsafe(`SELECT id, name, email, role FROM "User"`);
-    console.log("Users in database:", users);
+    console.log("Querying PaymentTerm and TermsCondition...");
+    const payTerms = await prisma.paymentTerm.findMany();
+    console.log("PaymentTerms count:", payTerms.length, payTerms);
+    const conds = await prisma.termsCondition.findMany();
+    console.log("TermsCondition count:", conds.length, conds);
   } catch (err) {
     console.error("DB test failed:", err);
   } finally {

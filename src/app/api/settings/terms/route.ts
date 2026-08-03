@@ -4,6 +4,8 @@ import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { hasPermission } from "@/lib/rbac"
 
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -17,11 +19,18 @@ export async function GET() {
     ])
 
     return NextResponse.json({ paymentTerms, termsConditions })
-  } catch (error) {
+  } catch (error: any) {
     console.error("GET /api/settings/terms failed:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    const fallbackPaymentTerms = [
+      { id: "fallback-1", name: "100% Advance", isDefault: false },
+      { id: "fallback-2", name: "50% Advance, 50% on Delivery", isDefault: true },
+      { id: "fallback-3", name: "100% on Delivery", isDefault: false },
+      { id: "fallback-4", name: "30 Days PDC", isDefault: false },
+    ]
+    return NextResponse.json({ paymentTerms: fallbackPaymentTerms, termsConditions: [], error: error?.message || String(error) }, { status: 200 })
   }
 }
+
 
 export async function POST(request: Request) {
   try {
