@@ -613,6 +613,7 @@ export async function PUT(
         salesAgentName,
         salesAgentContactNumber,
         salesAgentTitle,
+        salesAgentEmail,
         specialDiscountType,
         specialDiscountValue,
         specialDiscountReason,
@@ -825,6 +826,8 @@ export async function PUT(
         preparedByRole: finalPreparedByUser.role || null,
         preparedBySignatureUrl: finalPreparedByUser.signature || null,
         salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
+        salesAgentTitle: salesAgentTitle || existingQuotation.salesAgentTitle || null,
+        salesAgentEmail: salesAgentEmail || existingQuotation.salesAgentEmail || null,
         termsConditions: termsArray,
         companyLogoUrl: logoBase64 || null,
         aynMuskLogoUrl: aynMuskLogoBase64 || null,
@@ -931,6 +934,7 @@ export async function PUT(
             salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
             salesAgentContactNumber: salesAgentContactNumber || existingQuotation.salesAgentContactNumber || null,
             salesAgentTitle: salesAgentTitle || existingQuotation.salesAgentTitle || null,
+            salesAgentEmail: salesAgentEmail || existingQuotation.salesAgentEmail || null,
             parentId: rootId,
             items: {
               create: quotationItemsToCreate.map((item: any) => ({
@@ -1001,6 +1005,7 @@ export async function PUT(
         salesAgentName,
         salesAgentContactNumber,
         salesAgentTitle,
+        salesAgentEmail,
         specialDiscountType,
         specialDiscountValue,
         specialDiscountReason,
@@ -1200,6 +1205,8 @@ export async function PUT(
         preparedByRole: finalPreparedByUser.role || null,
         preparedBySignatureUrl: finalPreparedByUser.signature || null,
         salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
+        salesAgentTitle: salesAgentTitle || existingQuotation.salesAgentTitle || null,
+        salesAgentEmail: salesAgentEmail || existingQuotation.salesAgentEmail || null,
         termsConditions: termsArray,
         companyLogoUrl: logoBase64 || null,
         aynMuskLogoUrl: aynMuskLogoBase64 || null,
@@ -1285,6 +1292,7 @@ export async function PUT(
             salesAgentName: salesAgentName || existingQuotation.salesAgentName || null,
             salesAgentContactNumber: salesAgentContactNumber || existingQuotation.salesAgentContactNumber || null,
             salesAgentTitle: salesAgentTitle || existingQuotation.salesAgentTitle || null,
+            salesAgentEmail: salesAgentEmail || existingQuotation.salesAgentEmail || null,
             items: {
               create: quotationItemsToCreate.map((item: any) => ({
                 itemNo: item.itemNo,

@@ -418,6 +418,7 @@ function NewBOQForm() {
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([])
+  const [paymentTermsOptions, setPaymentTermsOptions] = useState<{ id: string; name: string; description?: string | null; isDefault?: boolean }[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
 
   const categoryOptions = useMemo(() => {
@@ -593,10 +594,11 @@ function NewBOQForm() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [clientsRes, productsRes, categoriesRes] = await Promise.all([
+        const [clientsRes, productsRes, categoriesRes, termsRes] = await Promise.all([
           fetch("/api/clients?all=true"),
           fetch("/api/products"),
           fetch("/api/products/categories"),
+          fetch("/api/settings/terms"),
         ])
         if (!clientsRes.ok || !productsRes.ok) throw new Error("Failed to load catalog data")
         const clientsData = await clientsRes.json()
@@ -605,6 +607,16 @@ function NewBOQForm() {
           const categoriesData = await categoriesRes.json()
           if (Array.isArray(categoriesData)) setDbCategories(categoriesData)
         }
+
+        let fetchedTerms: { id: string; name: string; description?: string | null; isDefault?: boolean }[] = []
+        if (termsRes.ok) {
+          const termsData = await termsRes.json()
+          if (Array.isArray(termsData.paymentTerms)) {
+            fetchedTerms = termsData.paymentTerms
+            setPaymentTermsOptions(termsData.paymentTerms)
+          }
+        }
+        const defaultPaymentTerm = fetchedTerms.find((t) => t.isDefault)?.name || (fetchedTerms.length > 0 ? fetchedTerms[0].name : "50% Advance, 50% on Delivery")
 
         setClients(clientsData)
         setProducts(productsData)
@@ -1953,25 +1965,40 @@ function NewBOQForm() {
                   <FormField
                     control={form.control}
                     name="paymentTerms"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Payment Terms</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select terms" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="100% Advance">100% Advance</SelectItem>
-                            <SelectItem value="50% Advance, 50% on Delivery">50% Advance, 50% on Delivery</SelectItem>
-                            <SelectItem value="100% on Delivery">100% on Delivery</SelectItem>
-                            <SelectItem value="30 Days PDC">30 Days PDC</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const displayOptions: { id: string; name: string }[] = [...paymentTermsOptions]
+                      if (field.value && !displayOptions.some(o => o.name === field.value)) {
+                        displayOptions.unshift({ id: "current-selected", name: field.value })
+                      }
+                      if (displayOptions.length === 0) {
+                        displayOptions.push(
+                          { id: "1", name: "100% Advance" },
+                          { id: "2", name: "50% Advance, 50% on Delivery" },
+                          { id: "3", name: "100% on Delivery" },
+                          { id: "4", name: "30 Days PDC" }
+                        )
+                      }
+                      return (
+                        <FormItem>
+                          <FormLabel>Payment Terms</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select terms" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {displayOptions.map((term) => (
+                                <SelectItem key={term.id || term.name} value={term.name}>
+                                  {term.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )
+                    }}
                   />
 
                   {isManagerOrAdmin && (

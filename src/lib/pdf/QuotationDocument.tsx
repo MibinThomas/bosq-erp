@@ -463,6 +463,7 @@ export interface QuotationPdfProps {
   preparedBySignatureUrl?: string | null
   salesAgentName?: string | null
   salesAgentTitle?: string | null
+  salesAgentEmail?: string | null
   termsConditions: string[]
   companyLogoUrl?: string | null // Base64 logo png
   aynMuskLogoUrl?: string | null

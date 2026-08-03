@@ -10,11 +10,6 @@ export async function GET() {
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
-    const userId = (session.user as any).id
-    const canView = await hasPermission(userId, "SETTINGS", "view")
-    if (!canView) {
-      return NextResponse.json({ error: "Forbidden: You do not have permission to view settings" }, { status: 403 })
-    }
 
     const [paymentTerms, termsConditions] = await Promise.all([
       prisma.paymentTerm.findMany({ orderBy: { name: "asc" } }),

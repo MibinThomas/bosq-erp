@@ -211,6 +211,7 @@ export async function POST(request: Request) {
       salesAgentName,
       salesAgentContactNumber,
       salesAgentTitle,
+      salesAgentEmail,
       specialDiscountType,
       specialDiscountValue,
       specialDiscountReason,
@@ -599,6 +600,7 @@ export async function POST(request: Request) {
       preparedBySignatureUrl: creatorUser.signature || null,
       salesAgentName: salesAgentName || null,
       salesAgentTitle: salesAgentTitle || null,
+      salesAgentEmail: salesAgentEmail || null,
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,
@@ -682,6 +684,8 @@ export async function POST(request: Request) {
         salesAgentId: salesAgentId || null,
         salesAgentName: salesAgentName || null,
         salesAgentContactNumber: salesAgentContactNumber || null,
+        salesAgentTitle: salesAgentTitle || null,
+        salesAgentEmail: salesAgentEmail || null,
         items: {
           create: quotationItemsToCreate.map((item: any, idx: number) => ({
             itemNo: item.itemNo,

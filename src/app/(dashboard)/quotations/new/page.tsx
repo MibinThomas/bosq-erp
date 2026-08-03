@@ -63,6 +63,7 @@ const quotationSchema = z.object({
   salesAgentName: z.string().optional(),
   salesAgentTitle: z.string().optional(),
   salesAgentContactNumber: z.string().optional(),
+  salesAgentEmail: z.string().optional(),
   deliveryCharge: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Delivery charge must be at least 0"),
   notes: z.string().optional(),
   disclaimerTitle: z.string().optional(),
@@ -411,6 +412,7 @@ function NewQuotationForm() {
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([])
+  const [paymentTermsOptions, setPaymentTermsOptions] = useState<{ id: string; name: string; description?: string | null; isDefault?: boolean }[]>([])
   const [loadingOptions, setLoadingOptions] = useState(true)
 
   const categoryOptions = useMemo(() => {
@@ -585,11 +587,13 @@ function NewQuotationForm() {
   // Fetch clients and products catalog
   useEffect(() => {
     async function loadData() {
-      try {        const [clientsRes, productsRes, categoriesRes, settingsRes] = await Promise.all([
+      try {
+        const [clientsRes, productsRes, categoriesRes, settingsRes, termsRes] = await Promise.all([
           fetch("/api/clients?all=true"),
           fetch("/api/products"),
           fetch("/api/products/categories"),
           fetch("/api/settings/system"),
+          fetch("/api/settings/terms"),
         ])
         if (!clientsRes.ok || !productsRes.ok) throw new Error("Failed to load catalog data")
         const clientsData = await clientsRes.json()
@@ -605,6 +609,16 @@ function NewQuotationForm() {
           const categoriesData = await categoriesRes.json()
           if (Array.isArray(categoriesData)) setDbCategories(categoriesData)
         }
+
+        let fetchedTerms: { id: string; name: string; description?: string | null; isDefault?: boolean }[] = []
+        if (termsRes.ok) {
+          const termsData = await termsRes.json()
+          if (Array.isArray(termsData.paymentTerms)) {
+            fetchedTerms = termsData.paymentTerms
+            setPaymentTermsOptions(termsData.paymentTerms)
+          }
+        }
+        const defaultPaymentTerm = fetchedTerms.find((t) => t.isDefault)?.name || (fetchedTerms.length > 0 ? fetchedTerms[0].name : "50% Advance, 50% on Delivery")
 
         setClients(clientsData)
         setProducts(productsData)
@@ -645,10 +659,11 @@ function NewQuotationForm() {
               salesAgentName: activeData.salesAgentName || "",
               salesAgentTitle: activeData.salesAgentTitle || "",
               salesAgentContactNumber: activeData.salesAgentContactNumber || "",
+              salesAgentEmail: activeData.salesAgentEmail || "",
               date: reviseId ? new Date().toISOString().split("T")[0] : activeData.date.split("T")[0],
               validityDate: reviseId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : activeData.validityDate.split("T")[0],
               deliveryDate: activeData.deliveryDate ? new Date(activeData.deliveryDate).toISOString().split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-              paymentTerms: activeData.paymentTerms || "50% Advance, 50% on Delivery",
+              paymentTerms: activeData.paymentTerms || defaultPaymentTerm,
               items: activeData.items.map((item: any) => {
                 const marginVal = item.margin || 0
                 const loadedBase = (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== 0)
@@ -713,6 +728,7 @@ function NewQuotationForm() {
         } else {
           if (sysDisclaimerTitle) form.setValue("disclaimerTitle", sysDisclaimerTitle)
           if (sysDisclaimer) form.setValue("disclaimer", sysDisclaimer)
+          if (defaultPaymentTerm) form.setValue("paymentTerms", defaultPaymentTerm)
         }
       } catch (error) {
         console.error("Error loading form options:", error)
@@ -799,6 +815,7 @@ function NewQuotationForm() {
       salesAgentId: (session?.user as any)?.id || "",
       salesAgentName: (session?.user as any)?.name || "",
       salesAgentContactNumber: (session?.user as any)?.phone || "",
+      salesAgentEmail: (session?.user as any)?.email || "",
       date: new Date().toISOString().split("T")[0],
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -1944,25 +1961,40 @@ function NewQuotationForm() {
                   <FormField
                     control={form.control}
                     name="paymentTerms"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Payment Terms</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select terms" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="100% Advance">100% Advance</SelectItem>
-                            <SelectItem value="50% Advance, 50% on Delivery">50% Advance, 50% on Delivery</SelectItem>
-                            <SelectItem value="100% on Delivery">100% on Delivery</SelectItem>
-                            <SelectItem value="30 Days PDC">30 Days PDC</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const displayOptions: { id: string; name: string }[] = [...paymentTermsOptions]
+                      if (field.value && !displayOptions.some(o => o.name === field.value)) {
+                        displayOptions.unshift({ id: "current-selected", name: field.value })
+                      }
+                      if (displayOptions.length === 0) {
+                        displayOptions.push(
+                          { id: "1", name: "100% Advance" },
+                          { id: "2", name: "50% Advance, 50% on Delivery" },
+                          { id: "3", name: "100% on Delivery" },
+                          { id: "4", name: "30 Days PDC" }
+                        )
+                      }
+                      return (
+                        <FormItem>
+                          <FormLabel>Payment Terms</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select terms" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {displayOptions.map((term) => (
+                                <SelectItem key={term.id || term.name} value={term.name}>
+                                  {term.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )
+                    }}
                   />
 
                   {isManagerOrAdmin && (
@@ -2032,6 +2064,19 @@ function NewQuotationForm() {
                           <FormLabel>Sales Agent Contact Number</FormLabel>
                           <FormControl>
                             <Input placeholder="e.g. +971 50 123 4567" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="salesAgentEmail"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sales Agent / Consultant Email</FormLabel>
+                          <FormControl>
+                            <Input type="email" placeholder="e.g. consultant@example.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
