@@ -1262,11 +1262,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 {preparedBy}
                 {preparedByDesignation || formatRole(preparedByRole) ? ` | ${(preparedByDesignation || formatRole(preparedByRole))?.replace(/Interior Design Consultants/gi, "Interior Design Consultant")}` : ""}
               </Text>
-              {(preparedByContact || preparedByEmail) && (
-                <Text style={{ fontSize: 7, color: colors.secondary, marginTop: 2 }}>
-                  {[preparedByContact, preparedByEmail].filter(Boolean).join(" • ")}
-                </Text>
-              )}
               {preparedBySignatureUrl ? (
                 <PdfImage src={preparedBySignatureUrl} style={{ height: 50, width: 240, objectFit: "contain", marginTop: 4 }} />
               ) : (
