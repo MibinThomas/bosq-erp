@@ -2115,44 +2115,6 @@ function NewQuotationForm() {
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sales Agent Details (Optional)</span>
                     </div>
-
-                    <FormItem>
-                      <FormLabel>Select Sales Agent <span className="text-muted-foreground font-normal text-xs">(Optional - Auto-fills fields below)</span></FormLabel>
-                      <Select
-                        onValueChange={(selectedUserId) => {
-                          const selectedUser = users.find(u => u.id === selectedUserId)
-                          if (selectedUser) {
-                            form.setValue("salesAgentId", selectedUser.id, { shouldDirty: true })
-                            form.setValue("salesAgentName", selectedUser.name || "", { shouldDirty: true })
-                            form.setValue("salesAgentTitle", selectedUser.designation || selectedUser.role || "Sales Executive", { shouldDirty: true })
-                            if (selectedUser.phone) {
-                              setContactNumbers([selectedUser.phone])
-                              form.setValue("salesAgentContactNumber", selectedUser.phone, { shouldDirty: true })
-                            }
-                            if (selectedUser.email) {
-                              setAgentEmails([selectedUser.email])
-                              form.setValue("salesAgentEmail", selectedUser.email, { shouldDirty: true })
-                            }
-                          }
-                        }}
-                        value={form.watch("salesAgentId") || ""}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select sales agent (or type manually below)">
-                              {users.find(u => u.id === form.watch("salesAgentId"))?.name || "Select sales agent"}
-                            </SelectValue>
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {users.map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.name} {u.role && `(${u.role})`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
                     <FormField
                       control={form.control}
                       name="salesAgentName"
