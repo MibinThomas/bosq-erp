@@ -85,6 +85,39 @@ export async function getAynMuskLogoBase64(): Promise<string> {
   return aynMuskLogoBase64Cache || ""
 }
 
+let companySealBase64Cache: string | null = null
+
+export async function getCompanySealBase64(): Promise<string> {
+  try {
+    const dbSeal = await getSetting("company_seal")
+    if (dbSeal) return dbSeal
+  } catch (err) {
+    console.error("Failed to fetch custom company seal from database settings:", err)
+  }
+
+  if (companySealBase64Cache) return companySealBase64Cache
+
+  try {
+    const pngSealPath = path.join(process.cwd(), "public", "assets", "logo", "company-seal.png")
+    if (fs.existsSync(pngSealPath)) {
+      const fileBuffer = fs.readFileSync(pngSealPath)
+      companySealBase64Cache = `data:image/png;base64,${fileBuffer.toString("base64")}`
+    } else {
+      const sealPath = path.join(process.cwd(), "public", "assets", "logo", "company-seal.svg")
+      if (fs.existsSync(sealPath)) {
+        const fileBuffer = fs.readFileSync(sealPath)
+        const sharp = (await import("sharp")).default
+        const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+        companySealBase64Cache = `data:image/png;base64,${pngBuffer.toString("base64")}`
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load company seal in cache:", err)
+  }
+
+  return companySealBase64Cache || ""
+}
+
 let promotionalImageBase64Cache: string | null = null
 
 export async function getPromotionalImageBase64(): Promise<string | null> {
@@ -96,4 +129,5 @@ export async function getPromotionalImageBase64(): Promise<string | null> {
   }
   return null
 }
+
 

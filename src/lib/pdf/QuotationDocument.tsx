@@ -470,6 +470,7 @@ export interface QuotationPdfProps {
   termsConditions: string[]
   companyLogoUrl?: string | null // Base64 logo png
   aynMuskLogoUrl?: string | null
+  companySealUrl?: string | null
   barcodeBase64?: string | null
   watermarkUrl?: string | null
   promotionalImageUrl?: string | null
@@ -588,6 +589,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   termsConditions,
   companyLogoUrl,
   aynMuskLogoUrl,
+  companySealUrl,
   barcodeBase64,
   watermarkUrl,
   promotionalImageUrl,
@@ -1297,13 +1299,39 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 {preparedBy}
                 {preparedByDesignation || formatRole(preparedByRole) ? ` | ${(preparedByDesignation || formatRole(preparedByRole))?.replace(/Interior Design Consultants/gi, "Interior Design Consultant")}` : ""}
               </Text>
-              {preparedBySignatureUrl ? (
-                <PdfImage src={preparedBySignatureUrl} style={{ height: 50, width: 240, objectFit: "contain", marginTop: 4 }} />
-              ) : (
-                <Text style={[styles.signatureCompany, { marginTop: 1.5, fontWeight: "bold" }]}>
-                  Interior Design Consultant
-                </Text>
-              )}
+              
+              <View style={{ position: "relative", width: 260, height: 80, alignItems: "center", justifyContent: "center", marginTop: 4 }}>
+                {/* Company Seal - Placed Slightly Bottom Left */}
+                {companySealUrl && (
+                  <PdfImage 
+                    src={companySealUrl} 
+                    style={{ 
+                      position: "absolute", 
+                      left: 15, 
+                      bottom: -4, 
+                      width: 75, 
+                      height: 75, 
+                      objectFit: "contain",
+                      opacity: 0.85
+                    }} 
+                  />
+                )}
+                {/* Signature Image - Placed on top */}
+                {preparedBySignatureUrl ? (
+                  <PdfImage 
+                    src={preparedBySignatureUrl} 
+                    style={{ 
+                      height: 80, 
+                      width: 260, 
+                      objectFit: "contain"
+                    }} 
+                  />
+                ) : (
+                  <Text style={[styles.signatureCompany, { marginTop: 1.5, fontWeight: "bold" }]}>
+                    Interior Design Consultant
+                  </Text>
+                )}
+              </View>
             </View>
             <View style={styles.signatureBox}>
               <View style={styles.signatureLine} />

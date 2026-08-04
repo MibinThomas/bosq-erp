@@ -10,7 +10,7 @@ import { getSettings } from "@/lib/settings"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64 } from "@/lib/pdf/logoCache"
+import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 
 // Get single quotation with items and revisions history
@@ -844,6 +844,7 @@ export async function PUT(
       let logoBase64 = ""
       let watermarkBase64 = ""
       let aynMuskLogoBase64 = ""
+      let companySealBase64 = ""
       let barcodeBase64 = ""
       let promotionalImageBase64: string | null = null
 
@@ -851,6 +852,7 @@ export async function PUT(
         logoBase64 = await getLogoBase64()
         watermarkBase64 = await getWatermarkBase64()
         aynMuskLogoBase64 = await getAynMuskLogoBase64()
+        companySealBase64 = await getCompanySealBase64()
         promotionalImageBase64 = await getPromotionalImageBase64()
         barcodeBase64 = generateCode128DataUri(revQuoteNum)
       }
@@ -899,6 +901,7 @@ export async function PUT(
         termsConditions: termsArray,
         companyLogoUrl: logoBase64 || null,
         aynMuskLogoUrl: aynMuskLogoBase64 || null,
+        companySealUrl: companySealBase64 || null,
         barcodeBase64: barcodeBase64 || null,
         watermarkUrl: watermarkBase64 || null,
         promotionalImageUrl: promotionalImageBase64,
@@ -1216,6 +1219,7 @@ export async function PUT(
       let logoBase64 = ""
       let watermarkBase64 = ""
       let aynMuskLogoBase64 = ""
+      let companySealBase64 = ""
       let barcodeBase64 = ""
       let promotionalImageBase64: string | null = null
 
@@ -1223,6 +1227,7 @@ export async function PUT(
         logoBase64 = await getLogoBase64()
         watermarkBase64 = await getWatermarkBase64()
         aynMuskLogoBase64 = await getAynMuskLogoBase64()
+        companySealBase64 = await getCompanySealBase64()
         promotionalImageBase64 = await getPromotionalImageBase64()
         barcodeBase64 = generateCode128DataUri(existingQuotation.quotationNumber)
       }
@@ -1323,6 +1328,7 @@ export async function PUT(
         termsConditions: termsArray,
         companyLogoUrl: logoBase64 || null,
         aynMuskLogoUrl: aynMuskLogoBase64 || null,
+        companySealUrl: companySealBase64 || null,
         barcodeBase64: barcodeBase64 || null,
         watermarkUrl: watermarkBase64 || null,
         promotionalImageUrl: promotionalImageBase64,

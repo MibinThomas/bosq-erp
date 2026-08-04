@@ -12,7 +12,7 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { getSettings } from "@/lib/settings"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 import { hasPermission } from "@/lib/rbac"
-import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64 } from "@/lib/pdf/logoCache"
+import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 
 export async function GET(request: Request) {
@@ -439,6 +439,7 @@ export async function POST(request: Request) {
     let logoBase64 = ""
     let watermarkBase64 = ""
     let aynMuskLogoBase64 = ""
+    let companySealBase64 = ""
     let barcodeBase64 = ""
     let promotionalImageBase64: string | null = null
 
@@ -446,6 +447,7 @@ export async function POST(request: Request) {
       logoBase64 = await getLogoBase64()
       watermarkBase64 = await getWatermarkBase64()
       aynMuskLogoBase64 = await getAynMuskLogoBase64()
+      companySealBase64 = await getCompanySealBase64()
       promotionalImageBase64 = await getPromotionalImageBase64()
       barcodeBase64 = generateCode128DataUri(nextQuoteNo)
     }
@@ -632,6 +634,7 @@ export async function POST(request: Request) {
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,
+      companySealUrl: companySealBase64 || null,
       barcodeBase64: barcodeBase64 || null,
       watermarkUrl: watermarkBase64 || null,
       promotionalImageUrl: promotionalImageBase64,

@@ -9,7 +9,7 @@ import fs from "fs"
 import path from "path"
 import { getSettings } from "@/lib/settings"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
-import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64 } from "@/lib/pdf/logoCache"
+import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 
 export const dynamic = "force-dynamic"
@@ -24,6 +24,7 @@ export async function GET(
 
     const logoBase64 = await getLogoBase64()
     const aynMuskLogoBase64 = await getAynMuskLogoBase64()
+    const companySealBase64 = await getCompanySealBase64()
     const watermarkBase64 = await getWatermarkBase64()
     const promotionalImageBase64 = await getPromotionalImageBase64()
     const systemSettings = await getSettings(["company_bank_details", "company_disclaimer_title", "company_disclaimer"])
@@ -202,6 +203,7 @@ export async function GET(
       termsConditions: termsArray,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,
+      companySealUrl: companySealBase64 || null,
       barcodeBase64: barcodeBase64 || null,
       watermarkUrl: watermarkBase64 || null,
       promotionalImageUrl: promotionalImageBase64,
