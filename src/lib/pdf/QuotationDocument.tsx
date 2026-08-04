@@ -1366,9 +1366,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                     style={{ 
                       position: "absolute", 
                       left: 25, 
-                      bottom: -30, 
-                      width: 225, 
-                      height: 225, 
+                      bottom: -100, 
+                      width: 207, 
+                      height: 207, 
                       objectFit: "contain"
                     }} 
                   />
