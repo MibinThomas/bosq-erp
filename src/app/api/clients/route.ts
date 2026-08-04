@@ -44,15 +44,15 @@ export async function GET(request: Request) {
 
     if (all) {
       whereClause.status = "Approved"
-    }
-
-    // Apply strict assigned-client filter for non-managerial users
-    if (!canViewAllClients) {
-      whereClause.OR = [
-        { salespersonId: dbSessionUser.id },
-        { assignments: { some: { userId: dbSessionUser.id } } },
-        { accessRequests: { some: { userId: dbSessionUser.id, status: "Approved" } } }
-      ]
+    } else {
+      // Apply strict assigned-client filter for non-managerial users on Clients page list
+      if (!canViewAllClients) {
+        whereClause.OR = [
+          { salespersonId: dbSessionUser.id },
+          { assignments: { some: { userId: dbSessionUser.id } } },
+          { accessRequests: { some: { userId: dbSessionUser.id, status: "Approved" } } }
+        ]
+      }
     }
 
     const clients = await prisma.client.findMany({
