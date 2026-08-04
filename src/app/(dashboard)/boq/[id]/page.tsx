@@ -1768,7 +1768,7 @@ function NewBOQForm() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-              {(!existingQuote?.status || existingQuote?.status === "DRAFT" || existingQuote?.status === "NEEDS_REVISION") && (
+              {!isEstimator && (!existingQuote?.status || existingQuote?.status === "DRAFT" || existingQuote?.status === "NEEDS_REVISION") && (
                 <>
                   <Button
                     type="button"
@@ -1793,7 +1793,7 @@ function NewBOQForm() {
                 </>
               )}
 
-              {(existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS") && (isEstimator || isManagerOrAdmin) && (
+              {(isEstimator || isManagerOrAdmin || existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS") && existingQuote?.status !== "CONVERTED" && existingQuote?.status !== "COSTING_COMPLETED" && (
                 <Button
                   type="button"
                   variant="default"
@@ -1807,7 +1807,7 @@ function NewBOQForm() {
                 </Button>
               )}
 
-              {existingQuote?.status === "COSTING_COMPLETED" && (
+              {!isEstimator && existingQuote?.status === "COSTING_COMPLETED" && (
                 <>
                   <Button
                     type="button"
@@ -4017,21 +4017,43 @@ function NewBOQForm() {
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : isRevision ? (
-                  "Save Revision"
-                ) : (
-                  "Compile & Create"
-                )}
-              </Button>
+              {isEstimator ? (
+                <Button
+                  type="button"
+                  variant="default"
+                  disabled={isSubmittingCosting}
+                  onClick={handleCompleteCostingSubmit}
+                  className="bg-purple-600 hover:bg-purple-500 text-white font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmittingCosting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Submitting Costing...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Complete Costing & Return to Creator
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : isRevision ? (
+                    "Save Revision"
+                  ) : (
+                    "Compile & Create"
+                  )}
+                </Button>
+              )}
             </div>
           </form>
         </Form>
