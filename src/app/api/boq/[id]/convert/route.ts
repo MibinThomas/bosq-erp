@@ -2,9 +2,6 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
-// We would ideally import the Quotation creation logic or hit it directly.
-// For the sake of this endpoint, we'll re-implement the subset of POST /api/quotations needed
-// or we can just fetch the BOQ and then make an internal POST request to the quotations API.
 
 export async function POST(
   request: Request,
@@ -15,24 +12,24 @@ export async function POST(
     const session = await getServerSession(authOptions)
     const userId = (session?.user as any)?.id
 
-    const body = await request.json()
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const body = await request.json().catch(() => ({}))
     const { paymentTerms, deliveryDate, validityDate } = body
 
     const boq = await prisma.boq.findUnique({
       where: { id },
       include: {
         items: true,
-        client: true
+        client: true,
+        preparedBy: true
       }
     })
 
     if (!boq) {
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 })
-    }
-
-    if (boq.status !== "COSTING_COMPLETED" && boq.status !== "APPROVED") {
-      // Allow conversion if it's already costed.
-      // But we won't strictly block here, just a check.
     }
 
     // Map BOQ Items to Quotation Items format
@@ -42,30 +39,31 @@ export async function POST(
       specifications: item.specifications || "",
       customImageUrl: item.customImageUrl || null,
       quantity: item.quantity,
-      unitPrice: item.unitSellingPrice,
-      basePrice: item.unitSellingPrice,
+      unitPrice: item.unitSellingPrice || item.unitCost || 0,
+      basePrice: item.unitSellingPrice || item.unitCost || 0,
       discount: 0,
-      margin: item.marginPercentage,
-      amount: item.totalSellingPrice
+      margin: item.marginPercentage || 0,
+      amount: item.totalSellingPrice || (item.unitCost * item.quantity),
+      categoryName: "OFFICE FURNITURE",
+      chairType: null,
+      batchHeading: null,
     }))
 
-    // We will call the existing Quotation API to handle PDF generation, numbering, etc.
     const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
     
-    // We pass the payload matching what the Quotation POST expects.
+    // Construct quotation payload matching POST /api/quotations
     const quotationPayload = {
-      quotationNumber: boq.boqNumber,
       clientId: boq.clientId,
-      projectName: boq.projectName,
+      projectName: boq.projectName || "Office Furnishing Project",
       date: new Date().toISOString(),
       validityDate: validityDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      deliveryDate: deliveryDate,
-      paymentTerms: paymentTerms || "TBD",
+      deliveryDate: deliveryDate || new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString(),
+      paymentTerms: paymentTerms || (boq as any).paymentTerms || "50% Advance, 50% on Delivery",
       deliveryCharge: 0,
-      notes: boq.notes,
+      notes: boq.notes ? `[Converted from BOQ ${boq.boqNumber}]\n${boq.notes}` : `Converted from BOQ ${boq.boqNumber}`,
       termsConditions: boq.termsConditions,
-      customerSegment: boq.customerSegment,
-      preparedById: boq.preparedById, // Keeps the original BOQ preparer
+      customerSegment: boq.customerSegment || "Project",
+      preparedById: boq.preparedById || userId,
       items: quotationItems
     }
 
@@ -83,7 +81,7 @@ export async function POST(
     if (!qRes.ok) {
       const err = await qRes.json()
       console.error("Failed to convert BOQ to Quotation:", err)
-      return NextResponse.json({ error: "Failed to generate Quotation from BOQ" }, { status: 500 })
+      return NextResponse.json({ error: err.error || "Failed to generate Quotation from BOQ" }, { status: 500 })
     }
 
     const quotation = await qRes.json()
@@ -94,31 +92,25 @@ export async function POST(
       data: { boqId: boq.id }
     })
 
-    // Update BOQ status
+    // Update BOQ status to CONVERTED
     await prisma.boq.update({
       where: { id: boq.id },
       data: { status: "CONVERTED" }
     })
 
-    // Trigger Excel export to the Quotation folder (fire and forget or await)
-    try {
-      fetch(`${baseUrl}/api/boq/${boq.id}/export`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Cookie": cookie
-        },
-        body: JSON.stringify({ 
-          quotationNumber: quotation.quotationNumber,
-          quotationGroupFolder: quotation.quotationNumber.split("-")[0]
-        })
-      })
-    } catch (e) {
-      console.error("Failed to trigger BOQ export during conversion:", e)
-    }
+    // Log Activity
+    await prisma.activityLog.create({
+      data: {
+        userId,
+        action: "CONVERTED_BOQ_TO_QUOTATION",
+        entityType: "BOQ",
+        entityId: boq.id,
+        details: `Converted BOQ ${boq.boqNumber} to Quotation ${quotation.quotationNumber}`
+      }
+    })
 
     return NextResponse.json({ success: true, quotation })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Failed to convert BOQ:", error)
     return NextResponse.json(
       { error: "Internal Server Error" },

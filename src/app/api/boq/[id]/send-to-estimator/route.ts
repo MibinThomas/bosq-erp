@@ -21,7 +21,7 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}))
-    const { estimatorId } = body
+    const { estimatorId, instructions } = body
 
     const boq = await prisma.boq.findUnique({
       where: { id },
@@ -198,7 +198,8 @@ export async function POST(
       data: {
         status: "SENT_TO_ESTIMATOR",
         estimatorId: estimatorId || null,
-        sharepointUrl: sharepointUrl || null
+        sharepointUrl: sharepointUrl || null,
+        notes: instructions ? `[Estimator Instructions]: ${instructions}\n\n${boq.notes || ""}` : boq.notes
       }
     })
 

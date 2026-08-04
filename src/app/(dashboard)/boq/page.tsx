@@ -96,13 +96,20 @@ export default function BoqDashboard() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "DRAFT":
-        return <Badge variant="outline" className="text-gray-500 font-medium">Draft</Badge>
+        return <Badge variant="outline" className="text-gray-500 border-gray-300 font-medium">Draft</Badge>
+      case "SENT_TO_ESTIMATOR":
       case "PENDING_COSTING":
-        return <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium">Pending Costing</Badge>
+        return <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium">Sent to Estimator</Badge>
+      case "COSTING_IN_PROGRESS":
+        return <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-medium">Costing In Progress</Badge>
       case "COSTING_COMPLETED":
-        return <Badge className="bg-blue-600 hover:bg-blue-700 text-white font-medium">Costing Completed</Badge>
+        return <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-medium">Costing Completed</Badge>
+      case "NEEDS_REVISION":
+        return <Badge className="bg-rose-500 hover:bg-rose-600 text-white font-medium">Revision Requested</Badge>
+      case "APPROVED":
+        return <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium">Approved</Badge>
       case "CONVERTED":
-        return <Badge className="bg-green-600 hover:bg-green-700 text-white font-medium">Converted to Quote</Badge>
+        return <Badge className="bg-green-600 hover:bg-green-700 text-white font-medium">Converted to Quotation</Badge>
       case "REJECTED":
         return <Badge variant="destructive" className="font-medium">Rejected</Badge>
       default:

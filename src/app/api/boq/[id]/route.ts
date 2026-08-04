@@ -32,6 +32,7 @@ export async function GET(
           }
         },
         preparedBy: true,
+        estimator: true,
         items: true
       },
     })
