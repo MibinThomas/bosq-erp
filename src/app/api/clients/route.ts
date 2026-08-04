@@ -28,9 +28,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to view clients" }, { status: 403 })
     }
 
+    // Check role-based admin/manager status
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(dbSessionUser.role)
+
     // Resolve ownership rule
-    let ownershipRule = "ALL"
-    if (dbSessionUser.role !== "SUPER_ADMIN") {
+    let ownershipRule = isUnrestricted ? "ALL" : "ASSIGNED"
+    if (!isUnrestricted) {
       const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
       if (override?.ownership) {
         ownershipRule = override.ownership
@@ -55,10 +58,11 @@ export async function GET(request: Request) {
 
     if (all) {
       whereClause.status = "Approved"
-    } else {
-      if (ownershipRule === "ALL") {
-        // No additional restrictions needed, can view all clients
-      } else if (ownershipRule === "DEPARTMENT") {
+    }
+
+    // Apply ownership restrictions for non-unrestricted users
+    if (!isUnrestricted && ownershipRule !== "ALL") {
+      if (ownershipRule === "DEPARTMENT") {
         const deptUsers = await prisma.user.findMany({
           where: { department: dbSessionUser.department || "N/A" },
           select: { id: true }
@@ -69,14 +73,15 @@ export async function GET(request: Request) {
           { assignments: { some: { userId: { in: deptUserIds } } } },
           { accessRequests: { some: { userId: { in: deptUserIds }, status: "Approved" } } }
         ]
-      } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
+      } else if (ownershipRule === "NONE") {
+        whereClause.id = "none"
+      } else {
+        // Default "ASSIGNED" or "OWN"
         whereClause.OR = [
           { salespersonId: dbSessionUser.id },
           { assignments: { some: { userId: dbSessionUser.id } } },
           { accessRequests: { some: { userId: dbSessionUser.id, status: "Approved" } } }
         ]
-      } else if (ownershipRule === "NONE") {
-        whereClause.id = "none"
       }
     }
 
@@ -102,7 +107,7 @@ export async function GET(request: Request) {
     })
 
     // Compute access list for department check
-    const deptUsers = ownershipRule === "DEPARTMENT" ? await prisma.user.findMany({
+    const deptUsers = (ownershipRule === "DEPARTMENT" && !isUnrestricted) ? await prisma.user.findMany({
       where: { department: dbSessionUser.department || "N/A" },
       select: { id: true }
     }) : []
@@ -117,7 +122,7 @@ export async function GET(request: Request) {
                                    client.assignments.some(a => a.userId === dbSessionUser.id) ||
                                    client.accessRequests.some(r => r.userId === dbSessionUser.id && r.status === "Approved")
 
-      if (ownershipRule === "ALL") {
+      if (isUnrestricted || ownershipRule === "ALL") {
         isAssigned = true
       } else if (ownershipRule === "DEPARTMENT") {
         isAssigned = deptUserIds.includes(client.salespersonId || "") ||
