@@ -1365,7 +1365,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                     src={companySealUrl} 
                     style={{ 
                       position: "absolute", 
-                      left: 0, 
+                      left: 15, 
                       bottom: -10, 
                       width: 105, 
                       height: 105, 
