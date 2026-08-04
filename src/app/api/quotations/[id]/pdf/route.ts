@@ -144,7 +144,7 @@ export async function GET(
     }
 
     // Convert items format for QuotationDocument
-    const docItems = await Promise.all(quotation.items.map(async (item) => ({
+    const rawDocItems = await Promise.all(quotation.items.map(async (item) => ({
       itemNo: item.itemNo,
       description: item.description,
       productDescription: item.productDescription || item.product?.description || null,
@@ -161,6 +161,29 @@ export async function GET(
       warranty: item.product?.warranty || null,
       batchHeading: item.batchHeading || null,
     })))
+
+    // Deduplicate / merge identical items
+    const docItems: typeof rawDocItems = []
+    rawDocItems.forEach((item) => {
+      const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.description || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}`
+      const existingIdx = docItems.findIndex((d) => {
+        const dKey = `${(d.batchHeading || "").trim().toLowerCase()}|${(d.description || "").trim().toLowerCase()}|${d.unitPrice}|${(d.specifications || "").trim()}`
+        return dKey === itemKey
+      })
+
+      if (existingIdx > -1) {
+        const existing = docItems[existingIdx]
+        const mergedQty = existing.quantity + item.quantity
+        const mergedAmt = existing.amount + item.amount
+        docItems[existingIdx] = {
+          ...existing,
+          quantity: mergedQty,
+          amount: mergedAmt,
+        }
+      } else {
+        docItems.push({ ...item })
+      }
+    })
 
     const companySettings = await getSettings([
       "company_name",

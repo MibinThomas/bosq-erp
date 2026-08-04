@@ -1324,13 +1324,34 @@ function NewQuotationForm() {
         })
       }
 
+      // Deduplicate / merge identical item entries
+      const deduplicatedFormattedItems: typeof formattedItems = []
+      formattedItems.forEach((item) => {
+        const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.productId || item.description || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}`
+        const existingIdx = deduplicatedFormattedItems.findIndex((d) => {
+          const dKey = `${(d.batchHeading || "").trim().toLowerCase()}|${(d.productId || d.description || "").trim().toLowerCase()}|${d.unitPrice}|${(d.specifications || "").trim()}`
+          return dKey === itemKey
+        })
+
+        if (existingIdx > -1) {
+          const existing = deduplicatedFormattedItems[existingIdx]
+          const mergedQty = existing.quantity + item.quantity
+          deduplicatedFormattedItems[existingIdx] = {
+            ...existing,
+            quantity: mergedQty,
+          }
+        } else {
+          deduplicatedFormattedItems.push({ ...item })
+        }
+      })
+
       const res = await fetch(url, {
         method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...data,
           preparedById: data.preparedById,
-          items: formattedItems,
+          items: deduplicatedFormattedItems,
           deliveryCharge: totalAdditionalCost,
           specialDiscountValue: data.specialDiscountValue === "" ? 0 : Number(data.specialDiscountValue),
           additionalCharges: data.additionalCharges.map((c: any) => ({
@@ -2841,7 +2862,7 @@ function NewQuotationForm() {
                                 placeholder="e.g. Validity: Valid for 30 days..."
                                 className={cn(
                                   "bg-background text-xs min-h-[48px] leading-relaxed transition-all",
-                                  isHighlighted && "border-amber-500/60 font-semibold text-amber-950 dark:text-amber-200 bg-amber-50/50 dark:bg-amber-950/30"
+                                  isHighlighted && "border-amber-500/60 bg-amber-50/50 dark:bg-amber-950/30 font-normal"
                                 )}
                               />
                             </div>

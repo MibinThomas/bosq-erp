@@ -795,9 +795,32 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     );
   }
 
+  // Deduplicate / merge identical items in items array to prevent duplicate product cards on PDF
+  const uniquePdfItems: QuotationPdfItem[] = []
+  items.forEach((item) => {
+    const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.description || "").trim().toLowerCase()}|${(item.categoryName || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}`
+    const existingIndex = uniquePdfItems.findIndex((u) => {
+      const uKey = `${(u.batchHeading || "").trim().toLowerCase()}|${(u.description || "").trim().toLowerCase()}|${(u.categoryName || "").trim().toLowerCase()}|${u.unitPrice}|${(u.specifications || "").trim()}`
+      return uKey === itemKey
+    })
+
+    if (existingIndex > -1) {
+      const existing = uniquePdfItems[existingIndex]
+      const mergedQty = existing.quantity + item.quantity
+      const mergedAmount = existing.amount + item.amount
+      uniquePdfItems[existingIndex] = {
+        ...existing,
+        quantity: mergedQty,
+        amount: mergedAmount,
+      }
+    } else {
+      uniquePdfItems.push({ ...item })
+    }
+  })
+
   // Group items by batchHeading dynamically, preserving relative order of appearance
   const groupedSections: { heading: string | null; items: QuotationPdfItem[] }[] = [];
-  items.forEach((item) => {
+  uniquePdfItems.forEach((item) => {
     const heading = item.batchHeading ? item.batchHeading.trim() : null;
     const existingSection = groupedSections.find(
       (s) => (s.heading === null && heading === null) || (s.heading !== null && heading !== null && s.heading.toLowerCase() === heading.toLowerCase())
@@ -1293,7 +1316,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                       styles.termItem, 
                       { 
                         backgroundColor: "#FEF3C7", 
-                        borderColor: "#F59E0B", 
                         borderLeftWidth: 3.5, 
                         borderLeftColor: "#F59E0B",
                         paddingVertical: 5, 
@@ -1304,11 +1326,11 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                     ]} 
                     wrap={false}
                   >
-                    <Text style={[styles.termNumber, { color: "#B45309", fontWeight: "bold" }]}>
+                    <Text style={styles.termNumber}>
                       {(idx + 1).toString().padStart(2, '0')}.
                     </Text>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.termText, { color: "#78350F", fontWeight: "bold" }]}>
+                      <Text style={styles.termText}>
                         {cleanTermText}
                       </Text>
                     </View>
@@ -1336,17 +1358,17 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 {preparedByDesignation || formatRole(preparedByRole) ? ` | ${(preparedByDesignation || formatRole(preparedByRole))?.replace(/Interior Design Consultants/gi, "Interior Design Consultant")}` : ""}
               </Text>
               
-              <View style={{ position: "relative", width: 260, height: 80, alignItems: "center", justifyContent: "center", marginTop: 4 }}>
+              <View style={{ position: "relative", width: 260, height: 85, alignItems: "center", justifyContent: "center", marginTop: 4 }}>
                 {/* Company Seal - Placed Slightly Bottom Left */}
                 {companySealUrl && (
                   <PdfImage 
                     src={companySealUrl} 
                     style={{ 
                       position: "absolute", 
-                      left: 10, 
-                      bottom: 0, 
-                      width: 75, 
-                      height: 75, 
+                      left: 0, 
+                      bottom: -10, 
+                      width: 105, 
+                      height: 105, 
                       objectFit: "contain"
                     }} 
                   />

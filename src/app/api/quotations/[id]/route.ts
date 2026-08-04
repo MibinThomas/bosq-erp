@@ -704,15 +704,13 @@ export async function PUT(
       const resolvedStatus = body.status || "DRAFT"
 
       // Calculate new financial totals using strict order
-      let subtotal = 0
-      const quotationItemsToCreate = await Promise.all(items.map(async (item: any, idx: number) => {
+      const rawRevisionItems = await Promise.all(items.map(async (item: any, idx: number) => {
         const parsedQty = parseInt(item.quantity)
         const qty = isNaN(parsedQty) ? 1 : parsedQty
         const price = parseFloat(item.unitPrice) || 0
         const disc = parseFloat(item.discount) || 0
         const marginVal = parseFloat(item.margin) || 0.0
         const amt = (price - disc) * qty
-        subtotal += amt
 
         const matchedProd = dbProducts.find((p) => p.id === item.productId)
         
@@ -743,6 +741,37 @@ export async function PUT(
           batchHeading: item.batchHeading || null,
         }
       }))
+
+      // Deduplicate / merge identical item entries
+      const quotationItemsToCreate: typeof rawRevisionItems = []
+      rawRevisionItems.forEach((item) => {
+        const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.productId || item.description || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}`
+        const existingIdx = quotationItemsToCreate.findIndex((d) => {
+          const dKey = `${(d.batchHeading || "").trim().toLowerCase()}|${(d.productId || d.description || "").trim().toLowerCase()}|${d.unitPrice}|${(d.specifications || "").trim()}`
+          return dKey === itemKey
+        })
+
+        if (existingIdx > -1) {
+          const existing = quotationItemsToCreate[existingIdx]
+          const mergedQty = existing.quantity + item.quantity
+          const mergedAmt = (existing.unitPrice - existing.discount) * mergedQty
+          quotationItemsToCreate[existingIdx] = {
+            ...existing,
+            quantity: mergedQty,
+            amount: mergedAmt,
+          }
+        } else {
+          quotationItemsToCreate.push({ ...item })
+        }
+      })
+
+      // Re-index item numbers and calculate accurate subtotal
+      let subtotal = 0
+      quotationItemsToCreate.forEach((item, idx) => {
+        item.itemNo = idx + 1
+        item.sortOrder = idx + 1
+        subtotal += item.amount
+      })
 
       // Calculate total additional cost
       let totalAdditionalCost = 0
@@ -1130,15 +1159,13 @@ export async function PUT(
       }
 
       // Calculate financial totals using strict order
-      let subtotal = 0
-      const quotationItemsToCreate = await Promise.all(items.map(async (item: any, idx: number) => {
+      const rawUpdateItems = await Promise.all(items.map(async (item: any, idx: number) => {
         const parsedQty = parseInt(item.quantity)
         const qty = isNaN(parsedQty) ? 1 : parsedQty
         const price = parseFloat(item.unitPrice) || 0
         const disc = parseFloat(item.discount) || 0
         const marginVal = parseFloat(item.margin) || 0.0
         const amt = (price - disc) * qty
-        subtotal += amt
 
         const matchedProd = dbProducts.find((p) => p.id === item.productId)
 
@@ -1169,6 +1196,37 @@ export async function PUT(
           batchHeading: item.batchHeading || null,
         }
       }))
+
+      // Deduplicate / merge identical item entries
+      const quotationItemsToCreate: typeof rawUpdateItems = []
+      rawUpdateItems.forEach((item) => {
+        const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.productId || item.description || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}`
+        const existingIdx = quotationItemsToCreate.findIndex((d) => {
+          const dKey = `${(d.batchHeading || "").trim().toLowerCase()}|${(d.productId || d.description || "").trim().toLowerCase()}|${d.unitPrice}|${(d.specifications || "").trim()}`
+          return dKey === itemKey
+        })
+
+        if (existingIdx > -1) {
+          const existing = quotationItemsToCreate[existingIdx]
+          const mergedQty = existing.quantity + item.quantity
+          const mergedAmt = (existing.unitPrice - existing.discount) * mergedQty
+          quotationItemsToCreate[existingIdx] = {
+            ...existing,
+            quantity: mergedQty,
+            amount: mergedAmt,
+          }
+        } else {
+          quotationItemsToCreate.push({ ...item })
+        }
+      })
+
+      // Re-index item numbers and calculate accurate subtotal
+      let subtotal = 0
+      quotationItemsToCreate.forEach((item, idx) => {
+        item.itemNo = idx + 1
+        item.sortOrder = idx + 1
+        subtotal += item.amount
+      })
 
       // Calculate total additional cost
       let totalAdditionalCost = 0
