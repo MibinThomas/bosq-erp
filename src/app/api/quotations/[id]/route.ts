@@ -841,21 +841,12 @@ export async function PUT(
       const revQuoteNum = `${baseQuoteNo}-${nextRevNo}`
 
       // Read both brand logos to base64 (only if not draft)
-      let logoBase64 = ""
-      let watermarkBase64 = ""
-      let aynMuskLogoBase64 = ""
-      let companySealBase64 = ""
-      let barcodeBase64 = ""
-      let promotionalImageBase64: string | null = null
-
-      if (resolvedStatus !== "DRAFT") {
-        logoBase64 = await getLogoBase64()
-        watermarkBase64 = await getWatermarkBase64()
-        aynMuskLogoBase64 = await getAynMuskLogoBase64()
-        companySealBase64 = await getCompanySealBase64()
-        promotionalImageBase64 = await getPromotionalImageBase64()
-        barcodeBase64 = generateCode128DataUri(revQuoteNum)
-      }
+      const logoBase64 = await getLogoBase64()
+      const watermarkBase64 = await getWatermarkBase64()
+      const aynMuskLogoBase64 = await getAynMuskLogoBase64()
+      const companySealBase64 = await getCompanySealBase64()
+      const promotionalImageBase64 = await getPromotionalImageBase64()
+      const barcodeBase64 = generateCode128DataUri(revQuoteNum)
 
       const companySettings = await getSettings([
         "company_name",
@@ -1216,21 +1207,12 @@ export async function PUT(
       }
 
       // Read brand logo to base64 (only if not draft)
-      let logoBase64 = ""
-      let watermarkBase64 = ""
-      let aynMuskLogoBase64 = ""
-      let companySealBase64 = ""
-      let barcodeBase64 = ""
-      let promotionalImageBase64: string | null = null
-
-      if (resolvedStatus !== "DRAFT") {
-        logoBase64 = await getLogoBase64()
-        watermarkBase64 = await getWatermarkBase64()
-        aynMuskLogoBase64 = await getAynMuskLogoBase64()
-        companySealBase64 = await getCompanySealBase64()
-        promotionalImageBase64 = await getPromotionalImageBase64()
-        barcodeBase64 = generateCode128DataUri(existingQuotation.quotationNumber)
-      }
+      const logoBase64 = await getLogoBase64()
+      const watermarkBase64 = await getWatermarkBase64()
+      const aynMuskLogoBase64 = await getAynMuskLogoBase64()
+      const companySealBase64 = await getCompanySealBase64()
+      const promotionalImageBase64 = await getPromotionalImageBase64()
+      const barcodeBase64 = generateCode128DataUri(existingQuotation.quotationNumber)
 
       const companySettings = await getSettings([
         "company_name",

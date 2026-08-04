@@ -1343,12 +1343,11 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                     src={companySealUrl} 
                     style={{ 
                       position: "absolute", 
-                      left: 15, 
-                      bottom: -4, 
+                      left: 10, 
+                      bottom: 0, 
                       width: 75, 
                       height: 75, 
-                      objectFit: "contain",
-                      opacity: 0.85
+                      objectFit: "contain"
                     }} 
                   />
                 )}
