@@ -90,6 +90,7 @@ const quotationSchema = z.object({
   paymentTerms: z.string().min(1, "Payment terms is required"),
   preparedById: z.string().optional(),
   includeSalesAgent: z.boolean().default(false).optional(),
+  includeCompanySeal: z.boolean().default(true).optional(),
   salesAgentId: z.string().optional(),
   salesAgentName: z.string().optional(),
   salesAgentTitle: z.string().optional(),
@@ -840,6 +841,7 @@ function NewQuotationForm() {
               customerSegment: activeData.customerSegment || "Project",
               preparedById: activeData.preparedById,
               includeSalesAgent: activeData.includeSalesAgent ?? !!(activeData.salesAgentName || activeData.salesAgentContactNumber || activeData.salesAgentEmail),
+              includeCompanySeal: activeData.includeCompanySeal ?? true,
               salesAgentId: activeData.salesAgentId || "",
               salesAgentName: activeData.salesAgentName || "",
               salesAgentTitle: activeData.salesAgentTitle || "",
@@ -1000,6 +1002,7 @@ function NewQuotationForm() {
       customerSegment: "Project",
       preparedById: (session?.user as any)?.id || "",
       includeSalesAgent: false,
+      includeCompanySeal: true,
       salesAgentId: "",
       salesAgentName: "",
       salesAgentContactNumber: "",
@@ -2173,7 +2176,6 @@ function NewQuotationForm() {
                             </FormItem>
                           )}
                         />
-
                         <FormField
                           control={form.control}
                           name="salesAgentTitle"
@@ -2234,6 +2236,32 @@ function NewQuotationForm() {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Company Seal Toggle Section */}
+                <div className="space-y-4 pt-4 border-t">
+                  <FormField
+                    control={form.control}
+                    name="includeCompanySeal"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground">
+                            Include Company Seal on Quotation
+                          </FormLabel>
+                          <p className="text-[11px] text-muted-foreground">
+                            Toggle to show or hide the company seal in the quotation preview and exported PDF.
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value ?? true}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </CardContent>
             </Card>

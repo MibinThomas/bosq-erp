@@ -463,6 +463,7 @@ export interface QuotationPdfProps {
   preparedByRole?: string | null
   preparedBySignatureUrl?: string | null
   includeSalesAgent?: boolean
+  includeCompanySeal?: boolean
   salesAgentName?: string | null
   salesAgentTitle?: string | null
   salesAgentEmail?: string | null
@@ -582,6 +583,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   preparedByRole,
   preparedBySignatureUrl,
   includeSalesAgent = false,
+  includeCompanySeal = true,
   salesAgentName,
   salesAgentTitle,
   salesAgentEmail,
@@ -1360,12 +1362,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               
               <View style={{ position: "relative", width: 260, height: 85, alignItems: "center", justifyContent: "center", marginTop: 4 }}>
                 {/* Company Seal - Placed Slightly Bottom Left */}
-                {companySealUrl && (
+                {includeCompanySeal && companySealUrl && (
                   <PdfImage 
                     src={companySealUrl} 
                     style={{ 
                       position: "absolute", 
-                      left: 25, 
+                      left: 100, 
                       bottom: -100, 
                       width: 207, 
                       height: 207, 

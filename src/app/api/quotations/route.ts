@@ -208,6 +208,7 @@ export async function POST(request: Request) {
       notes,
       status, // DRAFT, SENT, etc. — may be overridden below based on role
       includeSalesAgent,
+      includeCompanySeal,
       salesAgentId,
       salesAgentName,
       salesAgentContactNumber,
@@ -648,6 +649,7 @@ export async function POST(request: Request) {
       preparedByRole: creatorUser.role,
       preparedBySignatureUrl: creatorUser.signature || null,
       includeSalesAgent: !!includeSalesAgent,
+      includeCompanySeal: includeCompanySeal ?? true,
       salesAgentName: includeSalesAgent ? (salesAgentName || null) : null,
       salesAgentTitle: includeSalesAgent ? (salesAgentTitle || null) : null,
       salesAgentEmail: includeSalesAgent ? (salesAgentEmail || null) : null,
@@ -735,6 +737,7 @@ export async function POST(request: Request) {
         disclaimer: disclaimer || null,
         termsConditions: storedTermsConditions,
         includeSalesAgent: !!includeSalesAgent,
+        includeCompanySeal: includeCompanySeal ?? true,
         salesAgentId: includeSalesAgent ? (salesAgentId || null) : null,
         salesAgentName: includeSalesAgent ? (salesAgentName || null) : null,
         salesAgentContactNumber: includeSalesAgent ? (salesAgentContactNumber || null) : null,

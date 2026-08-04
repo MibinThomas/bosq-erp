@@ -180,6 +180,7 @@ model Quotation {
   additionalCharges     Json?     // array of { name: string, amount: number }
   
   includeSalesAgent        Boolean   @default(false)
+  includeCompanySeal       Boolean   @default(true)
   salesAgentId             String?
   salesAgentName           String?
   salesAgentContactNumber  String?

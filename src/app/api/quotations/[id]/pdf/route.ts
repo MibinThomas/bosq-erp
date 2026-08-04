@@ -219,6 +219,7 @@ export async function GET(
       preparedByRole: quotation.preparedBy?.role || null,
       preparedBySignatureUrl: quotation.preparedBy?.signature || null,
       includeSalesAgent: (quotation as any).includeSalesAgent ?? false,
+      includeCompanySeal: (quotation as any).includeCompanySeal ?? true,
       salesAgentName: (quotation as any).includeSalesAgent ? (quotation.salesAgentName || null) : null,
       salesAgentTitle: (quotation as any).includeSalesAgent ? ((quotation as any).salesAgentTitle || null) : null,
       salesAgentEmail: (quotation as any).includeSalesAgent ? ((quotation as any).salesAgentEmail || null) : null,
