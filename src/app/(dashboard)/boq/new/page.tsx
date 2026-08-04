@@ -57,7 +57,7 @@ const boqSchema = z.object({
   date: z.string(),
   validityDate: z.string(),
   deliveryDate: z.string().optional(),
-  paymentTerms: z.string().min(1, "Payment terms is required"),
+  paymentTerms: z.string().optional(),
   preparedById: z.string().optional(),
   includeSalesAgent: z.boolean().default(false).optional(),
   salesAgentId: z.string().optional(),
@@ -2255,46 +2255,6 @@ function NewBOQForm() {
                         <FormMessage />
                       </FormItem>
                     )}
-                  />
-
-                  {/* Payment Terms */}
-                  <FormField
-                    control={form.control}
-                    name="paymentTerms"
-                    render={({ field }) => {
-                      const displayOptions: { id: string; name: string }[] = [...paymentTermsOptions]
-                      if (field.value && !displayOptions.some(o => o.name === field.value)) {
-                        displayOptions.unshift({ id: "current-selected", name: field.value })
-                      }
-                      if (displayOptions.length === 0) {
-                        displayOptions.push(
-                          { id: "1", name: "100% Advance" },
-                          { id: "2", name: "50% Advance, 50% on Delivery" },
-                          { id: "3", name: "100% on Delivery" },
-                          { id: "4", name: "30 Days PDC" }
-                        )
-                      }
-                      return (
-                        <FormItem>
-                          <FormLabel className="text-xs font-semibold text-foreground">Payment Terms</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ""}>
-                            <FormControl>
-                              <SelectTrigger className="h-10 text-xs bg-background">
-                                <SelectValue placeholder="Select terms" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {displayOptions.map((term) => (
-                                <SelectItem key={term.id || term.name} value={term.name}>
-                                  {term.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )
-                    }}
                   />
                 </div>
 
