@@ -686,9 +686,9 @@ function NewBOQForm() {
               salesAgentName: activeData.salesAgentName || "",
               salesAgentTitle: activeData.salesAgentTitle || "",
               salesAgentContactNumber: activeData.salesAgentContactNumber || "",
-              date: reviseId ? new Date().toISOString().split("T")[0] : activeData.date.split("T")[0],
-              validityDate: reviseId ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0] : activeData.validityDate.split("T")[0],
-              deliveryDate: activeData.deliveryDate ? new Date(activeData.deliveryDate).toISOString().split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              date: activeData.date ? activeData.date.split("T")[0] : (activeData.createdAt ? activeData.createdAt.split("T")[0] : new Date().toISOString().split("T")[0]),
+              validityDate: activeData.validityDate ? activeData.validityDate.split("T")[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+              deliveryDate: activeData.deliveryDate ? activeData.deliveryDate.split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
               paymentTerms: activeData.paymentTerms || "50% Advance, 50% on Delivery",
               items: activeData.items.map((item: any) => {
                 const marginVal = item.marginPercentage ?? item.margin ?? 0
