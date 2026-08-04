@@ -886,36 +886,10 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                   <Text style={styles.infoValueInline}>{clientTrn || "-"}</Text>
                 </View>
               </View>
-
-              {/* Interior Design Consultant Section (Left Side, Below Client Info - Project Name Typography Style) */}
-              {(preparedBy || preparedByContact || preparedByEmail) && (
-                <View style={{ marginTop: 6, paddingTop: 4 }}>
-                  {preparedBy && (
-                    <View style={{ flexDirection: "row", marginTop: 1.5 }}>
-                      <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Design Consultant: </Text>
-                      <Text style={{ color: "#827f82", fontSize: 6.75 }}>{preparedBy}</Text>
-                    </View>
-                  )}
-
-                  {preparedByContact && (
-                    <View style={{ flexDirection: "row", marginTop: 1.5 }}>
-                      <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Contact Number: </Text>
-                      <Text style={{ color: "#827f82", fontSize: 6.75 }}>{preparedByContact}</Text>
-                    </View>
-                  )}
-
-                  {preparedByEmail && (
-                    <View style={{ flexDirection: "row", marginTop: 1.5 }}>
-                      <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Email: </Text>
-                      <Text style={{ color: "#827f82", fontSize: 6.75 }}>{preparedByEmail}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
             </View>
 
-              {/* Right Column: Quotation Meta details */}
-              <View style={styles.rightColumn}>
+            {/* Right Column: Quotation Meta details */}
+            <View style={styles.rightColumn}>
                 <View style={styles.quotationDetailsBlock}>
                   
                   <View style={styles.metaRowRight}>
@@ -986,13 +960,44 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
           </View>
 
-          {/* Bottom Row: Project Name */}
-          {projectName && (
-            <View style={{ flexDirection: "row", justifyContent: "flex-end", width: "100%", marginTop: 10 }}>
-              <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-                <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Project: </Text>
-                <Text style={{ color: "#827f82", fontSize: 6.75 }}>{projectName}</Text>
-              </View>
+          {/* Bottom Row: Design Consultant (Left) & Project Name (Right) */}
+          {(preparedBy || preparedByContact || preparedByEmail || projectName) && (
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", width: "100%", marginTop: 8 }}>
+              {/* Left Side: Interior Design Consultant */}
+              {(preparedBy || preparedByContact || preparedByEmail) ? (
+                <View style={{ alignItems: "flex-start" }}>
+                  {preparedBy && (
+                    <View style={{ flexDirection: "row", marginTop: 1.5 }}>
+                      <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Design Consultant: </Text>
+                      <Text style={{ color: "#827f82", fontSize: 6.75 }}>{preparedBy}</Text>
+                    </View>
+                  )}
+
+                  {preparedByContact && (
+                    <View style={{ flexDirection: "row", marginTop: 1.5 }}>
+                      <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Contact Number: </Text>
+                      <Text style={{ color: "#827f82", fontSize: 6.75 }}>{preparedByContact}</Text>
+                    </View>
+                  )}
+
+                  {preparedByEmail && (
+                    <View style={{ flexDirection: "row", marginTop: 1.5 }}>
+                      <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Email: </Text>
+                      <Text style={{ color: "#827f82", fontSize: 6.75 }}>{preparedByEmail}</Text>
+                    </View>
+                  )}
+                </View>
+              ) : (
+                <View />
+              )}
+
+              {/* Right Side: Project Name */}
+              {projectName && (
+                <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "flex-end" }}>
+                  <Text style={{ fontWeight: "bold", color: "#827f82", fontSize: 6.75 }}>Project: </Text>
+                  <Text style={{ color: "#827f82", fontSize: 6.75 }}>{projectName}</Text>
+                </View>
+              )}
             </View>
           )}
         </View>
