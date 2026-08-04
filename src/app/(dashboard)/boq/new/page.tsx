@@ -59,6 +59,7 @@ const boqSchema = z.object({
   deliveryDate: z.string().optional(),
   paymentTerms: z.string().min(1, "Payment terms is required"),
   preparedById: z.string().optional(),
+  includeSalesAgent: z.boolean().default(false).optional(),
   salesAgentId: z.string().optional(),
   salesAgentName: z.string().optional(),
   salesAgentTitle: z.string().optional(),
@@ -461,6 +462,7 @@ function NewBOQForm() {
   const [isEdit, setIsEdit] = useState(false)
   const [existingQuote, setExistingQuote] = useState<any>(null)
   const [revisionNotes, setRevisionNotes] = useState("")
+  const [contactNumbers, setContactNumbers] = useState<string[]>([""])
 
   const [users, setUsers] = useState<any[]>([])
   const [userPermissions, setUserPermissions] = useState<any>(null)
@@ -664,6 +666,14 @@ function NewBOQForm() {
               setBatches([{ id: "default", name: "General Items" }])
             }
 
+            const phoneStr = activeData.salesAgentContactNumber || ""
+            if (phoneStr) {
+              const parts = phoneStr.split(",").map((s: string) => s.trim()).filter(Boolean)
+              setContactNumbers(parts.length > 0 ? parts : [""])
+            } else {
+              setContactNumbers([""])
+            }
+
             // Populate form values
             form.reset({
               clientId: activeData.clientId,
@@ -671,6 +681,7 @@ function NewBOQForm() {
               boqNumber: activeData.boqNumber || "",
               customerSegment: activeData.customerSegment || "Project",
               preparedById: activeData.preparedById || "",
+              includeSalesAgent: activeData.includeSalesAgent ?? !!(activeData.salesAgentName || activeData.salesAgentTitle || activeData.salesAgentContactNumber),
               salesAgentId: activeData.salesAgentId || (activeData.salesAgentName ? "manual" : (activeData.preparedById || "")),
               salesAgentName: activeData.salesAgentName || "",
               salesAgentTitle: activeData.salesAgentTitle || "",
