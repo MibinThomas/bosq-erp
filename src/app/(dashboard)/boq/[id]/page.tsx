@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, useParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical, FileText } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical, FileText, Building2, Layers, SlidersHorizontal, DollarSign } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -1635,162 +1635,160 @@ function NewBOQForm() {
       </div>
 
       {/* BOQ Lifecycle Progress & Action Header Banner */}
-      {existingQuote && (
-        <Card className="rounded-2xl border border-primary/20 bg-card shadow-xs overflow-hidden">
-          <div className="p-4 sm:p-5 space-y-4">
-            {/* Stage Stepper */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 border-b pb-4">
-              <div className={cn(
-                "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
-                (!existingQuote.status || existingQuote.status === "DRAFT")
-                  ? "border-primary bg-primary/10 text-primary shadow-2xs"
-                  : "border-border/60 bg-muted/20 text-muted-foreground"
-              )}>
-                <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
-                  (!existingQuote.status || existingQuote.status === "DRAFT") ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                )}>1</div>
-                <span>1. Preparation</span>
-              </div>
-
-              <div className={cn(
-                "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
-                (existingQuote.status === "SENT_TO_ESTIMATOR" || existingQuote.status === "COSTING_IN_PROGRESS" || existingQuote.status === "PENDING_COSTING")
-                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300 shadow-2xs"
-                  : "border-border/60 bg-muted/20 text-muted-foreground"
-              )}>
-                <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
-                  (existingQuote.status === "SENT_TO_ESTIMATOR" || existingQuote.status === "COSTING_IN_PROGRESS" || existingQuote.status === "PENDING_COSTING") ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"
-                )}>2</div>
-                <span>2. Estimator Costing</span>
-              </div>
-
-              <div className={cn(
-                "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
-                (existingQuote.status === "COSTING_COMPLETED" || existingQuote.status === "NEEDS_REVISION" || existingQuote.status === "APPROVED")
-                  ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30 text-purple-900 dark:text-purple-300 shadow-2xs"
-                  : "border-border/60 bg-muted/20 text-muted-foreground"
-              )}>
-                <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
-                  (existingQuote.status === "COSTING_COMPLETED" || existingQuote.status === "NEEDS_REVISION" || existingQuote.status === "APPROVED") ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground"
-                )}>3</div>
-                <span>3. Creator Review</span>
-              </div>
-
-              <div className={cn(
-                "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
-                (existingQuote.status === "CONVERTED")
-                  ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-300 shadow-2xs"
-                  : "border-border/60 bg-muted/20 text-muted-foreground"
-              )}>
-                <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
-                  (existingQuote.status === "CONVERTED") ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
-                )}>4</div>
-                <span>4. Quotation</span>
-              </div>
+      <Card className="rounded-2xl border border-primary/20 bg-card shadow-xs overflow-hidden">
+        <div className="p-4 sm:p-5 space-y-4">
+          {/* Stage Stepper */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 border-b pb-4">
+            <div className={cn(
+              "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
+              (!existingQuote?.status || existingQuote?.status === "DRAFT")
+                ? "border-primary bg-primary/10 text-primary shadow-2xs"
+                : "border-border/60 bg-muted/20 text-muted-foreground"
+            )}>
+              <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
+                (!existingQuote?.status || existingQuote?.status === "DRAFT") ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+              )}>1</div>
+              <span>1. Preparation</span>
             </div>
 
-            {/* Action Banner & Primary Controls */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                  Status: <span className="font-mono text-primary">{existingQuote.status || "DRAFT"}</span>
-                  {existingQuote.estimator?.name && (
-                    <Badge variant="outline" className="text-xs bg-muted/30 font-normal">
-                      Estimator: {existingQuote.estimator.name}
-                    </Badge>
-                  )}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {existingQuote.status === "SENT_TO_ESTIMATOR" || existingQuote.status === "COSTING_IN_PROGRESS"
-                    ? "Estimator is preparing material, labor, and overhead cost estimates."
-                    : existingQuote.status === "COSTING_COMPLETED"
-                    ? `Costing complete. Total Selling Price: AED ${existingQuote.totalSellingPrice?.toLocaleString() || 0}. Review & convert to Quotation.`
-                    : existingQuote.status === "NEEDS_REVISION"
-                    ? "Costing revision requested by BOQ creator."
-                    : existingQuote.status === "CONVERTED"
-                    ? "BOQ has been converted into an official Quotation."
-                    : "Prepare item list and send to Estimator for cost breakdown, or convert directly."}
-                </p>
-              </div>
+            <div className={cn(
+              "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
+              (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING")
+                ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300 shadow-2xs"
+                : "border-border/60 bg-muted/20 text-muted-foreground"
+            )}>
+              <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
+                (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING") ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"
+              )}>2</div>
+              <span>2. Estimator Costing</span>
+            </div>
 
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                {(!existingQuote.status || existingQuote.status === "DRAFT" || existingQuote.status === "NEEDS_REVISION") && (
-                  <>
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="sm"
-                      onClick={() => setIsSendEstimatorOpen(true)}
-                      className="bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Send className="h-3.5 w-3.5" /> Send to Estimator
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleConvertToQuotationSubmit}
-                      disabled={isConverting}
-                      className="text-xs font-medium border-primary/30 text-primary hover:bg-primary/5 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      {isConverting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-amber-500" />}
-                      Direct Convert to Quotation
-                    </Button>
-                  </>
+            <div className={cn(
+              "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
+              (existingQuote?.status === "COSTING_COMPLETED" || existingQuote?.status === "NEEDS_REVISION" || existingQuote?.status === "APPROVED")
+                ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30 text-purple-900 dark:text-purple-300 shadow-2xs"
+                : "border-border/60 bg-muted/20 text-muted-foreground"
+            )}>
+              <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
+                (existingQuote?.status === "COSTING_COMPLETED" || existingQuote?.status === "NEEDS_REVISION" || existingQuote?.status === "APPROVED") ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground"
+              )}>3</div>
+              <span>3. Creator Review</span>
+            </div>
+
+            <div className={cn(
+              "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
+              (existingQuote?.status === "CONVERTED")
+                ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-300 shadow-2xs"
+                : "border-border/60 bg-muted/20 text-muted-foreground"
+            )}>
+              <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
+                (existingQuote?.status === "CONVERTED") ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
+              )}>4</div>
+              <span>4. Quotation</span>
+            </div>
+          </div>
+
+          {/* Action Banner & Primary Controls */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                Status: <span className="font-mono text-primary">{existingQuote?.status || "DRAFT"}</span>
+                {existingQuote?.estimator?.name && (
+                  <Badge variant="outline" className="text-xs bg-muted/30 font-normal">
+                    Estimator: {existingQuote.estimator.name}
+                  </Badge>
                 )}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS"
+                  ? "Estimator is preparing material, labor, and overhead cost estimates."
+                  : existingQuote?.status === "COSTING_COMPLETED"
+                  ? `Costing complete. Total Selling Price: AED ${existingQuote.totalSellingPrice?.toLocaleString() || 0}. Review & convert to Quotation.`
+                  : existingQuote?.status === "NEEDS_REVISION"
+                  ? "Costing revision requested by BOQ creator."
+                  : existingQuote?.status === "CONVERTED"
+                  ? "BOQ has been converted into an official Quotation."
+                  : "Prepare item list and send to Estimator for cost breakdown, or convert directly."}
+              </p>
+            </div>
 
-                {(existingQuote.status === "SENT_TO_ESTIMATOR" || existingQuote.status === "COSTING_IN_PROGRESS") && (isEstimator || isManagerOrAdmin) && (
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {(!existingQuote?.status || existingQuote?.status === "DRAFT" || existingQuote?.status === "NEEDS_REVISION") && (
+                <>
                   <Button
                     type="button"
                     variant="default"
                     size="sm"
-                    onClick={handleCompleteCostingSubmit}
-                    disabled={isSubmittingCosting}
-                    className="bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs flex items-center gap-1.5 cursor-pointer"
+                    onClick={() => setIsSendEstimatorOpen(true)}
+                    className="bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs flex items-center gap-1.5 cursor-pointer"
                   >
-                    {isSubmittingCosting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                    Complete Costing & Return to Creator
+                    <Send className="h-3.5 w-3.5" /> Send to Estimator
                   </Button>
-                )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleConvertToQuotationSubmit}
+                    disabled={isConverting}
+                    className="text-xs font-medium border-primary/30 text-primary hover:bg-primary/5 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {isConverting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-amber-500" />}
+                    Direct Convert to Quotation
+                  </Button>
+                </>
+              )}
 
-                {existingQuote.status === "COSTING_COMPLETED" && (
-                  <>
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="sm"
-                      onClick={handleConvertToQuotationSubmit}
-                      disabled={isConverting}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      {isConverting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      Convert to Quotation
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsRequestRevisionOpen(true)}
-                      className="text-xs font-medium border-rose-200 text-rose-700 hover:bg-rose-50 flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5 text-rose-600" />
-                      Request Costing Revision
-                    </Button>
-                  </>
-                )}
+              {(existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS") && (isEstimator || isManagerOrAdmin) && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={handleCompleteCostingSubmit}
+                  disabled={isSubmittingCosting}
+                  className="bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isSubmittingCosting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  Complete Costing & Return to Creator
+                </Button>
+              )}
 
-                {existingQuote.status === "CONVERTED" && (
-                  <Link href="/quotations">
-                    <Button variant="outline" size="sm" className="text-xs font-medium flex items-center gap-1.5">
-                      <FileText className="h-3.5 w-3.5 text-primary" /> View Quotations
-                    </Button>
-                  </Link>
-                )}
-              </div>
+              {existingQuote?.status === "COSTING_COMPLETED" && (
+                <>
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={handleConvertToQuotationSubmit}
+                    disabled={isConverting}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {isConverting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    Convert to Quotation
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsRequestRevisionOpen(true)}
+                    className="text-xs font-medium border-rose-200 text-rose-700 hover:bg-rose-50 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 text-rose-600" />
+                    Request Costing Revision
+                  </Button>
+                </>
+              )}
+
+              {existingQuote?.status === "CONVERTED" && (
+                <Link href="/quotations">
+                  <Button variant="outline" size="sm" className="text-xs font-medium flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-primary" /> View Quotations
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
-        </Card>
-      )}
+        </div>
+      </Card>
 
       {isRevision && existingQuote && (
         <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 rounded-xl p-4 flex items-start gap-3 text-purple-950 dark:text-purple-300">
@@ -1858,34 +1856,55 @@ function NewBOQForm() {
               </Card>
             )}
 
-            <div className="grid gap-6 md:grid-cols-2">
-              {/* Client Selection Card */}
-              <Card className="rounded-xl shadow-sm border bg-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    Client Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {selectedClientObj && selectedClientObj.status !== "Approved" && !isRevision && (
-                    <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-start gap-3 text-destructive animate-in fade-in">
-                      <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
-                      <div>
-                        <h3 className="font-semibold text-sm">BOQ Revision Blocked</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {selectedClientObj.status === "Pending Approval"
-                            ? "This client is pending approval. Please contact Admin/Manager before creating boq."
-                            : "This client has been rejected. Please contact Admin/Manager before creating boq."}
-                        </p>
-                      </div>
+            {/* CARD 1: BOQ Information (Client & Project Metadata) */}
+            <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">
+              <CardHeader className="bg-muted/30 border-b py-3 px-4 sm:px-6 flex flex-row items-center justify-between">
+                <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  1. BOQ & Client Details
+                </CardTitle>
+                {selectedClientObj && (
+                  <Badge variant="outline" className="text-[11px] font-medium bg-background border-border/80">
+                    Client ID: {selectedClientObj.clientId || selectedClientObj.id}
+                  </Badge>
+                )}
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 space-y-6">
+                {/* Client Block Alert if Blocked */}
+                {selectedClientObj && selectedClientObj.status !== "Approved" && !isRevision && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3.5 flex items-start gap-3 text-destructive animate-in fade-in">
+                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <div className="text-xs">
+                      <span className="font-semibold">BOQ Creation Blocked</span>
+                      <p className="text-muted-foreground mt-0.5">
+                        {selectedClientObj.status === "Pending Approval"
+                          ? "This client is pending approval. Please contact Admin/Manager before creating boq."
+                          : "This client has been rejected. Please contact Admin/Manager before creating boq."}
+                      </p>
                     </div>
-                  )}
+                  </div>
+                )}
+
+                {/* 4-Column Responsive Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                  {/* Client Selector */}
                   <FormField
                     control={form.control}
                     name="clientId"
                     render={({ field }) => (
-                      <FormItem className="flex flex-col mt-2">
-                        <FormLabel>Client Company</FormLabel>
+                      <FormItem className="flex flex-col lg:col-span-2">
+                        <FormLabel className="text-xs font-semibold text-foreground flex items-center justify-between">
+                          <span>Client Company <span className="text-destructive">*</span></span>
+                          {canCreateClient && (
+                            <button
+                              type="button"
+                              onClick={() => setIsQuickAddClientOpen(true)}
+                              className="text-[11px] text-primary hover:underline font-normal flex items-center gap-1 cursor-pointer"
+                            >
+                              <Plus className="h-3 w-3" /> Quick Add Client
+                            </button>
+                          )}
+                        </FormLabel>
                         <Popover open={isClientPopoverOpen} onOpenChange={setIsClientPopoverOpen}>
                           <PopoverTrigger
                             render={
@@ -1895,56 +1914,47 @@ function NewBOQForm() {
                                   role="combobox"
                                   disabled={isRevision}
                                   className={cn(
-                                    "w-full justify-between font-normal bg-card",
+                                    "w-full justify-between font-normal bg-background h-10 text-xs sm:text-sm border-border/80 hover:border-primary/50",
                                     !field.value && "text-muted-foreground"
                                   )}
                                 >
-                                  {field.value
-                                    ? clients.find((client) => client.id === field.value)?.companyName
-                                    : "Search and select a client..."}
+                                  <span className="truncate">
+                                    {field.value
+                                      ? clients.find((client) => client.id === field.value)?.companyName
+                                      : "Search and select client company..."}
+                                  </span>
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                               </FormControl>
                             }
                           />
-                          <PopoverContent className="w-[400px] p-0" align="start">
+                          <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[540px] md:w-[620px] min-w-[360px] p-0" align="start">
                             <Command shouldFilter={false}>
                               <CommandInput 
-                                placeholder="Search client name..." 
+                                placeholder="Search client name, ID, contact..." 
                                 value={clientSearch}
                                 onValueChange={setClientSearch}
+                                className="h-10 text-xs"
                               />
-                              <CommandList>
-                                <CommandEmpty className="p-3 text-center">
-                                  <p className="text-xs text-muted-foreground mb-2">No client found.</p>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    className="w-full flex items-center justify-center gap-1.5"
-                                    onClick={() => {
-                                      setIsQuickAddClientOpen(true)
-                                      setIsClientPopoverOpen(false)
-                                      setClientSearch("")
-                                    }}
-                                  >
-                                    <Plus className="h-3.5 w-3.5" />
-                                    Quick Add Client
-                                  </Button>
+                              <CommandList className="max-h-[300px]">
+                                <CommandEmpty className="p-3 text-center text-xs text-muted-foreground">
+                                  No client found.
                                 </CommandEmpty>
                                 <CommandGroup>
-                                  <CommandItem
-                                    value="--quick-add-client--"
-                                    onSelect={() => {
-                                      setIsQuickAddClientOpen(true)
-                                      setIsClientPopoverOpen(false)
-                                      setClientSearch("")
-                                    }}
-                                    className="text-primary font-medium flex items-center gap-1.5 cursor-pointer"
-                                  >
-                                    <Plus className="h-4 w-4 text-primary" />
-                                    <span>Quick Add Client...</span>
-                                  </CommandItem>
+                                  {canCreateClient && (
+                                    <CommandItem
+                                      value="--quick-add-client--"
+                                      onSelect={() => {
+                                        setIsQuickAddClientOpen(true)
+                                        setIsClientPopoverOpen(false)
+                                        setClientSearch("")
+                                      }}
+                                      className="text-primary font-medium flex items-center gap-1.5 cursor-pointer text-xs p-2.5"
+                                    >
+                                      <Plus className="h-4 w-4 text-primary" />
+                                      <span>+ Quick Add New Client...</span>
+                                    </CommandItem>
+                                  )}
                                   {(() => {
                                     let matchedClients = clients.filter((c) => c.status === "Approved")
                                     
@@ -1956,8 +1966,8 @@ function NewBOQForm() {
                                       })
                                     }
                                     
-                                    const MAX_RESULTS = 50;
-                                    matchedClients = matchedClients.slice(0, MAX_RESULTS);
+                                    const MAX_RESULTS = 50
+                                    matchedClients = matchedClients.slice(0, MAX_RESULTS)
 
                                     const isExcluded = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
                                     
@@ -1997,7 +2007,7 @@ function NewBOQForm() {
                                             setClientSearch("")
                                           }}
                                           className={cn(
-                                            "flex flex-col items-start p-2 border-b last:border-b-0 border-muted/50 aria-selected:bg-muted/40 cursor-pointer",
+                                            "flex flex-col items-start p-2.5 border-b last:border-b-0 border-muted/50 aria-selected:bg-accent cursor-pointer",
                                             !canSelect && "opacity-85 cursor-default hover:bg-transparent"
                                           )}
                                         >
@@ -2005,33 +2015,33 @@ function NewBOQForm() {
                                             <div className="flex items-center gap-2">
                                               <Check
                                                 className={cn(
-                                                  "h-4 w-4 text-primary",
+                                                  "h-4 w-4 text-primary shrink-0",
                                                   isSelected ? "opacity-100" : "opacity-0"
                                                 )}
                                               />
-                                              <span className="font-semibold text-sm">{client.companyName}</span>
+                                              <span className="font-semibold text-xs text-foreground">{client.companyName}</span>
                                             </div>
                                             <div className="flex items-center gap-1.5">
                                               {canSelect ? (
                                                 isUserAssigned && (
-                                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-250 text-[10px] py-0 px-1.5 font-normal">
+                                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] py-0 px-1.5 font-normal">
                                                     Assigned
                                                   </Badge>
                                                 )
                                               ) : (
                                                 <>
                                                   {isRequested && (
-                                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-250 text-[10px] py-0 px-1.5 font-normal">
+                                                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] py-0 px-1.5 font-normal">
                                                       Requested
                                                     </Badge>
                                                   )}
                                                   {isRejected && (
-                                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-250 text-[10px] py-0 px-1.5 font-normal">
+                                                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-[10px] py-0 px-1.5 font-normal">
                                                       Rejected
                                                     </Badge>
                                                   )}
                                                   {!isRequested && !isRejected && (
-                                                    <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-200 text-[10px] py-0 px-1.5 font-normal">
+                                                    <Badge variant="outline" className="bg-muted text-muted-foreground border-border text-[10px] py-0 px-1.5 font-normal">
                                                       Unassigned
                                                     </Badge>
                                                   )}
@@ -2051,74 +2061,70 @@ function NewBOQForm() {
                                           {!canSelect && (() => {
                                             if (isRequested) {
                                               return (
-                                                <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                                                     onClick={(e) => e.stopPropagation()}
+                                                <div 
+                                                  className="mt-2.5 w-full p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-950 dark:text-amber-200 flex items-center justify-between gap-3 shadow-xs"
+                                                  onClick={(e) => e.stopPropagation()}
                                                 >
-                                                  <div className="flex items-start gap-1">
-                                                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                    <span>Access request is pending approval.</span>
+                                                  <div className="flex items-center gap-1.5 min-w-0">
+                                                    <AlertCircle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                                    <span className="truncate text-[11px] font-medium">Access request is pending approval.</span>
                                                   </div>
-                                                  <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    disabled
-                                                    className="text-[10px] h-7 px-2 border-amber-200 bg-amber-100 text-amber-600 dark:bg-amber-950/40 shrink-0 self-end sm:self-auto opacity-75 cursor-not-allowed"
-                                                  >
-                                                    Requested
-                                                  </Button>
+                                                  <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-100 border-amber-300/80 text-[10px] font-semibold py-0.5 px-2 shrink-0">
+                                                    Pending
+                                                  </Badge>
                                                 </div>
                                               )
                                             }
-
                                             if (isRejected) {
                                               const isRequestAgainAllowed = client.allowRequestAgain !== false
                                               return (
-                                                <div className="mt-2 ml-6 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg text-[11px] text-red-850 dark:text-red-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                                                     onClick={(e) => e.stopPropagation()}
+                                                <div 
+                                                  className="mt-2.5 w-full p-2.5 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive flex items-center justify-between gap-3 shadow-xs"
+                                                  onClick={(e) => e.stopPropagation()}
                                                 >
-                                                  <div className="flex items-start gap-1">
-                                                    <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                    <span>Access request rejected{activeReq.rejectionReason ? `: ${activeReq.rejectionReason}` : "."}</span>
+                                                  <div className="flex items-center gap-1.5 min-w-0">
+                                                    <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                                                    <span className="truncate text-[11px] font-medium">Access request was rejected.</span>
                                                   </div>
                                                   {isRequestAgainAllowed && (
                                                     <Button
                                                       type="button"
                                                       size="sm"
                                                       variant="outline"
-                                                      className="text-[10px] h-7 px-2 border-red-300 hover:bg-red-100 dark:hover:bg-red-950 text-red-900 dark:text-red-200 shrink-0 self-end sm:self-auto cursor-pointer"
+                                                      className="h-7 px-3 text-[11px] font-semibold border-destructive/40 text-destructive hover:bg-destructive/10 cursor-pointer shrink-0 transition-all active:scale-95"
                                                       onClick={(e) => {
                                                         e.stopPropagation()
                                                         setRequestAccessClient({ id: client.id, name: client.companyName })
                                                         setRequestNotes("")
                                                       }}
                                                     >
+                                                      <RefreshCw className="h-3 w-3 mr-1" />
                                                       Request Again
                                                     </Button>
                                                   )}
                                                 </div>
                                               )
                                             }
-
                                             return (
-                                              <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                                                   onClick={(e) => e.stopPropagation()}
+                                              <div 
+                                                className="mt-2.5 w-full p-2.5 bg-primary/5 dark:bg-primary/15 border border-primary/25 rounded-xl text-xs flex items-center justify-between gap-3 shadow-xs"
+                                                onClick={(e) => e.stopPropagation()}
                                               >
-                                                <div className="flex items-start gap-1">
-                                                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                                                  <span>You can view this client, but cannot create boq unless assigned.</span>
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                  <Lock className="h-3.5 w-3.5 text-primary shrink-0" />
+                                                  <span className="truncate text-[11px] text-muted-foreground font-medium">Unassigned Client · Request access to create boq</span>
                                                 </div>
                                                 <Button
                                                   type="button"
                                                   size="sm"
-                                                  variant="outline"
-                                                  className="text-[10px] h-7 px-2 border-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950 text-amber-900 dark:text-amber-200 shrink-0 self-end sm:self-auto cursor-pointer"
+                                                  className="h-7 px-3 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm cursor-pointer shrink-0 transition-all active:scale-95"
                                                   onClick={(e) => {
                                                     e.stopPropagation()
                                                     setRequestAccessClient({ id: client.id, name: client.companyName })
                                                     setRequestNotes("")
                                                   }}
                                                 >
+                                                  <UserPlus className="h-3.5 w-3.5 mr-1" />
                                                   Request Access
                                                 </Button>
                                               </div>
@@ -2153,15 +2159,33 @@ function NewBOQForm() {
                     )}
                   />
 
+                  {/* Project Name */}
+                  <FormField
+                    control={form.control}
+                    name="projectName"
+                    render={({ field }) => (
+                      <FormItem className="lg:col-span-2">
+                        <FormLabel className="text-xs font-semibold text-foreground">
+                          Project Name <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Corporate HQ Fitout" {...field} disabled={isRevision} className="h-10 text-xs sm:text-sm bg-background" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Customer Segment */}
                   <FormField
                     control={form.control}
                     name="customerSegment"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Customer Segment <span className="text-red-500">*</span></FormLabel>
+                        <FormLabel className="text-xs font-semibold text-foreground">Customer Segment</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value} disabled>
                           <FormControl>
-                            <SelectTrigger className="bg-muted/30">
+                            <SelectTrigger className="bg-muted/40 h-10 text-xs sm:text-sm">
                               <SelectValue placeholder="Select customer segment" />
                             </SelectTrigger>
                           </FormControl>
@@ -2177,89 +2201,52 @@ function NewBOQForm() {
                     )}
                   />
 
-                  {selectedClientObj && (
-                    <div className="p-3 border rounded-lg bg-muted/40 text-xs space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Contact Person:</span>
-                        <span className="font-semibold">{selectedClientObj.contactPerson || "-"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">TRN Number:</span>
-                        <span className="font-mono font-semibold">{selectedClientObj.trn || "Not Registered"}</span>
-                      </div>
-                    </div>
-                  )}
-
+                  {/* Issue Date */}
                   <FormField
                     control={form.control}
-                    name="projectName"
+                    name="date"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Project Name</FormLabel>
+                        <FormLabel className="text-xs font-semibold text-foreground">Issue Date</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. Corporate HQ Fitout" {...field} disabled={isRevision} />
+                          <Input type="date" {...field} className="h-10 text-xs bg-background" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
-                  {userRole === "SUPER_ADMIN" && !isRevision && (
-                    <FormField
-                      control={form.control}
-                      name="boqNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>BOQ Number (Optional Override)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. D4000-1" {...field} />
-                          </FormControl>
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            Leave blank to auto-generate. If provided, this exact number will be used.
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </CardContent>
-              </Card>
+                  {/* Valid Until */}
+                  <FormField
+                    control={form.control}
+                    name="validityDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold text-foreground">Valid Until</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} className="h-10 text-xs bg-background" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              {/* BOQ Specs Card */}
-              <Card className="rounded-xl shadow-sm border bg-card">
-                <CardHeader>
-                  <CardTitle className="text-lg">BOQ Metadata</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="date"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Issue Date</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="validityDate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Valid Until</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  {/* Expected Delivery */}
+                  <FormField
+                    control={form.control}
+                    name="deliveryDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold text-foreground">Expected Delivery</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} className="h-10 text-xs bg-background" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
+                  {/* Payment Terms */}
                   <FormField
                     control={form.control}
                     name="paymentTerms"
@@ -2278,10 +2265,10 @@ function NewBOQForm() {
                       }
                       return (
                         <FormItem>
-                          <FormLabel>Payment Terms</FormLabel>
+                          <FormLabel className="text-xs font-semibold text-foreground">Payment Terms</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value || ""}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-10 text-xs bg-background">
                                 <SelectValue placeholder="Select terms" />
                               </SelectTrigger>
                             </FormControl>
@@ -2298,20 +2285,43 @@ function NewBOQForm() {
                       )
                     }}
                   />
+                </div>
 
+                {/* Selected Client Summary Card */}
+                {selectedClientObj && (
+                  <div className="p-3.5 border rounded-xl bg-muted/20 text-xs grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Contact Person:</span>
+                      <span className="font-semibold text-foreground">{selectedClientObj.contactPerson || "-"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">TRN Number:</span>
+                      <span className="font-mono font-semibold text-foreground">{selectedClientObj.trn || "Not Registered"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Phone / Contact:</span>
+                      <span className="font-medium text-foreground">{selectedClientObj.phone || selectedClientObj.email || "-"}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Consultant Select Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 border-t pt-4">
                   {isManagerOrAdmin && (
                     <FormField
                       control={form.control}
                       name="preparedById"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Interior Design Consultant <span className="text-red-500">*</span></FormLabel>
+                        <FormItem className="md:col-span-1">
+                          <FormLabel className="text-xs font-semibold text-foreground">
+                            Interior Design Consultant <span className="text-destructive">*</span>
+                          </FormLabel>
                           <Select
                             onValueChange={field.onChange}
                             value={field.value || ""}
                           >
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-10 text-xs sm:text-sm bg-background">
                                 <SelectValue placeholder="Select consultant">
                                   {users.find(u => u.id === field.value)?.name || "Select consultant"}
                                 </SelectValue>
@@ -2319,7 +2329,7 @@ function NewBOQForm() {
                             </FormControl>
                             <SelectContent>
                               {users.map((u) => (
-                                <SelectItem key={u.id} value={u.id}>
+                                <SelectItem key={u.id} value={u.id} className="text-xs py-2 cursor-pointer">
                                   {u.name} {u.role && `(${u.role})`}
                                 </SelectItem>
                               ))}
@@ -2331,15 +2341,37 @@ function NewBOQForm() {
                     />
                   )}
 
-                  <div className="space-y-4 pt-2 border-t border-dashed">
+                  {userRole === "SUPER_ADMIN" && !isRevision && (
+                    <FormField
+                      control={form.control}
+                      name="boqNumber"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-1">
+                          <FormLabel className="text-xs font-semibold text-foreground">BOQ Number (Optional Override)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. D4000-1" {...field} className="h-10 text-xs bg-background" />
+                          </FormControl>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            Leave blank to auto-generate. If provided, this exact number will be used.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+
+                {/* Sales Representative Details Section */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField
                       control={form.control}
                       name="salesAgentName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Sales Agent Name</FormLabel>
+                          <FormLabel className="text-xs font-semibold text-foreground">Sales Agent Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Enter sales agent name" {...field} />
+                            <Input placeholder="Enter sales agent name" {...field} className="h-9 text-xs bg-background" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -2350,9 +2382,9 @@ function NewBOQForm() {
                       name="salesAgentTitle"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Sales Agent Title/Designation</FormLabel>
+                          <FormLabel className="text-xs font-semibold text-foreground">Sales Agent Title</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g. Sales Executive, Sales Manager" {...field} />
+                            <Input placeholder="e.g. Senior Consultant" {...field} className="h-9 text-xs bg-background" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -2363,18 +2395,18 @@ function NewBOQForm() {
                       name="salesAgentContactNumber"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Sales Agent Contact Number</FormLabel>
+                          <FormLabel className="text-xs font-semibold text-foreground">Contact Number</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g. +971 50 123 4567" {...field} />
+                            <Input placeholder="e.g. +971 50 123 4567" {...field} className="h-9 text-xs bg-background" />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Line Items Card */}
             <Card className="rounded-xl shadow-sm border bg-card">
