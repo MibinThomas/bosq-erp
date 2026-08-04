@@ -274,8 +274,8 @@ export async function POST(request: Request) {
       const unitCost = mat + lab + inst + trans + ovh
       const itemTotalCost = unitCost * qty
       
-      const margin = Math.min(99.99, parseFloat(item.marginPercentage) || 0)
-      const unitSell = unitCost / (1 - (margin / 100))
+      const margin = Math.min(99.99, parseFloat(item.marginPercentage ?? item.margin) || 0)
+      const unitSell = parseFloat(item.unitSellingPrice ?? item.unitPrice) || (unitCost > 0 ? unitCost / (1 - (margin / 100)) : 0)
       const itemTotalSell = unitSell * qty
 
       totalMaterialCost += mat * qty

@@ -33,7 +33,15 @@ export async function GET(
         },
         preparedBy: true,
         estimator: true,
-        items: true
+        items: {
+          include: {
+            product: {
+              include: {
+                category: true
+              }
+            }
+          }
+        }
       },
     })
 
@@ -42,12 +50,16 @@ export async function GET(
     }
 
     // Enforce ownership rule check
+    const assignedUserIds = [
+      ...(boq.client?.assignments?.map(a => a.userId) || []),
+      ...(boq.estimatorId ? [boq.estimatorId] : [])
+    ]
     const isOwner = await checkOwnership(
       userId,
       "BOQS",
       boq.preparedById,
       boq.preparedBy?.department || undefined,
-      boq.client?.assignments?.map(a => a.userId) || undefined
+      assignedUserIds
     )
     if (!isOwner) {
       return NextResponse.json({ error: "Forbidden: You do not have ownership access to this BOQ" }, { status: 403 })
@@ -110,12 +122,16 @@ export async function PUT(
     }
 
     // Enforce ownership check for edit operations
+    const assignedUserIds = [
+      ...(existingBoq.client?.assignments?.map(a => a.userId) || []),
+      ...(existingBoq.estimatorId ? [existingBoq.estimatorId] : [])
+    ]
     const isOwner = await checkOwnership(
       userId,
       "BOQS",
       existingBoq.preparedById,
       existingBoq.preparedBy?.department || undefined,
-      existingBoq.client?.assignments?.map(a => a.userId) || undefined
+      assignedUserIds
     )
     if (!isOwner) {
       return NextResponse.json({ error: "Forbidden: You do not have ownership access to edit this BOQ" }, { status: 403 })
@@ -158,8 +174,10 @@ export async function PUT(
       const itemTotalCost = unitCost * qty
       
       // Margin and selling price can NEVER be edited by an Estimator
-      const margin = isEstimator ? (parseFloat(sourceItem.marginPercentage) || 0) : Math.min(99.99, parseFloat(incomingItem.marginPercentage) || 0)
-      const unitSell = unitCost / (1 - (margin / 100))
+      const margin = isEstimator ? (parseFloat(sourceItem.marginPercentage) || 0) : Math.min(99.99, parseFloat(incomingItem.marginPercentage ?? incomingItem.margin) || 0)
+      const unitSell = isEstimator
+        ? (parseFloat(sourceItem.unitSellingPrice) || 0)
+        : (parseFloat(incomingItem.unitSellingPrice ?? incomingItem.unitPrice) || (unitCost > 0 ? unitCost / (1 - (margin / 100)) : 0))
       const itemTotalSell = unitSell * qty
 
       totalMaterialCost += mat * qty

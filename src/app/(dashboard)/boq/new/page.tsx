@@ -691,13 +691,14 @@ function NewBOQForm() {
               deliveryDate: activeData.deliveryDate ? new Date(activeData.deliveryDate).toISOString().split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
               paymentTerms: activeData.paymentTerms || "50% Advance, 50% on Delivery",
               items: activeData.items.map((item: any) => {
-                const marginVal = item.margin || 0
+                const marginVal = item.marginPercentage ?? item.margin ?? 0
+                const unitPriceVal = item.unitSellingPrice ?? item.unitPrice ?? 0
                 const loadedBase = (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== 0)
                   ? item.basePrice
-                  : Number((item.unitPrice * (1 - marginVal / 100)).toFixed(2))
+                  : Number((unitPriceVal * (1 - marginVal / 100)).toFixed(2))
 
-                let resolvedPriceSource = item.priceSource
-                if (!resolvedPriceSource) {
+                let resolvedPriceSource = item.priceSource || item.type
+                if (!resolvedPriceSource || resolvedPriceSource === "custom" || resolvedPriceSource === "standard") {
                   if (!item.productId) {
                     resolvedPriceSource = "manual"
                   } else {
@@ -723,21 +724,28 @@ function NewBOQForm() {
                 return {
                   productId: item.productId || "",
                   priceSource: resolvedPriceSource,
-                  description: item.description,
-                  specifications: item.specifications || "",
+                  description: item.description || item.product?.productName || "",
+                  specifications: item.specifications || item.product?.specifications || "",
                   productNotes: item.productNotes || "",
-                  quantity: item.quantity,
+                  quantity: item.quantity || 1,
                   basePrice: loadedBase,
-                  unitPrice: item.unitPrice,
-                  discount: item.unitPrice > 0 ? Number(((item.discount || 0) / item.unitPrice * 100).toFixed(2)) : 0,
+                  unitPrice: unitPriceVal,
+                  discount: unitPriceVal > 0 ? Number(((item.discount || 0) / unitPriceVal * 100).toFixed(2)) : 0,
                   margin: marginVal,
                   manualMargin: marginVal,
-                  customImageUrl: item.customImageUrl || "",
+                  customImageUrl: item.customImageUrl || item.product?.imageUrl || "",
                   productDescription: item.productDescription || item.product?.description || "",
                   categoryName: item.categoryName || item.product?.category?.name || "Chairs",
                   chairType: item.chairType || item.product?.chairType || "",
                   batchHeading: item.batchHeading || "",
                   saveToCatalog: false,
+                  type: item.type || (item.productId ? "standard" : "custom"),
+                  isCostingRequired: item.isCostingRequired ?? true,
+                  materialCost: item.materialCost || 0,
+                  laborCost: item.laborCost || 0,
+                  installationCost: item.installationCost || 0,
+                  transportCost: item.transportCost || 0,
+                  overheadCost: item.overheadCost || 0,
                 }
               }),
               deliveryCharge: activeData.deliveryCharge || 0,
@@ -1488,14 +1496,50 @@ function NewBOQForm() {
 
   // Workflow Handlers
   const handleSendToEstimatorSubmit = async () => {
-    const boqTargetId = existingQuote?.id || autoSavedQuoteId
-    if (!boqTargetId) {
-      toast.error("Please save the BOQ draft first before sending to estimator.")
-      return
-    }
     setIsSendingToEstimator(true)
     try {
-      const res = await fetch(`/api/boq/${boqTargetId}/send-to-estimator`, {
+      // 1. First save/update the current form state to ensure all items are in DB
+      const formData = form.getValues()
+      const isUpdate = !!(existingQuote?.id || autoSavedQuoteId)
+      const targetUrl = isUpdate ? `/api/boq/${existingQuote?.id || autoSavedQuoteId}` : "/api/boq"
+      const method = isUpdate ? "PUT" : "POST"
+
+      const formattedItems = (formData.items || []).map((item: any) => ({
+        ...item,
+        productId: item.productId || null,
+        quantity: item.quantity === "" ? 1 : Number(item.quantity),
+        basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
+        unitPrice: item.unitPrice === "" ? 0 : Number(item.unitPrice),
+        margin: item.margin === "" ? 0 : Number(item.margin),
+      }))
+
+      const saveRes = await fetch(targetUrl, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          preparedById: formData.preparedById,
+          items: formattedItems,
+          deliveryCharge: totalAdditionalCost,
+          specialDiscountValue: formData.specialDiscountValue === "" ? 0 : Number(formData.specialDiscountValue),
+          additionalCharges: (formData.additionalCharges || []).map((c: any) => ({
+            name: c.name,
+            amount: c.amount === "" ? 0 : Number(c.amount)
+          })),
+          status: "SENT_TO_ESTIMATOR",
+        })
+      })
+
+      if (!saveRes.ok) {
+        const saveErr = await saveRes.json()
+        throw new Error(saveErr.error || "Failed to save BOQ items before sending to estimator.")
+      }
+
+      const savedBoq = await saveRes.json()
+      const finalBoqId = savedBoq.id || existingQuote?.id || autoSavedQuoteId
+
+      // 2. Dispatch to estimator (generates Excel & uploads)
+      const res = await fetch(`/api/boq/${finalBoqId}/send-to-estimator`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1509,7 +1553,7 @@ function NewBOQForm() {
       }
       toast.success("BOQ successfully sent to estimator!")
       setIsSendEstimatorOpen(false)
-      router.push("/boq")
+      router.push("/boqs")
     } catch (err: any) {
       toast.error(err.message || "Failed to send to estimator")
     } finally {
