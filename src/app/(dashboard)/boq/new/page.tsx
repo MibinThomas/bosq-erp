@@ -410,10 +410,15 @@ function NewBOQForm() {
   const searchParams = useSearchParams()
   const initialClientId = searchParams.get("clientId") || ""
   const { data: session } = useSession()
-  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const [existingQuote, setExistingQuote] = useState<any>(null)
+
+  const userRole = ((session?.user as any)?.role || "SALES_EXECUTIVE").toUpperCase()
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
   const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN"
-  const isEstimator = userRole === "ESTIMATOR"
+  const isEstimatorRole = userRole === "ESTIMATOR" || userRole === "COST_ESTIMATOR" || userRole.includes("ESTIMATOR")
+  const isAssignedEstimator = !!(existingQuote?.estimatorId && existingQuote.estimatorId === (session?.user as any)?.id)
+  const isEstimator = isEstimatorRole || isAssignedEstimator
+  const canEditCostingBreakdown = isEstimator || isManagerOrAdmin || existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING"
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [assigningClient, setAssigningClient] = useState<{ id: string, name: string } | null>(null)
@@ -460,7 +465,6 @@ function NewBOQForm() {
 
   const [isRevision, setIsRevision] = useState(false)
   const [isEdit, setIsEdit] = useState(false)
-  const [existingQuote, setExistingQuote] = useState<any>(null)
   const [revisionNotes, setRevisionNotes] = useState("")
   const [contactNumbers, setContactNumbers] = useState<string[]>([""])
 
@@ -2953,13 +2957,13 @@ function NewBOQForm() {
 
                               
                               {/* Cost Breakdown Section for Estimators */}
-                              {(watchItems[index]?.isCostingRequired || isEstimator) && (
-                                <div className="mt-4 bg-red-50/50 p-5 rounded-xl border border-red-500/20">
+                              {(watchItems[index]?.isCostingRequired || canEditCostingBreakdown) && (
+                                <div className="mt-4 bg-red-50/50 dark:bg-red-950/20 p-5 rounded-xl border border-red-500/20">
                                   <div className="flex items-center gap-2 mb-3">
-                                    <AlertCircle className="w-4 h-4 text-red-600" />
-                                    <span className="text-sm font-bold text-red-900">Cost Estimation Breakdown</span>
+                                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                    <span className="text-sm font-bold text-red-900 dark:text-red-200">Cost Estimation Breakdown</span>
                                   </div>
-                                  <div className={cn("flex flex-wrap gap-4", !isEstimator && "pointer-events-none opacity-80")}>
+                                  <div className={cn("flex flex-wrap gap-4", !canEditCostingBreakdown && "pointer-events-none opacity-80")}>
                                     {["materialCost", "laborCost", "installationCost", "transportCost", "overheadCost"].map((costField) => (
                                       <FormField
                                         key={costField}
@@ -2973,11 +2977,11 @@ function NewBOQForm() {
                                                 type="number"
                                                 min="0"
                                                 step="0.01"
-                                                className="h-9 text-xs font-mono bg-white"
+                                                className="h-9 text-xs font-mono bg-background border-border text-foreground"
+                                                disabled={!canEditCostingBreakdown}
                                                 value={field.value || ""}
                                                 onChange={(val) => {
                                                   field.onChange(val === "" ? "" : (parseFloat(val) || 0));
-                                                  // Optional: Auto-update unitCost or BasePrice if needed
                                                 }}
                                               />
                                             </FormControl>
