@@ -29,25 +29,11 @@ export async function GET(request: Request) {
     }
 
     // Check role-based admin/manager status
-    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(dbSessionUser.role)
-
-    // Resolve ownership rule
-    let ownershipRule = isUnrestricted ? "ALL" : "ASSIGNED"
-    if (!isUnrestricted) {
-      const override = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
-      if (override?.ownership) {
-        ownershipRule = override.ownership
-      } else {
-        const roleObj = await prisma.role.findFirst({
-          where: { name: dbSessionUser.role },
-          include: { permissions: { where: { module: "CLIENTS" } } }
-        })
-        const rolePerm = roleObj?.permissions[0]
-        if (rolePerm?.ownership) {
-          ownershipRule = rolePerm.ownership
-        }
-      }
-    }
+    const isManagerialRole = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(dbSessionUser.role)
+    const userOverride = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
+    
+    // Admin & Managerial users can view all clients. Other users only see assigned clients (unless explicit user-level override is ALL).
+    const canViewAllClients = isManagerialRole || userOverride?.ownership === "ALL"
 
     const { searchParams } = new URL(request.url)
     const all = searchParams.get("all") === "true"
@@ -60,29 +46,13 @@ export async function GET(request: Request) {
       whereClause.status = "Approved"
     }
 
-    // Apply ownership restrictions for non-unrestricted users
-    if (!isUnrestricted && ownershipRule !== "ALL") {
-      if (ownershipRule === "DEPARTMENT") {
-        const deptUsers = await prisma.user.findMany({
-          where: { department: dbSessionUser.department || "N/A" },
-          select: { id: true }
-        })
-        const deptUserIds = deptUsers.map(u => u.id)
-        whereClause.OR = [
-          { salespersonId: { in: deptUserIds } },
-          { assignments: { some: { userId: { in: deptUserIds } } } },
-          { accessRequests: { some: { userId: { in: deptUserIds }, status: "Approved" } } }
-        ]
-      } else if (ownershipRule === "NONE") {
-        whereClause.id = "none"
-      } else {
-        // Default "ASSIGNED" or "OWN"
-        whereClause.OR = [
-          { salespersonId: dbSessionUser.id },
-          { assignments: { some: { userId: dbSessionUser.id } } },
-          { accessRequests: { some: { userId: dbSessionUser.id, status: "Approved" } } }
-        ]
-      }
+    // Apply strict assigned-client filter for non-managerial users
+    if (!canViewAllClients) {
+      whereClause.OR = [
+        { salespersonId: dbSessionUser.id },
+        { assignments: { some: { userId: dbSessionUser.id } } },
+        { accessRequests: { some: { userId: dbSessionUser.id, status: "Approved" } } }
+      ]
     }
 
     const clients = await prisma.client.findMany({
@@ -106,32 +76,15 @@ export async function GET(request: Request) {
       }
     })
 
-    // Compute access list for department check
-    const deptUsers = (ownershipRule === "DEPARTMENT" && !isUnrestricted) ? await prisma.user.findMany({
-      where: { department: dbSessionUser.department || "N/A" },
-      select: { id: true }
-    }) : []
-    const deptUserIds = deptUsers.map(u => u.id)
-
     // Map clients to add isAssigned flag
     const allowRequestAgain = (await getSetting("client_allow_request_again")) !== "false"
 
     const clientsWithAccess = clients.map(client => {
-      let isAssigned = false
       const isClientUserAssigned = client.salespersonId === dbSessionUser.id || 
                                    client.assignments.some(a => a.userId === dbSessionUser.id) ||
                                    client.accessRequests.some(r => r.userId === dbSessionUser.id && r.status === "Approved")
 
-      if (isUnrestricted || ownershipRule === "ALL") {
-        isAssigned = true
-      } else if (ownershipRule === "DEPARTMENT") {
-        isAssigned = deptUserIds.includes(client.salespersonId || "") ||
-                     client.assignments.some(a => deptUserIds.includes(a.userId))
-      } else if (ownershipRule === "OWN" || ownershipRule === "ASSIGNED") {
-        isAssigned = isClientUserAssigned
-      } else if (ownershipRule === "NONE") {
-        isAssigned = false
-      }
+      const isAssigned = canViewAllClients || isClientUserAssigned
 
       return {
         ...client,
