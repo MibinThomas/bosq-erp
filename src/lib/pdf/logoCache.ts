@@ -1,6 +1,7 @@
 import fs from "fs"
 import path from "path"
 import { getSetting } from "@/lib/settings"
+import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 
 let logoBase64Cache: string | null = null
 let watermarkBase64Cache: string | null = null
@@ -90,7 +91,10 @@ let companySealBase64Cache: string | null = null
 export async function getCompanySealBase64(): Promise<string> {
   try {
     const dbSeal = await getSetting("company_seal")
-    if (dbSeal) return dbSeal
+    if (dbSeal) {
+      const resolved = await resolveImageUrl(dbSeal)
+      if (resolved) return resolved
+    }
   } catch (err) {
     console.error("Failed to fetch custom company seal from database settings:", err)
   }

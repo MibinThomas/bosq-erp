@@ -6,7 +6,7 @@ export async function resolveImageUrl(url: string | null | undefined): Promise<s
   
   // Handle Base64 Data URIs natively
   if (url.startsWith("data:")) {
-    if (url.startsWith("data:image/webp")) {
+    if (url.startsWith("data:image/webp") || url.startsWith("data:image/svg+xml")) {
       try {
         const base64Data = url.split(",")[1];
         const buffer = Buffer.from(base64Data, "base64");
@@ -14,7 +14,7 @@ export async function resolveImageUrl(url: string | null | undefined): Promise<s
         const convertedBuffer = await sharp(buffer).png().toBuffer();
         return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
       } catch (e) {
-        console.error("Failed to convert data URI webp:", e);
+        console.error("Failed to convert data URI image:", e);
       }
     }
     return url; // Return standard format data URIs as-is
