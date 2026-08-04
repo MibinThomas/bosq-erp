@@ -491,7 +491,20 @@ function NewQuotationForm() {
 
   const handleEditTerm = (index: number, val: string) => {
     const current = [...(form.getValues("termsConditions") || [])]
-    current[index] = val
+    const isHighlighted = (current[index] || "").includes("[HIGHLIGHT]")
+    const cleanVal = val.replace(/\[HIGHLIGHT\]\s*/g, "")
+    current[index] = isHighlighted ? `[HIGHLIGHT] ${cleanVal}` : cleanVal
+    form.setValue("termsConditions", current, { shouldDirty: true, shouldValidate: true })
+  }
+
+  const handleToggleHighlightTerm = (index: number) => {
+    const current = [...(form.getValues("termsConditions") || [])]
+    const term = current[index] || ""
+    if (term.includes("[HIGHLIGHT]")) {
+      current[index] = term.replace(/\[HIGHLIGHT\]\s*/g, "")
+    } else {
+      current[index] = `[HIGHLIGHT] ${term.replace(/\[HIGHLIGHT\]\s*/g, "")}`
+    }
     form.setValue("termsConditions", current, { shouldDirty: true, shouldValidate: true })
   }
 
@@ -2749,60 +2762,103 @@ function NewQuotationForm() {
 
                   <div className="space-y-2">
                     {watchTermsConditions && watchTermsConditions.length > 0 ? (
-                      watchTermsConditions.map((termText, termIdx) => (
-                        <div key={termIdx} className="flex items-start gap-2 bg-card border rounded-lg p-2.5 shadow-2xs transition-all hover:border-primary/40">
-                          {/* Reorder Buttons */}
-                          <div className="flex flex-col gap-1 pt-1 shrink-0">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              disabled={termIdx === 0}
-                              onClick={() => handleMoveTerm(termIdx, -1)}
-                              className="h-6 w-6 text-muted-foreground hover:bg-muted cursor-pointer disabled:opacity-30"
-                              title="Move Up"
-                            >
-                              <ChevronUp className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              disabled={termIdx === watchTermsConditions.length - 1}
-                              onClick={() => handleMoveTerm(termIdx, 1)}
-                              className="h-6 w-6 text-muted-foreground hover:bg-muted cursor-pointer disabled:opacity-30"
-                              title="Move Down"
-                            >
-                              <ChevronDown className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
+                      watchTermsConditions.map((termRaw, termIdx) => {
+                        const isHighlighted = termRaw.includes("[HIGHLIGHT]")
+                        const cleanTermText = termRaw.replace(/\[HIGHLIGHT\]\s*/g, "")
 
-                          <span className="text-xs font-bold text-muted-foreground pt-2.5 w-6 text-center shrink-0 font-mono">
-                            {(termIdx + 1).toString().padStart(2, '0')}.
-                          </span>
-
-                          <div className="flex-1">
-                            <Textarea
-                              value={termText}
-                              rows={2}
-                              onChange={(e) => handleEditTerm(termIdx, e.target.value)}
-                              placeholder="e.g. Validity: Valid for 30 days..."
-                              className="bg-background text-xs min-h-[48px] leading-relaxed"
-                            />
-                          </div>
-
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveTerm(termIdx)}
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer mt-1"
-                            title="Remove term"
+                        return (
+                          <div 
+                            key={termIdx} 
+                            className={cn(
+                              "flex items-start gap-2 bg-card border rounded-xl p-3 shadow-2xs transition-all",
+                              isHighlighted 
+                                ? "bg-amber-500/10 border-amber-500/50 dark:bg-amber-950/30 shadow-xs" 
+                                : "hover:border-primary/40"
+                            )}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))
+                            {/* Reorder Buttons */}
+                            <div className="flex flex-col gap-1 pt-1 shrink-0">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                disabled={termIdx === 0}
+                                onClick={() => handleMoveTerm(termIdx, -1)}
+                                className="h-6 w-6 text-muted-foreground hover:bg-muted cursor-pointer disabled:opacity-30"
+                                title="Move Up"
+                              >
+                                <ChevronUp className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                disabled={termIdx === watchTermsConditions.length - 1}
+                                onClick={() => handleMoveTerm(termIdx, 1)}
+                                className="h-6 w-6 text-muted-foreground hover:bg-muted cursor-pointer disabled:opacity-30"
+                                title="Move Down"
+                              >
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+
+                            <span className="text-xs font-bold text-muted-foreground pt-2.5 w-6 text-center shrink-0 font-mono">
+                              {(termIdx + 1).toString().padStart(2, '0')}.
+                            </span>
+
+                            <div className="flex-1 space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                {isHighlighted ? (
+                                  <Badge variant="outline" className="bg-amber-500 text-white border-amber-600 text-[10px] font-bold py-0.5 px-2 flex items-center gap-1 shadow-2xs">
+                                    <Sparkles className="h-3 w-3 fill-white" /> Highlighted Clause
+                                  </Badge>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground font-medium">Standard Clause</span>
+                                )}
+
+                                <Button
+                                  type="button"
+                                  variant={isHighlighted ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => handleToggleHighlightTerm(termIdx)}
+                                  className={cn(
+                                    "h-6 px-2 text-[10px] font-semibold flex items-center gap-1 shrink-0 cursor-pointer transition-all",
+                                    isHighlighted 
+                                      ? "bg-amber-500 hover:bg-amber-600 text-white shadow-2xs border-amber-600" 
+                                      : "text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 hover:border-amber-400"
+                                  )}
+                                  title={isHighlighted ? "Remove highlight" : "Highlight this point"}
+                                >
+                                  <Sparkles className={cn("h-3 w-3", isHighlighted ? "fill-white text-white" : "text-amber-500")} />
+                                  {isHighlighted ? "Highlighted" : "Highlight"}
+                                </Button>
+                              </div>
+
+                              <Textarea
+                                value={cleanTermText}
+                                rows={2}
+                                onChange={(e) => handleEditTerm(termIdx, e.target.value)}
+                                placeholder="e.g. Validity: Valid for 30 days..."
+                                className={cn(
+                                  "bg-background text-xs min-h-[48px] leading-relaxed transition-all",
+                                  isHighlighted && "border-amber-500/60 font-semibold text-amber-950 dark:text-amber-200 bg-amber-50/50 dark:bg-amber-950/30"
+                                )}
+                              />
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemoveTerm(termIdx)}
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer mt-1"
+                              title="Remove term"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )
+                      })
                     ) : (
                       <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
                         No terms added. Click "Add Term" below to add custom terms.

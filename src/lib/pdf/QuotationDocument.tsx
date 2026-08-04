@@ -1281,12 +1281,48 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         {termsConditions && termsConditions.length > 0 && (
           <View style={styles.termsCard} wrap={false}>
             <Text style={styles.termsTitle}>Terms & Conditions</Text>
-            {termsConditions.map((term, idx) => (
-              <View key={idx} style={styles.termItem} wrap={false}>
-                <Text style={styles.termNumber}>{(idx + 1).toString().padStart(2, '0')}.</Text>
-                <Text style={styles.termText}>{term}</Text>
-              </View>
-            ))}
+            {termsConditions.map((termRaw, idx) => {
+              const isHighlighted = typeof termRaw === "string" && termRaw.includes("[HIGHLIGHT]")
+              const cleanTermText = typeof termRaw === "string" ? termRaw.replace(/\[HIGHLIGHT\]\s*/g, "") : termRaw
+
+              if (isHighlighted) {
+                return (
+                  <View 
+                    key={idx} 
+                    style={[
+                      styles.termItem, 
+                      { 
+                        backgroundColor: "#FEF3C7", 
+                        borderColor: "#F59E0B", 
+                        borderLeftWidth: 3.5, 
+                        borderLeftColor: "#F59E0B",
+                        paddingVertical: 5, 
+                        paddingHorizontal: 8, 
+                        borderRadius: 4, 
+                        marginBottom: 4 
+                      }
+                    ]} 
+                    wrap={false}
+                  >
+                    <Text style={[styles.termNumber, { color: "#B45309", fontWeight: "bold" }]}>
+                      {(idx + 1).toString().padStart(2, '0')}.
+                    </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.termText, { color: "#78350F", fontWeight: "bold" }]}>
+                        {cleanTermText}
+                      </Text>
+                    </View>
+                  </View>
+                )
+              }
+
+              return (
+                <View key={idx} style={styles.termItem} wrap={false}>
+                  <Text style={styles.termNumber}>{(idx + 1).toString().padStart(2, '0')}.</Text>
+                  <Text style={styles.termText}>{cleanTermText}</Text>
+                </View>
+              )
+            })}
           </View>
         )}
 
