@@ -32,7 +32,9 @@ import {
   DollarSign,
   Layers,
   SlidersHorizontal,
-  ChevronRight
+  ChevronRight,
+  Clock,
+  RotateCcw
 } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -1841,35 +1843,44 @@ function NewQuotationForm() {
                                           {!canSelect && (() => {
                                             if (isRequested) {
                                               return (
-                                                <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex items-center justify-between gap-2"
-                                                     onClick={(e) => e.stopPropagation()}
+                                                <div 
+                                                  className="mt-2.5 w-full p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-950 dark:text-amber-200 flex items-center justify-between gap-3 shadow-xs"
+                                                  onClick={(e) => e.stopPropagation()}
                                                 >
-                                                  <span className="truncate">Access request is pending approval.</span>
-                                                  <Button type="button" size="sm" variant="outline" disabled className="text-[10px] h-6 px-2 opacity-75">
-                                                    Requested
-                                                  </Button>
+                                                  <div className="flex items-center gap-1.5 min-w-0">
+                                                    <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                                    <span className="truncate text-[11px] font-medium">Access request is pending approval.</span>
+                                                  </div>
+                                                  <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-100 border-amber-300/80 text-[10px] font-semibold py-0.5 px-2 shrink-0">
+                                                    Pending
+                                                  </Badge>
                                                 </div>
                                               )
                                             }
                                             if (isRejected) {
                                               const isRequestAgainAllowed = client.allowRequestAgain !== false
                                               return (
-                                                <div className="mt-2 ml-6 p-2 bg-red-50 dark:bg-red-950/20 border border-red-200 rounded-lg text-[11px] text-red-800 dark:text-red-300 w-full flex items-center justify-between gap-2"
-                                                     onClick={(e) => e.stopPropagation()}
+                                                <div 
+                                                  className="mt-2.5 w-full p-2.5 bg-destructive/10 border border-destructive/30 rounded-xl text-xs text-destructive flex items-center justify-between gap-3 shadow-xs"
+                                                  onClick={(e) => e.stopPropagation()}
                                                 >
-                                                  <span className="truncate">Access request rejected.</span>
+                                                  <div className="flex items-center gap-1.5 min-w-0">
+                                                    <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                                                    <span className="truncate text-[11px] font-medium">Access request was rejected.</span>
+                                                  </div>
                                                   {isRequestAgainAllowed && (
                                                     <Button
                                                       type="button"
                                                       size="sm"
                                                       variant="outline"
-                                                      className="text-[10px] h-6 px-2 border-red-300 text-red-900 cursor-pointer"
+                                                      className="h-7 px-3 text-[11px] font-semibold border-destructive/40 text-destructive hover:bg-destructive/10 cursor-pointer shrink-0 transition-all active:scale-95"
                                                       onClick={(e) => {
                                                         e.stopPropagation()
                                                         setRequestAccessClient({ id: client.id, name: client.companyName })
                                                         setRequestNotes("")
                                                       }}
                                                     >
+                                                      <RotateCcw className="h-3 w-3 mr-1" />
                                                       Request Again
                                                     </Button>
                                                   )}
@@ -1877,21 +1888,25 @@ function NewQuotationForm() {
                                               )
                                             }
                                             return (
-                                              <div className="mt-2 ml-6 p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 rounded-lg text-[11px] text-amber-800 dark:text-amber-300 w-full flex items-center justify-between gap-2"
-                                                   onClick={(e) => e.stopPropagation()}
+                                              <div 
+                                                className="mt-2.5 w-full p-2.5 bg-primary/5 dark:bg-primary/15 border border-primary/25 rounded-xl text-xs flex items-center justify-between gap-3 shadow-xs"
+                                                onClick={(e) => e.stopPropagation()}
                                               >
-                                                <span className="truncate">Viewable, but cannot create quotation unless assigned.</span>
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                  <Lock className="h-3.5 w-3.5 text-primary shrink-0" />
+                                                  <span className="truncate text-[11px] text-muted-foreground font-medium">Unassigned Client · Request access to create quotations</span>
+                                                </div>
                                                 <Button
                                                   type="button"
                                                   size="sm"
-                                                  variant="outline"
-                                                  className="text-[10px] h-6 px-2 border-amber-300 text-amber-900 cursor-pointer"
+                                                  className="h-7 px-3 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm cursor-pointer shrink-0 transition-all active:scale-95"
                                                   onClick={(e) => {
                                                     e.stopPropagation()
                                                     setRequestAccessClient({ id: client.id, name: client.companyName })
                                                     setRequestNotes("")
                                                   }}
                                                 >
+                                                  <UserPlus className="h-3.5 w-3.5 mr-1" />
                                                   Request Access
                                                 </Button>
                                               </div>
