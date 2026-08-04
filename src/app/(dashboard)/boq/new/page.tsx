@@ -1,11 +1,11 @@
 "use client"
 
 import React, { useState, useEffect, useMemo, Suspense, useRef } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, useParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical, FileText } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -405,15 +405,31 @@ const formatCurrency = (val: number) => {
 
 function NewBOQForm() {
   const router = useRouter()
+  const routeParams = useParams()
   const searchParams = useSearchParams()
   const initialClientId = searchParams.get("clientId") || ""
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
   const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN"
+  const isEstimator = userRole === "ESTIMATOR"
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [assigningClient, setAssigningClient] = useState<{ id: string, name: string } | null>(null)
+
+  // BOQ Workflow modal and action states
+  const [isSendEstimatorOpen, setIsSendEstimatorOpen] = useState(false)
+  const [selectedEstimatorId, setSelectedEstimatorId] = useState("")
+  const [estimatorInstructions, setEstimatorInstructions] = useState("")
+  const [isSendingToEstimator, setIsSendingToEstimator] = useState(false)
+  
+  const [isRequestRevisionOpen, setIsRequestRevisionOpen] = useState(false)
+  const [costingRevisionNotes, setCostingRevisionNotes] = useState("")
+  const [isRequestingRevision, setIsRequestingRevision] = useState(false)
+  
+  const [isConverting, setIsConverting] = useState(false)
+  const [isSubmittingCosting, setIsSubmittingCosting] = useState(false)
+  const [allUsersList, setAllUsersList] = useState<any[]>([])
 
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
@@ -570,11 +586,12 @@ function NewBOQForm() {
 
   // Fetch users for selecting sales agent
   useEffect(() => {
-    fetch("/api/users/sales-agents")
+    fetch("/api/users")
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setUsers(data)
+          setAllUsersList(data)
+          setUsers(data.filter((u: any) => u.role === "SALES_EXECUTIVE" || u.role === "SALES_MANAGER"))
         }
       })
       .catch(err => console.error("Failed to load users", err))
@@ -624,10 +641,11 @@ function NewBOQForm() {
         // Load details for revision or update if ID is provided
         const reviseId = searchParams.get("reviseId")
         const editId = searchParams.get("editId")
-        const activeId = reviseId || editId
+        const pathId = (routeParams?.id as string) && (routeParams?.id as string) !== "new" ? (routeParams?.id as string) : undefined
+        const activeId = pathId || reviseId || editId
 
         if (activeId) {
-          const fetchRes = await fetch(`/api/boqs/${activeId}`)
+          const fetchRes = await fetch(`/api/boq/${activeId}`)
           if (fetchRes.ok) {
             const activeData = await fetchRes.json()
             setExistingQuote(activeData)
@@ -1265,13 +1283,13 @@ function NewBOQForm() {
       let method = ""
 
       if (isRevision || isEdit) {
-        targetUrl = `/api/boqs/${existingQuote.id}`
+        targetUrl = `/api/boq/${existingQuote.id}`
         method = "PUT"
       } else if (autoSavedQuoteId) {
-        targetUrl = `/api/boqs/${autoSavedQuoteId}`
+        targetUrl = `/api/boq/${autoSavedQuoteId}`
         method = "PUT"
       } else {
-        targetUrl = "/api/boqs"
+        targetUrl = "/api/boq"
         method = "POST"
       }
 
@@ -1354,7 +1372,7 @@ function NewBOQForm() {
 
     setSubmitting(true)
     try {
-      const url = (isRevision || isEdit) ? `/api/boqs/${existingQuote.id}` : "/api/boqs"
+      const url = (isRevision || isEdit) ? `/api/boq/${existingQuote.id}` : "/api/boq"
       const method = (isRevision || isEdit) ? "PUT" : "POST"
 
       const formattedItems = []
@@ -1457,6 +1475,128 @@ function NewBOQForm() {
     }
   }
 
+  // Workflow Handlers
+  const handleSendToEstimatorSubmit = async () => {
+    const boqTargetId = existingQuote?.id || autoSavedQuoteId
+    if (!boqTargetId) {
+      toast.error("Please save the BOQ draft first before sending to estimator.")
+      return
+    }
+    setIsSendingToEstimator(true)
+    try {
+      const res = await fetch(`/api/boq/${boqTargetId}/send-to-estimator`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estimatorId: selectedEstimatorId || undefined,
+          instructions: estimatorInstructions || undefined
+        })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to send BOQ to estimator")
+      }
+      toast.success("BOQ successfully sent to estimator!")
+      setIsSendEstimatorOpen(false)
+      router.push("/boq")
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send to estimator")
+    } finally {
+      setIsSendingToEstimator(false)
+    }
+  }
+
+  const handleCompleteCostingSubmit = async () => {
+    const boqTargetId = existingQuote?.id || autoSavedQuoteId
+    if (!boqTargetId) return
+    setIsSubmittingCosting(true)
+    try {
+      const currentItems = form.getValues("items")
+      const res = await fetch(`/api/boq/${boqTargetId}/complete-costing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: currentItems
+        })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to complete costing")
+      }
+      toast.success("Costing completed! BOQ returned to creator for review.")
+      router.push("/boq")
+    } catch (err: any) {
+      toast.error(err.message || "Failed to complete costing")
+    } finally {
+      setIsSubmittingCosting(false)
+    }
+  }
+
+  const handleRequestRevisionSubmit = async () => {
+    const boqTargetId = existingQuote?.id || autoSavedQuoteId
+    if (!boqTargetId) return
+    if (!costingRevisionNotes.trim()) {
+      toast.error("Please enter revision instructions for the estimator.")
+      return
+    }
+    setIsRequestingRevision(true)
+    try {
+      const res = await fetch(`/api/boq/${boqTargetId}/request-revision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          revisionNotes: costingRevisionNotes
+        })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to request revision")
+      }
+      toast.success("Revision requested! Estimator notified.")
+      setIsRequestRevisionOpen(false)
+      router.push("/boq")
+    } catch (err: any) {
+      toast.error(err.message || "Failed to request revision")
+    } finally {
+      setIsRequestingRevision(false)
+    }
+  }
+
+  const handleConvertToQuotationSubmit = async () => {
+    const boqTargetId = existingQuote?.id || autoSavedQuoteId
+    if (!boqTargetId) {
+      toast.error("Please save the BOQ draft first before converting to quotation.")
+      return
+    }
+    setIsConverting(true)
+    try {
+      const res = await fetch(`/api/boq/${boqTargetId}/convert`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentTerms: form.getValues("paymentTerms"),
+          deliveryDate: form.getValues("deliveryDate"),
+          validityDate: form.getValues("validityDate"),
+        })
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to convert BOQ to Quotation")
+      }
+      const data = await res.json()
+      toast.success("BOQ successfully converted to Quotation!")
+      if (data.quotation?.id) {
+        router.push(`/quotations/new?editId=${data.quotation.id}`)
+      } else {
+        router.push("/quotations")
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to convert BOQ")
+    } finally {
+      setIsConverting(false)
+    }
+  }
+
   const getSegmentPriceInfo = (productId: string | null | undefined) => {
     if (!productId) return null
     const product = products.find(p => p.id === productId)
@@ -1489,10 +1629,168 @@ function NewBOQForm() {
               ? `Create a new revised version of BOQ ${existingQuote?.boqNumber}`
               : isEdit
                 ? `Modify and update BOQ ${existingQuote?.boqNumber}`
-                : "Select a client, add catalog products, and compile a PDF immediately."}
+                : "Select a client, add catalog products, and prepare BOQ."}
           </p>
         </div>
       </div>
+
+      {/* BOQ Lifecycle Progress & Action Header Banner */}
+      {existingQuote && (
+        <Card className="rounded-2xl border border-primary/20 bg-card shadow-xs overflow-hidden">
+          <div className="p-4 sm:p-5 space-y-4">
+            {/* Stage Stepper */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 border-b pb-4">
+              <div className={cn(
+                "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
+                (!existingQuote.status || existingQuote.status === "DRAFT")
+                  ? "border-primary bg-primary/10 text-primary shadow-2xs"
+                  : "border-border/60 bg-muted/20 text-muted-foreground"
+              )}>
+                <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
+                  (!existingQuote.status || existingQuote.status === "DRAFT") ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                )}>1</div>
+                <span>1. Preparation</span>
+              </div>
+
+              <div className={cn(
+                "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
+                (existingQuote.status === "SENT_TO_ESTIMATOR" || existingQuote.status === "COSTING_IN_PROGRESS" || existingQuote.status === "PENDING_COSTING")
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300 shadow-2xs"
+                  : "border-border/60 bg-muted/20 text-muted-foreground"
+              )}>
+                <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
+                  (existingQuote.status === "SENT_TO_ESTIMATOR" || existingQuote.status === "COSTING_IN_PROGRESS" || existingQuote.status === "PENDING_COSTING") ? "bg-amber-500 text-white" : "bg-muted text-muted-foreground"
+                )}>2</div>
+                <span>2. Estimator Costing</span>
+              </div>
+
+              <div className={cn(
+                "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
+                (existingQuote.status === "COSTING_COMPLETED" || existingQuote.status === "NEEDS_REVISION" || existingQuote.status === "APPROVED")
+                  ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30 text-purple-900 dark:text-purple-300 shadow-2xs"
+                  : "border-border/60 bg-muted/20 text-muted-foreground"
+              )}>
+                <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
+                  (existingQuote.status === "COSTING_COMPLETED" || existingQuote.status === "NEEDS_REVISION" || existingQuote.status === "APPROVED") ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground"
+                )}>3</div>
+                <span>3. Creator Review</span>
+              </div>
+
+              <div className={cn(
+                "flex items-center gap-2 p-2.5 rounded-xl border text-xs font-semibold transition-all",
+                (existingQuote.status === "CONVERTED")
+                  ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-300 shadow-2xs"
+                  : "border-border/60 bg-muted/20 text-muted-foreground"
+              )}>
+                <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold",
+                  (existingQuote.status === "CONVERTED") ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground"
+                )}>4</div>
+                <span>4. Quotation</span>
+              </div>
+            </div>
+
+            {/* Action Banner & Primary Controls */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                  Status: <span className="font-mono text-primary">{existingQuote.status || "DRAFT"}</span>
+                  {existingQuote.estimator?.name && (
+                    <Badge variant="outline" className="text-xs bg-muted/30 font-normal">
+                      Estimator: {existingQuote.estimator.name}
+                    </Badge>
+                  )}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {existingQuote.status === "SENT_TO_ESTIMATOR" || existingQuote.status === "COSTING_IN_PROGRESS"
+                    ? "Estimator is preparing material, labor, and overhead cost estimates."
+                    : existingQuote.status === "COSTING_COMPLETED"
+                    ? `Costing complete. Total Selling Price: AED ${existingQuote.totalSellingPrice?.toLocaleString() || 0}. Review & convert to Quotation.`
+                    : existingQuote.status === "NEEDS_REVISION"
+                    ? "Costing revision requested by BOQ creator."
+                    : existingQuote.status === "CONVERTED"
+                    ? "BOQ has been converted into an official Quotation."
+                    : "Prepare item list and send to Estimator for cost breakdown, or convert directly."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                {(!existingQuote.status || existingQuote.status === "DRAFT" || existingQuote.status === "NEEDS_REVISION") && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      onClick={() => setIsSendEstimatorOpen(true)}
+                      className="bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Send className="h-3.5 w-3.5" /> Send to Estimator
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleConvertToQuotationSubmit}
+                      disabled={isConverting}
+                      className="text-xs font-medium border-primary/30 text-primary hover:bg-primary/5 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {isConverting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-amber-500" />}
+                      Direct Convert to Quotation
+                    </Button>
+                  </>
+                )}
+
+                {(existingQuote.status === "SENT_TO_ESTIMATOR" || existingQuote.status === "COSTING_IN_PROGRESS") && (isEstimator || isManagerOrAdmin) && (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={handleCompleteCostingSubmit}
+                    disabled={isSubmittingCosting}
+                    className="bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {isSubmittingCosting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                    Complete Costing & Return to Creator
+                  </Button>
+                )}
+
+                {existingQuote.status === "COSTING_COMPLETED" && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      onClick={handleConvertToQuotationSubmit}
+                      disabled={isConverting}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {isConverting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      Convert to Quotation
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsRequestRevisionOpen(true)}
+                      className="text-xs font-medium border-rose-200 text-rose-700 hover:bg-rose-50 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5 text-rose-600" />
+                      Request Costing Revision
+                    </Button>
+                  </>
+                )}
+
+                {existingQuote.status === "CONVERTED" && (
+                  <Link href="/quotations">
+                    <Button variant="outline" size="sm" className="text-xs font-medium flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-primary" /> View Quotations
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {isRevision && existingQuote && (
         <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 rounded-xl p-4 flex items-start gap-3 text-purple-950 dark:text-purple-300">
@@ -2329,7 +2627,7 @@ function NewBOQForm() {
 
                         if (isCustom) {
                           return (
-                            <div className="flex flex-col gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <div className={cn("flex flex-col gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200", isEstimator && "pointer-events-none opacity-60")}>
                               
                               {/* TOP ROW: Product Identity */}
                               <div className="flex flex-col xl:flex-row gap-6">
@@ -2475,7 +2773,7 @@ function NewBOQForm() {
                                           <Select
                                             onValueChange={(val) => {
                                               field.onChange(val)
-                                              if (val?.toLowerCase() !== "chairs" && val?.toLowerCase() !== "chair") {
+                                              if (val && val.toLowerCase() !== "chairs" && val.toLowerCase() !== "chair") {
                                                 form.setValue(`items.${index}.chairType`, "")
                                               }
                                             }}
@@ -2604,7 +2902,48 @@ function NewBOQForm() {
                               </div>
 
                               {/* BOTTOM ROW: Pricing & Actions */}
-                              <div className="flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-end bg-primary/[0.03] p-5 rounded-xl border border-primary/10">
+                              {/* Inject cost breakdown above pricing */}
+
+                              
+                              {/* Cost Breakdown Section for Estimators */}
+                              {(watchItems[index]?.isCostingRequired || isEstimator) && (
+                                <div className="mt-4 bg-red-50/50 p-5 rounded-xl border border-red-500/20">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <AlertCircle className="w-4 h-4 text-red-600" />
+                                    <span className="text-sm font-bold text-red-900">Cost Estimation Breakdown</span>
+                                  </div>
+                                  <div className={cn("flex flex-wrap gap-4", !isEstimator && "pointer-events-none opacity-80")}>
+                                    {["materialCost", "laborCost", "installationCost", "transportCost", "overheadCost"].map((costField) => (
+                                      <FormField
+                                        key={costField}
+                                        control={form.control}
+                                        name={`items.${index}.${costField}` as any}
+                                        render={({ field }) => (
+                                          <FormItem className="space-y-1.5 w-28 shrink-0">
+                                            <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">{costField.replace('Cost', ' Cost')}</FormLabel>
+                                            <FormControl>
+                                              <NumericInput
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                className="h-9 text-xs font-mono bg-white"
+                                                value={field.value || ""}
+                                                onChange={(val) => {
+                                                  field.onChange(val === "" ? "" : (parseFloat(val) || 0));
+                                                  // Optional: Auto-update unitCost or BasePrice if needed
+                                                }}
+                                              />
+                                            </FormControl>
+                                          </FormItem>
+                                        )}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+
+                              <div className={cn("flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-end bg-primary/[0.03] p-5 rounded-xl border border-primary/10", isEstimator && "pointer-events-none opacity-60")}>
                                 <div className="flex flex-col gap-3 w-full xl:w-auto">
                                   <div className="flex justify-between items-center mb-1">
                                     <div className="flex items-center gap-2">
@@ -3744,6 +4083,98 @@ function NewBOQForm() {
               ) : (
                 "Submit Request"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send to Estimator Dialog */}
+      <Dialog open={isSendEstimatorOpen} onOpenChange={setIsSendEstimatorOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Send className="h-5 w-5 text-amber-500" />
+              Send BOQ to Estimator for Costing
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Assign an estimator to calculate material, labor, transport, and overhead costs for this BOQ.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold">Select Estimator</label>
+              <Select value={selectedEstimatorId} onValueChange={(val) => setSelectedEstimatorId(val || "")}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Select Estimator..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {allUsersList
+                    .filter((u: any) => ["ESTIMATOR", "ADMIN", "SUPER_ADMIN", "MANAGER", "SALES_MANAGER"].includes(u.role))
+                    .map((u: any) => (
+                      <SelectItem key={u.id} value={u.id} className="text-xs">
+                        {u.name} ({u.role}) {u.department ? `· ${u.department}` : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold">Special Instructions for Estimator</label>
+              <Textarea
+                placeholder="e.g. Please check custom veneer finish cost and installation labor for 12 workstations..."
+                value={estimatorInstructions}
+                onChange={(e) => setEstimatorInstructions(e.target.value)}
+                className="text-xs min-h-[90px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" size="sm" onClick={() => setIsSendEstimatorOpen(false)} disabled={isSendingToEstimator}>
+              Cancel
+            </Button>
+            <Button variant="default" size="sm" onClick={handleSendToEstimatorSubmit} disabled={isSendingToEstimator} className="bg-amber-600 hover:bg-amber-500 text-white">
+              {isSendingToEstimator ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Send className="h-4 w-4 mr-1.5" />}
+              Send to Estimator
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Request Costing Revision Dialog */}
+      <Dialog open={isRequestRevisionOpen} onOpenChange={setIsRequestRevisionOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-rose-700">
+              <RefreshCw className="h-5 w-5 text-rose-600" />
+              Request Costing Revision
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Send feedback notes to the estimator to revise material or labor costs.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Revision Instructions <span className="text-destructive">*</span></label>
+              <Textarea
+                placeholder="e.g. Installation cost seems high for 6 desks. Please re-evaluate overhead percentage..."
+                value={costingRevisionNotes}
+                onChange={(e) => setCostingRevisionNotes(e.target.value)}
+                className="text-xs min-h-[100px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" size="sm" onClick={() => setIsRequestRevisionOpen(false)} disabled={isRequestingRevision}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleRequestRevisionSubmit} disabled={isRequestingRevision}>
+              {isRequestingRevision ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <RefreshCw className="h-4 w-4 mr-1.5" />}
+              Submit Revision Request
             </Button>
           </DialogFooter>
         </DialogContent>
