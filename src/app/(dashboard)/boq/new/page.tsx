@@ -696,11 +696,31 @@ function NewBOQForm() {
               deliveryDate: activeData.deliveryDate ? activeData.deliveryDate.split("T")[0] : new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
               paymentTerms: activeData.paymentTerms || "50% Advance, 50% on Delivery",
               items: activeData.items.map((item: any) => {
-                const marginVal = item.marginPercentage ?? item.margin ?? 0
-                const unitPriceVal = item.unitSellingPrice ?? item.unitPrice ?? 0
-                const loadedBase = (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== 0)
-                  ? item.basePrice
-                  : Number((unitPriceVal * (1 - marginVal / 100)).toFixed(2))
+                const marginVal = parseFloat(item.marginPercentage ?? item.margin) || 0
+                const matCost = parseFloat(item.materialCost) || 0
+                const labCost = parseFloat(item.laborCost) || 0
+                const instCost = parseFloat(item.installationCost) || 0
+                const transCost = parseFloat(item.transportCost) || 0
+                const overCost = parseFloat(item.overheadCost) || 0
+                const calcUnitCost = parseFloat(item.unitCost) || (matCost + labCost + instCost + transCost + overCost)
+
+                let unitPriceVal = parseFloat(item.unitSellingPrice ?? item.unitPrice) || 0
+
+                let loadedBase = item.basePrice
+                if (loadedBase === undefined || loadedBase === null || loadedBase === 0) {
+                  if (calcUnitCost > 0) {
+                    loadedBase = calcUnitCost
+                  } else if (unitPriceVal > 0) {
+                    loadedBase = Number((unitPriceVal * (1 - marginVal / 100)).toFixed(2))
+                  } else {
+                    loadedBase = 0
+                  }
+                }
+
+                if (unitPriceVal === 0 && loadedBase > 0) {
+                  const marginDec = Math.min(0.9999, marginVal / 100)
+                  unitPriceVal = Number((loadedBase / (1 - marginDec)).toFixed(2))
+                }
 
                 let resolvedPriceSource = item.priceSource || item.type
                 if (!resolvedPriceSource || resolvedPriceSource === "custom" || resolvedPriceSource === "standard") {

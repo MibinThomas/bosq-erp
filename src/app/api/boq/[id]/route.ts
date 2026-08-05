@@ -181,11 +181,12 @@ export async function PUT(
       const unitCost = mat + lab + inst + trans + ovh
       const itemTotalCost = unitCost * qty
       
-      // Margin and selling price can NEVER be edited by an Estimator
+      // Margin and selling price calculation
       const margin = isEstimator ? (parseFloat(sourceItem.marginPercentage) || 0) : Math.min(99.99, parseFloat(incomingItem.marginPercentage ?? incomingItem.margin) || 0)
-      const unitSell = isEstimator
-        ? (parseFloat(sourceItem.unitSellingPrice) || 0)
-        : (parseFloat(incomingItem.unitSellingPrice ?? incomingItem.unitPrice) || (unitCost > 0 ? unitCost / (1 - (margin / 100)) : 0))
+      const basePrice = parseFloat(incomingItem.basePrice) || (unitCost > 0 ? unitCost : 0)
+      let unitSell = isEstimator
+        ? (parseFloat(sourceItem.unitSellingPrice) || (unitCost > 0 ? Number((unitCost / (1 - Math.min(0.9999, margin / 100))).toFixed(2)) : 0))
+        : (parseFloat(incomingItem.unitSellingPrice ?? incomingItem.unitPrice) || (basePrice > 0 ? Number((basePrice / (1 - Math.min(0.9999, margin / 100))).toFixed(2)) : 0))
       const itemTotalSell = unitSell * qty
 
       totalMaterialCost += mat * qty

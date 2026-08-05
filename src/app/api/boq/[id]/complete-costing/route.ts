@@ -47,9 +47,14 @@ export async function POST(
           const itemTotalCost = unitCost * qty
           const marginPct = parseFloat(item.marginPercentage) || parseFloat(item.margin) || 0
 
+          let basePrice = parseFloat(item.basePrice) || unitCost
           let unitSelling = parseFloat(item.unitSellingPrice) || parseFloat(item.unitPrice) || 0
           if (unitSelling === 0 && unitCost > 0) {
-            unitSelling = Number((unitCost * (1 + marginPct / 100)).toFixed(2))
+            const marginDec = Math.min(0.9999, marginPct / 100)
+            unitSelling = Number((unitCost / (1 - marginDec)).toFixed(2))
+          } else if (unitSelling === 0 && basePrice > 0) {
+            const marginDec = Math.min(0.9999, marginPct / 100)
+            unitSelling = Number((basePrice / (1 - marginDec)).toFixed(2))
           }
           const itemTotalSelling = Number((unitSelling * qty).toFixed(2))
 
