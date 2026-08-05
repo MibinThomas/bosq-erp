@@ -1266,6 +1266,21 @@ function NewBOQForm() {
     }
   }
 
+  const handleCostBreakdownChange = (index: number, costField: string, val: string) => {
+    const parsedVal = val === "" ? 0 : parseFloat(val) || 0
+    form.setValue(`items.${index}.${costField}` as any, val === "" ? "" : parsedVal, { shouldValidate: false, shouldDirty: true })
+
+    const currentItem = form.getValues(`items.${index}`) || {}
+    const mat = costField === "materialCost" ? parsedVal : (parseFloat(String(currentItem.materialCost || 0)) || 0)
+    const lab = costField === "laborCost" ? parsedVal : (parseFloat(String(currentItem.laborCost || 0)) || 0)
+    const inst = costField === "installationCost" ? parsedVal : (parseFloat(String(currentItem.installationCost || 0)) || 0)
+    const trans = costField === "transportCost" ? parsedVal : (parseFloat(String(currentItem.transportCost || 0)) || 0)
+    const ovh = costField === "overheadCost" ? parsedVal : (parseFloat(String(currentItem.overheadCost || 0)) || 0)
+
+    const newTotalCost = mat + lab + inst + trans + ovh
+    recalculateRow(index, "basePrice", newTotalCost)
+  }
+
   const fetchClientsList = async () => {
     try {
       const res = await fetch("/api/clients?all=true")
@@ -3010,9 +3025,7 @@ function NewBOQForm() {
                                                 step="0.01"
                                                 className="h-9 text-xs font-mono bg-background border-border text-foreground"
                                                 value={field.value || ""}
-                                                onChange={(val) => {
-                                                  field.onChange(val === "" ? "" : (parseFloat(val) || 0));
-                                                }}
+                                                onChange={(val) => handleCostBreakdownChange(index, costField, val)}
                                               />
                                             </FormControl>
                                           </FormItem>
