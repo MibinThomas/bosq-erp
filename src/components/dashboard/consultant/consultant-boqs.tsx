@@ -21,7 +21,9 @@ export function ConsultantBoqs({ boqs }: { boqs: any[] }) {
       case "DRAFT":
         return <Badge variant="outline" className="bg-slate-100 text-slate-700">Draft</Badge>
       case "SENT_TO_ESTIMATOR":
-        return <Badge variant="outline" className="bg-amber-100 text-amber-700">Sent to Estimator</Badge>
+      case "PENDING_COSTING":
+      case "COSTING_IN_PROGRESS":
+        return <Badge variant="outline" className="bg-amber-100 text-amber-700">Pending Costing</Badge>
       case "COSTING_COMPLETED":
         return <Badge variant="outline" className="bg-green-100 text-green-700">Costing Completed</Badge>
       case "REJECTED":

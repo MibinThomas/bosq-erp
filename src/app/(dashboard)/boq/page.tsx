@@ -99,9 +99,8 @@ export default function BoqDashboard() {
         return <Badge variant="outline" className="text-gray-500 border-gray-300 font-medium">Draft</Badge>
       case "SENT_TO_ESTIMATOR":
       case "PENDING_COSTING":
-        return <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium">Sent to Estimator</Badge>
       case "COSTING_IN_PROGRESS":
-        return <Badge className="bg-blue-500 hover:bg-blue-600 text-white font-medium">Costing In Progress</Badge>
+        return <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium">Pending Costing</Badge>
       case "COSTING_COMPLETED":
         return <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-medium">Costing Completed</Badge>
       case "NEEDS_REVISION":

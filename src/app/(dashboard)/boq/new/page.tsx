@@ -4093,7 +4093,7 @@ function NewBOQForm() {
                   className="opacity-75 font-semibold cursor-not-allowed flex items-center gap-1.5"
                 >
                   <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  Locked - Sent to Estimator
+                  Locked - Pending Costing
                 </Button>
               ) : (
                 <Button

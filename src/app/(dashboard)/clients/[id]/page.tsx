@@ -113,13 +113,17 @@ function boqStatusBadge(status: string) {
   const map: Record<string, string> = {
     DRAFT: "bg-zinc-100 text-zinc-600 border-zinc-200",
     SENT_TO_ESTIMATOR: "bg-amber-100 text-amber-700 border-amber-200",
+    PENDING_COSTING: "bg-amber-100 text-amber-700 border-amber-200",
+    COSTING_IN_PROGRESS: "bg-amber-100 text-amber-700 border-amber-200",
     COSTING_COMPLETED: "bg-green-100 text-green-700 border-green-200",
     REJECTED: "bg-red-100 text-red-700 border-red-200",
     CONVERTED: "bg-blue-100 text-blue-700 border-blue-200",
   }
   const labels: Record<string, string> = {
     DRAFT: "Draft",
-    SENT_TO_ESTIMATOR: "Sent to Estimator",
+    SENT_TO_ESTIMATOR: "Pending Costing",
+    PENDING_COSTING: "Pending Costing",
+    COSTING_IN_PROGRESS: "Pending Costing",
     COSTING_COMPLETED: "Costing Completed",
     REJECTED: "Rejected",
     CONVERTED: "Converted",
