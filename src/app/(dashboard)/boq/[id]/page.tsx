@@ -1489,7 +1489,7 @@ function NewBOQForm() {
                 ? `BOQ draft saved successfully!`
                 : `BOQ ${result.boqNumber} compiled & uploaded to SharePoint!`)
       )
-      router.push("/boqs")
+      router.push("/boq")
     } catch (error: any) {
       console.error("Error submitting boq:", error)
       toast.error(error.message || "Failed to submit boq. Please try again.")
@@ -1557,7 +1557,7 @@ function NewBOQForm() {
       }
       toast.success("BOQ successfully sent to estimator!")
       setIsSendEstimatorOpen(false)
-      router.push("/boqs")
+      router.push("/boq")
     } catch (err: any) {
       toast.error(err.message || "Failed to send to estimator")
     } finally {
@@ -1674,7 +1674,7 @@ function NewBOQForm() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       <div className="flex items-center space-x-4">
-        <Link href="/boqs">
+        <Link href="/boq">
           <Button variant="ghost" size="icon" className="rounded-full">
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -4017,7 +4017,7 @@ function NewBOQForm() {
                 type="button"
                 variant="outline"
                 disabled={submitting}
-                onClick={() => router.push("/boqs")}
+                onClick={() => router.push("/boq")}
               >
                 Cancel
               </Button>
