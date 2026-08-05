@@ -22,8 +22,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check view permission dynamically
-    const canView = await hasPermission(dbSessionUser.id, "CLIENTS", "view")
+    // Check view permission dynamically (allow CLIENTS, BOQS, QUOTATIONS modules and ESTIMATOR role)
+    const canViewClients = await hasPermission(dbSessionUser.id, "CLIENTS", "view")
+    const canViewBoqs = await hasPermission(dbSessionUser.id, "BOQS", "view")
+    const canViewQuotations = await hasPermission(dbSessionUser.id, "QUOTATIONS", "view")
+    const isEstimatorRole = dbSessionUser.role === "ESTIMATOR"
+
+    const canView = canViewClients || canViewBoqs || canViewQuotations || isEstimatorRole
     if (!canView) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to view clients" }, { status: 403 })
     }
@@ -32,11 +37,11 @@ export async function GET(request: Request) {
     const isManagerialRole = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(dbSessionUser.role)
     const userOverride = dbSessionUser.permissionOverrides.find(o => o.action === "ownership")
     
-    // Admin & Managerial users can view all clients. Other users only see assigned clients (unless explicit user-level override is ALL).
-    const canViewAllClients = isManagerialRole || userOverride?.ownership === "ALL"
-
+    // Admin & Managerial users can view all clients. Other users only see assigned clients (unless explicit user-level override is ALL or fetching all options).
     const { searchParams } = new URL(request.url)
     const all = searchParams.get("all") === "true"
+
+    const canViewAllClients = isManagerialRole || userOverride?.ownership === "ALL" || isEstimatorRole || all
 
     let whereClause: any = {
       deletedAt: null
