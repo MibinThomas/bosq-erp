@@ -747,6 +747,7 @@ function NewBOQForm() {
                 }
 
                 return {
+                  id: item.id || "",
                   productId: item.productId || "",
                   priceSource: resolvedPriceSource,
                   description: item.description || item.product?.productName || "",

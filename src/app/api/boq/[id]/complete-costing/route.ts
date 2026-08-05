@@ -35,7 +35,8 @@ export async function POST(
 
     const updatedBoq = await prisma.$transaction(async (tx) => {
       if (Array.isArray(updatedItems) && updatedItems.length > 0) {
-        for (const item of updatedItems) {
+        for (let idx = 0; idx < updatedItems.length; idx++) {
+          const item = updatedItems[idx]
           const matCost = parseFloat(item.materialCost) || 0
           const labCost = parseFloat(item.laborCost) || 0
           const instCost = parseFloat(item.installationCost) || 0
@@ -66,9 +67,13 @@ export async function POST(
           totalCost += itemTotalCost
           totalSellingPrice += itemTotalSelling
 
-          if (item.id) {
+          // Match by item.id OR fallback to item.itemNo or boq.items[idx]?.id
+          const targetItem = boq.items.find(bi => (item.id && bi.id === item.id) || bi.itemNo === (item.itemNo || idx + 1)) || boq.items[idx]
+          const targetItemId = targetItem?.id || item.id
+
+          if (targetItemId) {
             await tx.boqItem.update({
-              where: { id: item.id },
+              where: { id: targetItemId },
               data: {
                 materialCost: matCost,
                 laborCost: labCost,
