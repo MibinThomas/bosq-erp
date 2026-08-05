@@ -33,20 +33,22 @@ export async function POST(
     }
 
     // Map BOQ Items to Quotation Items format
-    const quotationItems = boq.items.map((item) => ({
+    const quotationItems = boq.items.map((item: any) => ({
       productId: item.productId,
       description: item.description,
       specifications: item.specifications || "",
+      productNotes: item.productNotes || "",
+      productDescription: item.productDescription || "",
       customImageUrl: item.customImageUrl || null,
       quantity: item.quantity,
       unitPrice: item.unitSellingPrice || item.unitCost || 0,
-      basePrice: item.unitSellingPrice || item.unitCost || 0,
+      basePrice: item.unitCost && item.unitCost > 0 ? item.unitCost : (item.unitSellingPrice || 0),
       discount: 0,
       margin: item.marginPercentage || 0,
-      amount: item.totalSellingPrice || (item.unitCost * item.quantity),
-      categoryName: "OFFICE FURNITURE",
-      chairType: null,
-      batchHeading: null,
+      amount: item.totalSellingPrice || ((item.unitSellingPrice || item.unitCost || 0) * item.quantity),
+      categoryName: item.categoryName || "Chairs",
+      chairType: item.chairType || null,
+      batchHeading: item.batchHeading || null,
     }))
 
     const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
