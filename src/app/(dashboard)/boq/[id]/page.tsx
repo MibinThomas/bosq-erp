@@ -419,7 +419,7 @@ function NewBOQForm() {
   const isAssignedEstimator = !!(existingQuote?.estimatorId && existingQuote.estimatorId === (session?.user as any)?.id)
   const isEstimator = isEstimatorRole || isAssignedEstimator
   const isLockedForCreator = !isEstimator && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING")
-  const canEditCostingBreakdown = isEstimator || (isManagerOrAdmin && existingQuote?.status !== "CONVERTED")
+  const canEditCostingBreakdown = (isEstimator || isManagerOrAdmin) && existingQuote?.status !== "CONVERTED"
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [assigningClient, setAssigningClient] = useState<{ id: string, name: string } | null>(null)
@@ -2689,7 +2689,7 @@ function NewBOQForm() {
 
                         if (isCustom) {
                           return (
-                            <div className={cn("flex flex-col gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200", isEstimator && "pointer-events-none opacity-60")}>
+                            <div className="flex flex-col gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200">
                               
                               {/* TOP ROW: Product Identity */}
                               <div className="flex flex-col xl:flex-row gap-6">
@@ -2974,7 +2974,7 @@ function NewBOQForm() {
                                     <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                                     <span className="text-sm font-bold text-red-900 dark:text-red-200">Cost Estimation Breakdown</span>
                                   </div>
-                                  <div className={cn("flex flex-wrap gap-4", !canEditCostingBreakdown && "pointer-events-none opacity-80")}>
+                                  <div className="flex flex-wrap gap-4">
                                     {["materialCost", "laborCost", "installationCost", "transportCost", "overheadCost"].map((costField) => (
                                       <FormField
                                         key={costField}
@@ -2989,7 +2989,6 @@ function NewBOQForm() {
                                                 min="0"
                                                 step="0.01"
                                                 className="h-9 text-xs font-mono bg-background border-border text-foreground"
-                                                disabled={!canEditCostingBreakdown}
                                                 value={field.value || ""}
                                                 onChange={(val) => {
                                                   field.onChange(val === "" ? "" : (parseFloat(val) || 0));
@@ -3005,7 +3004,7 @@ function NewBOQForm() {
                               )}
 
 
-                              <div className={cn("flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-end bg-primary/[0.03] p-5 rounded-xl border border-primary/10", isEstimator && "pointer-events-none opacity-60")}>
+                              <div className="flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-end bg-primary/[0.03] p-5 rounded-xl border border-primary/10">
                                 <div className="flex flex-col gap-3 w-full xl:w-auto">
                                   <div className="flex justify-between items-center mb-1">
                                     <div className="flex items-center gap-2">

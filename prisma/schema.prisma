@@ -358,6 +358,11 @@ model BoqItem {
   specifications  String?
   dimensions      String?
   customImageUrl  String?
+  categoryName       String?
+  chairType          String?
+  productDescription String?
+  productNotes       String?
+  batchHeading       String?
   
   quantity        Int       @default(1)
   unit            String    @default("Nos") // Nos, Sqft, Lm, etc.
