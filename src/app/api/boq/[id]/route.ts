@@ -149,7 +149,15 @@ export async function PUT(
     // In a production system, upsert is better, but this is simpler for drafts.
     
     const userRole = (session.user as any).role || "SALES_EXECUTIVE"
-    const isEstimator = userRole === "ESTIMATOR"
+    const isEstimator = userRole === "ESTIMATOR" || existingBoq.estimatorId === userId
+
+    const isLockedStatus = existingBoq.status === "SENT_TO_ESTIMATOR" || existingBoq.status === "COSTING_IN_PROGRESS" || existingBoq.status === "PENDING_COSTING"
+    if (!isEstimator && isLockedStatus) {
+      return NextResponse.json(
+        { error: "This BOQ is currently with the Estimator for costing. You cannot edit it until costing is completed." },
+        { status: 403 }
+      )
+    }
 
     // If estimator, they can't change the number of items or non-cost fields
     const sourceItems = isEstimator ? existingBoq.items : items;

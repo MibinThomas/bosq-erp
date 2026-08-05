@@ -418,7 +418,8 @@ function NewBOQForm() {
   const isEstimatorRole = userRole === "ESTIMATOR" || userRole === "COST_ESTIMATOR" || userRole.includes("ESTIMATOR")
   const isAssignedEstimator = !!(existingQuote?.estimatorId && existingQuote.estimatorId === (session?.user as any)?.id)
   const isEstimator = isEstimatorRole || isAssignedEstimator
-  const canEditCostingBreakdown = isEstimator || isManagerOrAdmin || existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING"
+  const isLockedForCreator = !isEstimator && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING")
+  const canEditCostingBreakdown = isEstimator || (isManagerOrAdmin && existingQuote?.status !== "CONVERTED")
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [assigningClient, setAssigningClient] = useState<{ id: string, name: string } | null>(null)
@@ -1797,7 +1798,7 @@ function NewBOQForm() {
                 </>
               )}
 
-              {(isEstimator || isManagerOrAdmin || existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS") && existingQuote?.status !== "CONVERTED" && existingQuote?.status !== "COSTING_COMPLETED" && (
+              {(isEstimator || isManagerOrAdmin) && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING") && (
                 <Button
                   type="button"
                   variant="default"
@@ -1849,6 +1850,16 @@ function NewBOQForm() {
         </div>
       </Card>
 
+      {isLockedForCreator && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-xl p-4 flex items-center gap-3 text-amber-950 dark:text-amber-200 shadow-2xs">
+          <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
+          <div className="text-xs font-medium">
+            <span className="font-bold text-sm block mb-0.5">BOQ Locked for Costing</span>
+            This BOQ was sent to {existingQuote?.estimator?.name ? `Estimator (${existingQuote.estimator.name})` : "the Cost Estimator"}. Form fields are locked until the estimator completes the cost breakdown.
+          </div>
+        </div>
+      )}
+
       {isRevision && existingQuote && (
         <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 rounded-xl p-4 flex items-start gap-3 text-purple-950 dark:text-purple-300">
           <Info className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5" />
@@ -1882,6 +1893,7 @@ function NewBOQForm() {
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"))}
+            className={cn("space-y-8", isLockedForCreator && "pointer-events-none opacity-80 select-none")}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const target = e.target as HTMLElement
@@ -1895,7 +1907,6 @@ function NewBOQForm() {
                 e.preventDefault()
               }
             }}
-            className="space-y-8"
           >
             {isRevision && (
               <Card className="rounded-xl border border-purple-200 dark:border-purple-900/30 bg-purple-50/10">
@@ -4040,6 +4051,16 @@ function NewBOQForm() {
                       Complete Costing & Return to Creator
                     </>
                   )}
+                </Button>
+              ) : isLockedForCreator ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled
+                  className="opacity-75 font-semibold cursor-not-allowed flex items-center gap-1.5"
+                >
+                  <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  Locked - Sent to Estimator
                 </Button>
               ) : (
                 <Button
