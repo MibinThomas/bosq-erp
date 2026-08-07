@@ -588,24 +588,24 @@ function NewQuotationForm() {
   }, [isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes])
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
-    const target = e.target as HTMLElement
-    if (!target.closest('.drag-handle')) {
-      e.preventDefault()
-      return
-    }
+    e.stopPropagation()
     e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', index.toString())
     setDraggedIndex(index)
   }
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
-    if (draggedIndex !== index) {
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggedIndex !== null && draggedIndex !== index) {
       setDragOverIndex(index)
     }
   }
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+  const handleDrop = (e: React.DragEvent, dropIndex: number, targetBatchName?: string) => {
     e.preventDefault()
+    e.stopPropagation()
     if (draggedIndex === null || draggedIndex === dropIndex) {
       setDraggedIndex(null)
       setDragOverIndex(null)
@@ -613,35 +613,39 @@ function NewQuotationForm() {
     }
 
     const currentItems = [...form.getValues("items")]
-    const draggedItem = currentItems[draggedIndex]
+    const draggedItem = { ...currentItems[draggedIndex] }
     
+    if (targetBatchName !== undefined) {
+      draggedItem.batchHeading = targetBatchName === "General Items" ? "" : targetBatchName
+    }
+
     currentItems.splice(draggedIndex, 1)
     currentItems.splice(dropIndex, 0, draggedItem)
-    
+
     form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
     setDraggedIndex(null)
     setDragOverIndex(null)
   }
 
   const handleBatchDragStart = (e: React.DragEvent, batchId: string) => {
-    const target = e.target as HTMLElement
-    if (!target.closest('.batch-drag-handle')) {
-      e.preventDefault()
-      return
-    }
+    e.stopPropagation()
     e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', batchId)
     setDraggedBatchId(batchId)
   }
 
   const handleBatchDragOver = (e: React.DragEvent, batchId: string) => {
     e.preventDefault()
-    if (draggedBatchId !== batchId) {
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggedBatchId !== null && draggedBatchId !== batchId) {
       setDragOverBatchId(batchId)
     }
   }
 
   const handleBatchDrop = (e: React.DragEvent, dropBatchId: string) => {
     e.preventDefault()
+    e.stopPropagation()
     if (draggedBatchId === null || draggedBatchId === dropBatchId) {
       setDraggedBatchId(null)
       setDragOverBatchId(null)
@@ -2320,8 +2324,6 @@ function NewQuotationForm() {
                   return (
                     <div
                       key={batch.id}
-                      draggable
-                      onDragStart={(e) => handleBatchDragStart(e, batch.id)}
                       onDragOver={(e) => handleBatchDragOver(e, batch.id)}
                       onDrop={(e) => handleBatchDrop(e, batch.id)}
                       className={cn(
@@ -2332,7 +2334,12 @@ function NewQuotationForm() {
                       {/* Section Header */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span className="batch-drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+                          <span
+                            draggable
+                            onDragStart={(e) => handleBatchDragStart(e, batch.id)}
+                            className="batch-drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
+                            title="Drag section to reorder"
+                          >
                             <GripVertical className="h-4 w-4" />
                           </span>
                           <div className="max-w-md flex-1">
@@ -2409,19 +2416,23 @@ function NewQuotationForm() {
                           return (
                             <div
                               key={fieldItem.id}
-                              draggable
-                              onDragStart={(e) => handleDragStart(e, index)}
                               onDragOver={(e) => handleDragOver(e, index)}
-                              onDrop={(e) => handleDrop(e, index)}
+                              onDrop={(e) => handleDrop(e, index, batch.name)}
                               className={cn(
                                 "p-4 sm:p-5 rounded-xl border bg-card shadow-2xs space-y-4 transition-all hover:border-primary/40",
-                                dragOverIndex === index && "border-primary border-dashed bg-primary/5"
+                                dragOverIndex === index && "border-primary border-dashed bg-primary/5",
+                                draggedIndex === index && "opacity-50"
                               )}
                             >
                               {/* Item Header Row */}
                               <div className="flex items-center justify-between border-b pb-3 gap-2 flex-wrap">
                                 <div className="flex items-center gap-2">
-                                  <span className="drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+                                  <span
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, index)}
+                                    className="drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
+                                    title="Drag item to reorder"
+                                  >
                                     <GripVertical className="h-4 w-4" />
                                   </span>
                                   <Badge variant="outline" className="font-mono text-xs font-bold bg-muted/40">

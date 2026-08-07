@@ -504,34 +504,41 @@ function NewBOQForm() {
   }, [isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes])
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
-    const target = e.target as HTMLElement
-    if (!target.closest('.drag-handle')) {
-      e.preventDefault()
-      return
-    }
+    e.stopPropagation()
     e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', index.toString())
     setDraggedIndex(index)
   }
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
-    if (draggedIndex !== index) {
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggedIndex !== null && draggedIndex !== index) {
       setDragOverIndex(index)
     }
   }
 
-  const handleDrop = (e: React.DragEvent, index: number) => {
+  const handleDrop = (e: React.DragEvent, dropIndex: number, targetBatchName?: string) => {
     e.preventDefault()
-    if (draggedIndex !== null && draggedIndex !== index) {
-      move(draggedIndex, index)
-      setTimeout(() => {
-        const currentItems = form.getValues("items")
-        const targetHeading = index > 0 
-          ? currentItems[index - 1]?.batchHeading 
-          : (currentItems[index + 1]?.batchHeading || "")
-        form.setValue(`items.${index}.batchHeading`, targetHeading || "", { shouldValidate: true, shouldDirty: true })
-      }, 50)
+    e.stopPropagation()
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null)
+      setDragOverIndex(null)
+      return
     }
+
+    const currentItems = [...form.getValues("items")]
+    const draggedItem = { ...currentItems[draggedIndex] }
+
+    if (targetBatchName !== undefined) {
+      draggedItem.batchHeading = targetBatchName === "General Items" ? "" : targetBatchName
+    }
+
+    currentItems.splice(draggedIndex, 1)
+    currentItems.splice(dropIndex, 0, draggedItem)
+
+    form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
     setDraggedIndex(null)
     setDragOverIndex(null)
   }
@@ -1062,29 +1069,33 @@ function NewBOQForm() {
     }
   }, [batches, watchItems])
 
-  const handleBatchDragStart = (e: React.DragEvent, id: string) => {
-    const target = e.target as HTMLElement
-    if (!target.closest('.batch-drag-handle')) {
-      e.preventDefault()
+  const handleBatchDragStart = (e: React.DragEvent, batchId: string) => {
+    e.stopPropagation()
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', batchId)
+    setDraggedBatchId(batchId)
+  }
+
+  const handleBatchDragOver = (e: React.DragEvent, batchId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    if (draggedBatchId !== null && draggedBatchId !== batchId) {
+      setDragOverBatchId(batchId)
+    }
+  }
+
+  const handleBatchDrop = (e: React.DragEvent, dropBatchId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (draggedBatchId === null || draggedBatchId === dropBatchId) {
+      setDraggedBatchId(null)
+      setDragOverBatchId(null)
       return
     }
-    setDraggedBatchId(id)
-    e.dataTransfer.effectAllowed = "move"
-  }
-
-  const handleBatchDragOver = (e: React.DragEvent, id: string) => {
-    e.preventDefault()
-    if (draggedBatchId !== id) {
-      setDragOverBatchId(id)
-    }
-  }
-
-  const handleBatchDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault()
-    if (!draggedBatchId || draggedBatchId === targetId) return
 
     const fromIdx = batches.findIndex((b) => b.id === draggedBatchId)
-    const toIdx = batches.findIndex((b) => b.id === targetId)
+    const toIdx = batches.findIndex((b) => b.id === dropBatchId)
     if (fromIdx === -1 || toIdx === -1) return
 
     const newBatches = [...batches]
@@ -2508,8 +2519,6 @@ function NewBOQForm() {
                   return (
                     <div
                       key={batch.id}
-                      draggable
-                      onDragStart={(e) => handleBatchDragStart(e, batch.id)}
                       onDragOver={(e) => handleBatchDragOver(e, batch.id)}
                       onDrop={(e) => handleBatchDrop(e, batch.id)}
                       className={cn(
@@ -2522,6 +2531,8 @@ function NewBOQForm() {
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-muted/30 p-4 rounded-xl border border-border shadow-sm">
                         <div className="flex items-center gap-3 w-full sm:flex-grow">
                           <div
+                            draggable
+                            onDragStart={(e) => handleBatchDragStart(e, batch.id)}
                             className="batch-drag-handle flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background hover:bg-muted text-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-border shrink-0 shadow-sm"
                             title="Drag to reorder sections"
                           >
@@ -2626,15 +2637,10 @@ function NewBOQForm() {
                             return (
                               <div
                                 key={field.id}
-                                draggable
-                                onDragStart={(e) => {
-                                  e.stopPropagation()
-                                  handleDragStart(e, index)
-                                }}
                                 onDragOver={(e) => handleDragOver(e, index)}
                                 onDrop={(e) => {
                                   e.stopPropagation()
-                                  handleDrop(e, index)
+                                  handleDrop(e, index, batch.name)
                                 }}
                                 onDragEnd={handleDragEnd}
                                 className={cn(
@@ -2646,6 +2652,11 @@ function NewBOQForm() {
                                 {/* Drag Handle & Mobile Ordering Fallback Row */}
                                 <div className="flex items-center gap-2 border-b border-border pb-3 mb-2">
                                   <div
+                                    draggable
+                                    onDragStart={(e) => {
+                                      e.stopPropagation()
+                                      handleDragStart(e, index)
+                                    }}
                                     className="drag-handle flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted hover:bg-muted/80 text-foreground cursor-grab active:cursor-grabbing text-xs font-semibold select-none border border-border shadow-sm"
                                     title="Click and drag to reorder item"
                                   >
