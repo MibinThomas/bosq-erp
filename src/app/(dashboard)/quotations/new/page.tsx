@@ -67,6 +67,7 @@ import { QuickAddProductModal } from "@/components/products/quick-add-product-mo
 import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
 import { AssignmentModal } from "@/components/clients/assignment-modal"
 import { ImageCropper } from "@/components/ui/image-cropper"
+import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Image as ImageIcon, UploadCloud } from "lucide-react"
@@ -606,6 +607,30 @@ function NewQuotationForm() {
   const handleDrop = (e: React.DragEvent, dropIndex: number, targetBatchName?: string) => {
     e.preventDefault()
     e.stopPropagation()
+
+    // Handle file drop directly on the item card container
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFile = e.dataTransfer.files[0]
+      if (droppedFile && (droppedFile.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(droppedFile.name))) {
+        const fileInput = document.getElementById(`image-dropzone-input-${dropIndex}`) as HTMLInputElement
+        if (fileInput) {
+          const dt = new DataTransfer()
+          dt.items.add(droppedFile)
+          fileInput.files = dt.files
+          fileInput.dispatchEvent(new Event("change", { bubbles: true }))
+        } else {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            setRawImageSrc(reader.result as string)
+            setCropperLineIndex(dropIndex)
+            setIsCropperOpen(true)
+          }
+          reader.readAsDataURL(droppedFile)
+        }
+        return
+      }
+    }
+
     if (draggedIndex === null || draggedIndex === dropIndex) {
       setDraggedIndex(null)
       setDragOverIndex(null)
@@ -2491,23 +2516,13 @@ function NewQuotationForm() {
                                 {/* Left Side: Image & Description Info */}
                                 <div className="lg:col-span-6 space-y-3">
                                   <div className="flex gap-3 items-start">
-                                    {/* Thumbnail Box */}
-                                    <div className="relative group shrink-0 h-20 w-20 border rounded-lg overflow-hidden bg-muted/20 flex items-center justify-center">
-                                      {currentImg ? (
-                                        <img src={currentImg} alt="Product" className="object-cover w-full h-full" />
-                                      ) : (
-                                        <div className="text-[10px] text-muted-foreground text-center p-1">No Image</div>
-                                      )}
-                                      <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white cursor-pointer transition-opacity">
-                                        <UploadCloud className="h-5 w-5" />
-                                        <input
-                                          type="file"
-                                          accept="image/*"
-                                          className="hidden"
-                                          onChange={(e) => handleImageUpload(e, index)}
-                                        />
-                                      </label>
-                                    </div>
+                                    {/* Quotation Item Image Dropzone */}
+                                    <QuotationItemImageDropzone
+                                      value={currentImg}
+                                      onChange={(url) => form.setValue(`items.${index}.customImageUrl`, url, { shouldValidate: true, shouldDirty: true })}
+                                      onRemove={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
+                                      itemIndex={index}
+                                    />
 
                                     {/* Product Description */}
                                     <div className="flex-1 space-y-2">

@@ -37,6 +37,7 @@ import { QuickAddProductModal } from "@/components/products/quick-add-product-mo
 import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
 import { AssignmentModal } from "@/components/clients/assignment-modal"
 import { ImageCropper } from "@/components/ui/image-cropper"
+import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Image as ImageIcon, UploadCloud } from "lucide-react"
@@ -2838,92 +2839,12 @@ function NewBOQForm() {
                                 {/* Image Upload - Left Side */}
                                 <div className="w-full xl:w-48 shrink-0 space-y-2">
                                   <FormLabel className="text-xs font-semibold text-foreground">Product Image</FormLabel>
-                                  {watchItems[index]?.customImageUrl ? (
-                                    <div className="flex flex-col items-center gap-3 p-3 border rounded-xl bg-muted/30">
-                                      <div className="h-32 w-32 border rounded-lg bg-white overflow-hidden relative flex items-center justify-center shadow-sm">
-                                        <img src={watchItems[index]?.customImageUrl || ""} alt="Preview" className="object-contain h-full w-full" />
-                                        {uploadingImage && cropperLineIndex === index && (
-                                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                            <Loader2 className="h-4 w-4 animate-spin text-white" />
-                                          </div>
-                                        )}
-                                      </div>
-                                      <div className="flex gap-2 w-full">
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => {
-                                            setCropperLineIndex(index)
-                                            setRawImageSrc(watchItems[index]?.customImageUrl || "")
-                                            setIsCropperOpen(true)
-                                          }}
-                                          className="text-[11px] py-1 h-7 flex-1"
-                                        >
-                                          Crop
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
-                                          className="text-[11px] py-1 h-7 text-destructive hover:bg-destructive/10 hover:text-destructive flex-1"
-                                        >
-                                          Remove
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div
-                                      className={cn(
-                                        "border-2 border-dashed rounded-xl p-4 h-[178px] flex flex-col items-center justify-center gap-3 cursor-pointer transition-all bg-muted/20 hover:bg-muted/40 hover:border-primary/50",
-                                        uploadingImage && cropperLineIndex === index && "opacity-50 pointer-events-none"
-                                      )}
-                                      onDragOver={(e) => e.preventDefault()}
-                                      onDrop={(e) => {
-                                        e.preventDefault()
-                                        const file = e.dataTransfer.files?.[0]
-                                        if (file && file.type.startsWith("image/")) {
-                                          setCropperLineIndex(index)
-                                          const reader = new FileReader()
-                                          reader.onloadend = () => {
-                                            setRawImageSrc(reader.result as string)
-                                            setIsCropperOpen(true)
-                                          }
-                                          reader.readAsDataURL(file)
-                                        }
-                                      }}
-                                      onClick={() => {
-                                        const input = document.getElementById(`image-upload-input-${index}`)
-                                        input?.click()
-                                      }}
-                                    >
-                                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                        <UploadCloud className="h-5 w-5" />
-                                      </div>
-                                      <span className="text-[11px] font-semibold text-muted-foreground text-center px-2">
-                                        Click or drag image to upload
-                                      </span>
-                                      <input
-                                        id={`image-upload-input-${index}`}
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0]
-                                          if (file) {
-                                            setCropperLineIndex(index)
-                                            const reader = new FileReader()
-                                            reader.onloadend = () => {
-                                              setRawImageSrc(reader.result as string)
-                                              setIsCropperOpen(true)
-                                            }
-                                            reader.readAsDataURL(file)
-                                          }
-                                        }}
-                                      />
-                                    </div>
-                                  )}
+                                  <QuotationItemImageDropzone
+                                    value={watchItems[index]?.customImageUrl}
+                                    onChange={(url) => form.setValue(`items.${index}.customImageUrl`, url, { shouldValidate: true, shouldDirty: true })}
+                                    onRemove={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
+                                    itemIndex={index}
+                                  />
                                 </div>
 
                                 {/* Product Details - Right Side */}
