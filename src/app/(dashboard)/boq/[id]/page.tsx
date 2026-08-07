@@ -94,6 +94,10 @@ const boqSchema = z.object({
       installationCost: z.union([z.number(), z.string()]).optional(),
       transportCost: z.union([z.number(), z.string()]).optional(),
       overheadCost: z.union([z.number(), z.string()]).optional(),
+      factoryCost: z.union([z.number(), z.string()]).optional(),
+      accessoriesCost: z.union([z.number(), z.string()]).optional(),
+      negotiationPercentage: z.union([z.number(), z.string()]).optional(),
+      negotiationAmount: z.union([z.number(), z.string()]).optional(),
     })
   ).min(1, "At least one item is required"),
   vatMode: z.enum(["EXCLUDING", "INCLUDING"]).default("EXCLUDING"),
@@ -1177,6 +1181,7 @@ function NewBOQForm() {
           else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
           else if (watchSegment === "Project") basePrice = matchedProduct.projectPrice || matchedProduct.unitPrice
           else if (watchSegment === "Special") basePrice = matchedProduct.specialPrice || matchedProduct.unitPrice
+
           form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
           const margin = Number(item.margin) || 0
           const marginDecimal = margin / 100
@@ -1227,24 +1232,24 @@ function NewBOQForm() {
     form.setValue(`items.${index}.${fieldName}` as any, parsedVal, { shouldValidate: false, shouldDirty: true })
 
     const currentItem = form.getValues(`items.${index}`) || {}
-    const factory = fieldName === "factoryCost" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(currentItem.factoryCost) || 0)
-    const accessories = fieldName === "accessoriesCost" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(currentItem.accessoriesCost) || 0)
+    const factory = fieldName === "factoryCost" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).factoryCost || 0)) || 0)
+    const accessories = fieldName === "accessoriesCost" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).accessoriesCost || 0)) || 0)
 
-    const basePrice = (factory > 0 || accessories > 0) ? (factory + accessories) : (parseFloat(currentItem.basePrice) || 0)
+    const basePrice = (factory > 0 || accessories > 0) ? (factory + accessories) : (parseFloat(String(currentItem.basePrice || 0)) || 0)
     form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
 
-    const marginPct = fieldName === "margin" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(currentItem.margin) || 0)
+    const marginPct = fieldName === "margin" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String(currentItem.margin || 0)) || 0)
     const preNegPrice = basePrice > 0 ? (basePrice / (1 - Math.min(0.9999, marginPct / 100))) : 0
 
-    let negPct = fieldName === "negotiationPercentage" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(currentItem.negotiationPercentage) || 0)
-    let negAmt = fieldName === "negotiationAmount" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(currentItem.negotiationAmount) || 0)
+    let negPct = fieldName === "negotiationPercentage" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).negotiationPercentage || 0)) || 0)
+    let negAmt = fieldName === "negotiationAmount" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).negotiationAmount || 0)) || 0)
 
     if (fieldName === "negotiationPercentage") {
       negAmt = preNegPrice > 0 ? Number((preNegPrice * (negPct / 100)).toFixed(2)) : 0
-      form.setValue(`items.${index}.negotiationAmount`, negAmt, { shouldValidate: false, shouldDirty: true })
+      form.setValue(`items.${index}.negotiationAmount` as any, negAmt, { shouldValidate: false, shouldDirty: true })
     } else if (fieldName === "negotiationAmount") {
       negPct = preNegPrice > 0 ? Number(((negAmt / preNegPrice) * 100).toFixed(2)) : 0
-      form.setValue(`items.${index}.negotiationPercentage`, negPct, { shouldValidate: false, shouldDirty: true })
+      form.setValue(`items.${index}.negotiationPercentage` as any, negPct, { shouldValidate: false, shouldDirty: true })
     }
 
     const finalUnitPrice = Math.max(0, preNegPrice - negAmt)
@@ -1935,7 +1940,7 @@ function NewBOQForm() {
                 </Button>
               )}
 
-              {(isEstimatorRole || isManagerOrAdmin) && existingQuote?.status === "SENT_TO_ESTIMATOR" && (
+              {(isEstimator || isManagerOrAdmin) && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING") && (
                 <Button
                   type="button"
                   variant="default"
@@ -2816,11 +2821,440 @@ function NewBOQForm() {
                         </div>
                       </div>
 
+
+
                       {(() => {
                         const isCustom = watchItems[index]?.priceSource === "manual" && !watchItems[index]?.productId
                         
                         if (!showDetails) return null;
 
+
+                        if (isCustom) {
+                          return (
+                            <div className="flex flex-col gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                              
+                              {/* TOP ROW: Product Identity */}
+                              <div className="flex flex-col xl:flex-row gap-6">
+                                {/* Image Upload - Left Side */}
+                                <div className="w-full xl:w-48 shrink-0 space-y-2">
+                                  <FormLabel className="text-xs font-semibold text-foreground">Product Image</FormLabel>
+                                  {watchItems[index]?.customImageUrl ? (
+                                    <div className="flex flex-col items-center gap-3 p-3 border rounded-xl bg-muted/30">
+                                      <div className="h-32 w-32 border rounded-lg bg-white overflow-hidden relative flex items-center justify-center shadow-sm">
+                                        <img src={watchItems[index]?.customImageUrl || ""} alt="Preview" className="object-contain h-full w-full" />
+                                        {uploadingImage && cropperLineIndex === index && (
+                                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                            <Loader2 className="h-4 w-4 animate-spin text-white" />
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="flex gap-2 w-full">
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => {
+                                            setCropperLineIndex(index)
+                                            setRawImageSrc(watchItems[index]?.customImageUrl || "")
+                                            setIsCropperOpen(true)
+                                          }}
+                                          className="text-[11px] py-1 h-7 flex-1"
+                                        >
+                                          Crop
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
+                                          className="text-[11px] py-1 h-7 text-destructive hover:bg-destructive/10 hover:text-destructive flex-1"
+                                        >
+                                          Remove
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div
+                                      className={cn(
+                                        "border-2 border-dashed rounded-xl p-4 h-[178px] flex flex-col items-center justify-center gap-3 cursor-pointer transition-all bg-muted/20 hover:bg-muted/40 hover:border-primary/50",
+                                        uploadingImage && cropperLineIndex === index && "opacity-50 pointer-events-none"
+                                      )}
+                                      onDragOver={(e) => e.preventDefault()}
+                                      onDrop={(e) => {
+                                        e.preventDefault()
+                                        const file = e.dataTransfer.files?.[0]
+                                        if (file && file.type.startsWith("image/")) {
+                                          setCropperLineIndex(index)
+                                          const reader = new FileReader()
+                                          reader.onloadend = () => {
+                                            setRawImageSrc(reader.result as string)
+                                            setIsCropperOpen(true)
+                                          }
+                                          reader.readAsDataURL(file)
+                                        }
+                                      }}
+                                      onClick={() => {
+                                        const input = document.getElementById(`image-upload-input-${index}`)
+                                        input?.click()
+                                      }}
+                                    >
+                                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                        <UploadCloud className="h-5 w-5" />
+                                      </div>
+                                      <span className="text-[11px] font-semibold text-muted-foreground text-center px-2">
+                                        Click or drag image to upload
+                                      </span>
+                                      <input
+                                        id={`image-upload-input-${index}`}
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0]
+                                          if (file) {
+                                            setCropperLineIndex(index)
+                                            const reader = new FileReader()
+                                            reader.onloadend = () => {
+                                              setRawImageSrc(reader.result as string)
+                                              setIsCropperOpen(true)
+                                            }
+                                            reader.readAsDataURL(file)
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Product Details - Right Side */}
+                                <div className="flex-1 space-y-4">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.description`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-xs font-semibold text-foreground">Product Name *</FormLabel>
+                                          <FormControl>
+                                            <Input placeholder="Enter product name" {...field} className="bg-muted/10 focus-visible:bg-background" />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                    
+                                    {isAdminOrSuperAdmin && (
+                                      <FormField
+                                        control={form.control}
+                                        name={`items.${index}.saveToCatalog`}
+                                        render={({ field }) => (
+                                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/10 h-[68px] mt-0 md:mt-5">
+                                            <div className="space-y-0.5 flex-1 pr-2">
+                                              <FormLabel className="text-xs font-semibold text-muted-foreground block">Save to Product Catalog</FormLabel>
+                                              <span className="text-[10px] text-muted-foreground block leading-tight">
+                                                Add this custom product to the database.
+                                              </span>
+                                            </div>
+                                            <FormControl>
+                                              <Switch
+                                                checked={field.value || false}
+                                                onCheckedChange={field.onChange}
+                                              />
+                                            </FormControl>
+                                          </FormItem>
+                                        )}
+                                      />
+                                    )}
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.categoryName`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-xs font-semibold text-foreground">Category *</FormLabel>
+                                          <Select
+                                            onValueChange={(val) => {
+                                              field.onChange(val)
+                                              if (val && val.toLowerCase() !== "chairs" && val.toLowerCase() !== "chair") {
+                                                form.setValue(`items.${index}.chairType`, "")
+                                              }
+                                            }}
+                                            value={field.value || (categoryOptions[0] || "Chairs")}
+                                          >
+                                            <FormControl>
+                                              <SelectTrigger className="bg-muted/10 focus:bg-background">
+                                                <SelectValue placeholder="Category" />
+                                              </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                              {categoryOptions.map((catName) => (
+                                                <SelectItem key={catName} value={catName}>
+                                                  {catName === "General" ? "General / Other" : catName}
+                                                </SelectItem>
+                                              ))}
+                                              {field.value && !categoryOptions.includes(field.value) && (
+                                                <SelectItem key={field.value} value={field.value}>
+                                                  {field.value}
+                                                </SelectItem>
+                                              )}
+                                            </SelectContent>
+                                          </Select>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {(watchItems[index]?.categoryName?.toLowerCase() === "chairs" || watchItems[index]?.categoryName?.toLowerCase() === "chair") && (
+                                      <FormField
+                                        control={form.control}
+                                        name={`items.${index}.chairType`}
+                                        render={({ field }) => (
+                                          <FormItem className="space-y-1">
+                                            <FormLabel className="text-xs font-semibold text-foreground">Chair Type *</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value || ""}>
+                                              <FormControl>
+                                                <SelectTrigger className="bg-muted/10 focus:bg-background">
+                                                  <SelectValue placeholder="Chair Type" />
+                                                </SelectTrigger>
+                                              </FormControl>
+                                              <SelectContent>
+                                                <SelectItem value="Task Chair">Task Chair</SelectItem>
+                                                <SelectItem value="Executive Chair">Executive Chair</SelectItem>
+                                                <SelectItem value="Ergonomic Chair">Ergonomic Chair</SelectItem>
+                                                <SelectItem value="Visitor Chair">Visitor Chair</SelectItem>
+                                                <SelectItem value="Lounge Chair">Lounge Chair</SelectItem>
+                                                <SelectItem value="Stool">Stool</SelectItem>
+                                                <SelectItem value="Other">Other</SelectItem>
+                                              </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                          </FormItem>
+                                        )}
+                                      />
+                                    )}
+                                  </div>
+
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.productDescription`}
+                                    render={({ field }) => {
+                                      const valLength = (field.value || "").length
+                                      return (
+                                        <FormItem className="space-y-1">
+                                          <div className="flex justify-between items-center">
+                                            <FormLabel className="text-xs font-semibold text-foreground">Product Description</FormLabel>
+                                            <span className="text-[9px] font-medium text-muted-foreground">
+                                              {valLength} chars
+                                            </span>
+                                          </div>
+                                          <FormControl>
+                                            <Textarea
+                                              placeholder="Premium ergonomic chair designed for long-hour comfort..."
+                                              {...field}
+                                              rows={2}
+                                              className="resize-none bg-muted/10 focus-visible:bg-background text-xs min-h-[50px]"
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )
+                                    }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* MIDDLE ROW: Specs & Notes */}
+                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 bg-muted/10 p-5 rounded-xl border border-border/50">
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.specifications`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1 flex-1 flex flex-col">
+                                      <FormLabel className="text-xs font-semibold text-foreground">BOQ Specifications</FormLabel>
+                                      <FormControl className="flex-1">
+                                        <div className="h-full min-h-[160px]">
+                                          <RichTextEditor
+                                            placeholder="Technical specs, dimensions, materials..."
+                                            value={field.value || ""}
+                                            onChange={(val) => field.onChange(val)}
+                                          />
+                                        </div>
+                                      </FormControl>
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name={`items.${index}.productNotes`}
+                                  render={({ field }) => (
+                                    <FormItem className="space-y-1 h-full flex flex-col">
+                                      <FormLabel className="text-xs font-semibold text-foreground">Special / Customization Notes</FormLabel>
+                                      <FormControl className="flex-1">
+                                        <Textarea
+                                          placeholder="Special instructions or customer specific requirements..."
+                                          {...field}
+                                          className="resize-none bg-background focus-visible:bg-background text-xs h-[160px]"
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              {/* BOTTOM ROW: Pricing & Actions */}
+                              {/* Inject cost breakdown above pricing */}
+
+                              
+                              {/* Cost & Negotiation Breakdown Section for Authorized Roles */}
+                              {(isManagerOrAdmin || isEstimatorRole || canEditCostingBreakdown) && (
+                                <div className="mt-4 bg-orange-50/40 dark:bg-orange-950/20 p-5 rounded-xl border border-orange-500/20 space-y-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Sparkles className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                      <span className="text-sm font-bold text-orange-950 dark:text-orange-200">Cost Structure & Negotiation Breakdown</span>
+                                    </div>
+                                    <Badge variant="outline" className="text-[10px] uppercase font-mono bg-background">
+                                      Authorized Management View
+                                    </Badge>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+                                    {/* Factory Cost */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.factoryCost`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Factory Cost (AED)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className="h-9 text-xs font-mono bg-background border-border"
+                                              value={field.value ?? ""}
+                                              onChange={(val) => handleNewCostChange(index, "factoryCost", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {/* Accessories Cost */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.accessoriesCost`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Accessories Cost (AED)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className="h-9 text-xs font-mono bg-background border-border"
+                                              value={field.value ?? ""}
+                                              onChange={(val) => handleNewCostChange(index, "accessoriesCost", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {/* Base Price (Read-only sum) */}
+                                    <FormItem className="space-y-1">
+                                      <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Base Price (AED)</FormLabel>
+                                      <div className="h-9 px-3 rounded-md bg-muted/60 border border-border flex items-center font-mono text-xs font-semibold text-foreground">
+                                        {(() => {
+                                          const f = Number(watchItems[index]?.factoryCost) || 0
+                                          const a = Number(watchItems[index]?.accessoriesCost) || 0
+                                          const bp = Number(watchItems[index]?.basePrice) || (f + a)
+                                          return bp.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        })()}
+                                      </div>
+                                    </FormItem>
+
+                                    {/* Margin % */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.margin`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Margin (%)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="-100"
+                                              max="99.9"
+                                              step="0.1"
+                                              className="h-9 text-xs font-mono bg-background border-border"
+                                              value={field.value ?? ""}
+                                              onChange={(val) => handleNewCostChange(index, "margin", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {/* Negotiation (%) */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.negotiationPercentage`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Negotiation (%)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              max="100"
+                                              step="0.1"
+                                              className="h-9 text-xs font-mono bg-background border-border"
+                                              value={field.value ?? ""}
+                                              onChange={(val) => handleNewCostChange(index, "negotiationPercentage", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {/* Negotiation Adj (AED) */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.negotiationAmount`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Negotiation Adj (AED)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className="h-9 text-xs font-mono bg-background border-border"
+                                              value={field.value ?? ""}
+                                              onChange={(val) => handleNewCostChange(index, "negotiationAmount", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+
+                              <div className="flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-end bg-primary/[0.03] p-5 rounded-xl border border-primary/10">
+                                <div className="flex flex-col gap-3 w-full xl:w-auto">
+                                  <div className="flex justify-between items-center mb-1">
                                     <div className="flex items-center gap-2">
                                       <span className="text-xs font-bold text-foreground">Pricing Details</span>
                                       <span className="text-amber-600 font-medium text-[10px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Manual Base Price Source</span>

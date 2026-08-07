@@ -94,6 +94,10 @@ const boqSchema = z.object({
       installationCost: z.union([z.number(), z.string()]).optional(),
       transportCost: z.union([z.number(), z.string()]).optional(),
       overheadCost: z.union([z.number(), z.string()]).optional(),
+      factoryCost: z.union([z.number(), z.string()]).optional(),
+      accessoriesCost: z.union([z.number(), z.string()]).optional(),
+      negotiationPercentage: z.union([z.number(), z.string()]).optional(),
+      negotiationAmount: z.union([z.number(), z.string()]).optional(),
     })
   ).min(1, "At least one item is required"),
   vatMode: z.enum(["EXCLUDING", "INCLUDING"]).default("EXCLUDING"),
@@ -1291,6 +1295,70 @@ function NewBOQForm() {
     }
   }
 
+  const [isExportingAdmin, setIsExportingAdmin] = useState(false)
+
+  const handleExportAdminBOQ = async () => {
+    if (!existingQuote?.id) return
+    setIsExportingAdmin(true)
+    try {
+      const res = await fetch(`/api/boq/${existingQuote.id}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isDownloadFormat: true })
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to export Admin BOQ Costing")
+      }
+
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${existingQuote.boqNumber}_Complete_Costing.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success("Admin BOQ Costing exported successfully!")
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Failed to export Admin BOQ Costing")
+    } finally {
+      setIsExportingAdmin(false)
+    }
+  }
+
+  const handleNewCostChange = (index: number, fieldName: string, value: string) => {
+    const parsedVal = value === "" ? "" : (parseFloat(value) || 0)
+    form.setValue(`items.${index}.${fieldName}` as any, parsedVal, { shouldValidate: false, shouldDirty: true })
+
+    const currentItem = form.getValues(`items.${index}`) || {}
+    const factory = fieldName === "factoryCost" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).factoryCost || 0)) || 0)
+    const accessories = fieldName === "accessoriesCost" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).accessoriesCost || 0)) || 0)
+
+    const basePrice = (factory > 0 || accessories > 0) ? (factory + accessories) : (parseFloat(String(currentItem.basePrice || 0)) || 0)
+    form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
+
+    const marginPct = fieldName === "margin" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String(currentItem.margin || 0)) || 0)
+    const preNegPrice = basePrice > 0 ? (basePrice / (1 - Math.min(0.9999, marginPct / 100))) : 0
+
+    let negPct = fieldName === "negotiationPercentage" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).negotiationPercentage || 0)) || 0)
+    let negAmt = fieldName === "negotiationAmount" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).negotiationAmount || 0)) || 0)
+
+    if (fieldName === "negotiationPercentage") {
+      negAmt = preNegPrice > 0 ? Number((preNegPrice * (negPct / 100)).toFixed(2)) : 0
+      form.setValue(`items.${index}.negotiationAmount` as any, negAmt, { shouldValidate: false, shouldDirty: true })
+    } else if (fieldName === "negotiationAmount") {
+      negPct = preNegPrice > 0 ? Number(((negAmt / preNegPrice) * 100).toFixed(2)) : 0
+      form.setValue(`items.${index}.negotiationPercentage` as any, negPct, { shouldValidate: false, shouldDirty: true })
+    }
+
+    const finalUnitPrice = Math.max(0, preNegPrice - negAmt)
+    form.setValue(`items.${index}.unitPrice`, Number(finalUnitPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
+  }
+
   const handleCostBreakdownChange = (index: number, costField: string, val: string) => {
     const parsedVal = val === "" ? 0 : parseFloat(val) || 0
     form.setValue(`items.${index}.${costField}` as any, val === "" ? "" : parsedVal, { shouldValidate: false, shouldDirty: true })
@@ -1871,6 +1939,8 @@ function NewBOQForm() {
                   Export Admin Costing (Excel)
                 </Button>
               )}
+
+              {(isEstimator || isManagerOrAdmin) && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING") && (
                 <Button
                   type="button"
                   variant="default"

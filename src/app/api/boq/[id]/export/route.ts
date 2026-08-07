@@ -206,7 +206,7 @@ export async function POST(
           if (imgRes.ok) {
             const arrayBuffer = await imgRes.arrayBuffer()
             const imageId = workbook.addImage({
-              buffer: Buffer.from(arrayBuffer),
+              buffer: Buffer.from(arrayBuffer) as any,
               extension: imgUrl.toLowerCase().endsWith(".png") ? "png" : "jpeg"
             })
             worksheet.addImage(imageId, {
@@ -269,7 +269,7 @@ export async function POST(
 
     // Write workbook buffer
     const buffer = await workbook.xlsx.writeBuffer()
-    const excelBuffer = Buffer.from(buffer)
+    const excelBuffer = Buffer.from(buffer as any)
 
     let filenameBase = boq.boqNumber
     if (quotationNumber) {
