@@ -1189,8 +1189,9 @@ function NewQuotationForm() {
 
   const handleDuplicateItem = (index: number) => {
     const itemToCopy = form.getValues(`items.${index}`)
+    const { id, ...cleanItem } = (itemToCopy || {}) as any
     insert(index + 1, {
-      ...itemToCopy,
+      ...cleanItem,
     })
     toast.success("Item duplicated")
   }

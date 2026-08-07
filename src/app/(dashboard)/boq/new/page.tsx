@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, useParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical, FileText, Building2, Layers, SlidersHorizontal, DollarSign } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical, FileText, Building2, Layers, SlidersHorizontal, DollarSign, Copy } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -962,6 +962,15 @@ function NewBOQForm() {
 
     setBatches(batches.filter((b) => b.id !== batchId))
     toast.success(`Section "${batch.name}" removed.`)
+  }
+
+  const handleDuplicateItem = (index: number) => {
+    const itemToCopy = form.getValues(`items.${index}`)
+    const { id, ...cleanItem } = (itemToCopy || {}) as any
+    insert(index + 1, {
+      ...cleanItem,
+    })
+    toast.success("Item duplicated")
   }
 
   const handleAddItemToBatch = (batchName: string, isCustom: boolean = false) => {
@@ -3185,6 +3194,16 @@ function NewBOQForm() {
 
                                 {/* Actions */}
                                 <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto shrink-0 mt-2 xl:mt-0 pb-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDuplicateItem(index)}
+                                    className="text-muted-foreground hover:text-foreground h-9 text-[11px] px-3.5 flex items-center gap-1.5 cursor-pointer"
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                    Duplicate Item
+                                  </Button>
                                   {fields.length > 1 && (
                                     <Button
                                       type="button"
@@ -3622,6 +3641,16 @@ function NewBOQForm() {
                                   </div>
                                   
                                   <div className="flex gap-2 w-full">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDuplicateItem(index)}
+                                      className="text-muted-foreground hover:text-foreground flex-1 h-8 text-[11px] flex items-center justify-center gap-1 cursor-pointer"
+                                    >
+                                      <Copy className="h-3.5 w-3.5 mr-1" />
+                                      Duplicate Item
+                                    </Button>
                                     {fields.length > 1 && (
                                       <Button
                                         type="button"
