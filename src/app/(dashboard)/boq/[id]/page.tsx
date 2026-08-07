@@ -1095,7 +1095,7 @@ function NewBOQForm() {
     }
 
     const fromIdx = batches.findIndex((b) => b.id === draggedBatchId)
-    const toIdx = batches.findIndex((b) => b.id === targetId)
+    const toIdx = batches.findIndex((b) => b.id === dropBatchId)
     if (fromIdx === -1 || toIdx === -1) return
 
     const newBatches = [...batches]
