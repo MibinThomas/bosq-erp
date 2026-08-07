@@ -165,9 +165,9 @@ export async function GET(
     // Deduplicate / merge identical items
     const docItems: typeof rawDocItems = []
     rawDocItems.forEach((item) => {
-      const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.description || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}`
+      const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.description || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}|${(item.productDescription || "").trim().toLowerCase()}`
       const existingIdx = docItems.findIndex((d) => {
-        const dKey = `${(d.batchHeading || "").trim().toLowerCase()}|${(d.description || "").trim().toLowerCase()}|${d.unitPrice}|${(d.specifications || "").trim()}`
+        const dKey = `${(d.batchHeading || "").trim().toLowerCase()}|${(d.description || "").trim().toLowerCase()}|${d.unitPrice}|${(d.specifications || "").trim()}|${(d.productDescription || "").trim().toLowerCase()}`
         return dKey === itemKey
       })
 

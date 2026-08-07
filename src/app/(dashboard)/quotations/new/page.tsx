@@ -2591,6 +2591,49 @@ function NewQuotationForm() {
                                       />
                                     )}
                                   </div>
+
+                                  {/* Detailed Product Description Field */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.productDescription`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <div className="flex items-center justify-between">
+                                          <FormLabel className="text-xs font-semibold text-foreground">Detailed Product Description</FormLabel>
+                                          <span className="text-[10px] text-muted-foreground font-normal">Appears in PDF & Preview</span>
+                                        </div>
+                                        <FormControl>
+                                          <Textarea
+                                            placeholder="Enter detailed product description (e.g. materials, mechanism, finish, fabric, warranty...)"
+                                            className="min-h-[75px] text-xs bg-background leading-relaxed"
+                                            {...field}
+                                            value={field.value || ""}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  {/* Technical Specifications / Custom Notes Field */}
+                                  <FormField
+                                    control={form.control}
+                                    name={`items.${index}.specifications`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel className="text-xs font-semibold text-foreground">Technical Specifications / Notes</FormLabel>
+                                        <FormControl>
+                                          <Textarea
+                                            placeholder="Enter technical specifications, custom dimensions, or special instructions..."
+                                            className="min-h-[55px] text-xs bg-background leading-relaxed"
+                                            {...field}
+                                            value={field.value || ""}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
                                 </div>
 
                                 {/* Right Side: Pricing & Margins Grid Controls */}
