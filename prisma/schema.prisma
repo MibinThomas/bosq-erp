@@ -319,6 +319,9 @@ model Boq {
   totalInstallation Float   @default(0.0)
   totalTransport    Float   @default(0.0)
   totalOverhead     Float   @default(0.0)
+  totalFactoryCost  Float   @default(0.0)
+  totalAccessoriesCost Float @default(0.0)
+  totalNegotiationAmount Float @default(0.0)
   totalCost         Float   @default(0.0)
   
   marginAmount      Float   @default(0.0)
@@ -373,10 +376,15 @@ model BoqItem {
   transportCost   Float     @default(0.0)
   overheadCost    Float     @default(0.0)
   
+  factoryCost     Float     @default(0.0)
+  accessoriesCost Float     @default(0.0)
+  
   unitCost        Float     @default(0.0)
   totalCost       Float     @default(0.0)
   
   marginPercentage Float    @default(0.0)
+  negotiationPercentage Float @default(0.0)
+  negotiationAmount Float   @default(0.0)
   unitSellingPrice Float    @default(0.0)
   totalSellingPrice Float   @default(0.0)
   

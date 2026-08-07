@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, useParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical, FileText, Building2, Layers, SlidersHorizontal, DollarSign, Copy } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical, FileText, Building2, Layers, SlidersHorizontal, DollarSign, Copy, FileSpreadsheet } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -774,11 +774,15 @@ function NewBOQForm() {
                   saveToCatalog: false,
                   type: item.type || (item.productId ? "standard" : "custom"),
                   isCostingRequired: item.isCostingRequired ?? true,
+                  factoryCost: item.factoryCost || 0,
+                  accessoriesCost: item.accessoriesCost || 0,
                   materialCost: item.materialCost || 0,
                   laborCost: item.laborCost || 0,
                   installationCost: item.installationCost || 0,
                   transportCost: item.transportCost || 0,
                   overheadCost: item.overheadCost || 0,
+                  negotiationPercentage: item.negotiationPercentage || 0,
+                  negotiationAmount: item.negotiationAmount || 0,
                 }
               }),
               deliveryCharge: activeData.deliveryCharge || 0,
@@ -1854,7 +1858,19 @@ function NewBOQForm() {
                 </>
               )}
 
-              {(isEstimator || isManagerOrAdmin) && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING") && (
+              {isManagerOrAdmin && existingQuote?.id && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportAdminBOQ}
+                  disabled={isExportingAdmin}
+                  className="text-xs font-medium border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  {isExportingAdmin ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />}
+                  Export Admin Costing (Excel)
+                </Button>
+              )}
                 <Button
                   type="button"
                   variant="default"
@@ -3023,36 +3039,144 @@ function NewBOQForm() {
                               {/* Inject cost breakdown above pricing */}
 
                               
-                              {/* Cost Breakdown Section for Estimators */}
-                              {(watchItems[index]?.isCostingRequired || canEditCostingBreakdown) && (
-                                <div className="mt-4 bg-red-50/50 dark:bg-red-950/20 p-5 rounded-xl border border-red-500/20">
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                                    <span className="text-sm font-bold text-red-900 dark:text-red-200">Cost Estimation Breakdown</span>
+                              {/* Cost & Negotiation Breakdown Section for Authorized Roles */}
+                              {(isManagerOrAdmin || isEstimatorRole || canEditCostingBreakdown) && (
+                                <div className="mt-4 bg-orange-50/40 dark:bg-orange-950/20 p-5 rounded-xl border border-orange-500/20 space-y-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Sparkles className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                                      <span className="text-sm font-bold text-orange-950 dark:text-orange-200">Cost Structure & Negotiation Breakdown</span>
+                                    </div>
+                                    <Badge variant="outline" className="text-[10px] uppercase font-mono bg-background">
+                                      Authorized Management View
+                                    </Badge>
                                   </div>
-                                  <div className={cn("flex flex-wrap gap-4")}>
-                                    {["materialCost", "laborCost", "installationCost", "transportCost", "overheadCost"].map((costField) => (
-                                      <FormField
-                                        key={costField}
-                                        control={form.control}
-                                        name={`items.${index}.${costField}` as any}
-                                        render={({ field }) => (
-                                          <FormItem className="space-y-1.5 w-28 shrink-0">
-                                            <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">{costField.replace('Cost', ' Cost')}</FormLabel>
-                                            <FormControl>
-                                              <NumericInput
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                className="h-9 text-xs font-mono bg-background border-border text-foreground"
-                                                value={field.value || ""}
-                                                onChange={(val) => handleCostBreakdownChange(index, costField, val)}
-                                              />
-                                            </FormControl>
-                                          </FormItem>
-                                        )}
-                                      />
-                                    ))}
+
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+                                    {/* Factory Cost */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.factoryCost`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Factory Cost (AED)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className="h-9 text-xs font-mono bg-background border-border"
+                                              value={field.value ?? ""}
+                                              onChange={(val) => handleNewCostChange(index, "factoryCost", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {/* Accessories Cost */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.accessoriesCost`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Accessories Cost (AED)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className="h-9 text-xs font-mono bg-background border-border"
+                                              value={field.value ?? ""}
+                                              onChange={(val) => handleNewCostChange(index, "accessoriesCost", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {/* Base Price (Read-only sum) */}
+                                    <FormItem className="space-y-1">
+                                      <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Base Price (AED)</FormLabel>
+                                      <div className="h-9 px-3 rounded-md bg-muted/60 border border-border flex items-center font-mono text-xs font-semibold text-foreground">
+                                        {(() => {
+                                          const f = Number(watchItems[index]?.factoryCost) || 0
+                                          const a = Number(watchItems[index]?.accessoriesCost) || 0
+                                          const bp = Number(watchItems[index]?.basePrice) || (f + a)
+                                          return bp.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                        })()}
+                                      </div>
+                                    </FormItem>
+
+                                    {/* Margin % */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.margin`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Margin (%)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="-100"
+                                              max="99.9"
+                                              step="0.1"
+                                              className="h-9 text-xs font-mono bg-background border-border"
+                                              value={field.value ?? ""}
+                                              onChange={(val) => handleNewCostChange(index, "margin", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {/* Negotiation (%) */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.negotiationPercentage`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Negotiation (%)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              max="100"
+                                              step="0.1"
+                                              className="h-9 text-xs font-mono bg-background border-border"
+                                              value={field.value ?? ""}
+                                              onChange={(val) => handleNewCostChange(index, "negotiationPercentage", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+
+                                    {/* Negotiation Adj (AED) */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.negotiationAmount`}
+                                      render={({ field }) => (
+                                        <FormItem className="space-y-1">
+                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Negotiation Adj (AED)</FormLabel>
+                                          <FormControl>
+                                            <NumericInput
+                                              type="number"
+                                              min="0"
+                                              step="0.01"
+                                              className="h-9 text-xs font-mono bg-background border-border"
+                                              value={field.value ?? ""}
+                                              onChange={(val) => handleNewCostChange(index, "negotiationAmount", val)}
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
                                   </div>
                                 </div>
                               )}

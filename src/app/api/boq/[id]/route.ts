@@ -142,6 +142,9 @@ export async function PUT(
     let totalInstallation = 0
     let totalTransport = 0
     let totalOverhead = 0
+    let totalFactoryCost = 0
+    let totalAccessoriesCost = 0
+    let totalNegotiationAmount = 0
     let totalCost = 0
     let totalSellingPrice = 0
 
@@ -172,22 +175,39 @@ export async function PUT(
 
       const qty = parseInt(isEstimator ? sourceItem.quantity : incomingItem.quantity) || 1
       
+      const factory = canEditCost ? (parseFloat(incomingItem.factoryCost) || 0) : (parseFloat(sourceItem.factoryCost) || 0)
+      const accessories = canEditCost ? (parseFloat(incomingItem.accessoriesCost) || 0) : (parseFloat(sourceItem.accessoriesCost) || 0)
+
       const mat = canEditCost ? (parseFloat(incomingItem.materialCost) || 0) : (parseFloat(sourceItem.materialCost) || 0)
       const lab = canEditCost ? (parseFloat(incomingItem.laborCost) || 0) : (parseFloat(sourceItem.laborCost) || 0)
       const inst = canEditCost ? (parseFloat(incomingItem.installationCost) || 0) : (parseFloat(sourceItem.installationCost) || 0)
       const trans = canEditCost ? (parseFloat(incomingItem.transportCost) || 0) : (parseFloat(sourceItem.transportCost) || 0)
       const ovh = canEditCost ? (parseFloat(incomingItem.overheadCost) || 0) : (parseFloat(sourceItem.overheadCost) || 0)
       
-      const unitCost = mat + lab + inst + trans + ovh
-      const itemTotalCost = unitCost * qty
-      
+      const legacyUnitCost = mat + lab + inst + trans + ovh
+      const baseCost = (factory > 0 || accessories > 0) ? (factory + accessories) : (parseFloat(incomingItem.basePrice) || legacyUnitCost)
+      const itemTotalCost = baseCost * qty
+
       // Margin and selling price calculation
       const margin = isEstimator ? (parseFloat(sourceItem.marginPercentage) || 0) : Math.min(99.99, parseFloat(incomingItem.marginPercentage ?? incomingItem.margin) || 0)
-      const basePrice = parseFloat(incomingItem.basePrice) || (unitCost > 0 ? unitCost : 0)
-      let unitSell = isEstimator
-        ? (parseFloat(sourceItem.unitSellingPrice) || (unitCost > 0 ? Number((unitCost / (1 - Math.min(0.9999, margin / 100))).toFixed(2)) : 0))
-        : (parseFloat(incomingItem.unitSellingPrice ?? incomingItem.unitPrice) || (basePrice > 0 ? Number((basePrice / (1 - Math.min(0.9999, margin / 100))).toFixed(2)) : 0))
+      const preNegPrice = baseCost > 0 ? Number((baseCost / (1 - Math.min(0.9999, margin / 100))).toFixed(2)) : 0
+
+      let negPct = parseFloat(incomingItem.negotiationPercentage ?? incomingItem.negotiationPct) || 0
+      let negAmt = parseFloat(incomingItem.negotiationAmount ?? incomingItem.negotiationAdj) || (preNegPrice > 0 && negPct > 0 ? Number((preNegPrice * (negPct / 100)).toFixed(2)) : 0)
+
+      if (negAmt > 0 && negPct === 0 && preNegPrice > 0) {
+        negPct = Number(((negAmt / preNegPrice) * 100).toFixed(2))
+      }
+
+      let unitSell = parseFloat(incomingItem.unitSellingPrice ?? incomingItem.unitPrice)
+      if (isNaN(unitSell) || unitSell <= 0) {
+        unitSell = Math.max(0, preNegPrice - negAmt)
+      }
       const itemTotalSell = unitSell * qty
+
+      totalFactoryCost += factory * qty
+      totalAccessoriesCost += accessories * qty
+      totalNegotiationAmount += negAmt * qty
 
       totalMaterialCost += mat * qty
       totalLaborCost += lab * qty
@@ -213,14 +233,18 @@ export async function PUT(
         batchHeading: isEstimator ? sourceItem.batchHeading : (incomingItem.batchHeading || null),
         quantity: qty,
         unit: isEstimator ? sourceItem.unit : (incomingItem.unit || "Nos"),
+        factoryCost: factory,
+        accessoriesCost: accessories,
         materialCost: mat,
         laborCost: lab,
         installationCost: inst,
         transportCost: trans,
         overheadCost: ovh,
-        unitCost: unitCost,
+        unitCost: baseCost,
         totalCost: itemTotalCost,
         marginPercentage: margin,
+        negotiationPercentage: negPct,
+        negotiationAmount: negAmt,
         unitSellingPrice: unitSell,
         totalSellingPrice: itemTotalSell
       }
@@ -244,6 +268,9 @@ export async function PUT(
         totalInstallation,
         totalTransport,
         totalOverhead,
+        totalFactoryCost,
+        totalAccessoriesCost,
+        totalNegotiationAmount,
         totalCost,
         marginAmount,
         totalSellingPrice,

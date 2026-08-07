@@ -5,7 +5,7 @@ import { useRouter, useSearchParams, useParams } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical, FileText, Building2, Layers, SlidersHorizontal, DollarSign, Copy } from "lucide-react"
+import { Plus, Trash2, Save, Send, ArrowLeft, Loader2, Info, Sparkles, Lock, Check, ChevronsUpDown, Search, AlertCircle, RefreshCw, UserPlus, ChevronUp, ChevronDown, GripVertical, FileText, Building2, Layers, SlidersHorizontal, DollarSign, Copy, FileSpreadsheet } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 
@@ -774,11 +774,15 @@ function NewBOQForm() {
                   saveToCatalog: false,
                   type: item.type || (item.productId ? "standard" : "custom"),
                   isCostingRequired: item.isCostingRequired ?? true,
+                  factoryCost: item.factoryCost || 0,
+                  accessoriesCost: item.accessoriesCost || 0,
                   materialCost: item.materialCost || 0,
                   laborCost: item.laborCost || 0,
                   installationCost: item.installationCost || 0,
                   transportCost: item.transportCost || 0,
                   overheadCost: item.overheadCost || 0,
+                  negotiationPercentage: item.negotiationPercentage || 0,
+                  negotiationAmount: item.negotiationAmount || 0,
                 }
               }),
               deliveryCharge: activeData.deliveryCharge || 0,
@@ -1173,7 +1177,6 @@ function NewBOQForm() {
           else if (watchSegment === "Dealer") basePrice = matchedProduct.dealerPrice || matchedProduct.unitPrice
           else if (watchSegment === "Project") basePrice = matchedProduct.projectPrice || matchedProduct.unitPrice
           else if (watchSegment === "Special") basePrice = matchedProduct.specialPrice || matchedProduct.unitPrice
-
           form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
           const margin = Number(item.margin) || 0
           const marginDecimal = margin / 100
@@ -1183,6 +1186,70 @@ function NewBOQForm() {
       }
     })
   }, [watchSegment, products])
+
+  const [isExportingAdmin, setIsExportingAdmin] = useState(false)
+
+  const handleExportAdminBOQ = async () => {
+    if (!existingQuote?.id) return
+    setIsExportingAdmin(true)
+    try {
+      const res = await fetch(`/api/boq/${existingQuote.id}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isDownloadFormat: true })
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Failed to export Admin BOQ Costing")
+      }
+
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${existingQuote.boqNumber}_Complete_Costing.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+      toast.success("Admin BOQ Costing exported successfully!")
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Failed to export Admin BOQ Costing")
+    } finally {
+      setIsExportingAdmin(false)
+    }
+  }
+
+  const handleNewCostChange = (index: number, fieldName: string, value: string) => {
+    const parsedVal = value === "" ? "" : (parseFloat(value) || 0)
+    form.setValue(`items.${index}.${fieldName}` as any, parsedVal, { shouldValidate: false, shouldDirty: true })
+
+    const currentItem = form.getValues(`items.${index}`) || {}
+    const factory = fieldName === "factoryCost" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(currentItem.factoryCost) || 0)
+    const accessories = fieldName === "accessoriesCost" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(currentItem.accessoriesCost) || 0)
+
+    const basePrice = (factory > 0 || accessories > 0) ? (factory + accessories) : (parseFloat(currentItem.basePrice) || 0)
+    form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
+
+    const marginPct = fieldName === "margin" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(currentItem.margin) || 0)
+    const preNegPrice = basePrice > 0 ? (basePrice / (1 - Math.min(0.9999, marginPct / 100))) : 0
+
+    let negPct = fieldName === "negotiationPercentage" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(currentItem.negotiationPercentage) || 0)
+    let negAmt = fieldName === "negotiationAmount" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(currentItem.negotiationAmount) || 0)
+
+    if (fieldName === "negotiationPercentage") {
+      negAmt = preNegPrice > 0 ? Number((preNegPrice * (negPct / 100)).toFixed(2)) : 0
+      form.setValue(`items.${index}.negotiationAmount`, negAmt, { shouldValidate: false, shouldDirty: true })
+    } else if (fieldName === "negotiationAmount") {
+      negPct = preNegPrice > 0 ? Number(((negAmt / preNegPrice) * 100).toFixed(2)) : 0
+      form.setValue(`items.${index}.negotiationPercentage`, negPct, { shouldValidate: false, shouldDirty: true })
+    }
+
+    const finalUnitPrice = Math.max(0, preNegPrice - negAmt)
+    form.setValue(`items.${index}.unitPrice`, Number(finalUnitPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
+  }
 
   const handleProductSelect = (index: number, productId: string | null) => {
     if (!productId) return
@@ -1854,7 +1921,21 @@ function NewBOQForm() {
                 </>
               )}
 
-              {(isEstimator || isManagerOrAdmin) && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING") && (
+              {isManagerOrAdmin && existingQuote?.id && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportAdminBOQ}
+                  disabled={isExportingAdmin}
+                  className="text-xs font-medium border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  {isExportingAdmin ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />}
+                  Export Admin Costing (Excel)
+                </Button>
+              )}
+
+              {(isEstimatorRole || isManagerOrAdmin) && existingQuote?.status === "SENT_TO_ESTIMATOR" && (
                 <Button
                   type="button"
                   variant="default"
@@ -2735,332 +2816,11 @@ function NewBOQForm() {
                         </div>
                       </div>
 
-
-
                       {(() => {
                         const isCustom = watchItems[index]?.priceSource === "manual" && !watchItems[index]?.productId
                         
                         if (!showDetails) return null;
 
-
-                        if (isCustom) {
-                          return (
-                            <div className="flex flex-col gap-6 pt-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                              
-                              {/* TOP ROW: Product Identity */}
-                              <div className="flex flex-col xl:flex-row gap-6">
-                                {/* Image Upload - Left Side */}
-                                <div className="w-full xl:w-48 shrink-0 space-y-2">
-                                  <FormLabel className="text-xs font-semibold text-foreground">Product Image</FormLabel>
-                                  {watchItems[index]?.customImageUrl ? (
-                                    <div className="flex flex-col items-center gap-3 p-3 border rounded-xl bg-muted/30">
-                                      <div className="h-32 w-32 border rounded-lg bg-white overflow-hidden relative flex items-center justify-center shadow-sm">
-                                        <img src={watchItems[index]?.customImageUrl || ""} alt="Preview" className="object-contain h-full w-full" />
-                                        {uploadingImage && cropperLineIndex === index && (
-                                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                            <Loader2 className="h-4 w-4 animate-spin text-white" />
-                                          </div>
-                                        )}
-                                      </div>
-                                      <div className="flex gap-2 w-full">
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => {
-                                            setCropperLineIndex(index)
-                                            setRawImageSrc(watchItems[index]?.customImageUrl || "")
-                                            setIsCropperOpen(true)
-                                          }}
-                                          className="text-[11px] py-1 h-7 flex-1"
-                                        >
-                                          Crop
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
-                                          className="text-[11px] py-1 h-7 text-destructive hover:bg-destructive/10 hover:text-destructive flex-1"
-                                        >
-                                          Remove
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div
-                                      className={cn(
-                                        "border-2 border-dashed rounded-xl p-4 h-[178px] flex flex-col items-center justify-center gap-3 cursor-pointer transition-all bg-muted/20 hover:bg-muted/40 hover:border-primary/50",
-                                        uploadingImage && cropperLineIndex === index && "opacity-50 pointer-events-none"
-                                      )}
-                                      onDragOver={(e) => e.preventDefault()}
-                                      onDrop={(e) => {
-                                        e.preventDefault()
-                                        const file = e.dataTransfer.files?.[0]
-                                        if (file && file.type.startsWith("image/")) {
-                                          setCropperLineIndex(index)
-                                          const reader = new FileReader()
-                                          reader.onloadend = () => {
-                                            setRawImageSrc(reader.result as string)
-                                            setIsCropperOpen(true)
-                                          }
-                                          reader.readAsDataURL(file)
-                                        }
-                                      }}
-                                      onClick={() => {
-                                        const input = document.getElementById(`image-upload-input-${index}`)
-                                        input?.click()
-                                      }}
-                                    >
-                                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                                        <UploadCloud className="h-5 w-5" />
-                                      </div>
-                                      <span className="text-[11px] font-semibold text-muted-foreground text-center px-2">
-                                        Click or drag image to upload
-                                      </span>
-                                      <input
-                                        id={`image-upload-input-${index}`}
-                                        type="file"
-                                        accept="image/*"
-                                        className="hidden"
-                                        onChange={(e) => {
-                                          const file = e.target.files?.[0]
-                                          if (file) {
-                                            setCropperLineIndex(index)
-                                            const reader = new FileReader()
-                                            reader.onloadend = () => {
-                                              setRawImageSrc(reader.result as string)
-                                              setIsCropperOpen(true)
-                                            }
-                                            reader.readAsDataURL(file)
-                                          }
-                                        }}
-                                      />
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Product Details - Right Side */}
-                                <div className="flex-1 space-y-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.description`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-xs font-semibold text-foreground">Product Name *</FormLabel>
-                                          <FormControl>
-                                            <Input placeholder="Enter product name" {...field} className="bg-muted/10 focus-visible:bg-background" />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-                                    
-                                    {isAdminOrSuperAdmin && (
-                                      <FormField
-                                        control={form.control}
-                                        name={`items.${index}.saveToCatalog`}
-                                        render={({ field }) => (
-                                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/10 h-[68px] mt-0 md:mt-5">
-                                            <div className="space-y-0.5 flex-1 pr-2">
-                                              <FormLabel className="text-xs font-semibold text-muted-foreground block">Save to Product Catalog</FormLabel>
-                                              <span className="text-[10px] text-muted-foreground block leading-tight">
-                                                Add this custom product to the database.
-                                              </span>
-                                            </div>
-                                            <FormControl>
-                                              <Switch
-                                                checked={field.value || false}
-                                                onCheckedChange={field.onChange}
-                                              />
-                                            </FormControl>
-                                          </FormItem>
-                                        )}
-                                      />
-                                    )}
-                                  </div>
-
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.categoryName`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-xs font-semibold text-foreground">Category *</FormLabel>
-                                          <Select
-                                            onValueChange={(val) => {
-                                              field.onChange(val)
-                                              if (val && val.toLowerCase() !== "chairs" && val.toLowerCase() !== "chair") {
-                                                form.setValue(`items.${index}.chairType`, "")
-                                              }
-                                            }}
-                                            value={field.value || (categoryOptions[0] || "Chairs")}
-                                          >
-                                            <FormControl>
-                                              <SelectTrigger className="bg-muted/10 focus:bg-background">
-                                                <SelectValue placeholder="Category" />
-                                              </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                              {categoryOptions.map((catName) => (
-                                                <SelectItem key={catName} value={catName}>
-                                                  {catName === "General" ? "General / Other" : catName}
-                                                </SelectItem>
-                                              ))}
-                                              {field.value && !categoryOptions.includes(field.value) && (
-                                                <SelectItem key={field.value} value={field.value}>
-                                                  {field.value}
-                                                </SelectItem>
-                                              )}
-                                            </SelectContent>
-                                          </Select>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {(watchItems[index]?.categoryName?.toLowerCase() === "chairs" || watchItems[index]?.categoryName?.toLowerCase() === "chair") && (
-                                      <FormField
-                                        control={form.control}
-                                        name={`items.${index}.chairType`}
-                                        render={({ field }) => (
-                                          <FormItem className="space-y-1">
-                                            <FormLabel className="text-xs font-semibold text-foreground">Chair Type *</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value || ""}>
-                                              <FormControl>
-                                                <SelectTrigger className="bg-muted/10 focus:bg-background">
-                                                  <SelectValue placeholder="Chair Type" />
-                                                </SelectTrigger>
-                                              </FormControl>
-                                              <SelectContent>
-                                                <SelectItem value="Task Chair">Task Chair</SelectItem>
-                                                <SelectItem value="Executive Chair">Executive Chair</SelectItem>
-                                                <SelectItem value="Ergonomic Chair">Ergonomic Chair</SelectItem>
-                                                <SelectItem value="Visitor Chair">Visitor Chair</SelectItem>
-                                                <SelectItem value="Lounge Chair">Lounge Chair</SelectItem>
-                                                <SelectItem value="Stool">Stool</SelectItem>
-                                                <SelectItem value="Other">Other</SelectItem>
-                                              </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                          </FormItem>
-                                        )}
-                                      />
-                                    )}
-                                  </div>
-
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.productDescription`}
-                                    render={({ field }) => {
-                                      const valLength = (field.value || "").length
-                                      return (
-                                        <FormItem className="space-y-1">
-                                          <div className="flex justify-between items-center">
-                                            <FormLabel className="text-xs font-semibold text-foreground">Product Description</FormLabel>
-                                            <span className="text-[9px] font-medium text-muted-foreground">
-                                              {valLength} chars
-                                            </span>
-                                          </div>
-                                          <FormControl>
-                                            <Textarea
-                                              placeholder="Premium ergonomic chair designed for long-hour comfort..."
-                                              {...field}
-                                              rows={2}
-                                              className="resize-none bg-muted/10 focus-visible:bg-background text-xs min-h-[50px]"
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )
-                                    }}
-                                  />
-                                </div>
-                              </div>
-
-                              {/* MIDDLE ROW: Specs & Notes */}
-                              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 bg-muted/10 p-5 rounded-xl border border-border/50">
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.specifications`}
-                                  render={({ field }) => (
-                                    <FormItem className="space-y-1 flex-1 flex flex-col">
-                                      <FormLabel className="text-xs font-semibold text-foreground">BOQ Specifications</FormLabel>
-                                      <FormControl className="flex-1">
-                                        <div className="h-full min-h-[160px]">
-                                          <RichTextEditor
-                                            placeholder="Technical specs, dimensions, materials..."
-                                            value={field.value || ""}
-                                            onChange={(val) => field.onChange(val)}
-                                          />
-                                        </div>
-                                      </FormControl>
-                                    </FormItem>
-                                  )}
-                                />
-
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.productNotes`}
-                                  render={({ field }) => (
-                                    <FormItem className="space-y-1 h-full flex flex-col">
-                                      <FormLabel className="text-xs font-semibold text-foreground">Special / Customization Notes</FormLabel>
-                                      <FormControl className="flex-1">
-                                        <Textarea
-                                          placeholder="Special instructions or customer specific requirements..."
-                                          {...field}
-                                          className="resize-none bg-background focus-visible:bg-background text-xs h-[160px]"
-                                        />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-
-                              {/* BOTTOM ROW: Pricing & Actions */}
-                              {/* Inject cost breakdown above pricing */}
-
-                              
-                              {/* Cost Breakdown Section for Estimators */}
-                              {(watchItems[index]?.isCostingRequired || canEditCostingBreakdown) && (
-                                <div className="mt-4 bg-red-50/50 dark:bg-red-950/20 p-5 rounded-xl border border-red-500/20">
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
-                                    <span className="text-sm font-bold text-red-900 dark:text-red-200">Cost Estimation Breakdown</span>
-                                  </div>
-                                  <div className="flex flex-wrap gap-4">
-                                    {["materialCost", "laborCost", "installationCost", "transportCost", "overheadCost"].map((costField) => (
-                                      <FormField
-                                        key={costField}
-                                        control={form.control}
-                                        name={`items.${index}.${costField}` as any}
-                                        render={({ field }) => (
-                                          <FormItem className="space-y-1.5 w-28 shrink-0">
-                                            <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">{costField.replace('Cost', ' Cost')}</FormLabel>
-                                            <FormControl>
-                                              <NumericInput
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                className="h-9 text-xs font-mono bg-background border-border text-foreground"
-                                                value={field.value || ""}
-                                                onChange={(val) => handleCostBreakdownChange(index, costField, val)}
-                                              />
-                                            </FormControl>
-                                          </FormItem>
-                                        )}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-
-
-                              <div className="flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-end bg-primary/[0.03] p-5 rounded-xl border border-primary/10">
-                                <div className="flex flex-col gap-3 w-full xl:w-auto">
-                                  <div className="flex justify-between items-center mb-1">
                                     <div className="flex items-center gap-2">
                                       <span className="text-xs font-bold text-foreground">Pricing Details</span>
                                       <span className="text-amber-600 font-medium text-[10px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">Manual Base Price Source</span>
