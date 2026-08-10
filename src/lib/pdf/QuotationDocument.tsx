@@ -628,14 +628,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
   const hasAdditionalCost = Number(deliveryCharge) > 0
   const hasDiscount = Number(discount) > 0
-  const hasItemLevelDiscount = items.some(item => Number(item.discount) > 0)
-  const hasAnyDiscount = hasDiscount || hasItemLevelDiscount
-  const hasTaxableSubtotal = hasAdditionalCost || hasAnyDiscount
-
-  const subtotalAfterAdditional = subtotal + Number(deliveryCharge)
-  const grossProductsSubtotal = items.reduce((acc, item) => acc + ((Number(item.unitPrice) || 0) * (Number(item.quantity) || 1)), 0)
-  const grossSubtotalAfterAdditional = grossProductsSubtotal + Number(deliveryCharge)
   const discountAmount = Number(discount) || 0
+  const subtotalAfterAdditional = subtotal + Number(deliveryCharge)
   const taxableSubtotal = Math.max(0, subtotalAfterAdditional - discountAmount)
 
   const sanitizeHtmlToText = (html: string) => {
@@ -1260,28 +1254,24 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 ));
               })()}
 
-              {hasAnyDiscount && (
-                <View style={styles.financialRow}>
-                  <Text style={[styles.financialLabel, { fontWeight: "bold", color: colors.primary }]}>Subtotal Before Discount</Text>
-                  <Text style={styles.financialValue}>AED {formatCurrency(grossSubtotalAfterAdditional)}</Text>
-                </View>
-              )}
-
               {hasDiscount && (
-                <View style={styles.financialRow}>
-                  <Text style={[styles.financialLabel, { color: "#dc2626" }]}>
-                    Discount {specialDiscountType === "PERCENTAGE" && `(${specialDiscountValue}%)`}
-                    {specialDiscountReason && <Text style={{ fontSize: 7, color: colors.lightText }}> - {specialDiscountReason}</Text>}
-                  </Text>
-                  <Text style={[styles.financialValue, { color: "#dc2626" }]}>- AED {formatCurrency(discountAmount)}</Text>
-                </View>
-              )}
-
-              {hasTaxableSubtotal && (
-                <View style={styles.financialRow}>
-                  <Text style={[styles.financialLabel, { fontWeight: "bold", color: colors.primary }]}>Net Subtotal</Text>
-                  <Text style={styles.financialValue}>AED {formatCurrency(taxableSubtotal)}</Text>
-                </View>
+                <>
+                  <View style={styles.financialRow}>
+                    <Text style={[styles.financialLabel, { fontWeight: "bold", color: colors.primary }]}>Subtotal Before Discount</Text>
+                    <Text style={styles.financialValue}>AED {formatCurrency(subtotalAfterAdditional)}</Text>
+                  </View>
+                  <View style={styles.financialRow}>
+                    <Text style={[styles.financialLabel, { color: "#dc2626" }]}>
+                      Discount {specialDiscountType === "PERCENTAGE" && `(${specialDiscountValue}%)`}
+                      {specialDiscountReason && <Text style={{ fontSize: 7, color: colors.lightText }}> - {specialDiscountReason}</Text>}
+                    </Text>
+                    <Text style={[styles.financialValue, { color: "#dc2626" }]}>- AED {formatCurrency(discountAmount)}</Text>
+                  </View>
+                  <View style={styles.financialRow}>
+                    <Text style={[styles.financialLabel, { fontWeight: "bold", color: colors.primary }]}>Net Subtotal</Text>
+                    <Text style={styles.financialValue}>AED {formatCurrency(taxableSubtotal)}</Text>
+                  </View>
+                </>
               )}
 
               {vatMode === "EXCLUDING" && (
