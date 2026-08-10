@@ -2615,16 +2615,16 @@ function NewQuotationForm() {
                                     )}
                                   />
 
-                                  {/* Technical Specifications / Custom Notes Field */}
+                                  {/* Special Notes Field */}
                                   <FormField
                                     control={form.control}
                                     name={`items.${index}.specifications`}
                                     render={({ field }) => (
                                       <FormItem>
-                                        <FormLabel className="text-xs font-semibold text-foreground">Technical Specifications / Notes</FormLabel>
+                                        <FormLabel className="text-xs font-semibold text-foreground">Special Notes</FormLabel>
                                         <FormControl>
                                           <Textarea
-                                            placeholder="Enter technical specifications, custom dimensions, or special instructions..."
+                                            placeholder="Enter special notes or instructions..."
                                             className="min-h-[55px] text-xs bg-background leading-relaxed"
                                             {...field}
                                             value={field.value || ""}
