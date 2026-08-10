@@ -1097,14 +1097,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
                         {/* Qty, Price, Total */}
                         <Text style={styles.colQty}>{item.quantity}</Text>
-                        <View style={styles.colPrice}>
-                          <Text style={{ textAlign: "right" }}>{formatCurrency(item.unitPrice)}</Text>
-                          {item.discount > 0 && (
-                            <Text style={{ fontSize: 5.5, color: "#dc2626", textAlign: "right", marginTop: 1 }}>
-                              -AED {formatCurrency(item.discount)}
-                            </Text>
-                          )}
-                        </View>
+                        <Text style={styles.colPrice}>
+                          {formatCurrency(item.quantity > 0 ? item.amount / item.quantity : item.unitPrice)}
+                        </Text>
                         <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
                       </View>
                     ))}
@@ -1155,14 +1150,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
                       {/* Qty, Price, Total */}
                       <Text style={styles.colQty}>{item.quantity}</Text>
-                      <View style={styles.colPrice}>
-                        <Text style={{ textAlign: "right" }}>{formatCurrency(item.unitPrice)}</Text>
-                        {item.discount > 0 && (
-                          <Text style={{ fontSize: 5.5, color: "#dc2626", textAlign: "right", marginTop: 1 }}>
-                            -AED {formatCurrency(item.discount)}
-                          </Text>
-                        )}
-                      </View>
+                      <Text style={styles.colPrice}>
+                        {formatCurrency(item.quantity > 0 ? item.amount / item.quantity : item.unitPrice)}
+                      </Text>
                       <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
                     </View>
                   ))}
@@ -1213,14 +1203,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
                     {/* Qty, Price, Total */}
                     <Text style={styles.colQty}>{item.quantity}</Text>
-                    <View style={styles.colPrice}>
-                      <Text style={{ textAlign: "right" }}>{formatCurrency(item.unitPrice)}</Text>
-                      {item.discount > 0 && (
-                        <Text style={{ fontSize: 5.5, color: "#dc2626", textAlign: "right", marginTop: 1 }}>
-                          -AED {formatCurrency(item.discount)}
-                        </Text>
-                      )}
-                    </View>
+                    <Text style={styles.colPrice}>
+                      {formatCurrency(item.quantity > 0 ? item.amount / item.quantity : item.unitPrice)}
+                    </Text>
                     <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
                   </View>
                 ))
@@ -1246,27 +1231,10 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             <View style={styles.financialHeader}>
               <Text style={styles.financialTitle}>Cost Breakdown</Text>
             </View>
-            {hasItemLevelDiscount ? (
-              <>
-                <View style={styles.financialRow}>
-                  <Text style={styles.financialLabel}>Products Subtotal (Gross)</Text>
-                  <Text style={styles.financialValue}>AED {formatCurrency(grossProductsSubtotal)}</Text>
-                </View>
-                <View style={styles.financialRow}>
-                  <Text style={[styles.financialLabel, { color: "#dc2626" }]}>Item Discounts</Text>
-                  <Text style={[styles.financialValue, { color: "#dc2626" }]}>- AED {formatCurrency(grossProductsSubtotal - subtotal)}</Text>
-                </View>
-                <View style={styles.financialRow}>
-                  <Text style={[styles.financialLabel, { fontWeight: "bold" }]}>Products Subtotal (Net)</Text>
-                  <Text style={styles.financialValue}>AED {formatCurrency(subtotal)}</Text>
-                </View>
-              </>
-            ) : (
-              <View style={styles.financialRow}>
-                <Text style={styles.financialLabel}>Products Subtotal</Text>
-                <Text style={styles.financialValue}>AED {formatCurrency(subtotal)}</Text>
-              </View>
-            )}
+            <View style={styles.financialRow}>
+              <Text style={styles.financialLabel}>Products Subtotal</Text>
+              <Text style={styles.financialValue}>AED {formatCurrency(subtotal)}</Text>
+            </View>
 
               {(() => {
                 const charges = Array.isArray(additionalCharges) ? additionalCharges : [];
