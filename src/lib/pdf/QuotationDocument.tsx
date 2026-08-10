@@ -162,30 +162,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#fab48a", // Custom orange separator
-    paddingTop: 12,
-    paddingBottom: 14,
-    alignItems: "flex-start", // Align columns to top
+    paddingTop: 10,
+    paddingBottom: 12,
+    alignItems: "stretch", // Stretch columns to match full row height
+    minHeight: 140, // Catalog layout: ample vertical height for prominent image
   },
-  colDesc: { width: "40%", paddingRight: 15 },
-  colImage: { width: "33%", overflow: "hidden" },
-  colQty: { width: "7%", textAlign: "center" },
-  colPrice: { width: "10%", textAlign: "right" },
-  colAmount: { width: "10%", textAlign: "right" },
+  colDesc: { width: "40%", paddingRight: 12, justifyContent: "flex-start" },
+  colImage: { width: "36%", alignSelf: "stretch", overflow: "hidden", paddingHorizontal: 4, alignItems: "center", justifyContent: "center" },
+  colQty: { width: "6%", textAlign: "center" },
+  colPrice: { width: "9%", textAlign: "right" },
+  colAmount: { width: "9%", textAlign: "right" },
 
   itemTitle: {
     fontSize: 9.5,
     fontWeight: "bold",
     color: colors.primary,
-    marginBottom: 4,
+    marginBottom: 3,
     lineHeight: 1.2,
     maxLines: 2,
   },
   itemCategory: {
-    fontSize: 6,
+    fontSize: 6.5,
     fontWeight: "bold",
-    color: "#58595B",
+    color: "#1e3a8a", // Refined blue like reference catalog
     textTransform: "uppercase",
-    marginBottom: 1,
+    marginBottom: 3,
     letterSpacing: 0.8,
   },
   itemDescText: {
@@ -217,8 +218,11 @@ const styles = StyleSheet.create({
 
   productImage: {
     width: "100%",
-    height: 120,
+    height: "100%",
+    maxHeight: 220,
+    minHeight: 120,
     objectFit: "contain",
+    objectPosition: "center",
   },
 
   // Financial Summary Box (Full Width)
@@ -760,17 +764,17 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               if (!cleanVal) return null;
 
               return (
-                <View key={`spec-${idx}`} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 1 }}>
+                <View key={`spec-${idx}`} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 1.5 }}>
                   {cleanKey ? (
                     <>
-                      <Text style={{ fontWeight: "bold", color: keyColor, marginRight: 3, flexShrink: 0, fontSize: 4.6, lineHeight: 1.2 }}>{cleanKey}:</Text>
+                      <Text style={{ fontWeight: "bold", color: keyColor, marginRight: 3, flexShrink: 0, fontSize: 5.8, lineHeight: 1.3 }}>{cleanKey}:</Text>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: textColor, fontSize: 4.6, lineHeight: 1.2 }}>{cleanVal}</Text>
+                        <Text style={{ color: textColor, fontSize: 5.8, lineHeight: 1.3 }}>{cleanVal}</Text>
                       </View>
                     </>
                   ) : (
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: textColor, fontSize: 4.6, lineHeight: 1.2 }}>{cleanVal}</Text>
+                      <Text style={{ color: textColor, fontSize: 5.8, lineHeight: 1.3 }}>{cleanVal}</Text>
                     </View>
                   )}
                 </View>
@@ -781,13 +785,13 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         
         {remarksLines.length > 0 && (
           <View style={{ marginTop: 2, flexDirection: "row", alignItems: "flex-start" }}>
-            <Text style={{ fontWeight: "bold", fontSize: 4.6, color: colors.accent, marginRight: 4, lineHeight: 1.2 }}>Remarks:</Text>
+            <Text style={{ fontWeight: "bold", fontSize: 5.8, color: colors.accent, marginRight: 4, lineHeight: 1.3 }}>Remarks:</Text>
             <View style={{ flex: 1 }}>
               {remarksLines.map((r, i) => {
                 const cleanRemark = r ? r.trim() : "";
                 if (!cleanRemark) return null;
                 return (
-                  <Text key={i} style={{ fontSize: 4.6, color: colors.secondary, marginBottom: 1, lineHeight: 1.2 }}>{cleanRemark}</Text>
+                  <Text key={i} style={{ fontSize: 5.8, color: colors.secondary, marginBottom: 1, lineHeight: 1.3 }}>{cleanRemark}</Text>
                 );
               })}
             </View>
@@ -1082,11 +1086,11 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                         </View>
 
                         {/* Product Image */}
-                        <View style={[styles.colImage, { alignItems: "center", justifyContent: "center" }]}>
+                        <View style={[styles.colImage, { alignItems: "center", justifyContent: "center", alignSelf: "stretch" }]}>
                           {item.imageUrl ? (
                             <PdfImage src={item.imageUrl} style={styles.productImage} />
                           ) : (
-                            <View style={{ width: "100%", height: 100, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                            <View style={{ width: "100%", height: "100%", minHeight: 120, maxHeight: 220, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
                               <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                             </View>
                           )}
@@ -1133,11 +1137,11 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                       </View>
 
                       {/* Product Image */}
-                      <View style={[styles.colImage, { alignItems: "center", justifyContent: "center" }]}>
+                      <View style={[styles.colImage, { alignItems: "center", justifyContent: "center", alignSelf: "stretch" }]}>
                         {item.imageUrl ? (
                           <PdfImage src={item.imageUrl} style={styles.productImage} />
                         ) : (
-                          <View style={{ width: "100%", height: 100, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                          <View style={{ width: "100%", height: "100%", minHeight: 120, maxHeight: 220, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
                             <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                           </View>
                         )}
@@ -1184,11 +1188,11 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                     </View>
 
                     {/* Product Image */}
-                    <View style={[styles.colImage, { alignItems: "center", justifyContent: "center" }]}>
+                    <View style={[styles.colImage, { alignItems: "center", justifyContent: "center", alignSelf: "stretch" }]}>
                       {item.imageUrl ? (
                         <PdfImage src={item.imageUrl} style={styles.productImage} />
                       ) : (
-                        <View style={{ width: "100%", height: 100, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                        <View style={{ width: "100%", height: "100%", minHeight: 120, maxHeight: 220, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
                           <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                         </View>
                       )}
