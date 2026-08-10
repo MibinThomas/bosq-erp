@@ -2618,7 +2618,7 @@ function NewQuotationForm() {
                                   {/* Special Notes Field */}
                                   <FormField
                                     control={form.control}
-                                    name={`items.${index}.specifications`}
+                                    name={`items.${index}.productNotes`}
                                     render={({ field }) => (
                                       <FormItem>
                                         <FormLabel className="text-xs font-semibold text-foreground">Special Notes</FormLabel>
