@@ -166,11 +166,11 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     alignItems: "flex-start", // All columns start from top position
   },
-  colDesc: { width: "38%", paddingRight: 10, justifyContent: "flex-start" },
-  colImage: { width: "34%", paddingHorizontal: 4, alignItems: "flex-start", justifyContent: "flex-start" },
-  colQty: { width: "7%", textAlign: "center" },
-  colPrice: { width: "10%", textAlign: "right" },
-  colAmount: { width: "11%", textAlign: "right" },
+  colDesc: { width: "36%", paddingRight: 10, justifyContent: "flex-start" },
+  colImage: { width: "40%", paddingHorizontal: 2, alignItems: "center", justifyContent: "flex-start" },
+  colQty: { width: "6%", textAlign: "center" },
+  colPrice: { width: "9%", textAlign: "right" },
+  colAmount: { width: "9%", textAlign: "right" },
 
   itemTitle: {
     fontSize: 9.5,
@@ -217,9 +217,11 @@ const styles = StyleSheet.create({
 
   productImage: {
     width: "100%",
-    maxHeight: 145,
-    objectFit: "contain",
-    objectPosition: "left top",
+    height: 175,
+    maxHeight: 185,
+    objectFit: "cover",
+    objectPosition: "center",
+    borderRadius: 2,
   },
 
   // Financial Summary Box (Full Width)
@@ -1087,7 +1089,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                           {item.imageUrl ? (
                             <PdfImage src={item.imageUrl} style={styles.productImage} />
                           ) : (
-                            <View style={{ width: "100%", height: 100, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                            <View style={{ width: "100%", height: 140, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
                               <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                             </View>
                           )}
@@ -1138,7 +1140,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                         {item.imageUrl ? (
                           <PdfImage src={item.imageUrl} style={styles.productImage} />
                         ) : (
-                          <View style={{ width: "100%", height: 100, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                          <View style={{ width: "100%", height: 140, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
                             <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                           </View>
                         )}
@@ -1189,7 +1191,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                       {item.imageUrl ? (
                         <PdfImage src={item.imageUrl} style={styles.productImage} />
                       ) : (
-                        <View style={{ width: "100%", height: 100, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                        <View style={{ width: "100%", height: 140, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
                           <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                         </View>
                       )}
