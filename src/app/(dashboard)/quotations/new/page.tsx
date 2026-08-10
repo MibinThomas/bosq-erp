@@ -592,7 +592,7 @@ function NewQuotationForm() {
   const handleDragStart = (e: React.DragEvent, index: number) => {
     e.stopPropagation()
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', index.toString())
+    e.dataTransfer.setData('text/plain', `item-${index}`)
     setDraggedIndex(index)
   }
 
@@ -603,6 +603,13 @@ function NewQuotationForm() {
     if (draggedIndex !== null && draggedIndex !== index) {
       setDragOverIndex(index)
     }
+  }
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null)
+    setDragOverIndex(null)
+    setDraggedBatchId(null)
+    setDragOverBatchId(null)
   }
 
   const handleDrop = (e: React.DragEvent, dropIndex: number, targetBatchName?: string) => {
@@ -632,31 +639,41 @@ function NewQuotationForm() {
       }
     }
 
-    if (draggedIndex === null || draggedIndex === dropIndex) {
-      setDraggedIndex(null)
-      setDragOverIndex(null)
+    if (draggedIndex === null) {
+      handleDragEnd()
       return
     }
 
     const currentItems = [...form.getValues("items")]
     const draggedItem = { ...currentItems[draggedIndex] }
-    
-    if (targetBatchName !== undefined) {
-      draggedItem.batchHeading = targetBatchName === "General Items" ? "" : targetBatchName
-    }
+    const oldBatchHeading = draggedItem.batchHeading || "General Items"
+    const newBatchHeading = targetBatchName ? (targetBatchName === "General Items" ? "" : targetBatchName) : draggedItem.batchHeading
+
+    draggedItem.batchHeading = newBatchHeading
 
     currentItems.splice(draggedIndex, 1)
-    currentItems.splice(dropIndex, 0, draggedItem)
+
+    // Calculate insertion index
+    let insertIndex = dropIndex
+    if (draggedIndex < dropIndex) {
+      insertIndex = Math.max(0, dropIndex - 1)
+    }
+    
+    currentItems.splice(insertIndex, 0, draggedItem)
 
     form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
-    setDraggedIndex(null)
-    setDragOverIndex(null)
+    handleDragEnd()
+
+    const formattedTargetName = targetBatchName || "General Items"
+    if (oldBatchHeading !== formattedTargetName) {
+      toast.success(`Moved product to section "${formattedTargetName}"`)
+    }
   }
 
   const handleBatchDragStart = (e: React.DragEvent, batchId: string) => {
     e.stopPropagation()
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', batchId)
+    e.dataTransfer.setData('text/plain', `batch-${batchId}`)
     setDraggedBatchId(batchId)
   }
 
@@ -666,22 +683,64 @@ function NewQuotationForm() {
     e.dataTransfer.dropEffect = 'move'
     if (draggedBatchId !== null && draggedBatchId !== batchId) {
       setDragOverBatchId(batchId)
+    } else if (draggedIndex !== null) {
+      setDragOverBatchId(batchId)
     }
   }
 
-  const handleBatchDrop = (e: React.DragEvent, dropBatchId: string) => {
+  const handleBatchDrop = (e: React.DragEvent, dropBatchId: string, dropBatchName: string) => {
     e.preventDefault()
     e.stopPropagation()
+
+    // 1. Handle item drop onto section container
+    if (draggedIndex !== null) {
+      const currentItems = [...form.getValues("items")]
+      const draggedItem = { ...currentItems[draggedIndex] }
+      const oldBatchHeading = draggedItem.batchHeading || "General Items"
+      const newBatchHeading = dropBatchName === "General Items" ? "" : dropBatchName
+
+      draggedItem.batchHeading = newBatchHeading
+
+      // Remove item from old position
+      currentItems.splice(draggedIndex, 1)
+
+      // Find the last item belonging to dropBatchName
+      let lastItemIndex = -1
+      currentItems.forEach((item, idx) => {
+        const itemBatch = item.batchHeading || "General Items"
+        if ((dropBatchName === "General Items" && (!item.batchHeading || item.batchHeading === "General Items")) || itemBatch === dropBatchName) {
+          lastItemIndex = idx
+        }
+      })
+
+      if (lastItemIndex !== -1) {
+        currentItems.splice(lastItemIndex + 1, 0, draggedItem)
+      } else {
+        currentItems.push(draggedItem)
+      }
+
+      form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
+      handleDragEnd()
+
+      if (oldBatchHeading !== dropBatchName) {
+        toast.success(`Moved product to section "${dropBatchName}"`)
+      }
+      return
+    }
+
+    // 2. Handle section reordering
     if (draggedBatchId === null || draggedBatchId === dropBatchId) {
-      setDraggedBatchId(null)
-      setDragOverBatchId(null)
+      handleDragEnd()
       return
     }
 
     const draggedBatchIndex = batches.findIndex(b => b.id === draggedBatchId)
     const dropBatchIndex = batches.findIndex(b => b.id === dropBatchId)
 
-    if (draggedBatchIndex === -1 || dropBatchIndex === -1) return
+    if (draggedBatchIndex === -1 || dropBatchIndex === -1) {
+      handleDragEnd()
+      return
+    }
 
     const updatedBatches = [...batches]
     const [draggedBatch] = updatedBatches.splice(draggedBatchIndex, 1)
@@ -700,8 +759,7 @@ function NewQuotationForm() {
     reorderedItems.push(...unassignedItems)
 
     form.setValue("items", reorderedItems, { shouldDirty: true, shouldValidate: true })
-    setDraggedBatchId(null)
-    setDragOverBatchId(null)
+    handleDragEnd()
   }
 
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
@@ -2381,10 +2439,10 @@ function NewQuotationForm() {
                     <div
                       key={batch.id}
                       onDragOver={(e) => handleBatchDragOver(e, batch.id)}
-                      onDrop={(e) => handleBatchDrop(e, batch.id)}
+                      onDrop={(e) => handleBatchDrop(e, batch.id, batch.name)}
                       className={cn(
                         "space-y-4 rounded-xl border p-4 bg-muted/10 transition-all",
-                        dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5"
+                        dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5 shadow-md"
                       )}
                     >
                       {/* Section Header */}
@@ -2393,6 +2451,7 @@ function NewQuotationForm() {
                           <span
                             draggable
                             onDragStart={(e) => handleBatchDragStart(e, batch.id)}
+                            onDragEnd={handleDragEnd}
                             className="batch-drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
                             title="Drag section to reorder"
                           >
@@ -2481,8 +2540,8 @@ function NewQuotationForm() {
                               onDrop={(e) => handleDrop(e, index, batch.name)}
                               className={cn(
                                 "p-4 sm:p-5 rounded-xl border bg-card shadow-2xs space-y-4 transition-all hover:border-primary/40",
-                                dragOverIndex === index && "border-primary border-dashed bg-primary/5",
-                                draggedIndex === index && "opacity-50"
+                                dragOverIndex === index && "border-primary border-dashed bg-primary/10 shadow-md",
+                                draggedIndex === index && "opacity-40 border-primary border-dashed"
                               )}
                             >
                               {/* Item Header Row */}
@@ -2491,8 +2550,9 @@ function NewQuotationForm() {
                                   <span
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, index)}
+                                    onDragEnd={handleDragEnd}
                                     className="drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
-                                    title="Drag item to reorder"
+                                    title="Drag item to reorder or move across sections"
                                   >
                                     <GripVertical className="h-4 w-4" />
                                   </span>
