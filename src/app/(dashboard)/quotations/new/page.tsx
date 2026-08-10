@@ -1266,10 +1266,18 @@ function NewQuotationForm() {
     })
   }
 
-  const handleAddBatch = () => {
+  const handleAddBatch = (afterIndex?: number) => {
     const newBatchName = `Section ${batches.length + 1}`
     const newBatchId = Math.random().toString()
-    setBatches([...batches, { id: newBatchId, name: newBatchName }])
+    const newBatch = { id: newBatchId, name: newBatchName }
+
+    if (afterIndex !== undefined && afterIndex >= 0 && afterIndex < batches.length) {
+      const updated = [...batches]
+      updated.splice(afterIndex + 1, 0, newBatch)
+      setBatches(updated)
+    } else {
+      setBatches([...batches, newBatch])
+    }
     handleAddItemToBatch(newBatchName)
   }
 
@@ -2333,7 +2341,7 @@ function NewQuotationForm() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={handleAddBatch}
+                    onClick={() => handleAddBatch()}
                     className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background"
                   >
                     <Plus className="h-3.5 w-3.5" /> Add Section
@@ -2354,7 +2362,7 @@ function NewQuotationForm() {
               </CardHeader>
               <CardContent className="p-4 sm:p-6 space-y-6">
                 {/* Batches Loop */}
-                {batches.map((batch) => {
+                {batches.map((batch, batchIdx) => {
                   const itemsInBatch = fields.filter((_, idx) => {
                     const itemBatch = form.watch(`items.${idx}.batchHeading`) || ""
                     if (batch.name === "General Items") {
@@ -2871,9 +2879,44 @@ function NewQuotationForm() {
                           )
                         })}
                       </div>
+
+                      {/* Section Bottom Action Controls */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-3 border-t border-border/50">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddItemToBatch(batch.name)}
+                          className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Add Product to {batch.name}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleAddBatch(batchIdx)}
+                          className="text-xs h-8 flex items-center gap-1.5 cursor-pointer font-semibold bg-primary/10 text-primary hover:bg-primary/20 shadow-2xs"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Add New Section Below
+                        </Button>
+                      </div>
                     </div>
                   )
                 })}
+
+                {/* Bottom Add Section Action Block */}
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAddBatch()}
+                    className="w-full sm:w-auto px-6 h-9 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer border-dashed border-primary/50 text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" /> Add New Section
+                  </Button>
+                </div>
               </CardContent>
             </Card>
 
