@@ -354,18 +354,38 @@ interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "on
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ value, onChange, onBlur, onKeyDown, ...props }, ref) => {
+  ({ value, onChange, onBlur, onFocus, onKeyDown, ...props }, ref) => {
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
+    const isFocusedRef = React.useRef(false)
 
     React.useEffect(() => {
-      setLocalVal(String(value ?? ""))
+      if (!isFocusedRef.current) {
+        setLocalVal(String(value ?? ""))
+      } else {
+        const strVal = String(value ?? "")
+        const numLocal = Number(localVal)
+        const numVal = Number(strVal)
+        if (!isNaN(numVal) && !isNaN(numLocal) && Math.abs(numVal - numLocal) > 0.0001 && localVal !== "" && !localVal.endsWith(".")) {
+          setLocalVal(strVal)
+        }
+      }
     }, [value])
 
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const v = e.target.value
+      setLocalVal(v)
+      onChange(v)
+    }
+
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+      isFocusedRef.current = true
+      if (onFocus) onFocus(e)
+    }
+
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      isFocusedRef.current = false
       onChange(localVal)
-      if (onBlur) {
-        onBlur(e)
-      }
+      if (onBlur) onBlur(e)
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -374,16 +394,15 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         onChange(localVal)
         e.currentTarget.blur()
       }
-      if (onKeyDown) {
-        onKeyDown(e)
-      }
+      if (onKeyDown) onKeyDown(e)
     }
 
     return (
       <Input
         ref={ref}
         value={localVal}
-        onChange={(e) => setLocalVal(e.target.value)}
+        onChange={handleChange}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         {...props}
@@ -440,6 +459,39 @@ function NewQuotationForm() {
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role
 
+  const form = useForm<QuotationFormValues>({
+    resolver: zodResolver(quotationSchema) as any,
+    defaultValues: {
+      clientId: initialClientId,
+      projectName: "",
+      customerSegment: "Project",
+      preparedById: (session?.user as any)?.id || "",
+      includeSalesAgent: false,
+      includeCompanySeal: true,
+      salesAgentId: "",
+      salesAgentName: "",
+      salesAgentContactNumber: "",
+      salesAgentEmail: "",
+      date: new Date().toISOString().split("T")[0],
+      validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      paymentTerms: "50% Advance, 50% on Delivery",
+      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, discountType: "PERCENTAGE", margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: "", saveToCatalog: false }],
+      deliveryCharge: 0,
+      notes: "",
+      vatMode: "EXCLUDING",
+      specialDiscountType: null,
+      specialDiscountValue: 0,
+      specialDiscountReason: "",
+      additionalCharges: [{ name: "", amount: "" }],
+      termsConditions: [
+        "Validity: This quotation is valid for 30 days from date of issue.",
+        "Delivery: Delivery within 4-6 weeks of order approval.",
+        "Warranty: All structural elements carry a 5-year warranty."
+      ],
+    },
+  })
+
   const [loadingOptions, setLoadingOptions] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
@@ -450,12 +502,12 @@ function NewQuotationForm() {
   const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false)
   const [clientSearch, setClientSearch] = useState("")
 
-  const selectedClientId = useForm().watch("clientId")
+  const selectedClientId = form.watch("clientId")
   const selectedClientObj = useMemo(() => {
     return clients.find((c) => c.id === selectedClientId)
   }, [clients, selectedClientId])
 
-  const watchSegment = useForm().watch("customerSegment") || "Project"
+  const watchSegment = form.watch("customerSegment") || "Project"
 
   useEffect(() => {
     if (!selectedClientObj) return
@@ -1082,39 +1134,6 @@ function NewQuotationForm() {
       }
     }
   }, [loadingOptions, session])
-
-  const form = useForm<QuotationFormValues>({
-    resolver: zodResolver(quotationSchema) as any,
-    defaultValues: {
-      clientId: initialClientId,
-      projectName: "",
-      customerSegment: "Project",
-      preparedById: (session?.user as any)?.id || "",
-      includeSalesAgent: false,
-      includeCompanySeal: true,
-      salesAgentId: "",
-      salesAgentName: "",
-      salesAgentContactNumber: "",
-      salesAgentEmail: "",
-      date: new Date().toISOString().split("T")[0],
-      validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, discountType: "PERCENTAGE", margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: "", saveToCatalog: false }],
-      deliveryCharge: 0,
-      notes: "",
-      vatMode: "EXCLUDING",
-      specialDiscountType: null,
-      specialDiscountValue: 0,
-      specialDiscountReason: "",
-      additionalCharges: [{ name: "", amount: "" }],
-      termsConditions: [
-        "Validity: This quotation is valid for 30 days from date of issue.",
-        "Delivery: Delivery within 4-6 weeks of order approval.",
-        "Warranty: All structural elements carry a 5-year warranty."
-      ],
-    },
-  })
 
   // Autofill initial Client if passed via Query Param
   useEffect(() => {
