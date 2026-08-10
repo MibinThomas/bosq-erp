@@ -112,6 +112,7 @@ const quotationSchema = z.object({
       basePrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Base price must be at least 0"),
       unitPrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Price must be at least 0"),
       discount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Discount must be at least 0"),
+      discountType: z.enum(["PERCENTAGE", "AMOUNT"]).default("PERCENTAGE").optional(),
       margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? -100 : Number(val)) >= -100, "Margin must be at least -100").refine(val => (val === "" ? 0 : Number(val)) < 100, "Margin must be less than 100%"),
       manualMargin: z.union([z.number(), z.string()]).optional(),
       customImageUrl: z.string().nullable().optional(),
@@ -920,7 +921,8 @@ function NewQuotationForm() {
                   quantity: item.quantity,
                   basePrice: loadedBase,
                   unitPrice: item.unitPrice,
-                  discount: item.unitPrice > 0 ? Number(((item.discount || 0) / item.unitPrice * 100).toFixed(2)) : 0,
+                  discount: item.unitPrice > 0 ? Number(((item.discount || 0) / item.unitPrice * 100).toFixed(2)) : (item.discount || 0),
+                  discountType: "PERCENTAGE",
                   margin: marginVal,
                   manualMargin: marginVal,
                   customImageUrl: item.customImageUrl || "",
@@ -1040,7 +1042,7 @@ function NewQuotationForm() {
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: "", saveToCatalog: false }],
+      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, discountType: "PERCENTAGE", margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: "", saveToCatalog: false }],
       deliveryCharge: 0,
       notes: "",
       vatMode: "EXCLUDING",
@@ -1086,9 +1088,25 @@ function NewQuotationForm() {
     return watchItems.reduce((sum, item) => {
       const qty = item.quantity === "" ? 0 : Number(item.quantity) || 0
       const price = item.unitPrice === "" ? 0 : Number(item.unitPrice) || 0
+      const discVal = item.discount === "" ? 0 : Number(item.discount) || 0
+      const discType = item.discountType || "PERCENTAGE"
+      const discPerUnit = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
+      const netPrice = Math.max(0, price - discPerUnit)
+      return sum + qty * netPrice
+    }, 0)
+  }, [watchItems])
+
+  const grossProductsSubtotal = useMemo(() => {
+    return watchItems.reduce((sum, item) => {
+      const qty = item.quantity === "" ? 0 : Number(item.quantity) || 0
+      const price = item.unitPrice === "" ? 0 : Number(item.unitPrice) || 0
       return sum + qty * price
     }, 0)
   }, [watchItems])
+
+  const totalItemDiscounts = useMemo(() => {
+    return Math.max(0, grossProductsSubtotal - subtotal)
+  }, [grossProductsSubtotal, subtotal])
 
   const totalAdditionalCost = useMemo(() => {
     return watchAdditionalCharges.reduce((sum, c) => {
@@ -1236,6 +1254,7 @@ function NewQuotationForm() {
       basePrice: 0,
       unitPrice: 0,
       discount: 0,
+      discountType: "PERCENTAGE",
       margin: 0,
       manualMargin: "",
       customImageUrl: "",
@@ -1342,17 +1361,21 @@ function NewQuotationForm() {
         const hasManual = item.manualMargin !== undefined && item.manualMargin !== ""
         const finalMargin = hasManual ? item.manualMargin : item.margin
         const price = item.unitPrice === "" ? 0 : Number(item.unitPrice)
-        const discPercent = item.discount === "" ? 0 : Number(item.discount)
-        const absoluteDiscount = price * (discPercent / 100)
+        const discVal = item.discount === "" ? 0 : Number(item.discount)
+        const discType = item.discountType || "PERCENTAGE"
+        const absoluteDiscountPerUnit = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
+        const qty = item.quantity === "" ? 1 : Number(item.quantity)
+        const lineAmount = Math.max(0, (price - absoluteDiscountPerUnit) * qty)
 
         formattedItems.push({
           ...item,
           description: item.description || "",
           productId: item.productId || null,
-          quantity: item.quantity === "" ? 1 : Number(item.quantity),
+          quantity: qty,
           basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
           unitPrice: price,
-          discount: Number(absoluteDiscount.toFixed(2)),
+          discount: Number(absoluteDiscountPerUnit.toFixed(2)),
+          amount: Number(lineAmount.toFixed(2)),
           margin: finalMargin === "" ? 0 : Number(finalMargin),
         })
       }
@@ -2431,12 +2454,17 @@ function NewQuotationForm() {
                           const currentQuantity = form.watch(`items.${index}.quantity`)
                           const currentBasePrice = form.watch(`items.${index}.basePrice`)
                           const currentMargin = form.watch(`items.${index}.margin`)
+                          const currentDiscount = form.watch(`items.${index}.discount`)
+                          const currentDiscountType = form.watch(`items.${index}.discountType`) || "PERCENTAGE"
                           const currentPriceSource = form.watch(`items.${index}.priceSource`) || "standard"
                           const currentImg = form.watch(`items.${index}.customImageUrl`)
 
                           const qtyNum = currentQuantity === "" ? 0 : Number(currentQuantity) || 0
                           const unitPriceNum = currentUnitPrice === "" ? 0 : Number(currentUnitPrice) || 0
-                          const lineTotal = qtyNum * unitPriceNum
+                          const discValNum = currentDiscount === "" ? 0 : Number(currentDiscount) || 0
+                          const discPerUnit = currentDiscountType === "PERCENTAGE" ? unitPriceNum * (discValNum / 100) : discValNum
+                          const netUnitPrice = Math.max(0, unitPriceNum - discPerUnit)
+                          const lineTotal = qtyNum * netUnitPrice
 
                           return (
                             <div
@@ -2668,8 +2696,8 @@ function NewQuotationForm() {
                                     </div>
                                   </div>
 
-                                  {/* 5-Column Pricing Fields */}
-                                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+                                  {/* 6-Column Pricing Fields */}
+                                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-1">
                                     {/* Quantity */}
                                     <FormField
                                       control={form.control}
@@ -2772,11 +2800,49 @@ function NewQuotationForm() {
                                       )}
                                     />
 
+                                    {/* Item Discount Field */}
+                                    <FormField
+                                      control={form.control}
+                                      name={`items.${index}.discount`}
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <div className="flex items-center justify-between">
+                                            <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount</FormLabel>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const nextType = currentDiscountType === "PERCENTAGE" ? "AMOUNT" : "PERCENTAGE"
+                                                form.setValue(`items.${index}.discountType`, nextType)
+                                              }}
+                                              className="text-[10px] text-primary hover:underline font-bold"
+                                              title="Toggle between % and AED discount"
+                                            >
+                                              {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
+                                            </button>
+                                          </div>
+                                          <FormControl>
+                                            <div className="relative">
+                                              <NumericInput
+                                                type="number"
+                                                step={currentDiscountType === "PERCENTAGE" ? "0.1" : "0.01"}
+                                                className="h-8 text-xs font-mono bg-background pr-6"
+                                                value={field.value}
+                                                onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
+                                              />
+                                              <span className="absolute right-1.5 top-2 text-[9px] font-bold text-muted-foreground pointer-events-none">
+                                                {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
+                                              </span>
+                                            </div>
+                                          </FormControl>
+                                        </FormItem>
+                                      )}
+                                    />
+
                                     {/* Total Amount */}
                                     <div className="col-span-2 sm:col-span-1">
                                       <label className="text-[11px] font-semibold text-muted-foreground block">Total AED</label>
-                                      <div className="h-8 flex items-center justify-end px-2 bg-background border rounded-md font-mono text-xs font-bold text-foreground">
-                                        {formatCurrency(lineTotal)}
+                                      <div className="h-8 flex flex-col justify-center items-end px-2 bg-background border rounded-md font-mono text-xs font-bold text-foreground">
+                                        <span>{formatCurrency(lineTotal)}</span>
                                       </div>
                                     </div>
                                   </div>
