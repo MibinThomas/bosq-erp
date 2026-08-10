@@ -3,7 +3,26 @@ import "./globals.css";
 import SessionProvider from "@/components/providers/SessionProvider";
 import { Toaster } from "sonner";
 
+const getMetadataBase = () => {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL;
+  if (envUrl) {
+    try {
+      const formatted = envUrl.startsWith("http") ? envUrl : `https://${envUrl}`;
+      const parsed = new URL(formatted);
+      if (parsed.hostname) return parsed;
+    } catch {}
+  }
+  if (process.env.VERCEL_URL) {
+    try {
+      const cleanVercelUrl = process.env.VERCEL_URL.replace(/^https?:\/\//, "");
+      return new URL(`https://${cleanVercelUrl}`);
+    } catch {}
+  }
+  return new URL("http://localhost:3000");
+};
+
 export const metadata: Metadata = {
+  metadataBase: getMetadataBase(),
   title: "BOSQ ERP - Quotation Management",
   description: "BOSQ ERP Enterprise Quotation, SharePoint Sync, & IDC Revision Audit Log",
   icons: {
