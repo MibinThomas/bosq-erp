@@ -491,7 +491,7 @@ export async function POST(request: Request) {
         itemNo: idx + 1,
         sortOrder: idx + 1,
         productId: item.productId || null,
-        description: item.description,
+        description: item.description || "",
         specifications: item.specifications || "",
         productNotes: item.productNotes || null,
         customImageUrl: rawImageUrl,

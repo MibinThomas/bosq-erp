@@ -105,7 +105,7 @@ const quotationSchema = z.object({
     z.object({
       productId: z.string().nullable().optional(),
       priceSource: z.enum(["standard", "manual"]).default("standard"),
-      description: z.string().min(1, "Description is required"),
+      description: z.string().optional(),
       specifications: z.string(),
       productNotes: z.string().optional(),
       quantity: z.union([z.number(), z.string()]).refine(val => (val === "" ? 1 : Number(val)) >= 0, "Quantity must be at least 0"),
@@ -1303,13 +1303,12 @@ function NewQuotationForm() {
 
       const formattedItems = []
       for (const item of data.items) {
-        if (!item.description || item.description.trim() === "") {
-          toast.error("Product Description is required for all line items.")
-          setSubmitting(false)
-          return
-        }
-
         if (item.saveToCatalog && userRole === "SUPER_ADMIN") {
+          if (!item.description || item.description.trim() === "") {
+            toast.error("Product Title / Heading is required when saving an item to the catalog.")
+            setSubmitting(false)
+            return
+          }
           try {
             let categoryId = ""
             if (item.categoryName) {
@@ -1348,6 +1347,7 @@ function NewQuotationForm() {
 
         formattedItems.push({
           ...item,
+          description: item.description || "",
           productId: item.productId || null,
           quantity: item.quantity === "" ? 1 : Number(item.quantity),
           basePrice: item.basePrice === "" ? 0 : Number(item.basePrice),
