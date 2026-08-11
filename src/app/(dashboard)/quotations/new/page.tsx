@@ -355,13 +355,13 @@ interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "on
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ value, onChange, onBlur, onFocus, onKeyDown, debounceMs = 800, type: _unusedType, ...props }, ref) => {
+  ({ value, onChange, onBlur, onFocus, onKeyDown, debounceMs = 1000, type: _unusedType, ...props }, ref) => {
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
     const internalRef = React.useRef<HTMLInputElement | null>(null)
     const isFocusedRef = React.useRef(false)
     const timerRef = React.useRef<NodeJS.Timeout | null>(null)
 
-    React.useImperativeHandle(ref, () => internalRef.current!, [])
+    React.useImperativeHandle(ref, () => internalRef.current!, [ref])
 
     // Update local state from parent prop ONLY when NOT actively focused by user
     React.useEffect(() => {
@@ -383,7 +383,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         clearTimeout(timerRef.current)
       }
 
-      // Debounce call to parent form.setValue (800ms) so users have plenty of time to enter multi-digit values without calculation interruptions
+      // Debounce call to parent form.setValue (1000ms) so users have plenty of time to enter multi-digit values without calculation interruptions
       timerRef.current = setTimeout(() => {
         triggerParentChange(v)
       }, debounceMs)
@@ -391,6 +391,12 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       isFocusedRef.current = true
+      // Auto-select text on focus if it is "0" or 0 so user can type new price immediately
+      if (e.target.value === "0" || e.target.value === "0.00" || e.target.value === "0.0") {
+        try {
+          e.target.select()
+        } catch (err) {}
+      }
       if (onFocus) onFocus(e)
     }
 
