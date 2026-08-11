@@ -677,18 +677,19 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           const trimmed = part.trim();
           if (trimmed.includes(":")) {
             const colonIndex = trimmed.indexOf(":");
-            const key = trimmed.substring(0, colonIndex).trim();
-            const value = trimmed.substring(colonIndex + 1).trim();
+            const rawKey = trimmed.substring(0, colonIndex).replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
+            const rawVal = trimmed.substring(colonIndex + 1).replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
             
             if (currentSpec) {
               parsedSpecs.push(currentSpec);
             }
-            currentSpec = { key, value };
+            currentSpec = { key: rawKey, value: rawVal };
           } else {
             if (currentSpec) {
               currentSpec.value += ", " + trimmed;
             } else {
-              parsedSpecs.push({ value: trimmed });
+              const cleanVal = trimmed.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
+              if (cleanVal) parsedSpecs.push({ value: cleanVal });
             }
           }
         });
@@ -698,11 +699,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       } else {
         if (line.includes(":")) {
           const colonIndex = line.indexOf(":");
-          const key = line.substring(0, colonIndex).trim();
-          const value = line.substring(colonIndex + 1).trim();
-          parsedSpecs.push({ key, value });
+          const rawKey = line.substring(0, colonIndex).replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
+          const rawVal = line.substring(colonIndex + 1).replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
+          parsedSpecs.push({ key: rawKey, value: rawVal });
         } else {
-          parsedSpecs.push({ value: line });
+          const cleanVal = line.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
+          if (cleanVal) parsedSpecs.push({ value: cleanVal });
         }
       }
     });
@@ -744,7 +746,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     if (specsList.length === 0 && remarksLines.length === 0) return null;
 
     return (
-      <View style={{ marginTop: 2 }}>
+      <View style={{ marginTop: 3 }}>
         {specsList.length > 0 && (
           <View style={{ marginBottom: 0 }}>
             {specsList.map((spec, idx) => {
@@ -752,24 +754,19 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               const textColor = isProdTime ? "#1e3a8a" : "#444444";
               const keyColor = isProdTime ? "#1e3a8a" : colors.primary;
               
-              const cleanKey = spec.key ? spec.key.trim() : "";
-              const cleanVal = spec.value ? spec.value.trim() : "";
+              const cleanKey = spec.key ? spec.key.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim() : "";
+              const cleanVal = spec.value ? spec.value.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim() : "";
               if (!cleanVal) return null;
 
               return (
-                <View key={`spec-${idx}`} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 1 }}>
-                  {cleanKey ? (
-                    <>
-                      <Text style={{ fontWeight: "bold", color: keyColor, marginRight: 3, flexShrink: 0, fontSize: 5.2, lineHeight: 1.25 }}>{cleanKey}:</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: textColor, fontSize: 5.2, lineHeight: 1.25 }}>{cleanVal}</Text>
-                      </View>
-                    </>
-                  ) : (
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: textColor, fontSize: 5.2, lineHeight: 1.25 }}>{cleanVal}</Text>
-                    </View>
-                  )}
+                <View key={`spec-${idx}`} style={{ marginBottom: 1.5 }}>
+                  <Text style={{ fontSize: 6.0, lineHeight: 1.35, color: textColor }}>
+                    <Text style={{ fontSize: 6.0, fontWeight: "bold", color: colors.accent }}>• </Text>
+                    {cleanKey ? (
+                      <Text style={{ fontWeight: "bold", color: keyColor }}>{cleanKey}: </Text>
+                    ) : null}
+                    <Text style={{ color: textColor }}>{cleanVal}</Text>
+                  </Text>
                 </View>
               );
             })}
@@ -777,17 +774,19 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         )}
         
         {remarksLines.length > 0 && (
-          <View style={{ marginTop: 2, flexDirection: "row", alignItems: "flex-start" }}>
-            <Text style={{ fontWeight: "bold", fontSize: 5.2, color: colors.accent, marginRight: 4, lineHeight: 1.25 }}>Remarks:</Text>
-            <View style={{ flex: 1 }}>
-              {remarksLines.map((r, i) => {
-                const cleanRemark = r ? r.trim() : "";
-                if (!cleanRemark) return null;
-                return (
-                  <Text key={i} style={{ fontSize: 5.2, color: colors.secondary, marginBottom: 1, lineHeight: 1.25 }}>{cleanRemark}</Text>
-                );
-              })}
-            </View>
+          <View style={{ marginTop: 2 }}>
+            {remarksLines.map((r, i) => {
+              const cleanRemark = r ? r.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim() : "";
+              if (!cleanRemark) return null;
+              return (
+                <View key={`remark-${i}`} style={{ marginBottom: 1.5 }}>
+                  <Text style={{ fontSize: 6.0, lineHeight: 1.35, color: colors.secondary }}>
+                    <Text style={{ fontWeight: "bold", color: colors.accent }}>Remarks: </Text>
+                    <Text>{cleanRemark}</Text>
+                  </Text>
+                </View>
+              );
+            })}
           </View>
         )}
       </View>
