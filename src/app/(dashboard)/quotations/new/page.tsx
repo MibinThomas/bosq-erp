@@ -461,6 +461,8 @@ function NewQuotationForm() {
 
   const form = useForm<QuotationFormValues>({
     resolver: zodResolver(quotationSchema) as any,
+    mode: "onSubmit",
+    shouldFocusError: false,
     defaultValues: {
       clientId: initialClientId,
       projectName: "",
@@ -2823,7 +2825,7 @@ function NewQuotationForm() {
                                                 field.onChange(bPrice)
                                                 const marginVal = Number(form.getValues(`items.${index}.margin`)) || 0
                                                 const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
-                                                form.setValue(`items.${index}.unitPrice`, uPrice)
+                                                form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
                                               }}
                                             />
                                           </FormControl>
@@ -2847,10 +2849,10 @@ function NewQuotationForm() {
                                               onChange={(val) => {
                                                 const marginVal = val === "" ? 0 : Number(val)
                                                 field.onChange(marginVal)
-                                                form.setValue(`items.${index}.manualMargin`, marginVal)
+                                                form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: false })
                                                 const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
                                                 const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
-                                                form.setValue(`items.${index}.unitPrice`, uPrice)
+                                                form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
                                               }}
                                             />
                                           </FormControl>
@@ -2877,8 +2879,8 @@ function NewQuotationForm() {
                                                 const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
                                                 if (bPrice > 0) {
                                                   const calculatedMargin = Number((((uPrice - bPrice) / bPrice) * 100).toFixed(2))
-                                                  form.setValue(`items.${index}.margin`, calculatedMargin)
-                                                  form.setValue(`items.${index}.manualMargin`, calculatedMargin)
+                                                  form.setValue(`items.${index}.margin`, calculatedMargin, { shouldValidate: false })
+                                                  form.setValue(`items.${index}.manualMargin`, calculatedMargin, { shouldValidate: false })
                                                 }
                                               }}
                                             />
