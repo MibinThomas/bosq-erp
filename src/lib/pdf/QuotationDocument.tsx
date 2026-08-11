@@ -761,7 +761,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               return (
                 <View key={`spec-${idx}`} style={{ marginBottom: 1.5 }}>
                   <Text style={{ fontSize: 6.0, lineHeight: 1.35, color: textColor }}>
-                    <Text style={{ fontSize: 6.0, fontWeight: "bold", color: colors.accent }}>• </Text>
                     {cleanKey ? (
                       <Text style={{ fontWeight: "bold", color: keyColor }}>{cleanKey}: </Text>
                     ) : null}
