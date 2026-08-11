@@ -351,27 +351,42 @@ ProductSearchSelect.displayName = "ProductSearchSelect"
 interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "onChange" | "value"> {
   value: string | number
   onChange: (value: string) => void
+  debounceMs?: number
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ value, onChange, onBlur, onFocus, onKeyDown, type, ...props }, ref) => {
+  ({ value, onChange, onBlur, onFocus, onKeyDown, debounceMs = 300, type: _unusedType, ...props }, ref) => {
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
     const internalRef = React.useRef<HTMLInputElement | null>(null)
     const isFocusedRef = React.useRef(false)
+    const timerRef = React.useRef<NodeJS.Timeout | null>(null)
 
     React.useImperativeHandle(ref, () => internalRef.current!, [])
 
+    // Update local state from parent prop ONLY when NOT actively focused by user
     React.useEffect(() => {
       if (!isFocusedRef.current) {
         setLocalVal(String(value ?? ""))
       }
     }, [value])
 
+    const triggerParentChange = React.useCallback((valToSubmit: string) => {
+      onChange(valToSubmit)
+    }, [onChange])
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const v = e.target.value
       setLocalVal(v)
       isFocusedRef.current = true
-      onChange(v)
+
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+      }
+
+      // Debounce call to parent form.setValue (300ms) so typing digits is 100% smooth without parent re-render interruptions
+      timerRef.current = setTimeout(() => {
+        triggerParentChange(v)
+      }, debounceMs)
     }
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -381,7 +396,12 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
       isFocusedRef.current = false
-      onChange(localVal)
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
+      }
+      // Immediately flush localVal on blur so parent form calculations update instantly when leaving field
+      triggerParentChange(localVal)
       if (onBlur) onBlur(e)
     }
 
@@ -389,7 +409,11 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       if (e.key === "Enter") {
         e.preventDefault()
         isFocusedRef.current = false
-        onChange(localVal)
+        if (timerRef.current) {
+          clearTimeout(timerRef.current)
+          timerRef.current = null
+        }
+        triggerParentChange(localVal)
         e.currentTarget.blur()
       }
       if (onKeyDown) onKeyDown(e)
@@ -398,7 +422,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     return (
       <Input
         ref={internalRef}
-        type={type || "text"}
+        type="text"
         inputMode="decimal"
         value={localVal}
         onChange={handleChange}
@@ -1007,8 +1031,6 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormLabel className="text-[11px] font-semibold text-muted-foreground">Base AED</FormLabel>
                   <FormControl>
                     <NumericInput
-                      type="number"
-                      step="0.01"
                       disabled={currentPriceSource === "standard"}
                       className="h-8 text-xs font-mono bg-background"
                       value={field.value}
@@ -1034,8 +1056,6 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin %</FormLabel>
                   <FormControl>
                     <NumericInput
-                      type="number"
-                      step="0.1"
                       className="h-8 text-xs font-mono text-center bg-background"
                       value={field.value}
                       onChange={(val) => {
@@ -1061,8 +1081,6 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormLabel className="text-[11px] font-semibold text-muted-foreground">Unit AED</FormLabel>
                   <FormControl>
                     <NumericInput
-                      type="number"
-                      step="0.01"
                       className="h-8 text-xs font-mono bg-background font-bold text-primary"
                       value={field.value}
                       onChange={(val) => {
@@ -1104,8 +1122,6 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormControl>
                     <div className="relative">
                       <NumericInput
-                        type="number"
-                        step={currentDiscountType === "PERCENTAGE" ? "0.1" : "0.01"}
                         className="h-8 text-xs font-mono bg-background pr-6"
                         value={field.value}
                         onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
