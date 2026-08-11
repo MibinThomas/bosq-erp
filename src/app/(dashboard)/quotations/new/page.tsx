@@ -354,9 +354,13 @@ interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "on
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ value, onChange, onBlur, onFocus, onKeyDown, ...props }, ref) => {
+  ({ value, onChange, onBlur, onFocus, onKeyDown, type, ...props }, ref) => {
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
+    const internalRef = React.useRef<HTMLInputElement | null>(null)
     const isFocusedRef = React.useRef(false)
+    const cursorPosRef = React.useRef<number | null>(null)
+
+    React.useImperativeHandle(ref, () => internalRef.current!, [])
 
     React.useEffect(() => {
       if (!isFocusedRef.current) {
@@ -372,8 +376,16 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     }, [value])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const v = e.target.value
+      const el = e.target
+      const v = el.value
       setLocalVal(v)
+      isFocusedRef.current = true
+
+      try {
+        cursorPosRef.current = el.selectionStart
+      } catch (err) {
+        cursorPosRef.current = null
+      }
       
       // Preserve scroll position during typing
       const scrollContainer = document.querySelector('main') || window
@@ -381,7 +393,19 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 
       onChange(v)
 
+      // Ensure focus & cursor position lock after React Hook Form state updates
       requestAnimationFrame(() => {
+        if (internalRef.current && isFocusedRef.current) {
+          if (document.activeElement !== internalRef.current) {
+            internalRef.current.focus()
+          }
+          if (cursorPosRef.current !== null && internalRef.current.type !== "number") {
+            try {
+              internalRef.current.setSelectionRange(cursorPosRef.current, cursorPosRef.current)
+            } catch (err) {}
+          }
+        }
+
         if ('scrollTop' in scrollContainer) {
           if (scrollContainer.scrollTop !== currentScrollTop) {
             scrollContainer.scrollTop = currentScrollTop
@@ -416,7 +440,9 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 
     return (
       <Input
-        ref={ref}
+        ref={internalRef}
+        type={type || "text"}
+        inputMode="decimal"
         value={localVal}
         onChange={handleChange}
         onFocus={handleFocus}

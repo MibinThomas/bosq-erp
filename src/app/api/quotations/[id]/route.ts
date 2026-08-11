@@ -888,6 +888,9 @@ export async function PUT(
       ])
 
       // Construct Revised PDF props (e.g. quote number P2231-1)
+      const targetClientId = body.clientId || existingQuotation.clientId
+      const revisionClient = (await prisma.client.findUnique({ where: { id: targetClientId } })) || existingQuotation.client
+
       const pdfProps = {
         quotationNumber: revQuoteNum,
         date: new Date().toISOString().split("T")[0],
@@ -895,12 +898,12 @@ export async function PUT(
         companyName: companySettings.company_name,
         companyAddress: companySettings.company_address,
         companyTrn: companySettings.company_trn,
-        clientName: existingQuotation.client.companyName,
-        clientContact: existingQuotation.client.contactPerson || "-",
-        clientPhone: existingQuotation.client.phone || "",
-        clientEmail: existingQuotation.client.email || "",
-        clientAddress: existingQuotation.client.address || "Dubai, UAE",
-        clientTrn: existingQuotation.client.trn,
+        clientName: revisionClient.companyName,
+        clientContact: revisionClient.contactPerson || "-",
+        clientPhone: revisionClient.phone || "",
+        clientEmail: revisionClient.email || "",
+        clientAddress: revisionClient.address || "Dubai, UAE",
+        clientTrn: revisionClient.trn,
         projectName: projectName || existingQuotation.projectName || "Office Furnishing Project",
         paymentTerms: paymentTerms || existingQuotation.paymentTerms,
         deliveryDate: deliveryDate || "TBD",
@@ -930,7 +933,7 @@ export async function PUT(
         bankDetails: companySettings.company_bank_details || null,
         disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || companySettings.company_disclaimer_title || "Disclaimers",
         disclaimer: disclaimer || existingQuotation.disclaimer || companySettings.company_disclaimer || null,
-        clientId: existingQuotation.client.clientId || null,
+        clientId: revisionClient.clientId || null,
         items: quotationItemsToCreate,
         vatMode: resolvedVatMode,
         specialDiscountType: specialDiscountType || null,

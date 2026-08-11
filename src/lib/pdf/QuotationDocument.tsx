@@ -944,7 +944,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                   </View>
 
                   <View style={styles.metaRowRight}>
-                    <Text style={styles.metaKeyRight}>Customer ID:</Text>
+                    <Text style={styles.metaKeyRight}>Client ID:</Text>
                     <Text style={styles.metaValueRight}>{clientId || "-"}</Text>
                   </View>
 

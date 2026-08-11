@@ -234,7 +234,7 @@ export async function GET(
       bankDetails: systemSettings.company_bank_details || null,
       disclaimerTitle: quotation.disclaimerTitle || systemSettings.company_disclaimer_title || "Disclaimers",
       disclaimer: quotation.disclaimer || systemSettings.company_disclaimer || null,
-      clientId: quotation.client.clientId || null,
+      clientId: quotation.client?.clientId || (quotation as any).clientId || null,
       items: docItems,
       vatMode: (quotation.vatMode === "INCLUDING" ? "INCLUDING" : "EXCLUDING") as "EXCLUDING" | "INCLUDING",
       specialDiscountType: (quotation.specialDiscountType === "PERCENTAGE" ? "PERCENTAGE" : quotation.specialDiscountType === "FIXED" ? "FIXED" : null) as "PERCENTAGE" | "FIXED" | null,
