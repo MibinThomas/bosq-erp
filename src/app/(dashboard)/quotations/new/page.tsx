@@ -2191,7 +2191,17 @@ function NewQuotationForm() {
     }
   }
 
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const handleAutoSave = async () => {
+    // Skip auto-save while user is actively focused or typing in an input field
+    const activeEl = document.activeElement
+    const activeTag = activeEl?.tagName?.toLowerCase()
+    const isUserTyping = activeTag === "input" || activeTag === "textarea" || (activeEl as HTMLElement)?.isContentEditable
+    if (isUserTyping) {
+      return
+    }
+
     const currentData = form.getValues()
     if (!currentData.clientId || currentData.items.length === 0) return
 
@@ -2280,11 +2290,22 @@ function NewQuotationForm() {
   }
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      handleAutoSave()
-    }, 30000)
-    return () => clearInterval(timer)
-  }, [])
+    const subscription = form.watch(() => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+      autoSaveTimerRef.current = setTimeout(() => {
+        handleAutoSave()
+      }, 30000) // 30 seconds of inactivity delay
+    })
+
+    return () => {
+      subscription.unsubscribe()
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [form])
 
   const handleRequestAccessSubmit = async () => {
     if (!requestAccessClient) return

@@ -1414,14 +1414,24 @@ function NewBOQForm() {
     try {
       await handleRequestAccess(requestAccessClient.id, requestAccessClient.name, requestNotes)
       setRequestAccessClient(null)
-      setRequestNotes("")
     } catch (err) {
       // toast already handled
     } finally {
       setRequestingAccess(false)
     }
   }
+
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const handleAutoSave = async () => {
+    // Skip auto-save while user is actively focused or typing in an input field
+    const activeEl = document.activeElement
+    const activeTag = activeEl?.tagName?.toLowerCase()
+    const isUserTyping = activeTag === "input" || activeTag === "textarea" || (activeEl as HTMLElement)?.isContentEditable
+    if (isUserTyping) {
+      return
+    }
+
     const currentData = form.getValues()
     if (!currentData.clientId || currentData.items.length === 0) return
 
@@ -1492,7 +1502,7 @@ function NewBOQForm() {
 
       if (res.ok) {
         const result = await res.json()
-        if (method === "POST" && result.id) {
+        if (result.id) {
           setAutoSavedQuoteId(result.id)
         }
         setLastAutoSavedAt(new Date())
@@ -1506,12 +1516,22 @@ function NewBOQForm() {
   }
 
   useEffect(() => {
-    const intervalId = setInterval(() => {
-      handleAutoSave()
-    }, 15000)
+    const subscription = form.watch(() => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+      autoSaveTimerRef.current = setTimeout(() => {
+        handleAutoSave()
+      }, 30000) // 30 seconds of typing inactivity delay
+    })
 
-    return () => clearInterval(intervalId)
-  }, [])
+    return () => {
+      subscription.unsubscribe()
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [form])
 
   async function onSubmit(data: BOQFormValues, targetStatus?: "DRAFT" | "SUBMITTED") {
     const resolvedStatus = targetStatus === "DRAFT"
