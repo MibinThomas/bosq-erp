@@ -955,7 +955,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
                   {/* Sales Agent Details (Conditional - appears ONLY when includeSalesAgent is true and at least one detail is provided) */}
                   {includeSalesAgent && (salesAgentName || salesAgentContactNumber || salesAgentEmail) && (
-                    <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 0.5, borderTopColor: colors.lineColor, width: "100%", alignItems: "flex-end" }}>
+                    <View style={{ marginTop: 6, width: "100%", alignItems: "flex-end" }}>
                       {salesAgentName && (
                         <View style={styles.metaRowRight}>
                           <Text style={styles.metaKeyRight}>{salesAgentTitle || "Sales Representative"}:</Text>
