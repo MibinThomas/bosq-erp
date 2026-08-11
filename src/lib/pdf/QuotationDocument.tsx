@@ -166,8 +166,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     alignItems: "flex-start", // All columns start from top position
   },
-  colDesc: { width: "36%", paddingRight: 10, justifyContent: "flex-start" },
-  colImage: { width: "40%", paddingHorizontal: 2, alignItems: "center", justifyContent: "flex-start" },
+  colSlNo: { width: "4.5%", textAlign: "center", justifyContent: "flex-start" },
+  colDesc: { width: "33.5%", paddingRight: 8, justifyContent: "flex-start" },
+  colImage: { width: "38%", paddingHorizontal: 2, alignItems: "center", justifyContent: "flex-start" },
   colQty: { width: "6%", textAlign: "center" },
   colPrice: { width: "9%", textAlign: "right" },
   colAmount: { width: "9%", textAlign: "right" },
@@ -618,6 +619,19 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     })
   }
 
+  const formatItemPrice = (val: number, hasDiscount: boolean) => {
+    if (hasDiscount) {
+      return Math.round(val).toLocaleString("en-AE", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      })
+    }
+    return val.toLocaleString("en-AE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+  }
+
   const formatRole = (role?: string | null) => {
     if (!role) return ""
     return role
@@ -1026,6 +1040,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Table Headers (Rendered only once at the top of the table) */}
         <View style={styles.tableHeader} wrap={false}>
+          <Text style={styles.colSlNo}>S.No</Text>
           <Text style={styles.colDesc}>Item Description</Text>
           <Text style={[styles.colImage, { textAlign: "center" }]}>Image</Text>
           <Text style={styles.colQty}>QTY</Text>
@@ -1034,19 +1049,156 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         </View>
 
         {/* Grouped Table Sections */}
-        {groupedSections.map((group, gIdx) => {
-          const sectionSubtotal = group.items.reduce((acc, item) => acc + item.amount, 0);
-          return (
-            <View key={`group-${gIdx}`} style={{ marginTop: gIdx > 0 ? 8 : 4 }}>
-              {group.heading ? (
-                <>
-                  {/* Keep the section heading and the first product row together on the same page */}
-                  <View wrap={false}>
-                    <View style={styles.sectionHeader}>
-                      <Text style={styles.sectionHeaderText}>{group.heading}</Text>
+        {(() => {
+          let itemCounter = 0;
+          return groupedSections.map((group, gIdx) => {
+            const sectionSubtotal = group.items.reduce((acc, item) => acc + item.amount, 0);
+            return (
+              <View key={`group-${gIdx}`} style={{ marginTop: gIdx > 0 ? 8 : 4 }}>
+                {group.heading ? (
+                  <>
+                    {/* Keep the section heading and the first product row together on the same page */}
+                    <View wrap={false}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionHeaderText}>{group.heading}</Text>
+                      </View>
+                      {group.items.slice(0, 1).map((item, index) => {
+                        itemCounter++;
+                        const hasItemDiscount = Number(item.discount || 0) > 0 || (item.quantity > 0 && Math.abs((item.unitPrice * item.quantity) - item.amount) > 0.01);
+                        const effectiveUnitPrice = item.quantity > 0 ? item.amount / item.quantity : item.unitPrice;
+                        return (
+                          <View key="first" style={[styles.tableRow, group.items.length === 1 ? { paddingVertical: 10 } : {}]}>
+                            {/* S.No */}
+                            <Text style={[styles.colSlNo, { fontSize: 8, fontWeight: "bold", color: colors.primary }]}>
+                              {itemCounter}
+                            </Text>
+
+                            {/* Description */}
+                            <View style={styles.colDesc}>
+                              {/* 1. Product Name */}
+                              <Text style={styles.itemTitle}>{item.description}</Text>
+                              
+                              {/* 2. Product Type / Category */}
+                              {item.categoryName && (
+                                <Text style={styles.itemCategory}>{item.categoryName}</Text>
+                              )}
+
+                              {/* 2.5 Chair Type (if applicable) */}
+                              {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
+                                <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
+                                  <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
+                                  <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
+                                </View>
+                              )}
+
+                              {/* 3. Product Description */}
+                              {item.productDescription && (
+                                <Text style={styles.itemDescText}>
+                                  {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
+                                </Text>
+                              )}
+
+                              {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
+                              {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
+                            </View>
+
+                            {/* Product Image */}
+                            <View style={styles.colImage}>
+                              {item.imageUrl ? (
+                                <PdfImage src={item.imageUrl} style={styles.productImage} />
+                              ) : (
+                                <View style={{ width: "100%", height: 140, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                                  <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
+                                </View>
+                              )}
+                            </View>
+
+                            {/* Qty, Price, Total */}
+                            <Text style={styles.colQty}>{item.quantity}</Text>
+                            <Text style={styles.colPrice}>
+                              {formatItemPrice(effectiveUnitPrice, hasItemDiscount)}
+                            </Text>
+                            <Text style={styles.colAmount}>{formatItemPrice(item.amount, hasItemDiscount)}</Text>
+                          </View>
+                        );
+                      })}
                     </View>
-                    {group.items.slice(0, 1).map((item, index) => (
-                      <View key="first" style={[styles.tableRow, group.items.length === 1 ? { paddingVertical: 10 } : {}]}>
+
+                    {/* Render the remaining items individually, each wrapped in wrap={false} */}
+                    {group.items.slice(1).map((item, index) => {
+                      itemCounter++;
+                      const hasItemDiscount = Number(item.discount || 0) > 0 || (item.quantity > 0 && Math.abs((item.unitPrice * item.quantity) - item.amount) > 0.01);
+                      const effectiveUnitPrice = item.quantity > 0 ? item.amount / item.quantity : item.unitPrice;
+                      return (
+                        <View key={index + 1} style={[styles.tableRow, { borderTopWidth: 0 }]} wrap={false}>
+                          {/* S.No */}
+                          <Text style={[styles.colSlNo, { fontSize: 8, fontWeight: "bold", color: colors.primary }]}>
+                            {itemCounter}
+                          </Text>
+
+                          {/* Description */}
+                          <View style={styles.colDesc}>
+                            {/* 1. Product Name */}
+                            <Text style={styles.itemTitle}>{item.description}</Text>
+                            
+                            {/* 2. Product Type / Category */}
+                            {item.categoryName && (
+                              <Text style={styles.itemCategory}>{item.categoryName}</Text>
+                            )}
+
+                            {/* 2.5 Chair Type (if applicable) */}
+                            {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
+                              <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
+                                <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
+                                <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
+                              </View>
+                            )}
+
+                            {/* 3. Product Description */}
+                            {item.productDescription && (
+                              <Text style={styles.itemDescText}>
+                                {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
+                              </Text>
+                            )}
+
+                            {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
+                            {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
+                          </View>
+
+                          {/* Product Image */}
+                          <View style={styles.colImage}>
+                            {item.imageUrl ? (
+                              <PdfImage src={item.imageUrl} style={styles.productImage} />
+                            ) : (
+                              <View style={{ width: "100%", height: 140, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                                <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
+                              </View>
+                            )}
+                          </View>
+
+                          {/* Qty, Price, Total */}
+                          <Text style={styles.colQty}>{item.quantity}</Text>
+                          <Text style={styles.colPrice}>
+                            {formatItemPrice(effectiveUnitPrice, hasItemDiscount)}
+                          </Text>
+                          <Text style={styles.colAmount}>{formatItemPrice(item.amount, hasItemDiscount)}</Text>
+                        </View>
+                      );
+                    })}
+                  </>
+                ) : (
+                  /* No section heading, render all items individually with wrap={false} */
+                  group.items.map((item, index) => {
+                    itemCounter++;
+                    const hasItemDiscount = Number(item.discount || 0) > 0 || (item.quantity > 0 && Math.abs((item.unitPrice * item.quantity) - item.amount) > 0.01);
+                    const effectiveUnitPrice = item.quantity > 0 ? item.amount / item.quantity : item.unitPrice;
+                    return (
+                      <View key={index} style={[styles.tableRow, group.items.length === 1 ? { paddingVertical: 10 } : {}]} wrap={false}>
+                        {/* S.No */}
+                        <Text style={[styles.colSlNo, { fontSize: 8, fontWeight: "bold", color: colors.primary }]}>
+                          {itemCounter}
+                        </Text>
+
                         {/* Description */}
                         <View style={styles.colDesc}>
                           {/* 1. Product Name */}
@@ -1090,121 +1242,17 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                         {/* Qty, Price, Total */}
                         <Text style={styles.colQty}>{item.quantity}</Text>
                         <Text style={styles.colPrice}>
-                          {formatCurrency(item.quantity > 0 ? item.amount / item.quantity : item.unitPrice)}
+                          {formatItemPrice(effectiveUnitPrice, hasItemDiscount)}
                         </Text>
-                        <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
+                        <Text style={styles.colAmount}>{formatItemPrice(item.amount, hasItemDiscount)}</Text>
                       </View>
-                    ))}
-                  </View>
-
-                  {/* Render the remaining items individually, each wrapped in wrap={false} */}
-                  {group.items.slice(1).map((item, index) => (
-                    <View key={index + 1} style={[styles.tableRow, { borderTopWidth: 0 }]} wrap={false}>
-                      {/* Description */}
-                      <View style={styles.colDesc}>
-                        {/* 1. Product Name */}
-                        <Text style={styles.itemTitle}>{item.description}</Text>
-                        
-                        {/* 2. Product Type / Category */}
-                        {item.categoryName && (
-                          <Text style={styles.itemCategory}>{item.categoryName}</Text>
-                        )}
-
-                        {/* 2.5 Chair Type (if applicable) */}
-                        {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
-                          <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
-                            <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
-                            <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
-                          </View>
-                        )}
-
-                        {/* 3. Product Description */}
-                        {item.productDescription && (
-                          <Text style={styles.itemDescText}>
-                            {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
-                          </Text>
-                        )}
-
-                        {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
-                        {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
-                      </View>
-
-                      {/* Product Image */}
-                      <View style={styles.colImage}>
-                        {item.imageUrl ? (
-                          <PdfImage src={item.imageUrl} style={styles.productImage} />
-                        ) : (
-                          <View style={{ width: "100%", height: 140, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
-                            <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
-                          </View>
-                        )}
-                      </View>
-
-                      {/* Qty, Price, Total */}
-                      <Text style={styles.colQty}>{item.quantity}</Text>
-                      <Text style={styles.colPrice}>
-                        {formatCurrency(item.quantity > 0 ? item.amount / item.quantity : item.unitPrice)}
-                      </Text>
-                      <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
-                    </View>
-                  ))}
-                </>
-              ) : (
-                /* No section heading, render all items individually with wrap={false} */
-                group.items.map((item, index) => (
-                  <View key={index} style={[styles.tableRow, group.items.length === 1 ? { paddingVertical: 10 } : {}]} wrap={false}>
-                    {/* Description */}
-                    <View style={styles.colDesc}>
-                      {/* 1. Product Name */}
-                      <Text style={styles.itemTitle}>{item.description}</Text>
-                      
-                      {/* 2. Product Type / Category */}
-                      {item.categoryName && (
-                        <Text style={styles.itemCategory}>{item.categoryName}</Text>
-                      )}
-
-                      {/* 2.5 Chair Type (if applicable) */}
-                      {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
-                        <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
-                          <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
-                          <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
-                        </View>
-                      )}
-
-                      {/* 3. Product Description */}
-                      {item.productDescription && (
-                        <Text style={styles.itemDescText}>
-                          {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
-                        </Text>
-                      )}
-
-                      {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
-                      {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
-                    </View>
-
-                    {/* Product Image */}
-                    <View style={styles.colImage}>
-                      {item.imageUrl ? (
-                        <PdfImage src={item.imageUrl} style={styles.productImage} />
-                      ) : (
-                        <View style={{ width: "100%", height: 140, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
-                          <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Qty, Price, Total */}
-                    <Text style={styles.colQty}>{item.quantity}</Text>
-                    <Text style={styles.colPrice}>
-                      {formatCurrency(item.quantity > 0 ? item.amount / item.quantity : item.unitPrice)}
-                    </Text>
-                    <Text style={styles.colAmount}>{formatCurrency(item.amount)}</Text>
-                  </View>
-                ))
-              )}
-            </View>
-          );
-        })}
+                    );
+                  })
+                )}
+              </View>
+            );
+          });
+        })()}
 
         {/* Financial Summary Box & Company Bank Details */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "stretch", marginTop: 6 }} wrap={false}>

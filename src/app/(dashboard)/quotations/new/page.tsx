@@ -1140,7 +1140,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             <div className="col-span-2 sm:col-span-1">
               <label className="text-[11px] font-semibold text-muted-foreground block">Total AED</label>
               <div className="h-8 flex flex-col justify-center items-end px-2 bg-background border rounded-md font-mono text-xs font-bold text-foreground">
-                <span>{formatCurrency(lineTotal)}</span>
+                <span>{discValNum > 0 ? Math.round(lineTotal).toLocaleString("en-US") : formatCurrency(lineTotal)}</span>
               </div>
             </div>
           </div>
