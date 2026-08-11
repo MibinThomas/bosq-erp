@@ -355,7 +355,7 @@ interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "on
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ value, onChange, onBlur, onFocus, onKeyDown, debounceMs = 300, type: _unusedType, ...props }, ref) => {
+  ({ value, onChange, onBlur, onFocus, onKeyDown, debounceMs = 800, type: _unusedType, ...props }, ref) => {
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
     const internalRef = React.useRef<HTMLInputElement | null>(null)
     const isFocusedRef = React.useRef(false)
@@ -383,7 +383,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         clearTimeout(timerRef.current)
       }
 
-      // Debounce call to parent form.setValue (300ms) so typing digits is 100% smooth without parent re-render interruptions
+      // Debounce call to parent form.setValue (800ms) so users have plenty of time to enter multi-digit values without calculation interruptions
       timerRef.current = setTimeout(() => {
         triggerParentChange(v)
       }, debounceMs)
