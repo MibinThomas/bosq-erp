@@ -351,81 +351,42 @@ ProductSearchSelect.displayName = "ProductSearchSelect"
 interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "onChange" | "value"> {
   value: string | number
   onChange: (value: string) => void
+  debounceMs?: number
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ value, onChange, onBlur, onFocus, onKeyDown, type, ...props }, ref) => {
+  ({ value, onChange, onBlur, onFocus, onKeyDown, debounceMs = 300, type, ...props }, ref) => {
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
     const internalRef = React.useRef<HTMLInputElement | null>(null)
     const isFocusedRef = React.useRef(false)
-    const justTypedRef = React.useRef(false)
-    const cursorPosRef = React.useRef<number | null>(null)
+    const timerRef = React.useRef<NodeJS.Timeout | null>(null)
 
     React.useImperativeHandle(ref, () => internalRef.current!, [])
 
+    // Update local state from parent value ONLY when user is NOT actively focused
     React.useEffect(() => {
-      if (!isFocusedRef.current && !justTypedRef.current) {
+      if (!isFocusedRef.current) {
         setLocalVal(String(value ?? ""))
-      } else if (justTypedRef.current) {
-        // Keep local value while user is actively typing
-      } else {
-        const strVal = String(value ?? "")
-        const numLocal = Number(localVal)
-        const numVal = Number(strVal)
-        if (!isNaN(numVal) && !isNaN(numLocal) && Math.abs(numVal - numLocal) > 0.0001 && localVal !== "" && !localVal.endsWith(".")) {
-          setLocalVal(strVal)
-        }
       }
     }, [value])
 
+    const triggerParentChange = React.useCallback((valToSubmit: string) => {
+      onChange(valToSubmit)
+    }, [onChange])
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const el = e.target
-      const v = el.value
+      const v = e.target.value
       setLocalVal(v)
       isFocusedRef.current = true
-      justTypedRef.current = true
 
-      try {
-        cursorPosRef.current = el.selectionStart
-      } catch (err) {
-        cursorPosRef.current = null
-      }
-      
-      // Preserve scroll position during typing
-      const scrollContainer = document.querySelector('main') || window
-      const currentScrollTop = 'scrollTop' in scrollContainer ? scrollContainer.scrollTop : window.scrollY
-
-      onChange(v)
-
-      // Ensure focus & cursor position lock after React Hook Form state updates
-      const restoreFocusAndCursor = () => {
-        if (internalRef.current) {
-          if (document.activeElement !== internalRef.current) {
-            internalRef.current.focus()
-          }
-          if (cursorPosRef.current !== null && internalRef.current.type !== "number") {
-            try {
-              internalRef.current.setSelectionRange(cursorPosRef.current, cursorPosRef.current)
-            } catch (err) {}
-          }
-        }
-
-        if ('scrollTop' in scrollContainer) {
-          if (scrollContainer.scrollTop !== currentScrollTop) {
-            scrollContainer.scrollTop = currentScrollTop
-          }
-        } else {
-          if (window.scrollY !== currentScrollTop) {
-            window.scrollTo(0, currentScrollTop)
-          }
-        }
-
-        setTimeout(() => {
-          justTypedRef.current = false
-        }, 50)
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
       }
 
-      requestAnimationFrame(restoreFocusAndCursor)
+      // Debounce call to parent form.setValue so typing is 100% smooth without parent re-render interruptions
+      timerRef.current = setTimeout(() => {
+        triggerParentChange(v)
+      }, debounceMs)
     }
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -434,19 +395,25 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     }
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      if (!justTypedRef.current) {
-        isFocusedRef.current = false
-        onChange(localVal)
+      isFocusedRef.current = false
+      if (timerRef.current) {
+        clearTimeout(timerRef.current)
+        timerRef.current = null
       }
+      // Immediately flush current localVal on blur so parent form calculations are up to date
+      triggerParentChange(localVal)
       if (onBlur) onBlur(e)
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
         e.preventDefault()
-        justTypedRef.current = false
         isFocusedRef.current = false
-        onChange(localVal)
+        if (timerRef.current) {
+          clearTimeout(timerRef.current)
+          timerRef.current = null
+        }
+        triggerParentChange(localVal)
         e.currentTarget.blur()
       }
       if (onKeyDown) onKeyDown(e)
