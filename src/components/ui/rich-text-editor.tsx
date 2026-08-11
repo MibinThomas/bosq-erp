@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo } from "react"
+import React from "react"
 import dynamic from "next/dynamic"
 import "react-quill-new/dist/quill.snow.css"
 
@@ -10,31 +10,30 @@ interface RichTextEditorProps {
   placeholder?: string
 }
 
+const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false })
+
+const modules = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ["bold", "italic", "underline", "strike"],
+    [{ color: [] }, { background: [] }],
+    [{ list: "ordered" }, { list: "bullet" }],
+    ["clean"],
+  ],
+}
+
+const formats = [
+  "header",
+  "bold",
+  "italic",
+  "underline",
+  "strike",
+  "color",
+  "background",
+  "list",
+]
+
 const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorProps) => {
-  // Dynamically import react-quill-new to avoid SSR document is not defined issues and React 19 findDOMNode crashes
-  const ReactQuill = useMemo(() => dynamic(() => import("react-quill-new"), { ssr: false }), [])
-
-  const modules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline", "strike"],
-      [{ color: [] }, { background: [] }],
-      [{ list: "ordered" }, { list: "bullet" }],
-      ["clean"],
-    ],
-  }
-
-  const formats = [
-    "header",
-    "bold",
-    "italic",
-    "underline",
-    "strike",
-    "color",
-    "background",
-    "list",
-  ]
-
   return (
     <div className="bg-white rounded-md">
       <ReactQuill
