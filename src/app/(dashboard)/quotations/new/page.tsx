@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, Suspense, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useForm, useFieldArray } from "react-hook-form"
+import { useForm, useFieldArray, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { 
@@ -1154,7 +1154,6 @@ function NewQuotationForm() {
     control: form.control,
   })
 
-  const watchItems = form.watch("items")
   const watchClientId = form.watch("clientId")
   const watchAdditionalCharges = form.watch("additionalCharges") || []
   const watchTermsConditions = form.watch("termsConditions") || []
@@ -1162,9 +1161,11 @@ function NewQuotationForm() {
   const watchSpecialDiscountValue = form.watch("specialDiscountValue")
   const watchVatMode = form.watch("vatMode") || "EXCLUDING"
 
-  // Calculation Breakdown
+  // Calculation Breakdown (Scoped via useWatch to avoid full form re-renders)
+  const watchItemsForCalc = useWatch({ control: form.control, name: "items" }) || []
+
   const subtotal = useMemo(() => {
-    return watchItems.reduce((sum, item) => {
+    return watchItemsForCalc.reduce((sum, item) => {
       const qty = item.quantity === "" ? 0 : Number(item.quantity) || 0
       const price = item.unitPrice === "" ? 0 : Number(item.unitPrice) || 0
       const discVal = item.discount === "" ? 0 : Number(item.discount) || 0
@@ -1173,15 +1174,15 @@ function NewQuotationForm() {
       const netPrice = Math.max(0, price - discPerUnit)
       return sum + qty * netPrice
     }, 0)
-  }, [watchItems])
+  }, [watchItemsForCalc])
 
   const grossProductsSubtotal = useMemo(() => {
-    return watchItems.reduce((sum, item) => {
+    return watchItemsForCalc.reduce((sum, item) => {
       const qty = item.quantity === "" ? 0 : Number(item.quantity) || 0
       const price = item.unitPrice === "" ? 0 : Number(item.unitPrice) || 0
       return sum + qty * price
     }, 0)
-  }, [watchItems])
+  }, [watchItemsForCalc])
 
   const totalItemDiscounts = useMemo(() => {
     return Math.max(0, grossProductsSubtotal - subtotal)
@@ -2412,7 +2413,7 @@ function NewQuotationForm() {
                 <div>
                   <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
                     <Layers className="h-4 w-4 text-primary" />
-                    2. Quotation Line Items ({watchItems.length} Products)
+                    2. Quotation Line Items ({watchItemsForCalc.length} Products)
                   </CardTitle>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -2443,17 +2444,24 @@ function NewQuotationForm() {
                 {/* Batches Loop */}
                 {batches.map((batch, batchIdx) => {
                   const itemsInBatch = fields.filter((_, idx) => {
-                    const itemBatch = form.watch(`items.${idx}.batchHeading`) || ""
+                    const itemVal = watchItemsForCalc[idx]
+                    const itemBatch = itemVal?.batchHeading || ""
                     if (batch.name === "General Items") {
                       return !itemBatch || itemBatch === "General Items"
                     }
                     return itemBatch === batch.name
                   })
 
-                  const batchSubtotal = itemsInBatch.reduce((sum, item) => {
-                    const qty = item.quantity === "" ? 0 : Number(item.quantity) || 0
-                    const price = item.unitPrice === "" ? 0 : Number(item.unitPrice) || 0
-                    return sum + qty * price
+                  const batchSubtotal = itemsInBatch.reduce((sum, fieldItem) => {
+                    const idx = fields.findIndex(f => f.id === fieldItem.id)
+                    const itemVal = watchItemsForCalc[idx] || {}
+                    const qty = itemVal.quantity === "" ? 0 : Number(itemVal.quantity) || 0
+                    const price = itemVal.unitPrice === "" ? 0 : Number(itemVal.unitPrice) || 0
+                    const discVal = itemVal.discount === "" ? 0 : Number(itemVal.discount) || 0
+                    const discType = itemVal.discountType || "PERCENTAGE"
+                    const discPerUnit = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
+                    const netPrice = Math.max(0, price - discPerUnit)
+                    return sum + qty * netPrice
                   }, 0)
 
                   return (
@@ -2533,19 +2541,20 @@ function NewQuotationForm() {
                       {/* Line Item Cards in Section */}
                       <div className="space-y-4">
                         {fields.map((fieldItem, index) => {
-                          const itemBatch = form.watch(`items.${index}.batchHeading`) || ""
+                          const currentItemVal = watchItemsForCalc[index] || {}
+                          const itemBatch = currentItemVal.batchHeading || ""
                           const belongsToBatch = batch.name === "General Items" ? (!itemBatch || itemBatch === "General Items") : itemBatch === batch.name
                           if (!belongsToBatch) return null
 
-                          const currentProductId = form.watch(`items.${index}.productId`)
-                          const currentUnitPrice = form.watch(`items.${index}.unitPrice`)
-                          const currentQuantity = form.watch(`items.${index}.quantity`)
-                          const currentBasePrice = form.watch(`items.${index}.basePrice`)
-                          const currentMargin = form.watch(`items.${index}.margin`)
-                          const currentDiscount = form.watch(`items.${index}.discount`)
-                          const currentDiscountType = form.watch(`items.${index}.discountType`) || "PERCENTAGE"
-                          const currentPriceSource = form.watch(`items.${index}.priceSource`) || "standard"
-                          const currentImg = form.watch(`items.${index}.customImageUrl`)
+                          const currentProductId = currentItemVal.productId
+                          const currentUnitPrice = currentItemVal.unitPrice
+                          const currentQuantity = currentItemVal.quantity
+                          const currentBasePrice = currentItemVal.basePrice
+                          const currentMargin = currentItemVal.margin
+                          const currentDiscount = currentItemVal.discount
+                          const currentDiscountType = currentItemVal.discountType || "PERCENTAGE"
+                          const currentPriceSource = currentItemVal.priceSource || "standard"
+                          const currentImg = currentItemVal.customImageUrl
 
                           const qtyNum = currentQuantity === "" ? 0 : Number(currentQuantity) || 0
                           const unitPriceNum = currentUnitPrice === "" ? 0 : Number(currentUnitPrice) || 0
@@ -2580,9 +2589,9 @@ function NewQuotationForm() {
                                   <Badge variant="outline" className="font-mono text-xs font-bold bg-muted/40">
                                     #{index + 1}
                                   </Badge>
-                                  {form.watch(`items.${index}.categoryName`) && (
+                                  {currentItemVal.categoryName && (
                                     <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
-                                      {form.watch(`items.${index}.categoryName`)}
+                                      {currentItemVal.categoryName}
                                     </Badge>
                                   )}
                                 </div>
@@ -2683,7 +2692,7 @@ function NewQuotationForm() {
                                       )}
                                     />
 
-                                    {form.watch(`items.${index}.categoryName`) === "Chairs" && (
+                                    {currentItemVal.categoryName === "Chairs" && (
                                       <FormField
                                         control={form.control}
                                         name={`items.${index}.chairType`}
