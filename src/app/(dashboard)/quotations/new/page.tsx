@@ -374,7 +374,24 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const v = e.target.value
       setLocalVal(v)
+      
+      // Preserve scroll position during typing
+      const scrollContainer = document.querySelector('main') || window
+      const currentScrollTop = 'scrollTop' in scrollContainer ? scrollContainer.scrollTop : window.scrollY
+
       onChange(v)
+
+      requestAnimationFrame(() => {
+        if ('scrollTop' in scrollContainer) {
+          if (scrollContainer.scrollTop !== currentScrollTop) {
+            scrollContainer.scrollTop = currentScrollTop
+          }
+        } else {
+          if (window.scrollY !== currentScrollTop) {
+            window.scrollTo(0, currentScrollTop)
+          }
+        }
+      })
     }
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -681,6 +698,476 @@ function BatchSectionSubtotal({ control, batchName, fields }: { control: any; ba
     </div>
   )
 }
+
+const QuotationItemCard = React.memo(function QuotationItemCard({
+  index,
+  fieldItem,
+  control,
+  form,
+  batchName,
+  products,
+  watchSegment,
+  dbCategories,
+  userRole,
+  isRevision,
+  draggedIndex,
+  dragOverIndex,
+  handleDragStart,
+  handleDragOver,
+  handleDrop,
+  handleDragEnd,
+  handleDuplicateItem,
+  remove,
+  handleProductSelect,
+  fieldsLength,
+}: {
+  index: number
+  fieldItem: any
+  control: any
+  form: any
+  batchName: string
+  products: any[]
+  watchSegment: string
+  dbCategories: any[]
+  userRole?: string
+  isRevision?: boolean
+  draggedIndex: number | null
+  dragOverIndex: number | null
+  handleDragStart: (e: React.DragEvent, index: number) => void
+  handleDragOver: (e: React.DragEvent, index: number) => void
+  handleDrop: (e: React.DragEvent, index: number, targetBatchName: string) => void
+  handleDragEnd: () => void
+  handleDuplicateItem: (index: number) => void
+  remove: (index: number) => void
+  handleProductSelect: (index: number, productId: string) => void
+  fieldsLength: number
+}) {
+  const currentItemVal = useWatch({ control, name: `items.${index}` }) || {}
+  const itemBatch = currentItemVal.batchHeading || ""
+  const belongsToBatch = batchName === "General Items" ? (!itemBatch || itemBatch === "General Items") : itemBatch === batchName
+  if (!belongsToBatch) return null
+
+  const currentProductId = currentItemVal.productId
+  const currentUnitPrice = currentItemVal.unitPrice
+  const currentQuantity = currentItemVal.quantity
+  const currentBasePrice = currentItemVal.basePrice
+  const currentMargin = currentItemVal.margin
+  const currentDiscount = currentItemVal.discount
+  const currentDiscountType = currentItemVal.discountType || "PERCENTAGE"
+  const currentPriceSource = currentItemVal.priceSource || "standard"
+  const currentImg = currentItemVal.customImageUrl
+
+  const qtyNum = currentQuantity === "" ? 0 : Number(currentQuantity) || 0
+  const unitPriceNum = currentUnitPrice === "" ? 0 : Number(currentUnitPrice) || 0
+  const discValNum = currentDiscount === "" ? 0 : Number(currentDiscount) || 0
+  const discPerUnit = currentDiscountType === "PERCENTAGE" ? unitPriceNum * (discValNum / 100) : discValNum
+  const netUnitPrice = Math.max(0, unitPriceNum - discPerUnit)
+  const lineTotal = qtyNum * netUnitPrice
+
+  return (
+    <div
+      onDragOver={(e) => handleDragOver(e, index)}
+      onDrop={(e) => handleDrop(e, index, batchName)}
+      className={cn(
+        "p-4 sm:p-5 rounded-xl border bg-card shadow-2xs space-y-4 transition-all hover:border-primary/40",
+        dragOverIndex === index && "border-primary border-dashed bg-primary/10 shadow-md",
+        draggedIndex === index && "opacity-40 border-primary border-dashed"
+      )}
+    >
+      {/* Item Header Row */}
+      <div className="flex items-center justify-between border-b pb-3 gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span
+            draggable
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragEnd={handleDragEnd}
+            className="drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
+            title="Drag item to reorder or move across sections"
+          >
+            <GripVertical className="h-4 w-4" />
+          </span>
+          <Badge variant="outline" className="font-mono text-xs font-bold bg-muted/40">
+            #{index + 1}
+          </Badge>
+          {currentItemVal.categoryName && (
+            <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
+              {currentItemVal.categoryName}
+            </Badge>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => handleDuplicateItem(index)}
+            className="text-[11px] h-7 flex items-center gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <Copy className="h-3 w-3" /> Duplicate
+          </Button>
+
+          {fieldsLength > 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => remove(index)}
+              className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer"
+              title="Remove item"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Product Search Selector */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-foreground">Catalog Product</label>
+        <ProductSearchSelect
+          productId={currentProductId}
+          products={products}
+          watchSegment={watchSegment}
+          onProductSelect={(prodId) => handleProductSelect(index, prodId)}
+          onCustomProductClick={() => {
+            form.setValue(`items.${index}.productId`, "")
+            form.setValue(`items.${index}.priceSource`, "manual")
+          }}
+        />
+      </div>
+
+      {/* 2-Column Responsive Layout (Details & Pricing) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
+        {/* Left Side: Image & Description Info */}
+        <div className="lg:col-span-6 space-y-3">
+          <div className="flex gap-3 items-start">
+            {/* Quotation Item Image Dropzone */}
+            <QuotationItemImageDropzone
+              value={currentImg}
+              onChange={(url) => form.setValue(`items.${index}.customImageUrl`, url, { shouldValidate: true, shouldDirty: true })}
+              onRemove={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
+              itemIndex={index}
+            />
+
+            {/* Product Description */}
+            <div className="flex-1 space-y-2">
+              <FormField
+                control={control}
+                name={`items.${index}.description`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold text-foreground">Product Title / Heading</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter product title..." className="h-9 text-xs bg-background" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Additional Category / Chair Type Selects */}
+          <div className="grid grid-cols-2 gap-3">
+            <FormField
+              control={control}
+              name={`items.${index}.categoryName`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-[11px] font-medium text-muted-foreground">Category</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || "Chairs"}>
+                    <FormControl>
+                      <SelectTrigger className="h-8 text-xs bg-background">
+                        <SelectValue placeholder="Category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {dbCategories.map(cat => (
+                        <SelectItem key={cat.id} value={cat.name} className="text-xs">{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )}
+            />
+
+            {currentItemVal.categoryName === "Chairs" && (
+              <FormField
+                control={control}
+                name={`items.${index}.chairType`}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[11px] font-medium text-muted-foreground">Chair Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger className="h-8 text-xs bg-background">
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Executive Chair" className="text-xs">Executive Chair</SelectItem>
+                        <SelectItem value="Workstation Chair" className="text-xs">Workstation Chair</SelectItem>
+                        <SelectItem value="Meeting Chair" className="text-xs">Meeting Chair</SelectItem>
+                        <SelectItem value="Lounge Chair" className="text-xs">Lounge Chair</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+                )}
+              />
+            )}
+          </div>
+
+          {/* Detailed Product Description Field */}
+          <FormField
+            control={control}
+            name={`items.${index}.productDescription`}
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center justify-between">
+                  <FormLabel className="text-xs font-semibold text-foreground">Detailed Product Description</FormLabel>
+                  <span className="text-[10px] text-muted-foreground font-normal">Appears in PDF & Preview</span>
+                </div>
+                <FormControl>
+                  <Textarea
+                    placeholder="Enter detailed product description (e.g. materials, mechanism, finish, fabric, warranty...)"
+                    className="min-h-[75px] text-xs bg-background leading-relaxed"
+                    {...field}
+                    value={field.value || ""}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Special Notes Field */}
+          <FormField
+            control={control}
+            name={`items.${index}.productNotes`}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-semibold text-foreground">Special Notes</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Enter special notes or instructions..."
+                    className="min-h-[55px] text-xs bg-background leading-relaxed"
+                    {...field}
+                    value={field.value || ""}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Right Side: Pricing & Margins Grid Controls */}
+        <div className="lg:col-span-6 space-y-3 bg-muted/20 p-3.5 rounded-xl border border-border/60">
+          {/* Price Source Toggle */}
+          <div className="flex items-center justify-between border-b pb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Pricing Mode
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant={currentPriceSource === "standard" ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  form.setValue(`items.${index}.priceSource`, "standard")
+                  if (currentProductId) handleProductSelect(index, currentProductId)
+                }}
+                className="h-6 text-[10px] px-2 cursor-pointer"
+              >
+                Standard Price
+              </Button>
+              <Button
+                type="button"
+                variant={currentPriceSource === "manual" ? "default" : "outline"}
+                size="sm"
+                onClick={() => form.setValue(`items.${index}.priceSource`, "manual")}
+                className="h-6 text-[10px] px-2 cursor-pointer"
+              >
+                Manual Override
+              </Button>
+            </div>
+          </div>
+
+          {/* 6-Column Pricing Fields */}
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-1">
+            {/* Quantity */}
+            <FormField
+              control={control}
+              name={`items.${index}.quantity`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-[11px] font-semibold text-muted-foreground">Qty</FormLabel>
+                  <FormControl>
+                    <NumericInput
+                      type="number"
+                      className="h-8 text-xs font-mono text-center bg-background"
+                      value={field.value}
+                      onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Base Price */}
+            <FormField
+              control={control}
+              name={`items.${index}.basePrice`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-[11px] font-semibold text-muted-foreground">Base AED</FormLabel>
+                  <FormControl>
+                    <NumericInput
+                      type="number"
+                      step="0.01"
+                      disabled={currentPriceSource === "standard"}
+                      className="h-8 text-xs font-mono bg-background"
+                      value={field.value}
+                      onChange={(val) => {
+                        const bPrice = val === "" ? 0 : Number(val)
+                        field.onChange(bPrice)
+                        const marginVal = Number(form.getValues(`items.${index}.margin`)) || 0
+                        const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
+                        form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Margin % */}
+            <FormField
+              control={control}
+              name={`items.${index}.margin`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin %</FormLabel>
+                  <FormControl>
+                    <NumericInput
+                      type="number"
+                      step="0.1"
+                      className="h-8 text-xs font-mono text-center bg-background"
+                      value={field.value}
+                      onChange={(val) => {
+                        const marginVal = val === "" ? 0 : Number(val)
+                        field.onChange(marginVal)
+                        form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: false })
+                        const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
+                        const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
+                        form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Unit Price */}
+            <FormField
+              control={control}
+              name={`items.${index}.unitPrice`}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-[11px] font-semibold text-muted-foreground">Unit AED</FormLabel>
+                  <FormControl>
+                    <NumericInput
+                      type="number"
+                      step="0.01"
+                      className="h-8 text-xs font-mono bg-background font-bold text-primary"
+                      value={field.value}
+                      onChange={(val) => {
+                        const uPrice = val === "" ? 0 : Number(val)
+                        field.onChange(uPrice)
+                        const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
+                        if (bPrice > 0) {
+                          const calculatedMargin = Number((((uPrice - bPrice) / bPrice) * 100).toFixed(2))
+                          form.setValue(`items.${index}.margin`, calculatedMargin, { shouldValidate: false })
+                          form.setValue(`items.${index}.manualMargin`, calculatedMargin, { shouldValidate: false })
+                        }
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Item Discount Field */}
+            <FormField
+              control={control}
+              name={`items.${index}.discount`}
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount</FormLabel>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextType = currentDiscountType === "PERCENTAGE" ? "AMOUNT" : "PERCENTAGE"
+                        form.setValue(`items.${index}.discountType`, nextType)
+                      }}
+                      className="text-[10px] text-primary hover:underline font-bold"
+                      title="Toggle between % and AED discount"
+                    >
+                      {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
+                    </button>
+                  </div>
+                  <FormControl>
+                    <div className="relative">
+                      <NumericInput
+                        type="number"
+                        step={currentDiscountType === "PERCENTAGE" ? "0.1" : "0.01"}
+                        className="h-8 text-xs font-mono bg-background pr-6"
+                        value={field.value}
+                        onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
+                      />
+                      <span className="absolute right-1.5 top-2 text-[9px] font-bold text-muted-foreground pointer-events-none">
+                        {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
+                      </span>
+                    </div>
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Total Amount */}
+            <div className="col-span-2 sm:col-span-1">
+              <label className="text-[11px] font-semibold text-muted-foreground block">Total AED</label>
+              <div className="h-8 flex flex-col justify-center items-end px-2 bg-background border rounded-md font-mono text-xs font-bold text-foreground">
+                <span>{formatCurrency(lineTotal)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Accordion / Collapsible for Specifications & Notes */}
+      <div className="pt-2">
+        <FormField
+          control={control}
+          name={`items.${index}.specifications`}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-[11px] font-semibold text-muted-foreground">Product Specifications (Formatted text on PDF)</FormLabel>
+              <FormControl>
+                <RichTextEditor
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+      </div>
+    </div>
+  )
+})
 
 function NewQuotationForm() {
   const router = useRouter()
@@ -1385,6 +1872,7 @@ function NewQuotationForm() {
   })
 
   const watchClientId = form.watch("clientId")
+  const watchCustomerSegment = form.watch("customerSegment") || "Project"
   const watchAdditionalCharges = form.watch("additionalCharges") || []
   const watchTermsConditions = form.watch("termsConditions") || []
   const watchSpecialDiscountType = form.watch("specialDiscountType")
@@ -2683,434 +3171,31 @@ function NewQuotationForm() {
 
                       {/* Line Item Cards in Section */}
                       <div className="space-y-4">
-                        {fields.map((fieldItem, index) => {
-                          const currentItemVal = useWatch({ control: form.control, name: `items.${index}` }) || {}
-                          const itemBatch = currentItemVal.batchHeading || ""
-                          const belongsToBatch = batch.name === "General Items" ? (!itemBatch || itemBatch === "General Items") : itemBatch === batch.name
-                          if (!belongsToBatch) return null
-
-                          const currentProductId = currentItemVal.productId
-                          const currentUnitPrice = currentItemVal.unitPrice
-                          const currentQuantity = currentItemVal.quantity
-                          const currentBasePrice = currentItemVal.basePrice
-                          const currentMargin = currentItemVal.margin
-                          const currentDiscount = currentItemVal.discount
-                          const currentDiscountType = currentItemVal.discountType || "PERCENTAGE"
-                          const currentPriceSource = currentItemVal.priceSource || "standard"
-                          const currentImg = currentItemVal.customImageUrl
-
-                          const qtyNum = currentQuantity === "" ? 0 : Number(currentQuantity) || 0
-                          const unitPriceNum = currentUnitPrice === "" ? 0 : Number(currentUnitPrice) || 0
-                          const discValNum = currentDiscount === "" ? 0 : Number(currentDiscount) || 0
-                          const discPerUnit = currentDiscountType === "PERCENTAGE" ? unitPriceNum * (discValNum / 100) : discValNum
-                          const netUnitPrice = Math.max(0, unitPriceNum - discPerUnit)
-                          const lineTotal = qtyNum * netUnitPrice
-
-                          return (
-                            <div
-                              key={fieldItem.id}
-                              onDragOver={(e) => handleDragOver(e, index)}
-                              onDrop={(e) => handleDrop(e, index, batch.name)}
-                              className={cn(
-                                "p-4 sm:p-5 rounded-xl border bg-card shadow-2xs space-y-4 transition-all hover:border-primary/40",
-                                dragOverIndex === index && "border-primary border-dashed bg-primary/10 shadow-md",
-                                draggedIndex === index && "opacity-40 border-primary border-dashed"
-                              )}
-                            >
-                              {/* Item Header Row */}
-                              <div className="flex items-center justify-between border-b pb-3 gap-2 flex-wrap">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, index)}
-                                    onDragEnd={handleDragEnd}
-                                    className="drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
-                                    title="Drag item to reorder or move across sections"
-                                  >
-                                    <GripVertical className="h-4 w-4" />
-                                  </span>
-                                  <Badge variant="outline" className="font-mono text-xs font-bold bg-muted/40">
-                                    #{index + 1}
-                                  </Badge>
-                                  {currentItemVal.categoryName && (
-                                    <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
-                                      {currentItemVal.categoryName}
-                                    </Badge>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-1.5">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDuplicateItem(index)}
-                                    className="text-[11px] h-7 flex items-center gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
-                                  >
-                                    <Copy className="h-3 w-3" /> Duplicate
-                                  </Button>
-
-                                  {fields.length > 1 && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => remove(index)}
-                                      className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer"
-                                      title="Remove item"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Product Search Selector */}
-                              <div className="space-y-1.5">
-                                <label className="text-xs font-semibold text-foreground">Catalog Product</label>
-                                <ProductSearchSelect
-                                  productId={currentProductId}
-                                  products={products}
-                                  watchSegment={watchSegment}
-                                  onProductSelect={(prodId) => handleProductSelect(index, prodId)}
-                                  onCustomProductClick={() => {
-                                    form.setValue(`items.${index}.productId`, "")
-                                    form.setValue(`items.${index}.priceSource`, "manual")
-                                  }}
-                                />
-                              </div>
-
-                              {/* 2-Column Responsive Layout (Details & Pricing) */}
-                              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
-                                {/* Left Side: Image & Description Info */}
-                                <div className="lg:col-span-6 space-y-3">
-                                  <div className="flex gap-3 items-start">
-                                    {/* Quotation Item Image Dropzone */}
-                                    <QuotationItemImageDropzone
-                                      value={currentImg}
-                                      onChange={(url) => form.setValue(`items.${index}.customImageUrl`, url, { shouldValidate: true, shouldDirty: true })}
-                                      onRemove={() => form.setValue(`items.${index}.customImageUrl`, "", { shouldValidate: true, shouldDirty: true })}
-                                      itemIndex={index}
-                                    />
-
-                                    {/* Product Description */}
-                                    <div className="flex-1 space-y-2">
-                                      <FormField
-                                        control={form.control}
-                                        name={`items.${index}.description`}
-                                        render={({ field }) => (
-                                          <FormItem>
-                                            <FormLabel className="text-xs font-semibold text-foreground">Product Title / Heading</FormLabel>
-                                            <FormControl>
-                                              <Input placeholder="Enter product title..." className="h-9 text-xs bg-background" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                          </FormItem>
-                                        )}
-                                      />
-                                    </div>
-                                  </div>
-
-                                  {/* Additional Category / Chair Type Selects */}
-                                  <div className="grid grid-cols-2 gap-3">
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.categoryName`}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-[11px] font-medium text-muted-foreground">Category</FormLabel>
-                                          <Select onValueChange={field.onChange} value={field.value || "Chairs"}>
-                                            <FormControl>
-                                              <SelectTrigger className="h-8 text-xs bg-background">
-                                                <SelectValue placeholder="Category" />
-                                              </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                              {dbCategories.map(cat => (
-                                                <SelectItem key={cat.id} value={cat.name} className="text-xs">{cat.name}</SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {currentItemVal.categoryName === "Chairs" && (
-                                      <FormField
-                                        control={form.control}
-                                        name={`items.${index}.chairType`}
-                                        render={({ field }) => (
-                                          <FormItem>
-                                            <FormLabel className="text-[11px] font-medium text-muted-foreground">Chair Type</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value || ""}>
-                                              <FormControl>
-                                                <SelectTrigger className="h-8 text-xs bg-background">
-                                                  <SelectValue placeholder="Type" />
-                                                </SelectTrigger>
-                                              </FormControl>
-                                              <SelectContent>
-                                                <SelectItem value="Executive Chair" className="text-xs">Executive Chair</SelectItem>
-                                                <SelectItem value="Workstation Chair" className="text-xs">Workstation Chair</SelectItem>
-                                                <SelectItem value="Meeting Chair" className="text-xs">Meeting Chair</SelectItem>
-                                                <SelectItem value="Lounge Chair" className="text-xs">Lounge Chair</SelectItem>
-                                              </SelectContent>
-                                            </Select>
-                                          </FormItem>
-                                        )}
-                                      />
-                                    )}
-                                  </div>
-
-                                  {/* Detailed Product Description Field */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.productDescription`}
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <div className="flex items-center justify-between">
-                                          <FormLabel className="text-xs font-semibold text-foreground">Detailed Product Description</FormLabel>
-                                          <span className="text-[10px] text-muted-foreground font-normal">Appears in PDF & Preview</span>
-                                        </div>
-                                        <FormControl>
-                                          <Textarea
-                                            placeholder="Enter detailed product description (e.g. materials, mechanism, finish, fabric, warranty...)"
-                                            className="min-h-[75px] text-xs bg-background leading-relaxed"
-                                            {...field}
-                                            value={field.value || ""}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-
-                                  {/* Special Notes Field */}
-                                  <FormField
-                                    control={form.control}
-                                    name={`items.${index}.productNotes`}
-                                    render={({ field }) => (
-                                      <FormItem>
-                                        <FormLabel className="text-xs font-semibold text-foreground">Special Notes</FormLabel>
-                                        <FormControl>
-                                          <Textarea
-                                            placeholder="Enter special notes or instructions..."
-                                            className="min-h-[55px] text-xs bg-background leading-relaxed"
-                                            {...field}
-                                            value={field.value || ""}
-                                          />
-                                        </FormControl>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                </div>
-
-                                {/* Right Side: Pricing & Margins Grid Controls */}
-                                <div className="lg:col-span-6 space-y-3 bg-muted/20 p-3.5 rounded-xl border border-border/60">
-                                  {/* Price Source Toggle */}
-                                  <div className="flex items-center justify-between border-b pb-2">
-                                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                      Pricing Mode
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                      <Button
-                                        type="button"
-                                        variant={currentPriceSource === "standard" ? "default" : "outline"}
-                                        size="sm"
-                                        onClick={() => {
-                                          form.setValue(`items.${index}.priceSource`, "standard")
-                                          if (currentProductId) handleProductSelect(index, currentProductId)
-                                        }}
-                                        className="h-6 text-[10px] px-2 cursor-pointer"
-                                      >
-                                        Standard Price
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant={currentPriceSource === "manual" ? "default" : "outline"}
-                                        size="sm"
-                                        onClick={() => form.setValue(`items.${index}.priceSource`, "manual")}
-                                        className="h-6 text-[10px] px-2 cursor-pointer"
-                                      >
-                                        Manual Override
-                                      </Button>
-                                    </div>
-                                  </div>
-
-                                  {/* 6-Column Pricing Fields */}
-                                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-1">
-                                    {/* Quantity */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.quantity`}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Qty</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              className="h-8 text-xs font-mono text-center bg-background"
-                                              value={field.value}
-                                              onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
-                                            />
-                                          </FormControl>
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Base Price */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.basePrice`}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Base AED</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              step="0.01"
-                                              disabled={currentPriceSource === "standard"}
-                                              className="h-8 text-xs font-mono bg-background"
-                                              value={field.value}
-                                              onChange={(val) => {
-                                                const bPrice = val === "" ? 0 : Number(val)
-                                                field.onChange(bPrice)
-                                                const marginVal = Number(form.getValues(`items.${index}.margin`)) || 0
-                                                const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
-                                                form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
-                                              }}
-                                            />
-                                          </FormControl>
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Margin % */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.margin`}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin %</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              step="0.1"
-                                              className="h-8 text-xs font-mono text-center bg-background"
-                                              value={field.value}
-                                              onChange={(val) => {
-                                                const marginVal = val === "" ? 0 : Number(val)
-                                                field.onChange(marginVal)
-                                                form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: false })
-                                                const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
-                                                const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
-                                                form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
-                                              }}
-                                            />
-                                          </FormControl>
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Unit Price */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.unitPrice`}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel className="text-[11px] font-semibold text-muted-foreground">Unit AED</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              step="0.01"
-                                              className="h-8 text-xs font-mono bg-background font-bold text-primary"
-                                              value={field.value}
-                                              onChange={(val) => {
-                                                const uPrice = val === "" ? 0 : Number(val)
-                                                field.onChange(uPrice)
-                                                const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
-                                                if (bPrice > 0) {
-                                                  const calculatedMargin = Number((((uPrice - bPrice) / bPrice) * 100).toFixed(2))
-                                                  form.setValue(`items.${index}.margin`, calculatedMargin, { shouldValidate: false })
-                                                  form.setValue(`items.${index}.manualMargin`, calculatedMargin, { shouldValidate: false })
-                                                }
-                                              }}
-                                            />
-                                          </FormControl>
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Item Discount Field */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.discount`}
-                                      render={({ field }) => (
-                                        <FormItem>
-                                          <div className="flex items-center justify-between">
-                                            <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount</FormLabel>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                const nextType = currentDiscountType === "PERCENTAGE" ? "AMOUNT" : "PERCENTAGE"
-                                                form.setValue(`items.${index}.discountType`, nextType)
-                                              }}
-                                              className="text-[10px] text-primary hover:underline font-bold"
-                                              title="Toggle between % and AED discount"
-                                            >
-                                              {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
-                                            </button>
-                                          </div>
-                                          <FormControl>
-                                            <div className="relative">
-                                              <NumericInput
-                                                type="number"
-                                                step={currentDiscountType === "PERCENTAGE" ? "0.1" : "0.01"}
-                                                className="h-8 text-xs font-mono bg-background pr-6"
-                                                value={field.value}
-                                                onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
-                                              />
-                                              <span className="absolute right-1.5 top-2 text-[9px] font-bold text-muted-foreground pointer-events-none">
-                                                {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
-                                              </span>
-                                            </div>
-                                          </FormControl>
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Total Amount */}
-                                    <div className="col-span-2 sm:col-span-1">
-                                      <label className="text-[11px] font-semibold text-muted-foreground block">Total AED</label>
-                                      <div className="h-8 flex flex-col justify-center items-end px-2 bg-background border rounded-md font-mono text-xs font-bold text-foreground">
-                                        <span>{formatCurrency(lineTotal)}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Accordion / Collapsible for Specifications & Notes */}
-                              <div className="pt-2">
-                                <FormField
-                                  control={form.control}
-                                  name={`items.${index}.specifications`}
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormLabel className="text-[11px] font-semibold text-muted-foreground">Product Specifications (Formatted text on PDF)</FormLabel>
-                                      <FormControl>
-                                        <RichTextEditor
-                                          value={field.value || ""}
-                                          onChange={field.onChange}
-                                        />
-                                      </FormControl>
-                                    </FormItem>
-                                  )}
-                                />
-                              </div>
-                            </div>
-                          )
-                        })}
+                        {fields.map((fieldItem, index) => (
+                          <QuotationItemCard
+                            key={fieldItem.id}
+                            index={index}
+                            fieldItem={fieldItem}
+                            control={form.control}
+                            form={form}
+                            batchName={batch.name}
+                            products={products}
+                            watchSegment={watchCustomerSegment}
+                            dbCategories={dbCategories}
+                            userRole={userRole}
+                            isRevision={isRevision}
+                            draggedIndex={draggedIndex}
+                            dragOverIndex={dragOverIndex}
+                            handleDragStart={handleDragStart}
+                            handleDragOver={handleDragOver}
+                            handleDrop={handleDrop}
+                            handleDragEnd={handleDragEnd}
+                            handleDuplicateItem={handleDuplicateItem}
+                            remove={remove}
+                            handleProductSelect={handleProductSelect}
+                            fieldsLength={fields.length}
+                          />
+                        ))}
                       </div>
 
                       {/* Section Bottom Action Controls */}
