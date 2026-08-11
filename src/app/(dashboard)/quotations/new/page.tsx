@@ -452,6 +452,236 @@ const formatCurrency = (val: number) => {
   })
 }
 
+function CalculationSummaryPanel({ control }: { control: any }) {
+  const watchItems = useWatch({ control, name: "items" }) || []
+  const watchAdditionalCharges = useWatch({ control, name: "additionalCharges" }) || []
+  const watchSpecialDiscountType = useWatch({ control, name: "specialDiscountType" })
+  const watchSpecialDiscountValue = useWatch({ control, name: "specialDiscountValue" })
+  const watchSpecialDiscountReason = useWatch({ control, name: "specialDiscountReason" })
+  const watchVatMode = useWatch({ control, name: "vatMode" }) || "EXCLUDING"
+
+  const subtotal = useMemo(() => {
+    return watchItems.reduce((sum: number, item: any) => {
+      const qty = item?.quantity === "" ? 0 : Number(item?.quantity) || 0
+      const price = item?.unitPrice === "" ? 0 : Number(item?.unitPrice) || 0
+      const discVal = item?.discount === "" ? 0 : Number(item?.discount) || 0
+      const discType = item?.discountType || "PERCENTAGE"
+      const discPerUnit = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
+      const netPrice = Math.max(0, price - discPerUnit)
+      return sum + qty * netPrice
+    }, 0)
+  }, [watchItems])
+
+  const totalAdditionalCost = useMemo(() => {
+    return watchAdditionalCharges.reduce((sum: number, c: any) => {
+      const amt = c?.amount === "" ? 0 : Number(c?.amount) || 0
+      return sum + amt
+    }, 0)
+  }, [watchAdditionalCharges])
+
+  const specialDiscountAmount = useMemo(() => {
+    const val = watchSpecialDiscountValue === "" ? 0 : Number(watchSpecialDiscountValue) || 0
+    if (!watchSpecialDiscountType || val <= 0) return 0
+
+    if (watchSpecialDiscountType === "PERCENTAGE") {
+      const grossSub = subtotal + totalAdditionalCost
+      return (grossSub * val) / 100
+    } else {
+      return val
+    }
+  }, [watchSpecialDiscountType, watchSpecialDiscountValue, subtotal, totalAdditionalCost])
+
+  const taxableAmount = useMemo(() => {
+    const grossSub = subtotal + totalAdditionalCost
+    return Math.max(0, grossSub - specialDiscountAmount)
+  }, [subtotal, totalAdditionalCost, specialDiscountAmount])
+
+  const vatAmount = useMemo(() => {
+    if (watchVatMode === "INCLUDING") return 0
+    return taxableAmount * 0.05
+  }, [taxableAmount, watchVatMode])
+
+  const grandTotal = useMemo(() => {
+    if (watchVatMode === "INCLUDING") {
+      return taxableAmount
+    }
+    return taxableAmount + vatAmount
+  }, [taxableAmount, vatAmount, watchVatMode])
+
+  return (
+    <div className="bg-card p-5 rounded-xl border shadow-2xs space-y-4">
+      <div className="space-y-3 text-xs sm:text-sm border-b border-border/80 pb-4">
+        {/* Subtotal */}
+        <div className="flex justify-between items-center">
+          <span className="text-muted-foreground">Products Subtotal</span>
+          <span className="font-semibold font-mono text-foreground">AED {formatCurrency(subtotal)}</span>
+        </div>
+
+        {/* Additional Costs */}
+        {totalAdditionalCost > 0 && (
+          <div className="flex justify-between items-center text-emerald-600 font-medium">
+            <span className="text-muted-foreground">Additional Charges</span>
+            <span className="font-mono font-semibold">+ AED {formatCurrency(totalAdditionalCost)}</span>
+          </div>
+        )}
+
+        {/* Special Discount */}
+        {specialDiscountAmount > 0 && (
+          <div className="flex justify-between items-center text-destructive font-medium">
+            <span className="text-muted-foreground flex flex-col">
+              <span>Special Discount</span>
+              {watchSpecialDiscountReason && (
+                <span className="text-[10px] text-muted-foreground/80 italic truncate max-w-[160px]">
+                  {watchSpecialDiscountReason}
+                </span>
+              )}
+            </span>
+            <span className="font-mono font-semibold">- AED {formatCurrency(specialDiscountAmount)}</span>
+          </div>
+        )}
+
+        {/* Taxable Subtotal */}
+        {watchVatMode !== "INCLUDING" && (totalAdditionalCost > 0 || specialDiscountAmount > 0) && (
+          <div className="flex justify-between items-center pt-2 border-t border-dashed border-border/60">
+            <span className="text-muted-foreground font-semibold">Taxable Subtotal</span>
+            <span className="font-semibold font-mono text-foreground">AED {formatCurrency(taxableAmount)}</span>
+          </div>
+        )}
+
+        {/* VAT Amount */}
+        {watchVatMode !== "INCLUDING" && (
+          <div className="flex items-center justify-between text-muted-foreground font-medium">
+            <span>VAT (5%)</span>
+            <span className="font-mono font-semibold text-foreground">AED {formatCurrency(vatAmount)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Grand Total Highlight */}
+      <div className="flex justify-between items-center text-lg sm:text-xl font-bold text-primary pt-1">
+        <span>{watchVatMode === "INCLUDING" ? "Total Payable" : "Grand Total"}</span>
+        <span className="font-mono text-xl sm:text-2xl font-black">
+          AED {grandTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function StickyDockSummaryPanel({ control, submitting, form, onSubmit, isRevision }: { control: any; submitting: boolean; form: any; onSubmit: any; isRevision: boolean }) {
+  const watchItems = useWatch({ control, name: "items" }) || []
+  const watchAdditionalCharges = useWatch({ control, name: "additionalCharges" }) || []
+  const watchSpecialDiscountType = useWatch({ control, name: "specialDiscountType" })
+  const watchSpecialDiscountValue = useWatch({ control, name: "specialDiscountValue" })
+  const watchVatMode = useWatch({ control, name: "vatMode" }) || "EXCLUDING"
+
+  const grandTotal = useMemo(() => {
+    const sub = watchItems.reduce((sum: number, item: any) => {
+      const qty = item?.quantity === "" ? 0 : Number(item?.quantity) || 0
+      const price = item?.unitPrice === "" ? 0 : Number(item?.unitPrice) || 0
+      const discVal = item?.discount === "" ? 0 : Number(item?.discount) || 0
+      const discType = item?.discountType || "PERCENTAGE"
+      const discPerUnit = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
+      const netPrice = Math.max(0, price - discPerUnit)
+      return sum + qty * netPrice
+    }, 0)
+
+    const addCost = watchAdditionalCharges.reduce((sum: number, c: any) => {
+      const amt = c?.amount === "" ? 0 : Number(c?.amount) || 0
+      return sum + amt
+    }, 0)
+
+    const val = watchSpecialDiscountValue === "" ? 0 : Number(watchSpecialDiscountValue) || 0
+    let specDisc = 0
+    if (watchSpecialDiscountType && val > 0) {
+      specDisc = watchSpecialDiscountType === "PERCENTAGE" ? ((sub + addCost) * val) / 100 : val
+    }
+
+    const taxable = Math.max(0, sub + addCost - specDisc)
+    const vat = watchVatMode === "INCLUDING" ? 0 : taxable * 0.05
+    return watchVatMode === "INCLUDING" ? taxable : taxable + vat
+  }, [watchItems, watchAdditionalCharges, watchSpecialDiscountType, watchSpecialDiscountValue, watchVatMode])
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
+      <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground hidden sm:inline">Grand Total:</span>
+          <span className="text-base sm:text-xl font-black font-mono text-primary">
+            AED {grandTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting}
+            onClick={() => onSubmit(form.getValues(), "DRAFT")}
+            className="text-xs h-9 sm:h-10 px-3 sm:px-4 font-medium flex items-center gap-1.5 cursor-pointer bg-background"
+          >
+            <Save className="h-4 w-4" />
+            <span className="hidden sm:inline">Save Draft</span>
+            <span className="sm:hidden">Draft</span>
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            disabled={submitting}
+            onClick={form.handleSubmit((data: any) => onSubmit(data, "SUBMITTED"))}
+            className="text-xs h-9 sm:h-10 px-4 sm:px-6 font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            <span>{isRevision ? "Submit Revision" : "Create Quotation"}</span>
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function BatchSectionSubtotal({ control, batchName, fields }: { control: any; batchName: string; fields: any[] }) {
+  const watchItems = useWatch({ control, name: "items" }) || []
+
+  const itemsInBatch = fields.filter((_, idx) => {
+    const itemVal = watchItems[idx]
+    const itemBatch = itemVal?.batchHeading || ""
+    if (batchName === "General Items") {
+      return !itemBatch || itemBatch === "General Items"
+    }
+    return itemBatch === batchName
+  })
+
+  const batchSubtotal = itemsInBatch.reduce((sum, fieldItem) => {
+    const idx = fields.findIndex(f => f.id === fieldItem.id)
+    const itemVal = watchItems[idx] || {}
+    const qty = itemVal.quantity === "" ? 0 : Number(itemVal.quantity) || 0
+    const price = itemVal.unitPrice === "" ? 0 : Number(itemVal.unitPrice) || 0
+    const discVal = itemVal.discount === "" ? 0 : Number(itemVal.discount) || 0
+    const discType = itemVal.discountType || "PERCENTAGE"
+    const discPerUnit = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
+    const netPrice = Math.max(0, price - discPerUnit)
+    return sum + qty * netPrice
+  }, 0)
+
+  return (
+    <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+      <Badge variant="outline" className="text-[11px] font-mono shrink-0 bg-background">
+        {itemsInBatch.length} {itemsInBatch.length === 1 ? 'item' : 'items'}
+      </Badge>
+      <span className="text-xs font-semibold text-foreground font-mono">
+        Subtotal: AED {formatCurrency(batchSubtotal)}
+      </span>
+    </div>
+  )
+}
+
 function NewQuotationForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1161,69 +1391,6 @@ function NewQuotationForm() {
   const watchSpecialDiscountValue = form.watch("specialDiscountValue")
   const watchVatMode = form.watch("vatMode") || "EXCLUDING"
 
-  // Calculation Breakdown (Scoped via useWatch to avoid full form re-renders)
-  const watchItemsForCalc = useWatch({ control: form.control, name: "items" }) || []
-
-  const subtotal = useMemo(() => {
-    return watchItemsForCalc.reduce((sum, item) => {
-      const qty = item.quantity === "" ? 0 : Number(item.quantity) || 0
-      const price = item.unitPrice === "" ? 0 : Number(item.unitPrice) || 0
-      const discVal = item.discount === "" ? 0 : Number(item.discount) || 0
-      const discType = item.discountType || "PERCENTAGE"
-      const discPerUnit = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
-      const netPrice = Math.max(0, price - discPerUnit)
-      return sum + qty * netPrice
-    }, 0)
-  }, [watchItemsForCalc])
-
-  const grossProductsSubtotal = useMemo(() => {
-    return watchItemsForCalc.reduce((sum, item) => {
-      const qty = item.quantity === "" ? 0 : Number(item.quantity) || 0
-      const price = item.unitPrice === "" ? 0 : Number(item.unitPrice) || 0
-      return sum + qty * price
-    }, 0)
-  }, [watchItemsForCalc])
-
-  const totalItemDiscounts = useMemo(() => {
-    return Math.max(0, grossProductsSubtotal - subtotal)
-  }, [grossProductsSubtotal, subtotal])
-
-  const totalAdditionalCost = useMemo(() => {
-    return watchAdditionalCharges.reduce((sum, c) => {
-      const amt = c.amount === "" ? 0 : Number(c.amount) || 0
-      return sum + amt
-    }, 0)
-  }, [watchAdditionalCharges])
-
-  const specialDiscountAmount = useMemo(() => {
-    const val = watchSpecialDiscountValue === "" ? 0 : Number(watchSpecialDiscountValue) || 0
-    if (!watchSpecialDiscountType || val <= 0) return 0
-
-    if (watchSpecialDiscountType === "PERCENTAGE") {
-      const grossSub = subtotal + totalAdditionalCost
-      return (grossSub * val) / 100
-    } else {
-      return val
-    }
-  }, [watchSpecialDiscountType, watchSpecialDiscountValue, subtotal, totalAdditionalCost])
-
-  const taxableAmount = useMemo(() => {
-    const grossSub = subtotal + totalAdditionalCost
-    return Math.max(0, grossSub - specialDiscountAmount)
-  }, [subtotal, totalAdditionalCost, specialDiscountAmount])
-
-  const vatAmount = useMemo(() => {
-    if (watchVatMode === "INCLUDING") return 0
-    return taxableAmount * 0.05
-  }, [taxableAmount, watchVatMode])
-
-  const grandTotal = useMemo(() => {
-    if (watchVatMode === "INCLUDING") {
-      return taxableAmount
-    }
-    return taxableAmount + vatAmount
-  }, [taxableAmount, vatAmount, watchVatMode])
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -1489,6 +1656,8 @@ function NewQuotationForm() {
         }
       })
 
+      const calcDeliveryCharge = (data.additionalCharges || []).reduce((sum: number, c: any) => sum + (c.amount === "" ? 0 : Number(c.amount) || 0), 0)
+
       const res = await fetch(url, {
         method: method,
         headers: { "Content-Type": "application/json" },
@@ -1496,7 +1665,7 @@ function NewQuotationForm() {
           ...data,
           preparedById: data.preparedById,
           items: deduplicatedFormattedItems,
-          deliveryCharge: totalAdditionalCost,
+          deliveryCharge: calcDeliveryCharge,
           specialDiscountValue: data.specialDiscountValue === "" ? 0 : Number(data.specialDiscountValue),
           additionalCharges: data.additionalCharges.map((c: any) => ({
             name: c.name,
@@ -2413,7 +2582,7 @@ function NewQuotationForm() {
                 <div>
                   <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
                     <Layers className="h-4 w-4 text-primary" />
-                    2. Quotation Line Items ({watchItemsForCalc.length} Products)
+                    2. Quotation Line Items ({fields.length} Products)
                   </CardTitle>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -2443,27 +2612,6 @@ function NewQuotationForm() {
               <CardContent className="p-4 sm:p-6 space-y-6">
                 {/* Batches Loop */}
                 {batches.map((batch, batchIdx) => {
-                  const itemsInBatch = fields.filter((_, idx) => {
-                    const itemVal = watchItemsForCalc[idx]
-                    const itemBatch = itemVal?.batchHeading || ""
-                    if (batch.name === "General Items") {
-                      return !itemBatch || itemBatch === "General Items"
-                    }
-                    return itemBatch === batch.name
-                  })
-
-                  const batchSubtotal = itemsInBatch.reduce((sum, fieldItem) => {
-                    const idx = fields.findIndex(f => f.id === fieldItem.id)
-                    const itemVal = watchItemsForCalc[idx] || {}
-                    const qty = itemVal.quantity === "" ? 0 : Number(itemVal.quantity) || 0
-                    const price = itemVal.unitPrice === "" ? 0 : Number(itemVal.unitPrice) || 0
-                    const discVal = itemVal.discount === "" ? 0 : Number(itemVal.discount) || 0
-                    const discType = itemVal.discountType || "PERCENTAGE"
-                    const discPerUnit = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
-                    const netPrice = Math.max(0, price - discPerUnit)
-                    return sum + qty * netPrice
-                  }, 0)
-
                   return (
                     <div
                       key={batch.id}
@@ -2503,15 +2651,10 @@ function NewQuotationForm() {
                               }}
                             />
                           </div>
-                          <Badge variant="outline" className="text-[11px] font-mono shrink-0 bg-background">
-                            {itemsInBatch.length} {itemsInBatch.length === 1 ? 'item' : 'items'}
-                          </Badge>
                         </div>
 
                         <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-                          <span className="text-xs font-semibold text-foreground font-mono">
-                            Subtotal: AED {formatCurrency(batchSubtotal)}
-                          </span>
+                          <BatchSectionSubtotal control={form.control} batchName={batch.name} fields={fields} />
 
                           <Button
                             type="button"
@@ -2541,7 +2684,7 @@ function NewQuotationForm() {
                       {/* Line Item Cards in Section */}
                       <div className="space-y-4">
                         {fields.map((fieldItem, index) => {
-                          const currentItemVal = watchItemsForCalc[index] || {}
+                          const currentItemVal = useWatch({ control: form.control, name: `items.${index}` }) || {}
                           const itemBatch = currentItemVal.batchHeading || ""
                           const belongsToBatch = batch.name === "General Items" ? (!itemBatch || itemBatch === "General Items") : itemBatch === batch.name
                           if (!belongsToBatch) return null
@@ -3317,63 +3460,7 @@ function NewQuotationForm() {
                   {/* Right Column: Financial Calculations Summary */}
                   <div className="lg:col-span-5 space-y-4">
                     <h4 className="text-xs font-semibold text-foreground uppercase border-b pb-2">Calculation Summary</h4>
-                    
-                    <div className="bg-card p-5 rounded-xl border shadow-2xs space-y-4">
-                      <div className="space-y-3 text-xs sm:text-sm border-b border-border/80 pb-4">
-                        {/* Subtotal */}
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Products Subtotal</span>
-                          <span className="font-semibold font-mono text-foreground">AED {formatCurrency(subtotal)}</span>
-                        </div>
-
-                        {/* Additional Costs */}
-                        {totalAdditionalCost > 0 && (
-                          <div className="flex justify-between items-center text-emerald-600 font-medium">
-                            <span className="text-muted-foreground">Additional Charges</span>
-                            <span className="font-mono font-semibold">+ AED {formatCurrency(totalAdditionalCost)}</span>
-                          </div>
-                        )}
-
-                        {/* Special Discount */}
-                        {specialDiscountAmount > 0 && (
-                          <div className="flex justify-between items-center text-destructive font-medium">
-                            <span className="text-muted-foreground flex flex-col">
-                              <span>Special Discount</span>
-                              {form.watch("specialDiscountReason") && (
-                                <span className="text-[10px] text-muted-foreground/80 italic truncate max-w-[160px]">
-                                  {form.watch("specialDiscountReason")}
-                                </span>
-                              )}
-                            </span>
-                            <span className="font-mono font-semibold">- AED {formatCurrency(specialDiscountAmount)}</span>
-                          </div>
-                        )}
-
-                        {/* Taxable Subtotal */}
-                        {watchVatMode !== "INCLUDING" && (totalAdditionalCost > 0 || specialDiscountAmount > 0) && (
-                          <div className="flex justify-between items-center pt-2 border-t border-dashed border-border/60">
-                            <span className="text-muted-foreground font-semibold">Taxable Subtotal</span>
-                            <span className="font-semibold font-mono text-foreground">AED {formatCurrency(taxableAmount)}</span>
-                          </div>
-                        )}
-
-                        {/* VAT Amount */}
-                        {watchVatMode !== "INCLUDING" && (
-                          <div className="flex items-center justify-between text-muted-foreground font-medium">
-                            <span>VAT (5%)</span>
-                            <span className="font-mono font-semibold text-foreground">AED {formatCurrency(vatAmount)}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Grand Total Highlight */}
-                      <div className="flex justify-between items-center text-lg sm:text-xl font-bold text-primary pt-1">
-                        <span>{watchVatMode === "INCLUDING" ? "Total Payable" : "Grand Total"}</span>
-                        <span className="font-mono text-xl sm:text-2xl font-black">
-                          AED {grandTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-                        </span>
-                      </div>
-                    </div>
+                    <CalculationSummaryPanel control={form.control} />
                   </div>
                 </div>
               </CardContent>
@@ -3383,46 +3470,13 @@ function NewQuotationForm() {
       )}
 
       {/* STICKY FLOATING ACTION DOCK (MOBILE & DESKTOP) */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
-        <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-muted-foreground hidden sm:inline">Grand Total:</span>
-            <span className="text-base sm:text-xl font-black font-mono text-primary">
-              AED {grandTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={submitting}
-              onClick={() => onSubmit(form.getValues(), "DRAFT")}
-              className="text-xs h-9 sm:h-10 px-3 sm:px-4 font-medium flex items-center gap-1.5 cursor-pointer bg-background"
-            >
-              <Save className="h-4 w-4" />
-              <span className="hidden sm:inline">Save Draft</span>
-              <span className="sm:hidden">Draft</span>
-            </Button>
-
-            <Button
-              type="button"
-              size="sm"
-              disabled={submitting}
-              onClick={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"))}
-              className="text-xs h-9 sm:h-10 px-4 sm:px-6 font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
-            >
-              {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              <span>{isRevision ? "Save Revision" : "Compile & Create"}</span>
-            </Button>
-          </div>
-        </div>
-      </div>
+      <StickyDockSummaryPanel
+        control={form.control}
+        submitting={submitting}
+        form={form}
+        onSubmit={onSubmit}
+        isRevision={isRevision}
+      />
 
       {/* Modals & Dialogs */}
       <QuickAddProductModal
