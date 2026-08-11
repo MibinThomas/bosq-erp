@@ -351,42 +351,27 @@ ProductSearchSelect.displayName = "ProductSearchSelect"
 interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "onChange" | "value"> {
   value: string | number
   onChange: (value: string) => void
-  debounceMs?: number
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ value, onChange, onBlur, onFocus, onKeyDown, debounceMs = 1000, type: _unusedType, ...props }, ref) => {
+  ({ value, onChange, onBlur, onFocus, onKeyDown, type: _unusedType, ...props }, ref) => {
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
     const internalRef = React.useRef<HTMLInputElement | null>(null)
     const isFocusedRef = React.useRef(false)
-    const timerRef = React.useRef<NodeJS.Timeout | null>(null)
 
+    // Keep ref in sync with React Hook Form
     React.useImperativeHandle(ref, () => internalRef.current!, [ref])
 
-    // Update local state from parent prop ONLY when NOT actively focused by user
+    // Synchronize external value into local state ONLY when NOT actively focused by user
     React.useEffect(() => {
       if (!isFocusedRef.current) {
         setLocalVal(String(value ?? ""))
       }
     }, [value])
 
-    const triggerParentChange = React.useCallback((valToSubmit: string) => {
-      onChange(valToSubmit)
-    }, [onChange])
-
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const v = e.target.value
-      setLocalVal(v)
+      setLocalVal(e.target.value)
       isFocusedRef.current = true
-
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-      }
-
-      // Debounce call to parent form.setValue (1000ms) so users have plenty of time to enter multi-digit values without calculation interruptions
-      timerRef.current = setTimeout(() => {
-        triggerParentChange(v)
-      }, debounceMs)
     }
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -402,12 +387,8 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
       isFocusedRef.current = false
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-      // Immediately flush localVal on blur so parent form calculations update instantly when leaving field
-      triggerParentChange(localVal)
+      // Commit local value to parent form on blur
+      onChange(localVal)
       if (onBlur) onBlur(e)
     }
 
@@ -415,11 +396,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       if (e.key === "Enter") {
         e.preventDefault()
         isFocusedRef.current = false
-        if (timerRef.current) {
-          clearTimeout(timerRef.current)
-          timerRef.current = null
-        }
-        triggerParentChange(localVal)
+        onChange(localVal)
         e.currentTarget.blur()
       }
       if (onKeyDown) onKeyDown(e)
