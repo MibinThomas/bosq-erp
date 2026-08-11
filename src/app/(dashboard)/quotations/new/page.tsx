@@ -358,13 +358,16 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
     const internalRef = React.useRef<HTMLInputElement | null>(null)
     const isFocusedRef = React.useRef(false)
+    const justTypedRef = React.useRef(false)
     const cursorPosRef = React.useRef<number | null>(null)
 
     React.useImperativeHandle(ref, () => internalRef.current!, [])
 
     React.useEffect(() => {
-      if (!isFocusedRef.current) {
+      if (!isFocusedRef.current && !justTypedRef.current) {
         setLocalVal(String(value ?? ""))
+      } else if (justTypedRef.current) {
+        // Keep local value while user is actively typing
       } else {
         const strVal = String(value ?? "")
         const numLocal = Number(localVal)
@@ -380,6 +383,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       const v = el.value
       setLocalVal(v)
       isFocusedRef.current = true
+      justTypedRef.current = true
 
       try {
         cursorPosRef.current = el.selectionStart
@@ -394,8 +398,8 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       onChange(v)
 
       // Ensure focus & cursor position lock after React Hook Form state updates
-      requestAnimationFrame(() => {
-        if (internalRef.current && isFocusedRef.current) {
+      const restoreFocusAndCursor = () => {
+        if (internalRef.current) {
           if (document.activeElement !== internalRef.current) {
             internalRef.current.focus()
           }
@@ -415,7 +419,13 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
             window.scrollTo(0, currentScrollTop)
           }
         }
-      })
+
+        setTimeout(() => {
+          justTypedRef.current = false
+        }, 50)
+      }
+
+      requestAnimationFrame(restoreFocusAndCursor)
     }
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -424,14 +434,18 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     }
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      isFocusedRef.current = false
-      onChange(localVal)
+      if (!justTypedRef.current) {
+        isFocusedRef.current = false
+        onChange(localVal)
+      }
       if (onBlur) onBlur(e)
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
         e.preventDefault()
+        justTypedRef.current = false
+        isFocusedRef.current = false
         onChange(localVal)
         e.currentTarget.blur()
       }
