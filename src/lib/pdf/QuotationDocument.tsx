@@ -1294,14 +1294,14 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Disclaimers Section */}
         {disclaimer && disclaimer.trim().length > 0 && (
-          <View style={[styles.termsCard, { marginTop: 8, backgroundColor: "#FAFBFD", borderColor: "#CBD5E1", padding: 12 }]} wrap={false}>
+          <View style={[styles.termsCard, { marginTop: 8, backgroundColor: "#FAFBFD", borderColor: "#CBD5E1", padding: 12 }]}>
             <Text style={styles.termsTitle}>{disclaimerTitle || "Disclaimers"}</Text>
             {renderFormattedMarkdownBlock(disclaimer)}
           </View>
         )}
 
         {termsConditions && termsConditions.length > 0 && (
-          <View style={styles.termsCard} wrap={false}>
+          <View style={[styles.termsCard, { marginTop: 8 }]}>
             <Text style={styles.termsTitle}>Terms & Conditions</Text>
             {termsConditions.map((termRaw, idx) => {
               const isHighlighted = typeof termRaw === "string" && termRaw.includes("[HIGHLIGHT]")
