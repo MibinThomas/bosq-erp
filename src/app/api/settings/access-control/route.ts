@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "../../auth/[...nextauth]/route"
 import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { hashPassword } from "@/lib/auth"
 
 let isMigrated = false
 
@@ -528,7 +529,7 @@ export async function PUT(request: Request) {
     }
 
     if (type === "update_user_profile") {
-      const { targetUserId, name, email, role, department, employeeId, status, clientAssignments } = body
+      const { targetUserId, name, email, role, department, employeeId, status, clientAssignments, password } = body
 
       const targetUser = await prisma.user.findUnique({
         where: { id: targetUserId }
@@ -542,18 +543,27 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: "Forbidden: Only Super Admin can update SUPER_ADMIN profile" }, { status: 403 })
       }
 
+      const userUpdatePayload: any = {
+        name,
+        email,
+        role,
+        department,
+        employeeId,
+        status,
+        isActive: status === "Active",
+      }
+
+      if (password && password.trim() !== "") {
+        if (user.role !== "SUPER_ADMIN") {
+          return NextResponse.json({ error: "Forbidden: Only Super Admin can reset user passwords" }, { status: 403 })
+        }
+        userUpdatePayload.password = hashPassword(password)
+      }
+
       // Update user details
       const updated = await prisma.user.update({
         where: { id: targetUserId },
-        data: {
-          name,
-          email,
-          role,
-          department,
-          employeeId,
-          status,
-          isActive: status === "Active",
-        }
+        data: userUpdatePayload
       })
 
       // Update client assignments if provided

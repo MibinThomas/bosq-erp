@@ -134,6 +134,7 @@ export default function AccessControlPage() {
     department: "",
     employeeId: "",
     status: "Active",
+    password: "",
     clientAssignments: [] as string[]
   })
 
@@ -273,6 +274,7 @@ export default function AccessControlPage() {
       department: user.department || "",
       employeeId: user.employeeId || "",
       status: user.status || "Active",
+      password: "",
       clientAssignments: clientIds
     })
   }
@@ -412,12 +414,18 @@ export default function AccessControlPage() {
           department: editingUserProfile.department,
           employeeId: editingUserProfile.employeeId,
           status: editingUserProfile.status,
+          password: editingUserProfile.password || undefined,
           clientAssignments: editingUserProfile.clientAssignments
         })
       })
 
       if (res.ok) {
-        toast.success("User profile and assignments saved successfully")
+        toast.success(
+          editingUserProfile.password && editingUserProfile.password.trim() !== ""
+            ? "User profile & password updated successfully!"
+            : "User profile and assignments saved successfully"
+        )
+        setEditingUserProfile(prev => ({ ...prev, password: "" }))
         window.dispatchEvent(new CustomEvent("visibility-refresh"))
         fetchData()
       } else {
@@ -1226,6 +1234,23 @@ export default function AccessControlPage() {
                         <option value="Suspended">Suspended</option>
                         <option value="Pending Approval">Pending Approval</option>
                       </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-500 mb-1 flex items-center justify-between">
+                        <span>New Password (Reset)</span>
+                        {currentUserRole !== "SUPER_ADMIN" && (
+                          <span className="text-[10px] text-amber-500 font-normal">Super Admin Only</span>
+                        )}
+                      </label>
+                      <input
+                        type="password"
+                        disabled={currentUserRole !== "SUPER_ADMIN"}
+                        placeholder={currentUserRole === "SUPER_ADMIN" ? "Leave blank to keep current password" : "Only Super Admin can reset user passwords"}
+                        value={editingUserProfile.password || ""}
+                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, password: e.target.value }))}
+                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
                     </div>
                   </div>
                 </div>
