@@ -91,7 +91,8 @@ export async function PATCH(
       phone,
       department,
       designation,
-      isActive
+      isActive,
+      ...(isActive !== undefined ? { status: isActive ? "Active" : "Inactive" } : {})
     }
 
     if (password && password.trim() !== "") {

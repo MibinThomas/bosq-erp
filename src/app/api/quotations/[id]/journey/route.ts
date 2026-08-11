@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
+import { isManagerOrAdminRole } from "@/lib/utils"
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -16,7 +18,8 @@ export async function GET(
     
     const logUserRole = (session.user as any)?.role || "SALES_EXECUTIVE"
     const logUserId = (session.user as any)?.id
- 
+    const canViewActivityLogs = isManagerOrAdminRole(logUserRole)
+
     // 1. Fetch the Quotation to resolve its root ID and BOQ ID
     const quotation = await prisma.quotation.findFirst({
       where: {
@@ -61,32 +64,35 @@ export async function GET(
     const quotationIds = allRelatedQuotations.map(q => q.id)
     const boqId = quotation.boqId
 
-    // 3. Fetch Activity Logs
-    const whereConditions: any[] = [
-      {
-        entityType: "QUOTATION",
-        entityId: { in: quotationIds }
-      }
-    ]
+    // 3. Fetch Activity Logs (only for Super Admin, Admin, and Managerial roles)
+    let logs: any[] = []
+    if (canViewActivityLogs) {
+      const whereConditions: any[] = [
+        {
+          entityType: "QUOTATION",
+          entityId: { in: quotationIds }
+        }
+      ]
 
-    if (boqId) {
-      whereConditions.push({
-        entityType: "BOQ",
-        entityId: boqId
+      if (boqId) {
+        whereConditions.push({
+          entityType: "BOQ",
+          entityId: boqId
+        })
+      }
+
+      logs = await prisma.activityLog.findMany({
+        where: {
+          OR: whereConditions
+        },
+        include: {
+          user: {
+            select: { name: true, role: true, email: true, image: true }
+          }
+        },
+        orderBy: { createdAt: "asc" }
       })
     }
-
-    const logs = await prisma.activityLog.findMany({
-      where: {
-        OR: whereConditions
-      },
-      include: {
-        user: {
-          select: { name: true, role: true, email: true, image: true }
-        }
-      },
-      orderBy: { createdAt: "asc" }
-    })
 
     // 4. Fetch the BOQ for basic info if exists
     let boqData = null

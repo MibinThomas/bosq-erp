@@ -1,5 +1,7 @@
 import prisma from "./prisma"
 
+export { isManagerOrAdminRole } from "./utils"
+
 /**
  * Checks if a user has a specific permission for a module, taking overrides and roles into account.
  * Super Admin always returns true.

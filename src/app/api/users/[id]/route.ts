@@ -49,7 +49,10 @@ export async function PUT(
     // Only admins can update the role and active status
     if (isAdmin) {
       if (role !== undefined) updateData.role = role;
-      if (isActive !== undefined) updateData.isActive = isActive;
+      if (isActive !== undefined) {
+        updateData.isActive = isActive;
+        updateData.status = isActive ? "Active" : "Inactive";
+      }
     }
 
     const updatedUser = await prisma.user.update({

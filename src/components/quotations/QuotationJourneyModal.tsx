@@ -62,6 +62,8 @@ interface JourneyData {
   seriesQuotations: Revision[]
 }
 
+import { isManagerOrAdminRole } from "@/lib/utils"
+
 export function QuotationJourneyModal({ 
   quotationId, 
   open, 
@@ -83,6 +85,7 @@ export function QuotationJourneyModal({
   const [confirmLoading, setConfirmLoading] = useState(false)
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const canViewWorkflowLogs = isManagerOrAdminRole(userRole)
   const isAuthorizedToConfirm = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole) || 
     (session?.user as any)?.permissionOverrides?.find((o: any) => o.action === "canConfirmQuotation")?.value === true
 
@@ -289,16 +292,18 @@ export function QuotationJourneyModal({
 
               {/* Journey Consolidated Tabs */}
               <Tabs defaultValue="revisions" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 bg-muted p-1 rounded-xl">
-                  <TabsTrigger value="revisions" className="rounded-lg text-xs font-semibold py-2 cursor-pointer">
-                    <History className="h-3.5 w-3.5 mr-1.5 text-purple-600" />
-                    Revisions Timeline
-                  </TabsTrigger>
-                  <TabsTrigger value="activity" className="rounded-lg text-xs font-semibold py-2 cursor-pointer">
-                    <FileText className="h-3.5 w-3.5 mr-1.5 text-blue-600" />
-                    Activity Workflow Logs
-                  </TabsTrigger>
-                </TabsList>
+                {canViewWorkflowLogs && (
+                  <TabsList className="grid w-full grid-cols-2 bg-muted p-1 rounded-xl">
+                    <TabsTrigger value="revisions" className="rounded-lg text-xs font-semibold py-2 cursor-pointer">
+                      <History className="h-3.5 w-3.5 mr-1.5 text-purple-600" />
+                      Revisions Timeline
+                    </TabsTrigger>
+                    <TabsTrigger value="activity" className="rounded-lg text-xs font-semibold py-2 cursor-pointer">
+                      <FileText className="h-3.5 w-3.5 mr-1.5 text-blue-600" />
+                      Activity Workflow Logs
+                    </TabsTrigger>
+                  </TabsList>
+                )}
 
                 {/* 1. Revisions Chronological Timeline */}
                 <TabsContent value="revisions" className="mt-6">
@@ -454,62 +459,55 @@ export function QuotationJourneyModal({
                 </TabsContent>
 
                 {/* 2. Technical Activity Workflow Logs */}
-                <TabsContent value="activity" className="mt-6">
-                  <div className="relative pl-8 border-l-2 border-muted-foreground/20 space-y-8 pb-4 ml-4">
-                    {data.logs.length === 0 && (
-                      <p className="text-muted-foreground text-sm">No activity logs found for this journey.</p>
-                    )}
-                    {data.logs.map((log) => (
-                      <div key={log.id} className="relative">
-                        {/* Timeline Dot */}
-                        <span className={`absolute -left-[41px] top-5 h-4 w-4 rounded-full ring-4 ring-background shrink-0 ${
-                          log.action === "CLIENT_CONFIRMED_QUOTATION" || log.details?.includes("Confirmed quotation")
-                            ? "bg-emerald-500"
-                            : "bg-zinc-400"
-                        }`} />
-                        
-                        <div className="p-5 border border-border/60 rounded-xl bg-card shadow-sm space-y-3 hover:shadow-md transition-shadow w-full">
-                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 w-full">
-                            <div className="flex flex-wrap items-center gap-3">
-                              <Badge variant="secondary" className="px-2.5 py-1 text-xs font-semibold rounded-md uppercase tracking-wider bg-muted text-muted-foreground border-transparent">
-                                {log.action.replace(/_/g, " ")}
-                              </Badge>
-                              <span className="text-sm font-medium text-zinc-500 border-l pl-3">
-                                {log.entityType}
+                {canViewWorkflowLogs && (
+                  <TabsContent value="activity" className="mt-6">
+                    <div className="relative pl-8 border-l-2 border-muted-foreground/20 space-y-8 pb-4 ml-4">
+                      {(!data.logs || data.logs.length === 0) && (
+                        <p className="text-muted-foreground text-sm">No activity logs found for this journey.</p>
+                      )}
+                      {(data.logs || []).map((log) => (
+                        <div key={log.id} className="relative">
+                          {/* Timeline Dot */}
+                          <span className={`absolute -left-[41px] top-5 h-4 w-4 rounded-full ring-4 ring-background shrink-0 ${
+                            log.action === "CLIENT_CONFIRMED_QUOTATION" || log.details?.includes("Confirmed quotation")
+                              ? "bg-emerald-500"
+                              : "bg-zinc-400"
+                          }`} />
+                          
+                          <div className="p-5 border border-border/60 rounded-xl bg-card shadow-sm space-y-3 hover:shadow-md transition-shadow w-full">
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 w-full">
+                              <div className="flex flex-wrap items-center gap-3">
+                                <Badge variant="secondary" className="px-2.5 py-1 text-xs font-semibold rounded-md uppercase tracking-wider bg-muted text-muted-foreground border-transparent">
+                                  {log.action.replace(/_/g, " ")}
+                                </Badge>
+                                <span className="text-sm font-medium text-zinc-500 border-l pl-3">
+                                  {log.entityType}
+                                </span>
+                              </div>
+                              <span className="text-xs text-muted-foreground font-mono flex items-center shrink-0">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {new Date(log.createdAt).toLocaleString()}
                               </span>
                             </div>
-                            <span className="text-sm text-muted-foreground font-medium sm:text-right shrink-0 flex items-center gap-1">
-                              <Calendar className="h-3.5 w-3.5 text-muted-foreground/75" />
-                              {new Date(log.createdAt).toLocaleString("en-US", {
-                                month: "short", day: "numeric", year: "numeric",
-                                hour: "numeric", minute: "2-digit"
-                              })}
-                            </span>
-                          </div>
-                          
-                          <p className="text-base text-foreground leading-relaxed pt-1 break-words">
-                            {log.details}
-                          </p>
-                          
-                          <div className="flex items-center gap-2 pt-2">
-                            <div className="flex items-center gap-2 bg-muted/50 px-2.5 py-1.5 rounded-md">
-                              {log.user?.image ? (
-                                <img src={log.user.image} alt={log.user?.name || "System"} className="h-5 w-5 rounded-full object-cover shrink-0" />
-                              ) : (
-                                <div className="h-5 w-5 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold shrink-0">
-                                  {log.user?.name ? log.user.name.charAt(0).toUpperCase() : "S"}
-                                </div>
-                              )}
-                              <span className="text-sm font-medium text-foreground">
-                                {log.user?.name || "System"} <span className="text-muted-foreground font-normal ml-1">({log.user?.role || "SYSTEM"})</span>
+                            
+                            {log.details && (
+                              <p className="text-sm text-foreground leading-relaxed font-normal">
+                                {log.details}
+                              </p>
+                            )}
+
+                            <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
+                              <span className="flex items-center font-medium">
+                                <User className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                                {log.user?.name || log.user?.email || "System"} ({log.user?.role || "SYSTEM"})
                               </span>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
+                      ))}
+                    </div>
+                  </TabsContent>
+                )}
               </Tabs>
             </div>
           ) : null}

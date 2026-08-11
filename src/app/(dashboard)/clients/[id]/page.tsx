@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { usePermissions } from "@/components/providers/PermissionsProvider"
+import { isManagerOrAdminRole } from "@/lib/utils"
 import {
   ArrowLeft,
   Building2,
@@ -277,12 +278,16 @@ export default function ClientDetailPage() {
   }
   if (!client) return null
 
+  const canViewActivityTimeline = isManagerOrAdminRole(userRole)
+
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: "quotations", label: "Quotations & Revisions", icon: <LayoutList className="h-3.5 w-3.5" /> },
     { key: "details", label: "Client Details", icon: <User className="h-3.5 w-3.5" /> },
     { key: "boqs", label: "BOQs", icon: <ClipboardList className="h-3.5 w-3.5" /> },
     { key: "documents", label: "Documents", icon: <Folder className="h-3.5 w-3.5" /> },
-    { key: "activity", label: "Activity Timeline", icon: <Activity className="h-3.5 w-3.5" /> },
+    ...(canViewActivityTimeline
+      ? [{ key: "activity" as Tab, label: "Activity Timeline", icon: <Activity className="h-3.5 w-3.5" /> }]
+      : []),
   ]
 
   return (
