@@ -293,7 +293,7 @@ export async function POST(request: Request) {
 
       let unitSell = parseFloat(item.unitSellingPrice ?? item.unitPrice)
       if (isNaN(unitSell) || unitSell <= 0) {
-        unitSell = Math.max(0, preNegPrice - negAmt)
+        unitSell = Number((preNegPrice + negAmt).toFixed(2))
       }
       const itemTotalSell = unitSell * qty
 

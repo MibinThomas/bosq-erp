@@ -1267,7 +1267,7 @@ function NewBOQForm() {
       form.setValue(`items.${index}.negotiationPercentage` as any, negPct, { shouldValidate: false, shouldDirty: true })
     }
 
-    const finalUnitPrice = Math.max(0, preNegPrice - negAmt)
+    const finalUnitPrice = preNegPrice + negAmt
     form.setValue(`items.${index}.unitPrice`, Number(finalUnitPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
   }
 

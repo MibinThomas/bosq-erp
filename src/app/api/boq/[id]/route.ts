@@ -201,7 +201,7 @@ export async function PUT(
 
       let unitSell = parseFloat(incomingItem.unitSellingPrice ?? incomingItem.unitPrice)
       if (isNaN(unitSell) || unitSell <= 0) {
-        unitSell = Math.max(0, preNegPrice - negAmt)
+        unitSell = Number((preNegPrice + negAmt).toFixed(2))
       }
       const itemTotalSell = unitSell * qty
 
