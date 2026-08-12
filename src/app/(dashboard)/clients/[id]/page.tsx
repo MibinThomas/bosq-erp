@@ -544,7 +544,7 @@ export default function ClientDetailPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Bills of Quantities</h2>
-            <Link href={`/boq?clientId=${clientId}`}>
+            <Link href={`/boq/new?clientId=${clientId}`}>
               <Button variant="outline" size="sm" className="gap-1.5">
                 <Plus className="h-3.5 w-3.5" /> New BOQ
               </Button>

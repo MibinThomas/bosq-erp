@@ -84,9 +84,14 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
+    const clientId = searchParams.get("clientId")
     const isTemplate = searchParams.get("isTemplate") === "true"
     const showArchived = searchParams.get("archived") === "true"
     
+    if (clientId) {
+      whereClause.clientId = clientId
+    }
+
     if (isTemplate) {
       whereClause.isTemplate = true
     } else {
