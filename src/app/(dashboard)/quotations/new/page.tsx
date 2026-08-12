@@ -727,6 +727,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   handleProductSelect,
   handleVariantSelect,
   fieldsLength,
+  isConfiguratorEnabled,
 }: {
   index: number
   fieldItem: any
@@ -749,8 +750,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   handleProductSelect: (index: number, productId: string) => void
   handleVariantSelect?: (index: number, variantProduct: any) => void
   fieldsLength: number
+  isConfiguratorEnabled?: boolean
 }) {
   const [selectionMode, setSelectionMode] = useState<"search" | "configurator">("search")
+  const canUseConfigurator = userRole === "SUPER_ADMIN" || !!isConfiguratorEnabled
   const currentItemVal = useWatch({ control, name: `items.${index}` }) || {}
   const itemBatch = currentItemVal.batchHeading || ""
   const belongsToBatch = batchName === "General Items" ? (!itemBatch || itemBatch === "General Items") : itemBatch === batchName
@@ -833,20 +836,22 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
 
       {/* Product Search / Workstation Configurator Selector */}
       <div className="space-y-1.5">
-        {selectionMode === "search" ? (
+        {selectionMode === "search" || !canUseConfigurator ? (
           <>
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold text-foreground">Catalog Product</label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectionMode("configurator")}
-                className="text-[11px] h-6 px-2 text-primary hover:bg-primary/10 flex items-center gap-1.5 font-semibold cursor-pointer"
-              >
-                <SlidersHorizontal className="h-3 w-3" />
-                <span>Configure Workstation Model</span>
-              </Button>
+              {canUseConfigurator && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectionMode("configurator")}
+                  className="text-[11px] h-6 px-2 text-primary hover:bg-primary/10 flex items-center gap-1.5 font-semibold cursor-pointer"
+                >
+                  <SlidersHorizontal className="h-3 w-3" />
+                  <span>Configure Workstation Model</span>
+                </Button>
+              )}
             </div>
             <ProductSearchSelect
               productId={currentProductId}
@@ -857,7 +862,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 form.setValue(`items.${index}.productId`, "")
                 form.setValue(`items.${index}.priceSource`, "manual")
               }}
-              onOpenConfigurator={() => setSelectionMode("configurator")}
+              onOpenConfigurator={canUseConfigurator ? () => setSelectionMode("configurator") : undefined}
             />
           </>
         ) : (
@@ -1317,6 +1322,7 @@ function NewQuotationForm() {
   const [isEdit, setIsEdit] = useState(false)
   const [isCopy, setIsCopy] = useState(false)
   const [existingQuote, setExistingQuote] = useState<any>(null)
+  const [isConfiguratorEnabled, setIsConfiguratorEnabled] = useState<boolean>(false)
   const [revisionNotes, setRevisionNotes] = useState("")
   const [contactNumbers, setContactNumbers] = useState<string[]>([""])
   const [agentEmails, setAgentEmails] = useState<string[]>([""])
@@ -1714,6 +1720,16 @@ function NewQuotationForm() {
 
         setClients(clientsData)
         setProducts(productsData)
+
+        // Check if workstation configurator is enabled for current user/role
+        fetch("/api/products/configurator")
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success && data.enabled) {
+              setIsConfiguratorEnabled(true)
+            }
+          })
+          .catch((err) => console.error("Failed to check configurator state:", err))
 
         const reviseId = searchParams.get("reviseId")
         const editId = searchParams.get("editId")
@@ -3300,6 +3316,7 @@ function NewQuotationForm() {
                             handleProductSelect={handleProductSelect}
                             handleVariantSelect={handleVariantSelect}
                             fieldsLength={fields.length}
+                            isConfiguratorEnabled={isConfiguratorEnabled}
                           />
                         ))}
                       </div>

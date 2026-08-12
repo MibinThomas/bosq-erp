@@ -3,11 +3,25 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
+import { getSetting } from "@/lib/settings"
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userRole = (session.user as any).role || ""
+    const isSuperAdmin = userRole === "SUPER_ADMIN"
+    const isConfiguratorEnabled = (await getSetting("enable_workstation_configurator")) === "true"
+
+    if (!isSuperAdmin && !isConfiguratorEnabled) {
+      return NextResponse.json({
+        success: true,
+        enabled: false,
+        models: [],
+      })
     }
 
     // Fetch all active products that have category or attribute data
@@ -115,6 +129,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
+      enabled: true,
       models,
     })
   } catch (error: any) {

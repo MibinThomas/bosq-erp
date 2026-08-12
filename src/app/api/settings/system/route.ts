@@ -24,7 +24,8 @@ const SETTING_KEYS = [
   "company_bank_details",
   "company_disclaimer_title",
   "company_disclaimer",
-  "company_seal"
+  "company_seal",
+  "enable_workstation_configurator"
 ]
 
 export async function GET() {

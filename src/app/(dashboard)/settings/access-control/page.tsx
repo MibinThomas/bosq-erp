@@ -24,7 +24,8 @@ import {
   Settings,
   UserCheck,
   Building,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -102,14 +103,8 @@ export default function AccessControlPage() {
   const [logs, setLogs] = useState<any[]>([])
   
   // Approval settings
-  const [approvalSettings, setApprovalSettings] = useState<Record<string, boolean>>({
-    client_creation: false,
-    client_access: false,
-    product_creation: false,
-    product_bulk_upload: false,
-    quotation: false,
-    revision: false
-  })
+  const [approvalSettings, setApprovalSettings] = useState<Record<string, boolean>>({})
+  const [workstationConfiguratorEnabled, setWorkstationConfiguratorEnabled] = useState<boolean>(false)
 
   // Selection states
   const [selectedRoleId, setSelectedRoleId] = useState<string>("")
@@ -219,6 +214,9 @@ export default function AccessControlPage() {
           approvalsMap[suffix] = setting.value === "true"
         })
         setApprovalSettings(approvalsMap)
+
+        const cfgSetting = data.systemSettings?.find((s: any) => s.key === "enable_workstation_configurator")
+        setWorkstationConfiguratorEnabled(cfgSetting?.value === "true")
 
         // Default selections
         if (filteredRoles.length > 0 && !selectedRoleId) {
@@ -341,7 +339,37 @@ export default function AccessControlPage() {
       }
     } catch (err) {
       console.error(err)
-      toast.error("Error saving role permissions")
+      toast.error("Error saving workflow configuration")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleToggleWorkstationConfigurator = async (newValue: boolean) => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/settings/system", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enable_workstation_configurator: String(newValue)
+        })
+      })
+
+      if (res.ok) {
+        setWorkstationConfiguratorEnabled(newValue)
+        toast.success(
+          newValue
+            ? "Workstation Product Configurator is now ENABLED for all users!"
+            : "Workstation Product Configurator is now HIDDEN for non-Super Admins."
+        )
+        fetchData()
+      } else {
+        toast.error("Failed to update feature setting")
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error("Error updating system feature setting")
     } finally {
       setLoading(false)
     }
@@ -915,6 +943,57 @@ export default function AccessControlPage() {
                   </button>
                 </div>
               ))}
+            </div>
+
+            {/* System Feature Controls (Super Admin Only) */}
+            <div className="pt-4 border-t dark:border-zinc-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                  System Feature Toggles (Super Admin)
+                </h3>
+              </div>
+
+              <div className="p-3.5 border dark:border-zinc-800 rounded-xl hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 transition-all flex items-start justify-between gap-4">
+                <div className="space-y-1 max-w-[80%]">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-zinc-900 dark:text-zinc-200">
+                      Workstation Product Configurator
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                        workstationConfiguratorEnabled
+                          ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
+                      }`}
+                    >
+                      {workstationConfiguratorEnabled ? "Enabled (All Users)" : "Disabled (Super Admin Only)"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Allows sales executives and consultants to configure workstation products by attributes (Model, Leg Type, Table Top Finish, Dimensions). When disabled, this feature is hidden from non-Super Admin users.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => handleToggleWorkstationConfigurator(!workstationConfiguratorEnabled)}
+                  disabled={currentUserRole !== "SUPER_ADMIN"}
+                  className={`h-5 w-9 rounded-full transition-all shrink-0 relative mt-1 ${
+                    workstationConfiguratorEnabled
+                      ? "bg-amber-500"
+                      : "bg-zinc-200 dark:bg-zinc-800"
+                  } ${currentUserRole !== "SUPER_ADMIN" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  title={currentUserRole !== "SUPER_ADMIN" ? "Super Admin permission required" : "Toggle feature"}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 bg-white h-4 w-4 rounded-full transition-all ${
+                      workstationConfiguratorEnabled
+                        ? "translate-x-4"
+                        : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
 
