@@ -66,6 +66,7 @@ import { toast } from "sonner"
 import { QuickAddProductModal } from "@/components/products/quick-add-product-modal"
 import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
 import { AssignmentModal } from "@/components/clients/assignment-modal"
+import { WorkstationConfigurator } from "@/components/products/workstation-configurator"
 import { ImageCropper } from "@/components/ui/image-cropper"
 import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
 import { Switch } from "@/components/ui/switch"
@@ -193,6 +194,7 @@ interface ProductSearchSelectProps {
   watchSegment: string
   onProductSelect: (productId: string) => void
   onCustomProductClick: () => void
+  onOpenConfigurator?: () => void
 }
 
 const ProductSearchSelect = React.memo(({
@@ -201,6 +203,7 @@ const ProductSearchSelect = React.memo(({
   watchSegment,
   onProductSelect,
   onCustomProductClick,
+  onOpenConfigurator,
 }: ProductSearchSelectProps) => {
   const [open, setOpen] = useState(false)
   const selectedProd = products.find(p => p.id === productId)
@@ -257,6 +260,19 @@ const ProductSearchSelect = React.memo(({
                 Create New Custom Product
               </Button>
             </CommandEmpty>
+            {onOpenConfigurator && (
+              <CommandItem
+                value="Configure Workstation Model by Attributes"
+                onSelect={() => {
+                  onOpenConfigurator()
+                  setOpen(false)
+                }}
+                className="p-2.5 border-b border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs cursor-pointer flex items-center gap-2"
+              >
+                <SlidersHorizontal className="h-4 w-4 text-primary" />
+                <span>Configure Workstation Model by Attributes</span>
+              </CommandItem>
+            )}
             <CommandGroup>
               {products.map((product) => {
                 let basePrice = product.unitPrice
@@ -709,6 +725,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   handleDuplicateItem,
   remove,
   handleProductSelect,
+  handleVariantSelect,
   fieldsLength,
 }: {
   index: number
@@ -730,8 +747,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   handleDuplicateItem: (index: number) => void
   remove: (index: number) => void
   handleProductSelect: (index: number, productId: string) => void
+  handleVariantSelect?: (index: number, variantProduct: any) => void
   fieldsLength: number
 }) {
+  const [selectionMode, setSelectionMode] = useState<"search" | "configurator">("search")
   const currentItemVal = useWatch({ control, name: `items.${index}` }) || {}
   const itemBatch = currentItemVal.batchHeading || ""
   const belongsToBatch = batchName === "General Items" ? (!itemBatch || itemBatch === "General Items") : itemBatch === batchName
@@ -812,19 +831,67 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
         </div>
       </div>
 
-      {/* Product Search Selector */}
+      {/* Product Search / Workstation Configurator Selector */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-foreground">Catalog Product</label>
-        <ProductSearchSelect
-          productId={currentProductId}
-          products={products}
-          watchSegment={watchSegment}
-          onProductSelect={(prodId) => handleProductSelect(index, prodId)}
-          onCustomProductClick={() => {
-            form.setValue(`items.${index}.productId`, "")
-            form.setValue(`items.${index}.priceSource`, "manual")
-          }}
-        />
+        {selectionMode === "search" ? (
+          <>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-foreground">Catalog Product</label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectionMode("configurator")}
+                className="text-[11px] h-6 px-2 text-primary hover:bg-primary/10 flex items-center gap-1.5 font-semibold cursor-pointer"
+              >
+                <SlidersHorizontal className="h-3 w-3" />
+                <span>Configure Workstation Model</span>
+              </Button>
+            </div>
+            <ProductSearchSelect
+              productId={currentProductId}
+              products={products}
+              watchSegment={watchSegment}
+              onProductSelect={(prodId) => handleProductSelect(index, prodId)}
+              onCustomProductClick={() => {
+                form.setValue(`items.${index}.productId`, "")
+                form.setValue(`items.${index}.priceSource`, "manual")
+              }}
+              onOpenConfigurator={() => setSelectionMode("configurator")}
+            />
+          </>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+                Workstation Model Configurator
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectionMode("search")}
+                className="text-[11px] h-6 px-2 text-muted-foreground hover:text-foreground flex items-center gap-1 font-medium cursor-pointer"
+              >
+                <Search className="h-3 w-3" />
+                <span>Switch to Catalog Search</span>
+              </Button>
+            </div>
+            <WorkstationConfigurator
+              watchSegment={watchSegment}
+              onSelectVariant={(variantProduct) => {
+                if (handleVariantSelect) {
+                  handleVariantSelect(index, variantProduct)
+                } else {
+                  handleProductSelect(index, variantProduct.id)
+                }
+                setSelectionMode("search")
+              }}
+              onCancel={() => setSelectionMode("search")}
+            />
+          </>
+        )}
       </div>
 
       {/* 2-Column Responsive Layout (Details & Pricing) */}
@@ -1973,6 +2040,16 @@ function NewQuotationForm() {
     if (prod.chairType) {
       form.setValue(`items.${index}.chairType`, prod.chairType)
     }
+  }
+
+  const handleVariantSelect = (index: number, variantProduct: any) => {
+    setProducts((prev) => {
+      if (!prev.some((p) => p.id === variantProduct.id)) {
+        return [...prev, variantProduct]
+      }
+      return prev
+    })
+    handleProductSelect(index, variantProduct.id)
   }
 
   const handleDuplicateItem = (index: number) => {
@@ -3221,6 +3298,7 @@ function NewQuotationForm() {
                             handleDuplicateItem={handleDuplicateItem}
                             remove={remove}
                             handleProductSelect={handleProductSelect}
+                            handleVariantSelect={handleVariantSelect}
                             fieldsLength={fields.length}
                           />
                         ))}
