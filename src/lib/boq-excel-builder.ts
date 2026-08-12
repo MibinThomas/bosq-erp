@@ -43,9 +43,94 @@ export interface BoqExportData {
     totalSellingPrice: number
     customImageUrl?: string | null
     product?: {
+      productName?: string | null
+      description?: string | null
       imageUrl?: string | null
     } | null
   }>
+}
+
+/**
+ * Strips HTML tags, decodes HTML entities, and formats clean text for Excel.
+ */
+export function cleanHtmlText(htmlStr: string | null | undefined): string {
+  if (!htmlStr) return ""
+  let text = String(htmlStr)
+
+  // Convert line breaks and block element ends to newlines
+  text = text.replace(/<br\s*[\/]?>/gi, "\n")
+  text = text.replace(/<\/(p|div|li|h1|h2|h3|h4|h5|h6|tr)>/gi, "\n")
+  text = text.replace(/<li[^>]*>/gi, "• ")
+
+  // Strip all remaining HTML tags
+  text = text.replace(/<[^>]*>/g, "")
+
+  // Decode common HTML entity codes
+  text = text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&ndash;/gi, "-")
+    .replace(/&mdash;/gi, "—")
+
+  // Normalize duplicate newlines and leading/trailing whitespace
+  return text
+    .split("\n")
+    .map(line => line.trim())
+    .filter((line, idx, arr) => line.length > 0 || (idx > 0 && arr[idx - 1].length > 0))
+    .join("\n")
+    .trim()
+}
+
+/**
+ * Helper to retrieve image Buffer and extension from base64, remote URL, or local file
+ */
+async function getImageBufferAndExt(imgUrl: string): Promise<{ buffer: Buffer; extension: string } | null> {
+  if (!imgUrl) return null
+
+  try {
+    let extension = "jpeg"
+    let buffer: Buffer | null = null
+
+    if (imgUrl.toLowerCase().includes(".png")) extension = "png"
+    else if (imgUrl.toLowerCase().includes(".webp")) extension = "png"
+
+    if (imgUrl.startsWith("data:image")) {
+      const parts = imgUrl.split(",")
+      if (parts[1]) {
+        const mimeMatch = imgUrl.match(/data:image\/([a-zA-Z0-9]+);/)
+        if (mimeMatch && mimeMatch[1]) {
+          const mime = mimeMatch[1].toLowerCase()
+          extension = mime === "jpeg" || mime === "jpg" ? "jpeg" : "png"
+        }
+        buffer = Buffer.from(parts[1], "base64")
+      }
+    } else if (imgUrl.startsWith("http://") || imgUrl.startsWith("https://")) {
+      const res = await fetch(imgUrl)
+      if (res.ok) {
+        const arrBuf = await res.arrayBuffer()
+        buffer = Buffer.from(arrBuf)
+      }
+    } else {
+      const cleanPath = imgUrl.startsWith("/") ? imgUrl.substring(1) : imgUrl
+      const localPath = path.join(process.cwd(), "public", cleanPath)
+      if (fs.existsSync(localPath)) {
+        buffer = fs.readFileSync(localPath)
+      }
+    }
+
+    if (buffer && buffer.length > 0) {
+      return { buffer, extension }
+    }
+  } catch (err) {
+    console.error(`Failed to load image from URL ${imgUrl}:`, err)
+  }
+
+  return null
 }
 
 /**
@@ -157,7 +242,7 @@ export async function buildBoqExcelWorkbook(boq: BoqExportData, includeCostingSh
   ws.getCell("F7").font = { name: "Arial", size: 11, bold: true }
   ws.getCell("F7").alignment = { horizontal: "right", vertical: "middle" }
 
-  ws.getCell("G7").value = boq.client.clientId || "N/A"
+  ws.getCell("G7").value = boq.client?.clientId || "N/A"
   ws.getCell("G7").font = { name: "Arial", size: 11 }
   ws.getCell("G7").alignment = { horizontal: "left", vertical: "middle" }
 
@@ -185,25 +270,25 @@ export async function buildBoqExcelWorkbook(boq: BoqExportData, includeCostingSh
   ws.getRow(10).height = 15.75
   ws.getCell("B10").value = "Name"
   ws.getCell("B10").font = { name: "Arial", size: 11, color: { argb: "FF64748B" } }
-  ws.getCell("C10").value = boq.client.contactPersonName || boq.client.companyName
+  ws.getCell("C10").value = boq.client?.contactPersonName || boq.client?.companyName || "N/A"
   ws.getCell("C10").font = { name: "Arial", size: 11 }
 
   ws.getCell("F10").value = "Prepared by:"
   ws.getCell("F10").font = { name: "Arial", size: 11, italic: true }
   ws.getCell("F10").alignment = { horizontal: "right", vertical: "middle" }
-  ws.getCell("G10").value = boq.preparedBy.name || "Sales Team"
+  ws.getCell("G10").value = boq.preparedBy?.name || "Sales Team"
   ws.getCell("G10").font = { name: "Arial", size: 11, bold: true }
 
   ws.getRow(11).height = 15
   ws.getCell("B11").value = "Company Name"
   ws.getCell("B11").font = { name: "Arial", size: 11, color: { argb: "FF64748B" } }
-  ws.getCell("C11").value = boq.client.companyName
+  ws.getCell("C11").value = boq.client?.companyName || "N/A"
   ws.getCell("C11").font = { name: "Arial", size: 11, bold: true }
 
   ws.getRow(12).height = 15
   ws.getCell("B12").value = "Street Address"
   ws.getCell("B12").font = { name: "Arial", size: 11, color: { argb: "FF64748B" } }
-  ws.getCell("C12").value = boq.client.address || "Dubai, UAE"
+  ws.getCell("C12").value = boq.client?.address || "Dubai, UAE"
   ws.getCell("C12").font = { name: "Arial", size: 11 }
 
   ws.getRow(13).height = 15
@@ -215,19 +300,19 @@ export async function buildBoqExcelWorkbook(boq: BoqExportData, includeCostingSh
   ws.getRow(14).height = 15.75
   ws.getCell("B14").value = "Phone"
   ws.getCell("B14").font = { name: "Arial", size: 11, color: { argb: "FF64748B" } }
-  ws.getCell("C14").value = boq.client.phone || "N/A"
+  ws.getCell("C14").value = boq.client?.phone || "N/A"
   ws.getCell("C14").font = { name: "Arial", size: 11 }
 
   ws.getRow(15).height = 15.75
   ws.getCell("B15").value = "Email"
   ws.getCell("B15").font = { name: "Arial", size: 11, color: { argb: "FF64748B" } }
-  ws.getCell("C15").value = boq.client.email || "N/A"
+  ws.getCell("C15").value = boq.client?.email || "N/A"
   ws.getCell("C15").font = { name: "Arial", size: 11 }
 
   // Row 16: Special Notes / Comments
   ws.getRow(16).height = 35
   ws.mergeCells("B16:D16")
-  ws.getCell("B16").value = `Comments or Special Instructions: ${boq.notes || "Standard Supply & Installation as per design requirements."}`
+  ws.getCell("B16").value = `Comments or Special Instructions: ${cleanHtmlText(boq.notes) || "Standard Supply & Installation as per design requirements."}`
   ws.getCell("B16").font = { name: "Arial", size: 10, italic: true, color: { argb: "FF475569" } }
   ws.getCell("B16").alignment = { vertical: "top", wrapText: true }
 
@@ -255,7 +340,7 @@ export async function buildBoqExcelWorkbook(boq: BoqExportData, includeCostingSh
   // Row 18: Metadata Values Bar
   ws.getRow(18).height = 24.95
   ws.mergeCells("B18:C18")
-  ws.getCell("B18").value = boq.preparedBy.name || "Sales Team"
+  ws.getCell("B18").value = boq.preparedBy?.name || "Sales Team"
   ws.getCell("B18").font = { name: "Arial", size: 11 }
   ws.getCell("B18").alignment = { horizontal: "center", vertical: "middle" }
 
@@ -319,13 +404,20 @@ export async function buildBoqExcelWorkbook(boq: BoqExportData, includeCostingSh
     bCell.alignment = { horizontal: "center", vertical: "middle" }
     bCell.numFmt = "#,##0"
 
-    // C: Description & Specifications
+    // C: Description & Specifications (Cleaned of HTML tags & entities)
     const cCell = ws.getCell(`C${currentRow}`)
-    let fullDesc = (item.description || "").trim()
-    if (item.specifications && item.specifications.trim()) {
-      fullDesc += `\n${item.specifications.trim()}`
+    const mainDesc = cleanHtmlText(item.description || item.product?.productName || item.product?.description || "")
+    const specsDesc = cleanHtmlText(item.specifications)
+
+    let fullDesc = mainDesc
+    if (specsDesc) {
+      if (fullDesc && fullDesc !== specsDesc) {
+        fullDesc += `\n${specsDesc}`
+      } else {
+        fullDesc = specsDesc
+      }
     }
-    cCell.value = fullDesc
+    cCell.value = fullDesc || "Product Item"
     cCell.font = { name: "Arial", size: 11 }
     cCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true }
 
@@ -333,36 +425,19 @@ export async function buildBoqExcelWorkbook(boq: BoqExportData, includeCostingSh
     const dCell = ws.getCell(`D${currentRow}`)
     dCell.alignment = { horizontal: "center", vertical: "middle" }
 
-    // Embed Product Image cleanly in Column D
+    // Embed Product Image cleanly in Column D (Supports Remote URLs, Base64 & Local Files)
     const imgUrl = item.customImageUrl || item.product?.imageUrl
     if (imgUrl) {
       try {
-        let extension = "jpeg"
-        if (imgUrl.toLowerCase().includes("png")) extension = "png"
-
-        let imageId: number | null = null
-
-        if (imgUrl.startsWith("data:image")) {
-          const base64Data = imgUrl.split(",")[1]
-          imageId = workbook.addImage({
-            base64: base64Data,
-            extension: extension as any,
+        const imgData = await getImageBufferAndExt(imgUrl)
+        if (imgData) {
+          const imageId = workbook.addImage({
+            buffer: imgData.buffer as any,
+            extension: imgData.extension as any,
           })
-        } else {
-          // Check local file in public folder
-          const cleanPath = imgUrl.startsWith("/") ? imgUrl.substring(1) : imgUrl
-          const localPath = path.join(process.cwd(), "public", cleanPath)
-          if (fs.existsSync(localPath)) {
-            imageId = workbook.addImage({
-              filename: localPath,
-              extension: extension as any,
-            })
-          }
-        }
 
-        if (imageId !== null) {
           ws.addImage(imageId, {
-            tl: { col: 3.15, row: currentRow - 0.92 }, // Centered nicely inside D cell
+            tl: { col: 3.15, row: currentRow - 0.92 }, // Centered inside D cell
             ext: { width: 260, height: 260 },
             editAs: "oneCell",
           })
@@ -543,7 +618,6 @@ export async function buildBoqExcelWorkbook(boq: BoqExportData, includeCostingSh
 
   // Design Approval Box
   currentRow++
-  const boxStartRow = currentRow
   ws.getRow(currentRow).height = 145
   ws.mergeCells(`B${currentRow}:G${currentRow}`)
 
@@ -646,8 +720,41 @@ Thank you`
       wsCost.getCell(`B${cRow}`).value = item.itemNo || (i + 1)
       wsCost.getCell(`B${cRow}`).alignment = { horizontal: "center", vertical: "middle" }
 
-      wsCost.getCell(`C${cRow}`).value = `${item.description}\n${item.specifications || ""}`
+      const mainDesc = cleanHtmlText(item.description || item.product?.productName || item.product?.description || "")
+      const specsDesc = cleanHtmlText(item.specifications)
+
+      let fullDesc = mainDesc
+      if (specsDesc) {
+        if (fullDesc && fullDesc !== specsDesc) {
+          fullDesc += `\n${specsDesc}`
+        } else {
+          fullDesc = specsDesc
+        }
+      }
+
+      wsCost.getCell(`C${cRow}`).value = fullDesc || "Product Item"
       wsCost.getCell(`C${cRow}`).alignment = { wrapText: true, vertical: "middle" }
+
+      // Image for Sheet 2
+      const imgUrl = item.customImageUrl || item.product?.imageUrl
+      if (imgUrl) {
+        try {
+          const imgData = await getImageBufferAndExt(imgUrl)
+          if (imgData) {
+            const costImageId = workbook.addImage({
+              buffer: imgData.buffer as any,
+              extension: imgData.extension as any,
+            })
+            wsCost.addImage(costImageId, {
+              tl: { col: 3.1, row: cRow - 0.9 },
+              ext: { width: 110, height: 90 },
+              editAs: "oneCell"
+            })
+          }
+        } catch (err) {
+          console.error(`Failed to embed costing image for BOQ item ${item.itemNo}:`, err)
+        }
+      }
 
       wsCost.getCell(`E${cRow}`).value = item.quantity || 1
       wsCost.getCell(`E${cRow}`).alignment = { horizontal: "center", vertical: "middle" }
