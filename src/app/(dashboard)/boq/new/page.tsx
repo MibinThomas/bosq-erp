@@ -419,7 +419,7 @@ function NewBOQForm() {
 
   const userRole = ((session?.user as any)?.role || "SALES_EXECUTIVE").toUpperCase()
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
-  const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN"
+  const isAdminOrSuperAdmin = userRole === "ADMIN" || userRole === "SUPER_ADMIN" || userRole === "MANAGER" || userRole === "SALES_MANAGER" || userRole.includes("MANAGER")
   const isEstimatorRole = userRole === "ESTIMATOR" || userRole === "COST_ESTIMATOR" || userRole.includes("ESTIMATOR")
   const isAssignedEstimator = !!(existingQuote?.estimatorId && existingQuote.estimatorId === (session?.user as any)?.id)
   const isEstimator = isEstimatorRole || isAssignedEstimator

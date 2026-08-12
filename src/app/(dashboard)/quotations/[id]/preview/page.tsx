@@ -3,8 +3,9 @@
 import React, { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2, Download, ExternalLink, Check, X, Edit, Copy } from "lucide-react"
+import { ArrowLeft, Loader2, Download, ExternalLink, Check, X, Edit, Copy, PackagePlus, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { isManagerOrAdminRole } from "@/lib/utils"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import parse from "html-react-parser"
@@ -116,6 +117,10 @@ export default function QuotationHtmlPreviewPage({
   const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false)
   const [conflictingQuoteNo, setConflictingQuoteNo] = useState("")
 
+  const [isCatalogDialogOpen, setIsCatalogDialogOpen] = useState(false)
+  const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set())
+  const [savingItemId, setSavingItemId] = useState<string | null>(null)
+
   useEffect(() => {
     fetch("/api/users/me/permissions")
       .then(res => res.json())
@@ -129,6 +134,41 @@ export default function QuotationHtmlPreviewPage({
 
   const isSuperAdmin = userRole === "SUPER_ADMIN"
   const isAuthorizedToConfirm = isSuperAdmin || isManagerOrAdmin || (userPermissions?.canConfirmQuotation === true)
+  const canSaveToCatalog = isManagerOrAdminRole(userRole)
+
+  const handleSaveItemToCatalog = async (item: QuotationItem) => {
+    if (!quotation) return
+    setSavingItemId(item.id)
+    try {
+      const res = await fetch(`/api/quotations/${quotation.id}/save-item-to-catalog`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId: item.id,
+          productName: item.description,
+          categoryName: item.categoryName || "Chairs",
+          unitPrice: item.unitPrice,
+          description: item.productDescription || item.description,
+          specifications: item.specifications || "",
+          imageUrl: item.customImageUrl || null,
+          chairType: item.chairType || null,
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save product to catalog")
+      }
+
+      setSavedItemIds((prev) => new Set(prev).add(item.id))
+      toast.success(`Saved "${item.description}" to product master catalog!`)
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Failed to save product to catalog")
+    } finally {
+      setSavingItemId(null)
+    }
+  }
 
   const handleConfirmQuote = async (forceReplace: boolean = false) => {
     if (!quotation) return
@@ -461,6 +501,17 @@ export default function QuotationHtmlPreviewPage({
           >
             <Copy className="mr-2 h-4 w-4 text-teal-600" /> Copy Quotation
           </Button>
+          {canSaveToCatalog && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCatalogDialogOpen(true)}
+              title="Save Products to Catalog"
+              className="border-indigo-600/50 text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 font-semibold cursor-pointer"
+            >
+              <PackagePlus className="mr-2 h-4 w-4 text-indigo-600" /> Save Products to Catalog
+            </Button>
+          )}
           {quotation.sharepointUrl && (
             <Button
               variant="outline"
@@ -524,6 +575,76 @@ export default function QuotationHtmlPreviewPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Save Products to Catalog Modal */}
+      {quotation && (
+        <Dialog open={isCatalogDialogOpen} onOpenChange={setIsCatalogDialogOpen}>
+          <DialogContent className="max-w-2xl rounded-xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+                <PackagePlus className="h-5 w-5 text-indigo-600" />
+                Save Products to Catalog
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Save custom items from quotation <strong>{(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()}</strong> (prepared by {quotation.preparedBy?.name || quotation.preparedBy?.email || "User"}) directly to the product catalog.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 my-2 max-h-[60vh] overflow-y-auto pr-1">
+              {quotation.items.map((item) => {
+                const isSaved = !!item.product || savedItemIds.has(item.id)
+                const isSaving = savingItemId === item.id
+                return (
+                  <div key={item.id} className="p-3.5 border rounded-xl bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-xs text-foreground">{item.description}</span>
+                        {item.categoryName && (
+                          <Badge variant="outline" className="text-[10px] py-0 font-medium">
+                            {item.categoryName}
+                          </Badge>
+                        )}
+                        {isSaved && (
+                          <Badge variant="secondary" className="text-[10px] bg-green-500/10 text-green-700 border-green-200 py-0 flex items-center gap-1 font-semibold">
+                            <CheckCircle2 className="h-3 w-3" /> Saved in Catalog
+                          </Badge>
+                        )}
+                      </div>
+                      {item.productDescription && (
+                        <p className="text-[11px] text-muted-foreground line-clamp-2">{item.productDescription}</p>
+                      )}
+                      <div className="text-[11px] text-muted-foreground font-mono">
+                        Unit Price: AED {(item.unitPrice || 0).toLocaleString("en-US")} | Qty: {item.quantity}
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      {isSaved ? (
+                        <Button variant="ghost" size="sm" disabled className="h-8 text-xs text-muted-foreground">
+                          In Catalog
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          disabled={isSaving}
+                          onClick={() => handleSaveItemToCatalog(item)}
+                          className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer"
+                        >
+                          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <PackagePlus className="h-3.5 w-3.5 mr-1.5" />}
+                          Save to Catalog
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <DialogFooter className="mt-2">
+              <Button variant="outline" onClick={() => setIsCatalogDialogOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

@@ -61,7 +61,7 @@ import {
 } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { cn } from "@/lib/utils"
+import { cn, isManagerOrAdminRole } from "@/lib/utils"
 import { toast } from "sonner"
 import { QuickAddProductModal } from "@/components/products/quick-add-product-modal"
 import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
@@ -907,6 +907,30 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               />
             )}
           </div>
+
+          {/* Save to Catalog Switch for Managerial & Super Admin roles */}
+          {isManagerOrAdminRole(userRole) && (
+            <FormField
+              control={control}
+              name={`items.${index}.saveToCatalog`}
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2.5 bg-muted/10">
+                  <div className="space-y-0.5 flex-1 pr-2">
+                    <FormLabel className="text-xs font-semibold text-foreground block">Save to Product Catalog</FormLabel>
+                    <span className="text-[10px] text-muted-foreground block leading-tight">
+                      Add this custom product to the product catalog upon saving.
+                    </span>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value || false}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+          )}
 
           {/* Detailed Product Description Field */}
           <FormField
@@ -2047,7 +2071,7 @@ function NewQuotationForm() {
 
       const formattedItems = []
       for (const item of data.items) {
-        if (item.saveToCatalog && userRole === "SUPER_ADMIN") {
+        if (item.saveToCatalog && isManagerOrAdminRole(userRole)) {
           if (!item.description || item.description.trim() === "") {
             toast.error("Product Title / Heading is required when saving an item to the catalog.")
             setSubmitting(false)
@@ -2065,6 +2089,7 @@ function NewQuotationForm() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 productName: item.description,
+                categoryName: item.categoryName || "Chairs",
                 unitPrice: item.unitPrice === "" ? 0 : Number(item.unitPrice),
                 description: item.productDescription || item.description,
                 specifications: item.specifications || "",
