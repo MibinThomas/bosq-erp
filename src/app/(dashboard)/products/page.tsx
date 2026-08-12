@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import {
-  Upload, Download, Plus, Search, Trash2, Edit, AlertCircle, FileSpreadsheet, PackageOpen, LayoutGrid, List, CheckCircle2, MoreVertical, X, Filter, FolderPlus, Tag, Boxes, LayoutDashboard, Copy, MoreHorizontal
+  Upload, Download, Plus, Search, Trash2, Edit, AlertCircle, FileSpreadsheet, PackageOpen, LayoutGrid, List, CheckCircle2, MoreVertical, X, Filter, FolderPlus, Tag, Boxes, LayoutDashboard, Copy, MoreHorizontal, Pencil, SlidersHorizontal
 } from "lucide-react"
 import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { useRouter } from "next/navigation"
@@ -66,6 +66,7 @@ export default function ProductsPage() {
   const router = useRouter()
   const { data: session } = useSession()
   const userRole = (session?.user as any)?.role
+  const isSuperAdmin = userRole === "SUPER_ADMIN"
   const { hasPermission } = usePermissions()
 
   const canCreateProduct = hasPermission("PRODUCTS", "create")
@@ -115,11 +116,152 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState("")
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
-  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; description: string | null }[]>([])
+  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; description: string | null; _count?: { products: number } }[]>([])
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [newCategoryDesc, setNewCategoryDesc] = useState("")
   const [creatingCategory, setCreatingCategory] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; description: string } | null>(null)
+  const [updatingCategory, setUpdatingCategory] = useState(false)
+  const [deletingCatId, setDeletingCatId] = useState<string | null>(null)
+
+  // Attribute Management States
+  const [isAttributeModalOpen, setIsAttributeModalOpen] = useState(false)
+  const [attributesData, setAttributesData] = useState<Record<string, string[]>>({
+    legTypes: [],
+    tableTopFinishes: [],
+    dimensions: [],
+    chairTypes: [],
+    finishMaterials: [],
+    storageOptions: [],
+    warranties: [],
+  })
+  const [attributesLoading, setAttributesLoading] = useState(false)
+  const [activeAttrTab, setActiveAttrTab] = useState<string>("legTypes")
+  const [newAttrValue, setNewAttrValue] = useState("")
+  const [addingAttr, setAddingAttr] = useState(false)
+  const [editingAttrObj, setEditingAttrObj] = useState<{ type: string; oldVal: string; newVal: string } | null>(null)
+  const [updatingAttr, setUpdatingAttr] = useState(false)
+  const [deletingAttrVal, setDeletingAttrVal] = useState<string | null>(null)
+
+  const fetchAttributes = async () => {
+    setAttributesLoading(true)
+    try {
+      const res = await fetch("/api/products/attributes")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.attributes) setAttributesData(data.attributes)
+      }
+    } catch (err) {
+      console.error("Failed to load attributes:", err)
+    } finally {
+      setAttributesLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (isAttributeModalOpen) {
+      fetchAttributes()
+    }
+  }, [isAttributeModalOpen])
+
+  const handleUpdateCategory = async (id: string, name: string, description: string) => {
+    setUpdatingCategory(true)
+    try {
+      const res = await fetch(`/api/products/categories/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, description })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to update category")
+      toast.success(`Category updated to "${data.name}"`)
+      setEditingCategory(null)
+      fetchCategories()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update category")
+    } finally {
+      setUpdatingCategory(false)
+    }
+  }
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete category "${name}"? Products in this category will be re-assigned to General.`)) return
+    setDeletingCatId(id)
+    try {
+      const res = await fetch(`/api/products/categories/${id}`, {
+        method: "DELETE"
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to delete category")
+      toast.success(`Category "${name}" deleted!`)
+      fetchCategories()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete category")
+    } finally {
+      setDeletingCatId(null)
+    }
+  }
+
+  const handleAddAttribute = async (type: string, value: string) => {
+    if (!value.trim()) return
+    setAddingAttr(true)
+    try {
+      const res = await fetch("/api/products/attributes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attributeType: type, value: value.trim() })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to add attribute")
+      toast.success(`Attribute "${value.trim()}" added successfully!`)
+      setNewAttrValue("")
+      fetchAttributes()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add attribute")
+    } finally {
+      setAddingAttr(false)
+    }
+  }
+
+  const handleUpdateAttribute = async (type: string, oldValue: string, newValue: string) => {
+    if (!newValue.trim()) return
+    setUpdatingAttr(true)
+    try {
+      const res = await fetch("/api/products/attributes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attributeType: type, oldValue, newValue: newValue.trim() })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to update attribute")
+      toast.success(`Attribute updated to "${newValue.trim()}"`)
+      setEditingAttrObj(null)
+      fetchAttributes()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update attribute")
+    } finally {
+      setUpdatingAttr(false)
+    }
+  }
+
+  const handleDeleteAttribute = async (type: string, value: string) => {
+    if (!confirm(`Are you sure you want to delete attribute "${value}"?`)) return
+    setDeletingAttrVal(value)
+    try {
+      const res = await fetch(`/api/products/attributes?attributeType=${type}&value=${encodeURIComponent(value)}`, {
+        method: "DELETE"
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to delete attribute")
+      toast.success(`Attribute "${value}" deleted!`)
+      fetchAttributes()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete attribute")
+    } finally {
+      setDeletingAttrVal(null)
+    }
+  }
 
   // Details Modal States
   const [selectedDetailProduct, setSelectedDetailProduct] = useState<Product | null>(null)
@@ -517,8 +659,18 @@ export default function ProductsPage() {
               onClick={() => setIsCategoryModalOpen(true)}
               className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
             >
-              <Plus className="h-4 w-4 text-primary" />
-              Add Category
+              <FolderPlus className="h-4 w-4 text-primary" />
+              Manage Categories
+            </Button>
+          )}
+          {(isSuperAdmin || canManageCategory) && (
+            <Button 
+              variant="outline" 
+              onClick={() => setIsAttributeModalOpen(true)}
+              className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+            >
+              <Tag className="h-4 w-4 text-primary" />
+              Manage Attributes
             </Button>
           )}
           {canBulkUploadProduct && (
@@ -960,18 +1112,18 @@ export default function ProductsPage() {
         onSuccess={fetchProducts}
       />
 
-      {/* Create Category Modal */}
+      {/* Manage Categories Modal */}
       {isCategoryModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-card rounded-2xl border shadow-2xl flex flex-col p-6 space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="relative w-full max-w-2xl bg-card rounded-2xl border shadow-2xl flex flex-col p-6 space-y-5 max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b pb-4 shrink-0">
               <div>
                 <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
-                  <Plus className="h-5 w-5 text-primary" />
-                  Create Product Category
+                  <FolderPlus className="h-5 w-5 text-primary" />
+                  Product Categories Manager
                 </h2>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Add a new dynamic category to classify catalog products.
+                  Create, update, rename, or delete catalog categories.
                 </p>
               </div>
               <Button 
@@ -979,6 +1131,7 @@ export default function ProductsPage() {
                 size="icon" 
                 onClick={() => {
                   setIsCategoryModalOpen(false)
+                  setEditingCategory(null)
                   setNewCategoryName("")
                   setNewCategoryDesc("")
                 }} 
@@ -988,6 +1141,7 @@ export default function ProductsPage() {
               </Button>
             </div>
 
+            {/* Create New Category Form */}
             <form 
               onSubmit={async (e) => {
                 e.preventDefault()
@@ -1012,7 +1166,6 @@ export default function ProductsPage() {
                   toast.success(`Category "${data.name}" created successfully!`)
                   setNewCategoryName("")
                   setNewCategoryDesc("")
-                  setIsCategoryModalOpen(false)
                   fetchCategories()
                 } catch (err: any) {
                   toast.error(err.message || "Failed to create category.")
@@ -1020,57 +1173,355 @@ export default function ProductsPage() {
                   setCreatingCategory(false)
                 }
               }} 
-              className="space-y-4"
+              className="bg-muted/30 p-4 rounded-xl border space-y-3 shrink-0"
             >
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground">Category Name *</label>
+              <span className="text-xs font-bold text-foreground block">Add New Category</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input 
                   value={newCategoryName} 
                   onChange={(e) => setNewCategoryName(e.target.value)} 
-                  placeholder="E.g., Acoustic Pods" 
+                  placeholder="Category Name (e.g. Acoustic Pods)" 
+                  className="h-9 text-xs bg-background"
                   required
                 />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-foreground">Description</label>
-                <Textarea 
+                <Input 
                   value={newCategoryDesc} 
                   onChange={(e) => setNewCategoryDesc(e.target.value)} 
-                  placeholder="Optional brief description of this product range..." 
-                  rows={3}
+                  placeholder="Description (Optional)" 
+                  className="h-9 text-xs bg-background"
                 />
               </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => {
-                    setIsCategoryModalOpen(false)
-                    setNewCategoryName("")
-                    setNewCategoryDesc("")
-                  }} 
-                  disabled={creatingCategory}
-                >
-                  Cancel
-                </Button>
+              <div className="flex justify-end">
                 <Button 
                   type="submit" 
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold" 
+                  size="sm"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold h-8 cursor-pointer" 
                   disabled={creatingCategory}
                 >
                   {creatingCategory ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      Saving...
                     </>
                   ) : (
-                    "Create Category"
+                    <>
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />
+                      Add Category
+                    </>
                   )}
                 </Button>
               </div>
             </form>
+
+            {/* Existing Categories Table */}
+            <div className="flex-1 overflow-y-auto min-h-[200px] border rounded-xl bg-card">
+              <Table>
+                <TableHeader className="bg-muted/50 text-xs font-semibold sticky top-0 bg-muted">
+                  <TableRow>
+                    <TableHead className="w-1/3">Category Name</TableHead>
+                    <TableHead className="w-1/3">Description</TableHead>
+                    <TableHead className="text-center w-24">Products</TableHead>
+                    <TableHead className="text-right w-28">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="text-xs">
+                  {categoriesList.map((cat) => {
+                    const isEditingThis = editingCategory?.id === cat.id
+
+                    return (
+                      <TableRow key={cat.id} className="hover:bg-muted/20">
+                        {isEditingThis ? (
+                          <>
+                            <TableCell>
+                              <Input 
+                                value={editingCategory.name}
+                                onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                                className="h-8 text-xs font-semibold"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input 
+                                value={editingCategory.description}
+                                onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
+                                className="h-8 text-xs"
+                              />
+                            </TableCell>
+                            <TableCell className="text-center font-bold">
+                              {cat._count?.products || 0}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-7 w-7 text-emerald-600 hover:bg-emerald-50"
+                                  onClick={() => handleUpdateCategory(cat.id, editingCategory.name, editingCategory.description)}
+                                  disabled={updatingCategory}
+                                  title="Save Changes"
+                                >
+                                  {updatingCategory ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                </Button>
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-7 w-7 text-muted-foreground"
+                                  onClick={() => setEditingCategory(null)}
+                                  title="Cancel"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell className="font-semibold text-foreground">{cat.name}</TableCell>
+                            <TableCell className="text-muted-foreground">{cat.description || "—"}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                                {cat._count?.products || 0} Products
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
+                                  onClick={() => setEditingCategory({ id: cat.id, name: cat.name, description: cat.description || "" })}
+                                  title="Edit Category"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer"
+                                  onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                                  disabled={deletingCatId === cat.id}
+                                  title="Delete Category"
+                                >
+                                  {deletingCatId === cat.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </>
+                        )}
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t shrink-0">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setIsCategoryModalOpen(false)
+                  setEditingCategory(null)
+                }}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Product Attributes Modal */}
+      {isAttributeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-3xl bg-card rounded-2xl border shadow-2xl flex flex-col p-6 space-y-5 max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between border-b pb-4 shrink-0">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                  <Tag className="h-5 w-5 text-primary" />
+                  Product Attributes & Configurations Manager
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Manage leg types, table top finishes, dimensions, chair types, materials, storage options, and warranties.
+                </p>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => {
+                  setIsAttributeModalOpen(false)
+                  setEditingAttrObj(null)
+                  setNewAttrValue("")
+                }} 
+                className="rounded-full h-8 w-8"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Attribute Category Tabs */}
+            <div className="flex gap-1 overflow-x-auto border-b pb-2 shrink-0 no-scrollbar">
+              {[
+                { key: "legTypes", label: "Leg Types", icon: "🦵" },
+                { key: "tableTopFinishes", label: "Table Tops", icon: "🪵" },
+                { key: "dimensions", label: "Dimensions", icon: "📐" },
+                { key: "chairTypes", label: "Chair Types", icon: "🪑" },
+                { key: "finishMaterials", label: "Finish Materials", icon: "🎨" },
+                { key: "storageOptions", label: "Storage & Accessories", icon: "🗄️" },
+                { key: "warranties", label: "Warranties", icon: "🛡️" },
+              ].map(tab => (
+                <button
+                  key={tab.key}
+                  onClick={() => {
+                    setActiveAttrTab(tab.key)
+                    setEditingAttrObj(null)
+                    setNewAttrValue("")
+                  }}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap",
+                    activeAttrTab === tab.key
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted/40 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  <Badge variant="secondary" className="text-[9px] py-0 px-1 ml-1 bg-background/50 text-current">
+                    {(attributesData[tab.key] || []).length}
+                  </Badge>
+                </button>
+              ))}
+            </div>
+
+            {/* Add Attribute Value Form */}
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault()
+                handleAddAttribute(activeAttrTab, newAttrValue)
+              }} 
+              className="bg-muted/30 p-4 rounded-xl border flex items-center gap-3 shrink-0"
+            >
+              <div className="flex-1">
+                <Input 
+                  value={newAttrValue} 
+                  onChange={(e) => setNewAttrValue(e.target.value)} 
+                  placeholder={`Add new option to ${activeAttrTab}...`} 
+                  className="h-9 text-xs bg-background"
+                  required
+                />
+              </div>
+              <Button 
+                type="submit" 
+                size="sm"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold h-9 px-4 cursor-pointer shrink-0" 
+                disabled={addingAttr}
+              >
+                {addingAttr ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Add Option
+                  </>
+                )}
+              </Button>
+            </form>
+
+            {/* Values Table */}
+            <div className="flex-1 overflow-y-auto min-h-[220px] border rounded-xl bg-card p-3">
+              {attributesLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (attributesData[activeAttrTab] || []).length === 0 ? (
+                <div className="text-center py-16 text-xs text-muted-foreground">
+                  No configured options found for this attribute. Add your first option above.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(attributesData[activeAttrTab] || []).map((val) => {
+                    const isEditingThis = editingAttrObj?.type === activeAttrTab && editingAttrObj?.oldVal === val
+
+                    return (
+                      <div 
+                        key={val} 
+                        className="flex items-center justify-between p-2.5 rounded-lg border bg-background hover:border-primary/30 transition-all text-xs"
+                      >
+                        {isEditingThis ? (
+                          <div className="flex items-center gap-2 w-full">
+                            <Input 
+                              value={editingAttrObj.newVal}
+                              onChange={(e) => setEditingAttrObj({ ...editingAttrObj, newVal: e.target.value })}
+                              className="h-8 text-xs flex-1 font-semibold"
+                              autoFocus
+                            />
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-7 w-7 text-emerald-600 hover:bg-emerald-50 shrink-0 cursor-pointer"
+                              onClick={() => handleUpdateAttribute(activeAttrTab, val, editingAttrObj.newVal)}
+                              disabled={updatingAttr}
+                              title="Save Attribute"
+                            >
+                              {updatingAttr ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                            </Button>
+                            <Button 
+                              size="icon" 
+                              variant="ghost" 
+                              className="h-7 w-7 text-muted-foreground shrink-0 cursor-pointer"
+                              onClick={() => setEditingAttrObj(null)}
+                              title="Cancel"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <span className="font-semibold text-foreground truncate pr-2">{val}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
+                                onClick={() => setEditingAttrObj({ type: activeAttrTab, oldVal: val, newVal: val })}
+                                title="Edit / Rename Option"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer"
+                                onClick={() => handleDeleteAttribute(activeAttrTab, val)}
+                                disabled={deletingAttrVal === val}
+                                title="Delete Option"
+                              >
+                                {deletingAttrVal === val ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t shrink-0">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  setIsAttributeModalOpen(false)
+                  setEditingAttrObj(null)
+                }}
+              >
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}
