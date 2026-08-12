@@ -65,16 +65,15 @@ export async function POST(
     const buffer = await workbook.xlsx.writeBuffer()
     const excelBuffer = Buffer.from(buffer as any)
 
-    let filenameBase = boq.boqNumber
-    if (quotationNumber) {
-      filenameBase = `BOQ_${quotationNumber}`
-    }
+    const sanitizedClientName = (boq.client?.companyName || "Client").replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+    const cleanQuotationNum = (quotationNumber || boq.boqNumber || "BOQ").replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+    const filename = `${cleanQuotationNum}_${sanitizedClientName}.xlsx`
 
     if (isDownloadFormat) {
       return new Response(excelBuffer, {
         headers: {
           "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "Content-Disposition": `attachment; filename="${filenameBase}_Costing_Breakdown.xlsx"`
+          "Content-Disposition": `attachment; filename="${filename}"`
         }
       })
     }
@@ -82,7 +81,7 @@ export async function POST(
     // Upload to SharePoint
     const sharepointUrl = await uploadBoqExcel(
       boq.client.companyName, 
-      filenameBase, 
+      filename.replace(/\.xlsx$/, ""), 
       excelBuffer, 
       quotationGroupFolder
     )

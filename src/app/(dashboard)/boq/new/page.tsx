@@ -1313,11 +1313,25 @@ function NewBOQForm() {
         throw new Error(err.error || "Failed to export Admin BOQ Costing")
       }
 
+      const contentDisposition = res.headers.get("Content-Disposition")
+      let downloadFilename = ""
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^";]+)"?/)
+        if (match && match[1]) {
+          downloadFilename = match[1]
+        }
+      }
+      if (!downloadFilename) {
+        const sanitizedClientName = (existingQuote.client?.companyName || "").replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+        const cleanQuotationNum = (existingQuote.boqNumber || "BOQ").replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+        downloadFilename = `${cleanQuotationNum}_${sanitizedClientName || "Client"}.xlsx`
+      }
+
       const blob = await res.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${existingQuote.boqNumber}_Complete_Costing.xlsx`
+      a.download = downloadFilename
       document.body.appendChild(a)
       a.click()
       a.remove()
