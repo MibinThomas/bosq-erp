@@ -2792,6 +2792,22 @@ function NewBOQForm() {
                                     </Badge>
                                   )}
 
+                                  <div className="flex items-center gap-1.5 ml-2 border-l border-border pl-3">
+                                    <Switch
+                                      id={`new-costing-required-toggle-${index}`}
+                                      checked={!!watchItems[index]?.isCostingRequired}
+                                      onCheckedChange={(checked) => {
+                                        form.setValue(`items.${index}.isCostingRequired`, checked, { shouldValidate: true, shouldDirty: true })
+                                      }}
+                                    />
+                                    <label
+                                      htmlFor={`new-costing-required-toggle-${index}`}
+                                      className="text-[11px] font-medium text-muted-foreground select-none cursor-pointer hover:text-foreground"
+                                    >
+                                      {watchItems[index]?.isCostingRequired ? "Requires Estimator Costing" : "Send for Costing"}
+                                    </label>
+                                  </div>
+
                                   <div className="flex items-center gap-1 ml-auto">
                                     <Button
                                       type="button"

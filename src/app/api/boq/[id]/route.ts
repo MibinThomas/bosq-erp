@@ -152,7 +152,10 @@ export async function PUT(
     // In a production system, upsert is better, but this is simpler for drafts.
     
     const userRole = (session.user as any).role || "SALES_EXECUTIVE"
-    const isEstimator = userRole === "ESTIMATOR" || existingBoq.estimatorId === userId
+    const isCreatorOrOwner = existingBoq.preparedById === userId
+    const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole)
+    const isEstimator = userRole === "ESTIMATOR" || userRole === "COST_ESTIMATOR" || existingBoq.estimatorId === userId
+    const isRestrictedEstimator = isEstimator && !isCreatorOrOwner && !isManagerOrAdmin
 
     const isLockedStatus = existingBoq.status === "SENT_TO_ESTIMATOR" || existingBoq.status === "COSTING_IN_PROGRESS" || existingBoq.status === "PENDING_COSTING"
     if (!isEstimator && isLockedStatus) {
@@ -160,6 +163,21 @@ export async function PUT(
         { error: "This BOQ is currently with the Estimator for costing. You cannot edit it until costing is completed." },
         { status: 403 }
       )
+    }
+
+    // Enforce restriction: estimators cannot add or remove products from BOQs created by other users
+    if (isRestrictedEstimator && items && Array.isArray(items)) {
+      const existingCount = existingBoq.items.length
+      const incomingCount = items.length
+      const existingIds = new Set(existingBoq.items.map((i: any) => i.id))
+      const hasNewItems = items.some((i: any) => !i.id || !existingIds.has(i.id))
+
+      if (incomingCount !== existingCount || hasNewItems) {
+        return NextResponse.json(
+          { error: "Forbidden: Estimators are restricted from adding or removing products in BOQs created by other users." },
+          { status: 403 }
+        )
+      }
     }
 
     // If estimator, they can't change the number of items or non-cost fields

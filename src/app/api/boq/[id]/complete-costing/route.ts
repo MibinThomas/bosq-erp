@@ -37,6 +37,8 @@ export async function POST(
       if (Array.isArray(updatedItems) && updatedItems.length > 0) {
         for (let idx = 0; idx < updatedItems.length; idx++) {
           const item = updatedItems[idx]
+          const factoryCost = parseFloat(item.factoryCost) || 0
+          const accessoriesCost = parseFloat(item.accessoriesCost) || 0
           const matCost = parseFloat(item.materialCost) || 0
           const labCost = parseFloat(item.laborCost) || 0
           const instCost = parseFloat(item.installationCost) || 0
@@ -44,19 +46,25 @@ export async function POST(
           const overCost = parseFloat(item.overheadCost) || 0
           const qty = parseInt(item.quantity) || 1
 
-          const unitCost = matCost + labCost + instCost + transCost + overCost
-          const itemTotalCost = unitCost * qty
-          const marginPct = parseFloat(item.marginPercentage) || parseFloat(item.margin) || 0
+          const legacyUnitCost = matCost + labCost + instCost + transCost + overCost
+          const baseCost = (factoryCost > 0 || accessoriesCost > 0) ? (factoryCost + accessoriesCost) : legacyUnitCost
+          const itemTotalCost = baseCost * qty
 
-          let basePrice = parseFloat(item.basePrice) || unitCost
-          let unitSelling = parseFloat(item.unitSellingPrice) || parseFloat(item.unitPrice) || 0
-          if (unitSelling === 0 && unitCost > 0) {
-            const marginDec = Math.min(0.9999, marginPct / 100)
-            unitSelling = Number((unitCost / (1 - marginDec)).toFixed(2))
-          } else if (unitSelling === 0 && basePrice > 0) {
-            const marginDec = Math.min(0.9999, marginPct / 100)
-            unitSelling = Number((basePrice / (1 - marginDec)).toFixed(2))
+          const marginPct = parseFloat(item.marginPercentage ?? item.margin) || 0
+          const preNegPrice = baseCost > 0 ? Number((baseCost / (1 - Math.min(0.9999, marginPct / 100))).toFixed(2)) : 0
+
+          let negPct = parseFloat(item.negotiationPercentage ?? item.negotiationPct) || 0
+          let negAmt = parseFloat(item.negotiationAmount ?? item.negotiationAdj) || (preNegPrice > 0 && negPct > 0 ? Number((preNegPrice * (negPct / 100)).toFixed(2)) : 0)
+
+          if (negAmt > 0 && negPct === 0 && preNegPrice > 0) {
+            negPct = Number(((negAmt / preNegPrice) * 100).toFixed(2))
           }
+
+          let unitSelling = parseFloat(item.unitSellingPrice ?? item.unitPrice)
+          if (isNaN(unitSelling) || unitSelling <= 0 || (baseCost > 0 && (marginPct !== 0 || negAmt !== 0))) {
+            unitSelling = Number((preNegPrice + negAmt).toFixed(2))
+          }
+
           const itemTotalSelling = Number((unitSelling * qty).toFixed(2))
 
           totalMaterialCost += matCost * qty
@@ -64,6 +72,7 @@ export async function POST(
           totalInstallation += instCost * qty
           totalTransport += transCost * qty
           totalOverhead += overCost * qty
+
           totalCost += itemTotalCost
           totalSellingPrice += itemTotalSelling
 
@@ -75,14 +84,18 @@ export async function POST(
             await tx.boqItem.update({
               where: { id: targetItemId },
               data: {
+                factoryCost,
+                accessoriesCost,
                 materialCost: matCost,
                 laborCost: labCost,
                 installationCost: instCost,
                 transportCost: transCost,
                 overheadCost: overCost,
-                unitCost,
+                unitCost: baseCost,
                 totalCost: itemTotalCost,
                 marginPercentage: marginPct,
+                negotiationPercentage: negPct,
+                negotiationAmount: negAmt,
                 unitSellingPrice: unitSelling,
                 totalSellingPrice: itemTotalSelling,
               }

@@ -169,6 +169,7 @@ interface ProductSearchSelectProps {
   watchSegment: string
   onProductSelect: (productId: string) => void
   onCustomProductClick: () => void
+  disabled?: boolean
 }
 
 const ProductSearchSelect = React.memo(({
@@ -177,6 +178,7 @@ const ProductSearchSelect = React.memo(({
   watchSegment,
   onProductSelect,
   onCustomProductClick,
+  disabled = false,
 }: ProductSearchSelectProps) => {
   const [open, setOpen] = useState(false)
   const selectedProd = products.find(p => p.id === productId)
@@ -188,6 +190,17 @@ const ProductSearchSelect = React.memo(({
     else if (watchSegment === "Project") basePrice = selectedProd.projectPrice ?? selectedProd.unitPrice
     else if (watchSegment === "Special") basePrice = selectedProd.specialPrice ?? selectedProd.unitPrice
     label = `${selectedProd.productCode} - ${selectedProd.productName} (${watchSegment} Price: AED ${basePrice.toFixed(2)})`
+  }
+
+  if (disabled) {
+    return (
+      <Button variant="outline" disabled className="w-full justify-between font-normal bg-muted/30 text-muted-foreground opacity-80 cursor-not-allowed h-10">
+        <span className="block truncate flex-1 text-left min-w-0 font-medium">
+          {productId ? label : "Standard Product (Locked)"}
+        </span>
+        <Lock className="ml-2 h-3.5 w-3.5 shrink-0 opacity-60" />
+      </Button>
+    )
   }
 
   return (
@@ -424,6 +437,8 @@ function NewBOQForm() {
   const isAssignedEstimator = !!(existingQuote?.estimatorId && existingQuote.estimatorId === (session?.user as any)?.id)
   const isEstimator = isEstimatorRole || isAssignedEstimator
   const isLockedForCreator = !isEstimator && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING")
+  const isCreatorOrOwner = existingQuote ? (existingQuote.preparedById === (session?.user as any)?.id || existingQuote.preparedBy?.id === (session?.user as any)?.id) : true
+  const isRestrictedEstimator = isEstimator && !isCreatorOrOwner && !isManagerOrAdmin
   const canEditCostingBreakdown = (isEstimator || isManagerOrAdmin) && existingQuote?.status !== "CONVERTED"
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
@@ -2621,8 +2636,22 @@ function NewBOQForm() {
                 <CardTitle className="text-lg flex items-center gap-2">
                   Line Items Catalog
                 </CardTitle>
+                {isRestrictedEstimator && (
+                  <Badge variant="outline" className="bg-amber-500/10 text-amber-900 dark:text-amber-200 border-amber-500/30 text-xs py-1 px-3 flex items-center gap-1.5 font-medium">
+                    <Lock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    Product Structure Locked for Estimator
+                  </Badge>
+                )}
               </CardHeader>
               <CardContent className="p-6 space-y-8">
+                {isRestrictedEstimator && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-3 rounded-xl text-xs font-medium flex items-center gap-2.5 shadow-sm">
+                    <Lock className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span>
+                      <strong>Estimator Costing Access:</strong> You are working on costing for a BOQ created by another user. Adding or removing products is restricted, but you can update all factory costs, accessories costs, margins, and negotiation adjustments for existing items.
+                    </span>
+                  </div>
+                )}
                 {batches.map((batch, batchIdx) => {
                   const batchItems = fields
                     .map((field, index) => ({ field, index, item: watchItems[index] }))
@@ -2792,6 +2821,24 @@ function NewBOQForm() {
                                     </Badge>
                                   )}
 
+                                  {!isRestrictedEstimator && (
+                                    <div className="flex items-center gap-1.5 ml-2 border-l border-border pl-3">
+                                      <Switch
+                                        id={`costing-required-toggle-${index}`}
+                                        checked={!!watchItems[index]?.isCostingRequired}
+                                        onCheckedChange={(checked) => {
+                                          form.setValue(`items.${index}.isCostingRequired`, checked, { shouldValidate: true, shouldDirty: true })
+                                        }}
+                                      />
+                                      <label
+                                        htmlFor={`costing-required-toggle-${index}`}
+                                        className="text-[11px] font-medium text-muted-foreground select-none cursor-pointer hover:text-foreground"
+                                      >
+                                        {watchItems[index]?.isCostingRequired ? "Requires Estimator Costing" : "Send for Costing"}
+                                      </label>
+                                    </div>
+                                  )}
+
                                   <div className="flex items-center gap-1 ml-auto">
                                     <Button
                                       type="button"
@@ -2830,6 +2877,7 @@ function NewBOQForm() {
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
                           <div className="w-full sm:flex-1">
                             <ProductSearchSelect
+                              disabled={isRestrictedEstimator}
                               productId={watchItems[index]?.productId}
                               products={products}
                               watchSegment={watchSegment}
@@ -3353,40 +3401,42 @@ function NewBOQForm() {
                                 </div>
 
                                 {/* Actions */}
-                                <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto shrink-0 mt-2 xl:mt-0 pb-1">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDuplicateItem(index)}
-                                    className="text-muted-foreground hover:text-foreground h-9 text-[11px] px-3.5 flex items-center gap-1.5 cursor-pointer"
-                                  >
-                                    <Copy className="h-3.5 w-3.5" />
-                                    Duplicate Item
-                                  </Button>
-                                  {fields.length > 1 && (
+                                {!isRestrictedEstimator && (
+                                  <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto shrink-0 mt-2 xl:mt-0 pb-1">
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="sm"
-                                      onClick={() => remove(index)}
-                                      className="text-destructive hover:bg-destructive/10 h-9 text-[11px] px-4"
+                                      onClick={() => handleDuplicateItem(index)}
+                                      className="text-muted-foreground hover:text-foreground h-9 text-[11px] px-3.5 flex items-center gap-1.5 cursor-pointer"
                                     >
-                                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                      Remove Line
+                                      <Copy className="h-3.5 w-3.5" />
+                                      Duplicate Item
                                     </Button>
-                                  )}
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-9 text-[11px] px-4 bg-background"
-                                    onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: watchItems[index]?.batchHeading || "", saveToCatalog: false, isCostingRequired: true, type: "custom", materialCost: 0, laborCost: 0, installationCost: 0, transportCost: 0, overheadCost: 0 })}
-                                  >
-                                    <Plus className="h-3.5 w-3.5 mr-2" />
-                                    Add Custom Item
-                                  </Button>
-                                </div>
+                                    {fields.length > 1 && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => remove(index)}
+                                        className="text-destructive hover:bg-destructive/10 h-9 text-[11px] px-4"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                        Remove Line
+                                      </Button>
+                                    )}
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-9 text-[11px] px-4 bg-background"
+                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: watchItems[index]?.batchHeading || "", saveToCatalog: false, isCostingRequired: true, type: "custom", materialCost: 0, laborCost: 0, installationCost: 0, transportCost: 0, overheadCost: 0 })}
+                                    >
+                                      <Plus className="h-3.5 w-3.5 mr-2" />
+                                      Add Custom Item
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           )
@@ -3800,30 +3850,32 @@ function NewBOQForm() {
                                     <span>Formula: Base Price ÷ (1 - Margin %)</span>
                                   </div>
                                   
-                                  <div className="flex gap-2 w-full">
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDuplicateItem(index)}
-                                      className="text-muted-foreground hover:text-foreground flex-1 h-8 text-[11px] flex items-center justify-center gap-1 cursor-pointer"
-                                    >
-                                      <Copy className="h-3.5 w-3.5 mr-1" />
-                                      Duplicate Item
-                                    </Button>
-                                    {fields.length > 1 && (
+                                  {!isRestrictedEstimator && (
+                                    <div className="flex gap-2 w-full">
                                       <Button
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => remove(index)}
-                                        className="text-destructive hover:bg-destructive/10 flex-1 h-8 text-[11px]"
+                                        onClick={() => handleDuplicateItem(index)}
+                                        className="text-muted-foreground hover:text-foreground flex-1 h-8 text-[11px] flex items-center justify-center gap-1 cursor-pointer"
                                       >
-                                        <Trash2 className="h-3.5 w-3.5 mr-1" />
-                                        Remove Line
+                                        <Copy className="h-3.5 w-3.5 mr-1" />
+                                        Duplicate Item
                                       </Button>
-                                    )}
-                                  </div>
+                                      {fields.length > 1 && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => remove(index)}
+                                          className="text-destructive hover:bg-destructive/10 flex-1 h-8 text-[11px]"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                          Remove Line
+                                        </Button>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -3841,44 +3893,48 @@ function NewBOQForm() {
                         <div className="text-xs font-bold text-slate-700">
                           {batch.name} Subtotal: AED {formatCurrency(batchSubtotal)}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAddItemToBatch(batch.name, false)}
-                            className="h-8 text-[11px] border-primary/20 hover:border-primary/40 text-primary hover:bg-primary/5 cursor-pointer"
-                          >
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            Add Catalog Product
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAddItemToBatch(batch.name, true)}
-                            className="h-8 text-[11px] border-accent/20 hover:border-accent/40 text-accent hover:bg-accent/5 cursor-pointer"
-                          >
-                            <Plus className="h-3.5 w-3.5 mr-1" />
-                            Add Custom Product
-                          </Button>
-                        </div>
+                        {!isRestrictedEstimator && (
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAddItemToBatch(batch.name, false)}
+                              className="h-8 text-[11px] border-primary/20 hover:border-primary/40 text-primary hover:bg-primary/5 cursor-pointer"
+                            >
+                              <Plus className="h-3.5 w-3.5 mr-1" />
+                              Add Catalog Product
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAddItemToBatch(batch.name, true)}
+                              className="h-8 text-[11px] border-accent/20 hover:border-accent/40 text-accent hover:bg-accent/5 cursor-pointer"
+                            >
+                              <Plus className="h-3.5 w-3.5 mr-1" />
+                              Add Custom Product
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
                 })}
 
-                <div className="flex justify-center pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleAddBatch}
-                    className="flex items-center gap-2 cursor-pointer border-primary/30 text-primary hover:bg-primary/5 shadow-sm px-6"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Section / Batch
-                  </Button>
-                </div>
+                {!isRestrictedEstimator && (
+                  <div className="flex justify-center pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddBatch}
+                      className="flex items-center gap-2 cursor-pointer border-primary/30 text-primary hover:bg-primary/5 shadow-sm px-6"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Section / Batch
+                    </Button>
+                  </div>
+                )}
               </CardContent>
 
               {/* Financial Calculation Footer */}
