@@ -1258,6 +1258,54 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           });
         })()}
 
+        {/* Materials & Finishes Schedule (Compact Swatch-Board Layout - Above Bank & Cost Breakdown) */}
+        {includeMaterialsFinishes && Array.isArray(selectedMaterials) && selectedMaterials.length > 0 && (
+          <View style={[styles.termsCard, { marginTop: 8, marginBottom: 4, paddingHorizontal: 10, paddingVertical: 6 }]} wrap={false}>
+            <Text style={[styles.termsTitle, { fontSize: 8.5, marginBottom: 4 }]}>Materials & Finishes Schedule</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 5 }}>
+              {selectedMaterials.map((mat: any, idx: number) => (
+                <View 
+                  key={mat.id || mat.code || idx}
+                  style={{
+                    width: "11.75%",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: 3,
+                    borderWidth: 1,
+                    borderColor: colors.lineColor,
+                    borderRadius: 3,
+                    backgroundColor: "#FAF8F5"
+                  }}
+                  wrap={false}
+                >
+                  {mat.swatchUrl ? (
+                    <PdfImage 
+                      src={mat.swatchUrl} 
+                      style={{ width: 22, height: 22, borderRadius: 2, objectFit: "cover", borderWidth: 0.5, borderColor: colors.lineColor }} 
+                    />
+                  ) : (
+                    <View style={{ width: 22, height: 22, borderRadius: 2, backgroundColor: "#E6E7E8", alignItems: "center", justifyContent: "center" }}>
+                      <Text style={{ fontSize: 5, color: colors.secondary }}>MAT</Text>
+                    </View>
+                  )}
+
+                  <View style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>
+                    <Text style={{ fontSize: 6.5, fontWeight: "bold", color: colors.primary, lineHeight: 1.1 }}>
+                      {mat.code || `MAT-${idx + 1}`}
+                    </Text>
+                    {mat.name && (
+                      <Text style={{ fontSize: 5.5, color: colors.secondary, marginTop: 1, lineHeight: 1.0 }}>
+                        {mat.name}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Financial Summary Box & Company Bank Details */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "stretch", marginTop: 6 }} wrap={false}>
           <View style={[styles.financialBox, { marginTop: 0, width: "48%", alignSelf: "stretch", display: "flex", flexDirection: "column" }]}>
@@ -1447,78 +1495,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               <Text style={styles.signatureCompany}>Authorized Customer Signature</Text>
             </View>
           </View>
-
-        {/* Materials & Finishes Schedule (Optional Appended Section) */}
-        {includeMaterialsFinishes && Array.isArray(selectedMaterials) && selectedMaterials.length > 0 && (
-          <View style={[styles.termsCard, { marginTop: 14 }]} wrap={false}>
-            <Text style={styles.termsTitle}>Materials & Finishes Schedule</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 }}>
-              {selectedMaterials.map((mat: any, idx: number) => (
-                <View 
-                  key={mat.id || mat.code || idx}
-                  style={{
-                    width: "48.5%",
-                    borderWidth: 1,
-                    borderColor: colors.lineColor,
-                    borderRadius: 4,
-                    padding: 8,
-                    flexDirection: "row",
-                    alignItems: "flex-start",
-                    gap: 8,
-                    backgroundColor: "#FAF8F5"
-                  }}
-                  wrap={false}
-                >
-                  <View style={{ flexDirection: "row", gap: 4 }}>
-                    {mat.swatchUrl ? (
-                      <PdfImage 
-                        src={mat.swatchUrl} 
-                        style={{ width: 50, height: 50, borderRadius: 3, objectFit: "cover", borderWidth: 1, borderColor: colors.lineColor }} 
-                      />
-                    ) : (
-                      <View style={{ width: 50, height: 50, borderRadius: 3, backgroundColor: "#E6E7E8", alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ fontSize: 6, color: colors.secondary }}>SWATCH</Text>
-                      </View>
-                    )}
-                    {mat.referenceImageUrl && (
-                      <PdfImage 
-                        src={mat.referenceImageUrl} 
-                        style={{ width: 50, height: 50, borderRadius: 3, objectFit: "cover", borderWidth: 1, borderColor: colors.lineColor }} 
-                      />
-                    )}
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 2 }}>
-                      <Text style={{ fontSize: 7.5, fontWeight: "bold", color: colors.accent, backgroundColor: "#FFF0D7", paddingHorizontal: 4, paddingVertical: 1, borderRadius: 2 }}>
-                        {mat.code}
-                      </Text>
-                      <Text style={{ fontSize: 7, color: colors.secondary }}>{mat.category}</Text>
-                    </View>
-                    <Text style={{ fontSize: 8.5, fontWeight: "bold", color: colors.primary, marginBottom: 1 }}>
-                      {mat.name}
-                    </Text>
-                    {mat.colorFinish && (
-                      <Text style={{ fontSize: 7, color: colors.secondary, fontStyle: "italic" }}>
-                        Finish: {mat.colorFinish}
-                      </Text>
-                    )}
-                    {!mat.colorFinish && mat.brand && (
-                      <Text style={{ fontSize: 7, color: colors.secondary, fontStyle: "italic" }}>
-                        Brand: {mat.brand}
-                      </Text>
-                    )}
-                    {mat.description && (
-                      <Text style={{ fontSize: 6.5, color: colors.lightText, marginTop: 2, lineHeight: 1.2 }}>
-                        {mat.description}
-                      </Text>
-                    )}
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
 
         {/* Absolute Bottom Page Footer */}
         <View style={styles.footer} fixed>
