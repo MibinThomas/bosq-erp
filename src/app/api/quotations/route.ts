@@ -623,6 +623,16 @@ export async function POST(request: Request) {
       "company_disclaimer",
     ])
 
+    // Resolve material swatch images for PDF rendering
+    const rawSelectedMaterials = Array.isArray(selectedMaterials) ? selectedMaterials : []
+    const docSelectedMaterials = await Promise.all(
+      rawSelectedMaterials.map(async (mat: any) => ({
+        ...mat,
+        swatchUrl: mat.swatchUrl ? await resolveImageUrl(mat.swatchUrl) : null,
+        referenceImageUrl: mat.referenceImageUrl ? await resolveImageUrl(mat.referenceImageUrl) : null,
+      }))
+    )
+
     // 5. Generate PDF server-side using @react-pdf/renderer
     const pdfProps = {
       quotationNumber: nextQuoteNo,
@@ -653,7 +663,7 @@ export async function POST(request: Request) {
       includeSalesAgent: !!includeSalesAgent,
       includeCompanySeal: includeCompanySeal ?? true,
       includeMaterialsFinishes: !!includeMaterialsFinishes,
-      selectedMaterials: Array.isArray(selectedMaterials) ? selectedMaterials : [],
+      selectedMaterials: docSelectedMaterials,
       salesAgentName: includeSalesAgent ? (salesAgentName || null) : null,
       salesAgentTitle: includeSalesAgent ? (salesAgentTitle || null) : null,
       salesAgentEmail: includeSalesAgent ? (salesAgentEmail || null) : null,

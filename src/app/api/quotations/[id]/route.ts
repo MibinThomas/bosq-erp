@@ -893,6 +893,16 @@ export async function PUT(
       const targetClientId = body.clientId || existingQuotation.clientId
       const revisionClient = (await prisma.client.findUnique({ where: { id: targetClientId } })) || existingQuotation.client
 
+      // Resolve material swatch images for revision PDF
+      const rawSelectedMaterialsRev = Array.isArray(selectedMaterials) ? selectedMaterials : []
+      const docSelectedMaterialsRev = await Promise.all(
+        rawSelectedMaterialsRev.map(async (mat: any) => ({
+          ...mat,
+          swatchUrl: mat.swatchUrl ? await resolveImageUrl(mat.swatchUrl) : null,
+          referenceImageUrl: mat.referenceImageUrl ? await resolveImageUrl(mat.referenceImageUrl) : null,
+        }))
+      )
+
       const pdfProps = {
         quotationNumber: revQuoteNum,
         date: new Date().toISOString().split("T")[0],
@@ -922,7 +932,7 @@ export async function PUT(
         includeSalesAgent: !!includeSalesAgent,
         includeCompanySeal: includeCompanySeal ?? true,
         includeMaterialsFinishes: !!includeMaterialsFinishes,
-        selectedMaterials: Array.isArray(selectedMaterials) ? selectedMaterials : [],
+        selectedMaterials: docSelectedMaterialsRev,
         salesAgentName: includeSalesAgent ? (salesAgentName || null) : null,
         salesAgentTitle: includeSalesAgent ? (salesAgentTitle || null) : null,
         salesAgentEmail: includeSalesAgent ? (salesAgentEmail || null) : null,
@@ -1349,6 +1359,16 @@ export async function PUT(
         ]
       }
 
+      // Resolve material swatch images for update PDF
+      const rawSelectedMaterialsUpd = Array.isArray(selectedMaterials) ? selectedMaterials : []
+      const docSelectedMaterialsUpd = await Promise.all(
+        rawSelectedMaterialsUpd.map(async (mat: any) => ({
+          ...mat,
+          swatchUrl: mat.swatchUrl ? await resolveImageUrl(mat.swatchUrl) : null,
+          referenceImageUrl: mat.referenceImageUrl ? await resolveImageUrl(mat.referenceImageUrl) : null,
+        }))
+      )
+
       const pdfProps = {
         quotationNumber: existingQuotation.quotationNumber,
         date: new Date(existingQuotation.date).toISOString().split("T")[0],
@@ -1377,6 +1397,8 @@ export async function PUT(
         preparedBySignatureUrl: finalPreparedByUser.signature || null,
         includeSalesAgent: !!includeSalesAgent,
         includeCompanySeal: includeCompanySeal ?? true,
+        includeMaterialsFinishes: !!includeMaterialsFinishes,
+        selectedMaterials: docSelectedMaterialsUpd,
         salesAgentName: includeSalesAgent ? (salesAgentName || null) : null,
         salesAgentTitle: includeSalesAgent ? (salesAgentTitle || null) : null,
         salesAgentEmail: includeSalesAgent ? (salesAgentEmail || null) : null,

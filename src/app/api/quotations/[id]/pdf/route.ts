@@ -191,6 +191,19 @@ export async function GET(
       "company_trn"
     ])
 
+    // Process selectedMaterials swatches for PDF
+    const rawSelectedMaterials = Array.isArray((quotation as any).selectedMaterials)
+      ? (quotation as any).selectedMaterials
+      : []
+
+    const docSelectedMaterials = await Promise.all(
+      rawSelectedMaterials.map(async (mat: any) => ({
+        ...mat,
+        swatchUrl: mat.swatchUrl ? await resolveImageUrl(mat.swatchUrl) : null,
+        referenceImageUrl: mat.referenceImageUrl ? await resolveImageUrl(mat.referenceImageUrl) : null,
+      }))
+    )
+
     // Construct PDF props
     const pdfProps = {
       quotationNumber: cleanQuotationNum,
@@ -220,6 +233,8 @@ export async function GET(
       preparedBySignatureUrl: quotation.preparedBy?.signature || null,
       includeSalesAgent: (quotation as any).includeSalesAgent ?? false,
       includeCompanySeal: (quotation as any).includeCompanySeal ?? true,
+      includeMaterialsFinishes: !!((quotation as any).includeMaterialsFinishes),
+      selectedMaterials: docSelectedMaterials,
       salesAgentName: (quotation as any).includeSalesAgent ? (quotation.salesAgentName || null) : null,
       salesAgentTitle: (quotation as any).includeSalesAgent ? ((quotation as any).salesAgentTitle || null) : null,
       salesAgentEmail: (quotation as any).includeSalesAgent ? ((quotation as any).salesAgentEmail || null) : null,
