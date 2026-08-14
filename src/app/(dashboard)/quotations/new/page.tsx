@@ -34,7 +34,9 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Clock,
-  RotateCcw
+  RotateCcw,
+  Palette,
+  X
 } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -93,6 +95,8 @@ const quotationSchema = z.object({
   preparedById: z.string().optional(),
   includeSalesAgent: z.boolean().default(false).optional(),
   includeCompanySeal: z.boolean().default(true).optional(),
+  includeMaterialsFinishes: z.boolean().default(false).optional(),
+  selectedMaterials: z.array(z.any()).default([]).optional(),
   salesAgentId: z.string().optional(),
   salesAgentName: z.string().optional(),
   salesAgentTitle: z.string().optional(),
@@ -1265,6 +1269,8 @@ function NewQuotationForm() {
       preparedById: (session?.user as any)?.id || "",
       includeSalesAgent: false,
       includeCompanySeal: true,
+      includeMaterialsFinishes: false,
+      selectedMaterials: [],
       salesAgentId: "",
       salesAgentName: "",
       salesAgentContactNumber: "",
@@ -1295,6 +1301,13 @@ function NewQuotationForm() {
   const [products, setProducts] = useState<Product[]>([])
   const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([])
   const [paymentTermsOptions, setPaymentTermsOptions] = useState<{ id: string; name: string; description?: string | null; isDefault?: boolean }[]>([])
+  const [materialsLibrary, setMaterialsLibrary] = useState<any[]>([])
+  const [isMaterialPickerOpen, setIsMaterialPickerOpen] = useState(false)
+  const [materialPickerSearch, setMaterialPickerSearch] = useState("")
+  const [materialPickerCategory, setMaterialPickerCategory] = useState("all")
+
+  const watchIncludeMaterialsFinishes = form.watch("includeMaterialsFinishes")
+  const watchSelectedMaterials = form.watch("selectedMaterials") || []
 
   const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false)
   const [clientSearch, setClientSearch] = useState("")
@@ -1673,16 +1686,21 @@ function NewQuotationForm() {
   useEffect(() => {
     async function loadData() {
       try {
-        const [clientsRes, productsRes, categoriesRes, settingsRes, termsRes] = await Promise.all([
+        const [clientsRes, productsRes, categoriesRes, settingsRes, termsRes, materialsRes] = await Promise.all([
           fetch("/api/clients?all=true"),
           fetch("/api/products"),
           fetch("/api/products/categories"),
           fetch("/api/settings/system"),
           fetch("/api/settings/terms"),
+          fetch("/api/materials"),
         ])
         if (!clientsRes.ok || !productsRes.ok) throw new Error("Failed to load catalog data")
         const clientsData = await clientsRes.json()
         const productsData = await productsRes.json()
+        if (materialsRes.ok) {
+          const matData = await materialsRes.json()
+          if (Array.isArray(matData)) setMaterialsLibrary(matData)
+        }
         let sysDisclaimerTitle = "Disclaimers"
         let sysDisclaimer = ""
         if (settingsRes.ok) {
@@ -1767,12 +1785,12 @@ function NewQuotationForm() {
             }
 
             let activeTerms: string[] = []
-            if (activeData.termsConditions) {
+            if (Array.isArray(activeData.termsConditions) && activeData.termsConditions.length > 0) {
+              activeTerms = activeData.termsConditions
+            } else if (typeof activeData.termsConditions === "string" && activeData.termsConditions.trim()) {
               try {
                 const parsed = JSON.parse(activeData.termsConditions)
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  activeTerms = parsed.map((t: any) => typeof t === "string" ? t : `${t.title ? t.title + ": " : ""}${t.content || ""}`.trim()).filter(Boolean)
-                }
+                if (Array.isArray(parsed) && parsed.length > 0) activeTerms = parsed
               } catch (e) {
                 activeTerms = activeData.termsConditions.split("\n").map((s: string) => s.trim()).filter(Boolean)
               }
@@ -1790,6 +1808,8 @@ function NewQuotationForm() {
               preparedById: activeData.preparedById,
               includeSalesAgent: activeData.includeSalesAgent ?? !!(activeData.salesAgentName || activeData.salesAgentContactNumber || activeData.salesAgentEmail),
               includeCompanySeal: activeData.includeCompanySeal ?? true,
+              includeMaterialsFinishes: activeData.includeMaterialsFinishes ?? false,
+              selectedMaterials: Array.isArray(activeData.selectedMaterials) ? activeData.selectedMaterials : [],
               salesAgentId: activeData.salesAgentId || "",
               salesAgentName: activeData.salesAgentName || "",
               salesAgentTitle: activeData.salesAgentTitle || "",
@@ -3192,6 +3212,99 @@ function NewQuotationForm() {
                     )}
                   />
                 </div>
+
+                {/* Materials & Finishes Toggle & Selector Section */}
+                <div className="space-y-4 pt-4 border-t">
+                  <FormField
+                    control={form.control}
+                    name="includeMaterialsFinishes"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground flex items-center gap-2">
+                            <Palette className="h-4 w-4 text-orange-500" />
+                            Include Materials & Finishes Schedule
+                          </FormLabel>
+                          <p className="text-[11px] text-muted-foreground">
+                            Default: OFF. When enabled, selected material swatch details will be appended as a dedicated Materials & Finishes Schedule in the PDF.
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value ?? false}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {watchIncludeMaterialsFinishes && (
+                    <div className="p-4 rounded-xl border border-orange-500/30 bg-orange-500/5 space-y-4 animate-in fade-in duration-200">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
+                            <Palette className="h-4 w-4 text-orange-500" />
+                            Selected Material Swatches ({watchSelectedMaterials.length})
+                          </h4>
+                          <p className="text-[11px] text-muted-foreground">
+                            Select materials from library to include swatch cards in the quotation output.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsMaterialPickerOpen(true)}
+                          className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Select Materials ({materialsLibrary.length} available)
+                        </Button>
+                      </div>
+
+                      {watchSelectedMaterials.length === 0 ? (
+                        <div className="rounded-lg border border-dashed p-6 text-center text-xs text-muted-foreground bg-background/50">
+                          No materials selected yet. Click <b>Select Materials</b> to choose swatches from your library.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {watchSelectedMaterials.map((mat: any, idx: number) => (
+                            <div key={mat.id || idx} className="rounded-lg border bg-background p-3 flex items-center gap-3 relative group shadow-xs">
+                              <div className="h-12 w-12 rounded bg-muted flex items-center justify-center overflow-hidden shrink-0 border">
+                                {mat.swatchUrl ? (
+                                  <img src={mat.swatchUrl} alt={mat.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <Palette className="h-5 w-5 text-muted-foreground" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted text-foreground border">
+                                    {mat.code}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground truncate">{mat.category}</span>
+                                </div>
+                                <p className="text-xs font-semibold text-foreground truncate mt-0.5">{mat.name}</p>
+                                {mat.brand && <p className="text-[10px] text-orange-500 font-medium truncate">{mat.brand}</p>}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = watchSelectedMaterials.filter((m: any) => (m.id || m.code) !== (mat.id || mat.code))
+                                  form.setValue("selectedMaterials", updated, { shouldDirty: true, shouldValidate: true })
+                                }}
+                                className="text-muted-foreground hover:text-destructive p-1 rounded-md transition-colors"
+                                title="Remove swatch"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -3790,6 +3903,133 @@ function NewQuotationForm() {
               ) : (
                 "Submit Request"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Material Swatch Picker Modal */}
+      <Dialog open={isMaterialPickerOpen} onOpenChange={setIsMaterialPickerOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogHeader className="pb-3 border-b">
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Palette className="h-4 w-4 text-orange-500" />
+              Select Material Swatches ({watchSelectedMaterials.length} selected)
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Search and pick materials to append to the Materials & Finishes Schedule on the PDF.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-3 flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={materialPickerSearch}
+                onChange={(e) => setMaterialPickerSearch(e.target.value)}
+                placeholder="Search by code, name, or brand..."
+                className="pl-9 text-xs h-9"
+              />
+            </div>
+            <div className="w-full sm:w-48">
+              <Select value={materialPickerCategory} onValueChange={(val) => val && setMaterialPickerCategory(val)}>
+                <SelectTrigger className="text-xs h-9">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {Array.from(new Set(materialsLibrary.map((m: any) => m.category))).map((cat: any) => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto min-h-[300px] max-h-[50vh] pr-1">
+            {materialsLibrary.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                No materials available in library. Add materials in <b>Settings &gt; Materials & Finishes</b>.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {materialsLibrary
+                  .filter((mat: any) => {
+                    const matchesCategory = materialPickerCategory === "all" || mat.category.toLowerCase() === materialPickerCategory.toLowerCase()
+                    const matchesSearch = !materialPickerSearch.trim() ||
+                      mat.name.toLowerCase().includes(materialPickerSearch.toLowerCase()) ||
+                      mat.code.toLowerCase().includes(materialPickerSearch.toLowerCase()) ||
+                      (mat.brand && mat.brand.toLowerCase().includes(materialPickerSearch.toLowerCase()))
+                    return matchesCategory && matchesSearch
+                  })
+                  .map((mat: any) => {
+                    const isSelected = watchSelectedMaterials.some((m: any) => (m.id || m.code) === (mat.id || mat.code))
+                    return (
+                      <div
+                        key={mat.id || mat.code}
+                        onClick={() => {
+                          const current = watchSelectedMaterials
+                          let updated = []
+                          if (isSelected) {
+                            updated = current.filter((m: any) => (m.id || m.code) !== (mat.id || mat.code))
+                          } else {
+                            updated = [...current, {
+                              id: mat.id,
+                              name: mat.name,
+                              code: mat.code,
+                              category: mat.category,
+                              brand: mat.brand || null,
+                              description: mat.description || null,
+                              swatchUrl: mat.swatchUrl || null
+                            }]
+                          }
+                          form.setValue("selectedMaterials", updated, { shouldDirty: true, shouldValidate: true })
+                        }}
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex items-center gap-3 relative ${
+                          isSelected 
+                            ? "border-orange-500 bg-orange-500/10 ring-1 ring-orange-500" 
+                            : "border-border bg-card hover:border-orange-500/50 hover:bg-muted/30"
+                        }`}
+                      >
+                        <div className="h-12 w-12 rounded bg-muted flex items-center justify-center overflow-hidden shrink-0 border">
+                          {mat.swatchUrl ? (
+                            <img src={mat.swatchUrl} alt={mat.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <Palette className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded bg-muted border">
+                              {mat.code}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground truncate">{mat.category}</span>
+                          </div>
+                          <p className="font-semibold text-foreground truncate mt-0.5">{mat.name}</p>
+                          {mat.brand && <p className="text-[10px] text-orange-500 font-medium truncate">{mat.brand}</p>}
+                        </div>
+                        {isSelected && (
+                          <div className="h-5 w-5 rounded-full bg-orange-500 text-white flex items-center justify-center shrink-0">
+                            <Check className="h-3 w-3" />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-3 border-t flex justify-between items-center">
+            <span className="text-xs text-muted-foreground">
+              {watchSelectedMaterials.length} material(s) selected
+            </span>
+            <Button 
+              type="button" 
+              onClick={() => setIsMaterialPickerOpen(false)}
+              className="bg-orange-600 hover:bg-orange-500 text-white font-semibold text-xs h-9 px-4"
+            >
+              Done Selection
             </Button>
           </DialogFooter>
         </DialogContent>

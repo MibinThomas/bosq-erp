@@ -181,6 +181,8 @@ model Quotation {
   
   includeSalesAgent        Boolean   @default(false)
   includeCompanySeal       Boolean   @default(true)
+  includeMaterialsFinishes Boolean   @default(false)
+  selectedMaterials        Json?     // array of { id, name, code, category, description, swatchUrl, brand }
   salesAgentId             String?
   salesAgentName           String?
   salesAgentContactNumber  String?
@@ -206,6 +208,22 @@ model Quotation {
   @@index([preparedById])
   @@index([parentId])
   @@index([boqId])
+}
+
+model MaterialFinish {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique
+  category    String   // Wood Veneer, Fabric, Metal, Leather, Laminate, Glass, Marble, Custom, etc.
+  description String?
+  swatchUrl   String?  // Image URL of swatch/finish
+  brand       String?  // Manufacturer / Brand
+  status      String   @default("ACTIVE") // ACTIVE, INACTIVE
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([code])
 }
 
 model QuotationItem {

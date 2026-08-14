@@ -30,8 +30,10 @@ import {
   XCircle,
   AlertTriangle,
   Image as ImageIcon,
-  Hash
+  Hash,
+  Palette
 } from "lucide-react"
+import { MaterialsFinishesManager } from "@/components/settings/materials-finishes-manager"
 
 // Types matching system models
 interface SystemUser {
@@ -737,11 +739,20 @@ export default function SettingsPage() {
             <Key className="h-4 w-4" />
             SharePoint Keys
           </TabsTrigger>
+          <TabsTrigger value="materials" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
+            <Palette className="h-4 w-4" />
+            Materials & Finishes
+          </TabsTrigger>
           <TabsTrigger value="client-requests" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
             <UserCheck className="h-4 w-4" />
             Client Requests
           </TabsTrigger>
         </TabsList>
+
+        {/* Tab 0: Materials & Finishes Library */}
+        <TabsContent value="materials" className="mt-6">
+          <MaterialsFinishesManager userRole={userRole} />
+        </TabsContent>
 
         {/* Tab 1: Company Profile Info */}
         <TabsContent value="company" className="mt-6">
