@@ -7,6 +7,9 @@ import {
   StyleSheet,
   Image as PdfImage,
   Link,
+  Svg,
+  G,
+  Text as SvgText,
 } from "@react-pdf/renderer"
 import Html from "react-pdf-html"
 
@@ -1258,47 +1261,79 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           });
         })()}
 
-        {/* Materials & Finishes Schedule (Compact Swatch-Board Layout - Above Bank & Cost Breakdown) */}
+        {/* Materials & Finishes Schedule (Redesigned Mood-Board Layout Matching User Design Reference) */}
         {includeMaterialsFinishes && Array.isArray(selectedMaterials) && selectedMaterials.length > 0 && (
-          <View style={[styles.termsCard, { marginTop: 8, marginBottom: 4, paddingHorizontal: 10, paddingVertical: 6 }]} wrap={false}>
-            <Text style={[styles.termsTitle, { fontSize: 8.5, marginBottom: 4 }]}>Materials & Finishes Schedule</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 5 }}>
-              {selectedMaterials.map((mat: any, idx: number) => (
-                <View 
-                  key={mat.id || mat.code || idx}
-                  style={{
-                    width: "11.75%",
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 4,
-                    paddingVertical: 2,
-                    paddingHorizontal: 2,
-                  }}
-                  wrap={false}
-                >
-                  {mat.swatchUrl ? (
-                    <PdfImage 
-                      src={mat.swatchUrl} 
-                      style={{ width: 24, height: 24, borderRadius: 0, objectFit: "cover", borderWidth: 0.5, borderColor: colors.lineColor }} 
-                    />
-                  ) : (
-                    <View style={{ width: 24, height: 24, borderRadius: 0, backgroundColor: "#E6E7E8", alignItems: "center", justifyContent: "center" }}>
-                      <Text style={{ fontSize: 5, color: colors.secondary }}>MAT</Text>
-                    </View>
-                  )}
+          <View 
+            style={{
+              borderWidth: 1,
+              borderColor: colors.lineColor,
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              backgroundColor: colors.white,
+              marginTop: 8,
+              marginBottom: 6,
+            }} 
+            wrap={false}
+          >
+            {/* Header Title */}
+            <Text 
+              style={{ 
+                fontSize: 9, 
+                fontWeight: "bold", 
+                color: colors.primary, 
+                textTransform: "uppercase", 
+                letterSpacing: 0.5 
+              }}
+            >
+              MATERIALS AND FINISHES
+            </Text>
+            
+            {/* Orange Rule Line */}
+            <View 
+              style={{ 
+                height: 1.5, 
+                backgroundColor: colors.accent, 
+                marginTop: 4, 
+                marginBottom: 10 
+              }} 
+            />
 
-                  <View style={{ flex: 1, minWidth: 0, justifyContent: "center", alignSelf: "center" }}>
-                    <Text style={{ fontSize: 6.5, fontWeight: "bold", color: colors.primary, lineHeight: 1.1 }}>
-                      {mat.code || `MAT-${idx + 1}`}
-                    </Text>
-                    {mat.name && (
-                      <Text style={{ fontSize: 5.5, color: colors.secondary, marginTop: 1, lineHeight: 1.0 }}>
-                        {mat.name}
-                      </Text>
+            {/* Swatches Horizontal Grid */}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+              {selectedMaterials.map((mat: any, idx: number) => {
+                const displayCode = mat.code || `CODE-${1000101 + idx}`
+                return (
+                  <View key={mat.id || mat.code || idx} style={{ flexDirection: "row", alignItems: "center" }} wrap={false}>
+                    {/* Square Swatch Image Box (36x36px) */}
+                    {mat.swatchUrl ? (
+                      <PdfImage 
+                        src={mat.swatchUrl} 
+                        style={{ width: 36, height: 36, borderRadius: 0, objectFit: "cover" }} 
+                      />
+                    ) : (
+                      <View style={{ width: 36, height: 36, borderRadius: 0, backgroundColor: "#555555", alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 5, color: "#FFFFFF" }}>MAT</Text>
+                      </View>
                     )}
+
+                    {/* Vertical Rotated Code Label */}
+                    <Svg width={14} height={36}>
+                      <G transform="rotate(-90 7 18)">
+                        <SvgText 
+                          x={7} 
+                          y={18} 
+                          fill={colors.primary} 
+                          textAnchor="middle"
+                          style={{ fontSize: 6.5, fontWeight: "bold" }}
+                        >
+                          {displayCode}
+                        </SvgText>
+                      </G>
+                    </Svg>
                   </View>
-                </View>
-              ))}
+                )
+              })}
             </View>
           </View>
         )}
