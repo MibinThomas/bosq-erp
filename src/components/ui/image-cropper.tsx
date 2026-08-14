@@ -250,7 +250,7 @@ export function ImageCropper({ isOpen, imageSrc, onClose, onCrop }: ImageCropper
   if (!isOpen || !currentImageSrc) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
       <div className="relative w-full max-w-3xl bg-card rounded-3xl border border-border/80 shadow-2xl overflow-hidden flex flex-col max-h-[95vh] md:max-h-[85vh]">
         
         {/* Header */}
