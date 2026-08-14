@@ -52,6 +52,7 @@ export function ConsultantKPICards({ data, onFilterChange }: ConsultantKPIsProps
     pendingBoqsCount: 0,
     convertedValue: 0,
     totalRevenuePipeline: 0,
+    pendingRevenue: 0,
     underProductionCount: 0,
     underProductionValue: 0
   }

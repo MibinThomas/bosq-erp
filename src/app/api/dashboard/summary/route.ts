@@ -238,7 +238,7 @@ export async function GET(request: Request) {
       pendingStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
-        where: { ...whereClause, status: { not: "REVISED" } },
+        where: { ...whereClause, status: { notIn: ["DRAFT", "REVISED"] } },
         _count: true,
         _sum: { grandTotal: true }
       }),
@@ -269,11 +269,11 @@ export async function GET(request: Request) {
         where: { ...whereClause, status: "SUBMITTED" }
       }),
       prisma.quotation.count({
-        where: { ...whereClause, status: { in: ["DRAFT", "UNDER_REVIEW", "REVISED", "SENT_TO_CLIENT", "CLIENT_REVIEWING"] } }
+        where: { ...whereClause, status: { in: ["UNDER_REVIEW", "REVISED", "SENT_TO_CLIENT", "CLIENT_REVIEWING"] } }
       }),
       prisma.quotation.groupBy({
         by: ["preparedById"],
-        where: { ...whereClause, status: { not: "REVISED" } },
+        where: { ...whereClause, status: { notIn: ["DRAFT", "REVISED"] } },
         _count: {
           id: true
         },
@@ -289,7 +289,7 @@ export async function GET(request: Request) {
       }),
       prisma.quotation.groupBy({
         by: ["clientId"],
-        where: { ...whereClause, status: { not: "REVISED" } },
+        where: { ...whereClause, status: { notIn: ["DRAFT", "REVISED"] } },
         _count: {
           id: true
         },
@@ -337,7 +337,7 @@ export async function GET(request: Request) {
         where: {
           AND: [
             whereClause,
-            { status: { in: ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "SENT_TO_CLIENT", "CLIENT_REVIEWING", "CLIENT_REJECTED"] } }
+            { status: { in: ["SUBMITTED", "UNDER_REVIEW", "SENT_TO_CLIENT", "CLIENT_REVIEWING"] } }
           ]
         },
         _count: true,
@@ -468,7 +468,7 @@ export async function GET(request: Request) {
       where: {
         ...whereClause,
         status: {
-          notIn: ["REVISED", "COMPLETED", "CANCELLED", "LOST"]
+          notIn: ["DRAFT", "REVISED", "COMPLETED", "CANCELLED", "LOST"]
         }
       },
       _count: true,

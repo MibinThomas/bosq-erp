@@ -121,10 +121,11 @@ export async function GET(request: Request) {
       pendingBoqsCount,
       convertedStats,
       activeQuotesStats,
-      underProductionStats
+      underProductionStats,
+      pendingRevenueStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
-        where: { ...qWhere, status: { not: "REVISED" } },
+        where: { ...qWhere, status: { notIn: ["DRAFT", "REVISED"] } },
         _count: true,
         _sum: { grandTotal: true }
       }),
@@ -143,7 +144,7 @@ export async function GET(request: Request) {
         where: { ...qWhere, status: { in: ["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_RECEIVED", "UNDER_PRODUCTION", "READY_FOR_DELIVERY", "DELIVERED", "COMPLETED"] } }
       }),
       prisma.quotation.count({
-        where: { ...qWhere, status: { in: ["DRAFT", "UNDER_REVIEW", "REVISED", "SENT_TO_CLIENT", "CLIENT_REVIEWING"] } }
+        where: { ...qWhere, status: { in: ["UNDER_REVIEW", "REVISED", "SENT_TO_CLIENT", "CLIENT_REVIEWING"] } }
       }),
       prisma.client.count({
         where: cWhere
@@ -152,7 +153,7 @@ export async function GET(request: Request) {
         where: { ...cWhere, status: "Pending Approval" }
       }),
       prisma.quotation.count({
-        where: { ...qWhere, status: { notIn: ["REVISED", "COMPLETED", "CANCELLED", "LOST"] } }
+        where: { ...qWhere, status: { notIn: ["DRAFT", "REVISED", "COMPLETED", "CANCELLED", "LOST"] } }
       }),
       prisma.quotation.count({
         where: { ...qWhere, status: "DRAFT" }
@@ -165,7 +166,7 @@ export async function GET(request: Request) {
         _sum: { grandTotal: true }
       }),
       prisma.quotation.aggregate({
-        where: { ...qWhere, status: { notIn: ["REVISED", "COMPLETED", "CANCELLED", "LOST"] } },
+        where: { ...qWhere, status: { notIn: ["DRAFT", "REVISED", "COMPLETED", "CANCELLED", "LOST"] } },
         _sum: { grandTotal: true }
       }),
       prisma.quotation.aggregate({
@@ -177,6 +178,10 @@ export async function GET(request: Request) {
         },
         _count: true,
         _sum: { grandTotal: true }
+      }),
+      prisma.quotation.aggregate({
+        where: { ...qWhere, status: { in: ["SUBMITTED", "UNDER_REVIEW", "SENT_TO_CLIENT", "CLIENT_REVIEWING"] } },
+        _sum: { grandTotal: true }
       })
     ])
 
@@ -184,6 +189,7 @@ export async function GET(request: Request) {
     const totalValue = totalStats._sum.grandTotal || 0
     const convertedValue = convertedStats._sum.grandTotal || 0
     const totalRevenuePipeline = activeQuotesStats._sum.grandTotal || 0
+    const pendingRevenue = pendingRevenueStats._sum.grandTotal || 0
     
     const rejectedCount = rejectedStats._count || 0
     const rejectedValue = rejectedStats._sum.grandTotal || 0
@@ -207,6 +213,7 @@ export async function GET(request: Request) {
       pendingBoqsCount,
       convertedValue,
       totalRevenuePipeline,
+      pendingRevenue,
       underProductionCount,
       underProductionValue
     }, {

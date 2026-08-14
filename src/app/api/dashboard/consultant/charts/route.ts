@@ -93,6 +93,7 @@ export async function GET(request: Request) {
     // 1. Monthly Value
     const monthlyValueMap = new Map<string, number>()
     quotations.forEach(q => {
+      if (q.status === "DRAFT" || q.status === "REVISED") return
       const d = new Date(q.createdAt)
       const month = d.toLocaleString("default", { month: "short", year: "2-digit" })
       monthlyValueMap.set(month, (monthlyValueMap.get(month) || 0) + (q.grandTotal || 0))

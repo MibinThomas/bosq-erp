@@ -207,10 +207,17 @@ export async function GET(request: Request) {
         "DELIVERED",
         "COMPLETED"
       ].includes(q.status)
+
+      const isPending = [
+        "SUBMITTED",
+        "UNDER_REVIEW",
+        "SENT_TO_CLIENT",
+        "CLIENT_REVIEWING"
+      ].includes(q.status)
       
       if (isConverted) {
         record.convertedValue += value
-      } else {
+      } else if (isPending) {
         record.pendingValue += value
       }
     })

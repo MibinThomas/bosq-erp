@@ -2116,13 +2116,15 @@ function NewQuotationForm() {
   }
 
   const onSubmit = async (data: QuotationFormValues, resolvedStatus: "DRAFT" | "SUBMITTED" = "SUBMITTED") => {
+    if (submitting) return
     setSubmitting(true)
 
     try {
       const selectedClient = clients.find(c => c.id === data.clientId)
       const isSuperAdmin = userRole === "SUPER_ADMIN"
+      const targetId = autoSavedQuoteId || (existingQuote?.id ? existingQuote.id : null)
       const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
-      const isNewQuote = !existingQuote
+      const isNewQuote = !existingQuote && !autoSavedQuoteId
 
       if (selectedClient && selectedClient.status !== "Approved" && !isRevision) {
         toast.error(
@@ -2156,8 +2158,8 @@ function NewQuotationForm() {
           setSubmitting(false)
           return
         }
-      } else if (isEdit && existingQuote) {
-        url = `/api/quotations/${existingQuote.id}`
+      } else if ((isEdit && existingQuote) || targetId) {
+        url = `/api/quotations/${targetId}`
         method = "PUT"
         sendIsRevision = false
       }
@@ -2260,7 +2262,7 @@ function NewQuotationForm() {
             amount: c.amount === "" ? 0 : Number(c.amount)
           })),
           isRevision: sendIsRevision,
-          isUpdate: isEdit || !!autoSavedQuoteId,
+          isUpdate: isEdit || !!targetId,
           revisionNotes: revisionNotes,
           status: resolvedStatus,
         }),
@@ -2275,7 +2277,7 @@ function NewQuotationForm() {
       toast.success(
         isRevision
           ? `Quotation revised successfully to Revision #${result.revisionNumber}! PDF updated on SharePoint.`
-          : isEdit
+          : (isEdit || !!targetId)
             ? (resolvedStatus === "DRAFT"
                 ? `Quotation draft updated successfully!`
                 : `Quotation ${result.quotationNumber} updated and compiled successfully! PDF updated on SharePoint.`)
@@ -2283,7 +2285,15 @@ function NewQuotationForm() {
                 ? `Quotation draft saved successfully!`
                 : `Quotation ${result.quotationNumber} compiled & uploaded to SharePoint!`)
       )
-      router.push("/quotations")
+
+      if (resolvedStatus === "DRAFT" && result.id) {
+        setAutoSavedQuoteId(result.id)
+        setExistingQuote(result)
+        setIsEdit(true)
+        lastSavedDataRef.current = JSON.stringify(data)
+      } else {
+        router.push("/quotations")
+      }
     } catch (error: any) {
       console.error("Error submitting quotation:", error)
       toast.error(error.message || "Failed to submit quotation. Please try again.")
