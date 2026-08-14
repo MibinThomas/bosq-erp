@@ -20,8 +20,10 @@ import {
   X,
   Upload,
   Layers,
-  Tag
+  Tag,
+  Crop
 } from "lucide-react"
+import { ImageCropper } from "@/components/ui/image-cropper"
 
 export interface MaterialFinish {
   id: string
@@ -70,6 +72,27 @@ export function MaterialsFinishesManager({ userRole }: { userRole: string }) {
   const [uploadingImage, setUploadingImage] = useState(false)
 
   const isAuthorized = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER", "DESIGN_TEAM"].includes(userRole)
+
+  // Image Cropper State
+  const [cropperOpen, setCropperOpen] = useState(false)
+  const [cropSource, setCropSource] = useState<string | null>(null)
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file must be smaller than 10MB")
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setCropSource(reader.result)
+        setCropperOpen(true)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
 
   useEffect(() => {
     fetchMaterials()
@@ -122,24 +145,6 @@ export function MaterialsFinishesManager({ userRole }: { userRole: string }) {
     setFormDescription(item.description || "")
     setFormSwatchUrl(item.swatchUrl || "")
     setShowModal(true)
-  }
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Swatch image must be smaller than 5MB")
-      return
-    }
-
-    setUploadingImage(true)
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setFormSwatchUrl(reader.result as string)
-      setUploadingImage(false)
-    }
-    reader.readAsDataURL(file)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -478,13 +483,26 @@ export function MaterialsFinishesManager({ userRole }: { userRole: string }) {
                   <Label className="text-xs font-semibold text-slate-200 flex items-center justify-between">
                     <span>Swatch Image</span>
                     {formSwatchUrl && (
-                      <button 
-                        type="button" 
-                        onClick={() => setFormSwatchUrl("")}
-                        className="text-[10px] text-red-400 hover:underline"
-                      >
-                        Remove Image
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCropSource(formSwatchUrl)
+                            setCropperOpen(true)
+                          }}
+                          className="text-[10px] text-orange-400 font-semibold hover:underline flex items-center gap-0.5"
+                        >
+                          <Crop className="h-2.5 w-2.5" /> Crop Image
+                        </button>
+                        <span className="text-[10px] text-slate-600">|</span>
+                        <button 
+                          type="button" 
+                          onClick={() => setFormSwatchUrl("")}
+                          className="text-[10px] text-red-400 hover:underline"
+                        >
+                          Remove Image
+                        </button>
+                      </div>
                     )}
                   </Label>
 

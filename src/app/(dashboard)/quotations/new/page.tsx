@@ -3912,13 +3912,20 @@ function NewQuotationForm() {
 
       {/* Material Swatch Picker Modal */}
       <Dialog open={isMaterialPickerOpen} onOpenChange={setIsMaterialPickerOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
-          <DialogHeader className="pb-3 border-b">
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <Palette className="h-4 w-4 text-orange-500" />
-              Select Material Swatches ({watchSelectedMaterials.length} selected)
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col overflow-hidden border shadow-xl">
+          <DialogHeader className="pb-3 border-b bg-muted/20 -mx-6 -mt-6 p-6">
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <div className="h-8 w-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-600">
+                <Palette className="h-4 w-4" />
+              </div>
+              <div>
+                <span>Select Material Swatches</span>
+                <span className="ml-2 text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-200">
+                  {watchSelectedMaterials.length} selected
+                </span>
+              </div>
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
               Search and pick materials to append to the Materials & Finishes Schedule on the PDF.
             </DialogDescription>
           </DialogHeader>

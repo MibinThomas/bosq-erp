@@ -24,8 +24,10 @@ import {
   Check, 
   Sparkles,
   FileImage,
-  Layers
+  Layers,
+  Crop
 } from "lucide-react"
+import { ImageCropper } from "@/components/ui/image-cropper"
 
 export interface CustomMaterialData {
   id: string
@@ -82,16 +84,25 @@ export function CreateCustomMaterialModal({
   const [saveTarget, setSaveTarget] = useState<"QUOTE_ONLY" | "MASTER_LIBRARY">("QUOTE_ONLY")
   const [submitting, setSubmitting] = useState(false)
 
+  // Cropper state
+  const [cropperOpen, setCropperOpen] = useState(false)
+  const [cropSource, setCropSource] = useState<string | null>(null)
+  const [cropTarget, setCropTarget] = useState<"swatch" | "reference">("swatch")
+
   const handleSwatchUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Swatch image must be smaller than 5MB")
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file must be smaller than 10MB")
       return
     }
     const reader = new FileReader()
     reader.onloadend = () => {
-      setSwatchUrl(reader.result as string)
+      if (typeof reader.result === "string") {
+        setCropSource(reader.result)
+        setCropTarget("swatch")
+        setCropperOpen(true)
+      }
     }
     reader.readAsDataURL(file)
   }
@@ -99,13 +110,17 @@ export function CreateCustomMaterialModal({
   const handleReferenceUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Reference image must be smaller than 5MB")
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Image file must be smaller than 10MB")
       return
     }
     const reader = new FileReader()
     reader.onloadend = () => {
-      setReferenceImageUrl(reader.result as string)
+      if (typeof reader.result === "string") {
+        setCropSource(reader.result)
+        setCropTarget("reference")
+        setCropperOpen(true)
+      }
     }
     reader.readAsDataURL(file)
   }
@@ -296,14 +311,28 @@ export function CreateCustomMaterialModal({
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold text-foreground">Swatch Image</Label>
                 {swatchUrl && (
-                  <button type="button" onClick={() => setSwatchUrl("")} className="text-[10px] text-destructive hover:underline">
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCropSource(swatchUrl)
+                        setCropTarget("swatch")
+                        setCropperOpen(true)
+                      }}
+                      className="text-[10px] text-orange-600 font-semibold hover:underline flex items-center gap-0.5"
+                    >
+                      <Crop className="h-2.5 w-2.5" /> Crop Image
+                    </button>
+                    <span className="text-[10px] text-muted-foreground">|</span>
+                    <button type="button" onClick={() => setSwatchUrl("")} className="text-[10px] text-destructive hover:underline">
+                      Remove
+                    </button>
+                  </div>
                 )}
               </div>
 
               {swatchUrl ? (
-                <div className="h-24 w-full rounded border bg-muted p-1 flex items-center justify-center overflow-hidden">
+                <div className="h-24 w-full rounded border bg-muted p-1 flex items-center justify-center overflow-hidden relative group">
                   <img src={swatchUrl} alt="Swatch preview" className="max-h-full max-w-full object-contain" />
                 </div>
               ) : (
@@ -326,14 +355,28 @@ export function CreateCustomMaterialModal({
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold text-foreground">Reference Image (Optional)</Label>
                 {referenceImageUrl && (
-                  <button type="button" onClick={() => setReferenceImageUrl("")} className="text-[10px] text-destructive hover:underline">
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCropSource(referenceImageUrl)
+                        setCropTarget("reference")
+                        setCropperOpen(true)
+                      }}
+                      className="text-[10px] text-orange-600 font-semibold hover:underline flex items-center gap-0.5"
+                    >
+                      <Crop className="h-2.5 w-2.5" /> Crop Image
+                    </button>
+                    <span className="text-[10px] text-muted-foreground">|</span>
+                    <button type="button" onClick={() => setReferenceImageUrl("")} className="text-[10px] text-destructive hover:underline">
+                      Remove
+                    </button>
+                  </div>
                 )}
               </div>
 
               {referenceImageUrl ? (
-                <div className="h-24 w-full rounded border bg-muted p-1 flex items-center justify-center overflow-hidden">
+                <div className="h-24 w-full rounded border bg-muted p-1 flex items-center justify-center overflow-hidden relative group">
                   <img src={referenceImageUrl} alt="Reference preview" className="max-h-full max-w-full object-contain" />
                 </div>
               ) : (
@@ -431,6 +474,22 @@ export function CreateCustomMaterialModal({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      {/* Image Cropper Modal */}
+      <ImageCropper
+        isOpen={cropperOpen}
+        imageSrc={cropSource}
+        onClose={() => setCropperOpen(false)}
+        onCrop={(croppedData) => {
+          if (cropTarget === "swatch") {
+            setSwatchUrl(croppedData)
+          } else {
+            setReferenceImageUrl(croppedData)
+          }
+          setCropperOpen(false)
+          toast.success("Image cropped successfully!")
+        }}
+      />
     </Dialog>
   )
 }
