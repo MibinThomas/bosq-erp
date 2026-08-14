@@ -4085,6 +4085,9 @@ function NewQuotationForm() {
           if (!exists) {
             form.setValue("selectedMaterials", [customMat, ...current], { shouldDirty: true, shouldValidate: true })
           }
+          // Automatically close both custom material popup and parent material selection popup
+          setIsCreateCustomMaterialOpen(false)
+          setIsMaterialPickerOpen(false)
         }}
       />
     </div>

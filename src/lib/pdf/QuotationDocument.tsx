@@ -1279,23 +1279,23 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             {/* Header Title */}
             <Text 
               style={{ 
-                fontSize: 9, 
-                fontWeight: "bold", 
+                fontSize: 8.5, 
+                fontWeight: "medium", 
                 color: colors.primary, 
                 textTransform: "uppercase", 
-                letterSpacing: 0.5 
+                letterSpacing: 0.6 
               }}
             >
               MATERIALS AND FINISHES
             </Text>
             
-            {/* Orange Rule Line */}
+            {/* Thin Elegant Orange Rule Line */}
             <View 
               style={{ 
-                height: 1.5, 
+                height: 0.75, 
                 backgroundColor: colors.accent, 
-                marginTop: 4, 
-                marginBottom: 10 
+                marginTop: 3, 
+                marginBottom: 8 
               }} 
             />
 
