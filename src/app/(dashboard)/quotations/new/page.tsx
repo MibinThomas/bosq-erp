@@ -40,6 +40,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
+import { CreateCustomMaterialModal } from "@/components/quotations/create-custom-material-modal"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -1303,6 +1304,7 @@ function NewQuotationForm() {
   const [paymentTermsOptions, setPaymentTermsOptions] = useState<{ id: string; name: string; description?: string | null; isDefault?: boolean }[]>([])
   const [materialsLibrary, setMaterialsLibrary] = useState<any[]>([])
   const [isMaterialPickerOpen, setIsMaterialPickerOpen] = useState(false)
+  const [isCreateCustomMaterialOpen, setIsCreateCustomMaterialOpen] = useState(false)
   const [materialPickerSearch, setMaterialPickerSearch] = useState("")
   const [materialPickerCategory, setMaterialPickerCategory] = useState("all")
 
@@ -3921,7 +3923,7 @@ function NewQuotationForm() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-3 flex flex-col sm:flex-row gap-3">
+          <div className="py-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -3931,7 +3933,7 @@ function NewQuotationForm() {
                 className="pl-9 text-xs h-9"
               />
             </div>
-            <div className="w-full sm:w-48">
+            <div className="w-full sm:w-44">
               <Select value={materialPickerCategory} onValueChange={(val) => val && setMaterialPickerCategory(val)}>
                 <SelectTrigger className="text-xs h-9">
                   <SelectValue placeholder="All Categories" />
@@ -3944,12 +3946,39 @@ function NewQuotationForm() {
                 </SelectContent>
               </Select>
             </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsCreateCustomMaterialOpen(true)}
+              className="bg-orange-600 hover:bg-orange-500 text-white text-xs h-9 font-semibold flex items-center gap-1.5 shrink-0 shadow-xs"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Create Custom Material
+            </Button>
           </div>
 
           <div className="flex-1 overflow-y-auto min-h-[300px] max-h-[50vh] pr-1">
-            {materialsLibrary.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground">
-                No materials available in library. Add materials in <b>Settings &gt; Materials & Finishes</b>.
+            {materialsLibrary.filter((mat: any) => {
+              const matchesCategory = materialPickerCategory === "all" || mat.category.toLowerCase() === materialPickerCategory.toLowerCase()
+              const matchesSearch = !materialPickerSearch.trim() ||
+                mat.name.toLowerCase().includes(materialPickerSearch.toLowerCase()) ||
+                mat.code.toLowerCase().includes(materialPickerSearch.toLowerCase()) ||
+                (mat.brand && mat.brand.toLowerCase().includes(materialPickerSearch.toLowerCase()))
+              return matchesCategory && matchesSearch
+            }).length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-3">
+                <Palette className="h-8 w-8 text-muted-foreground/50" />
+                <p className="max-w-md">
+                  No materials found. Select <b>Create Custom Material</b> to add a material for this quotation or add it to the Material Library (subject to permissions).
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setIsCreateCustomMaterialOpen(true)}
+                  className="bg-orange-600 hover:bg-orange-500 text-white text-xs gap-1.5 font-semibold mt-1"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Create Custom Material
+                </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -4034,6 +4063,23 @@ function NewQuotationForm() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Custom Material Modal */}
+      <CreateCustomMaterialModal
+        isOpen={isCreateCustomMaterialOpen}
+        onClose={() => setIsCreateCustomMaterialOpen(false)}
+        userRole={userRole}
+        onSavedToLibrary={(newMat) => {
+          setMaterialsLibrary((prev) => [newMat, ...prev])
+        }}
+        onSaveCustom={(customMat) => {
+          const current = form.getValues("selectedMaterials") || []
+          const exists = current.some((m: any) => (m.id || m.code) === (customMat.id || customMat.code))
+          if (!exists) {
+            form.setValue("selectedMaterials", [customMat, ...current], { shouldDirty: true, shouldValidate: true })
+          }
+        }}
+      />
     </div>
   )
 }

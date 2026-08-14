@@ -1469,16 +1469,24 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                   }}
                   wrap={false}
                 >
-                  {mat.swatchUrl ? (
-                    <PdfImage 
-                      src={mat.swatchUrl} 
-                      style={{ width: 52, height: 52, borderRadius: 3, objectFit: "cover", borderWidth: 1, borderColor: colors.lineColor }} 
-                    />
-                  ) : (
-                    <View style={{ width: 52, height: 52, borderRadius: 3, backgroundColor: "#E6E7E8", alignItems: "center", justifyContent: "center" }}>
-                      <Text style={{ fontSize: 6.5, color: colors.secondary }}>SWATCH</Text>
-                    </View>
-                  )}
+                  <View style={{ flexDirection: "row", gap: 4 }}>
+                    {mat.swatchUrl ? (
+                      <PdfImage 
+                        src={mat.swatchUrl} 
+                        style={{ width: 50, height: 50, borderRadius: 3, objectFit: "cover", borderWidth: 1, borderColor: colors.lineColor }} 
+                      />
+                    ) : (
+                      <View style={{ width: 50, height: 50, borderRadius: 3, backgroundColor: "#E6E7E8", alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 6, color: colors.secondary }}>SWATCH</Text>
+                      </View>
+                    )}
+                    {mat.referenceImageUrl && (
+                      <PdfImage 
+                        src={mat.referenceImageUrl} 
+                        style={{ width: 50, height: 50, borderRadius: 3, objectFit: "cover", borderWidth: 1, borderColor: colors.lineColor }} 
+                      />
+                    )}
+                  </View>
 
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 2 }}>
@@ -1490,7 +1498,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                     <Text style={{ fontSize: 8.5, fontWeight: "bold", color: colors.primary, marginBottom: 1 }}>
                       {mat.name}
                     </Text>
-                    {mat.brand && (
+                    {mat.colorFinish && (
+                      <Text style={{ fontSize: 7, color: colors.secondary, fontStyle: "italic" }}>
+                        Finish: {mat.colorFinish}
+                      </Text>
+                    )}
+                    {!mat.colorFinish && mat.brand && (
                       <Text style={{ fontSize: 7, color: colors.secondary, fontStyle: "italic" }}>
                         Brand: {mat.brand}
                       </Text>
