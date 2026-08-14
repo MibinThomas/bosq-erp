@@ -1271,26 +1271,23 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 4,
-                    padding: 3,
-                    borderWidth: 1,
-                    borderColor: colors.lineColor,
-                    borderRadius: 3,
-                    backgroundColor: "#FAF8F5"
+                    paddingVertical: 2,
+                    paddingHorizontal: 2,
                   }}
                   wrap={false}
                 >
                   {mat.swatchUrl ? (
                     <PdfImage 
                       src={mat.swatchUrl} 
-                      style={{ width: 22, height: 22, borderRadius: 2, objectFit: "cover", borderWidth: 0.5, borderColor: colors.lineColor }} 
+                      style={{ width: 24, height: 24, borderRadius: 0, objectFit: "cover", borderWidth: 0.5, borderColor: colors.lineColor }} 
                     />
                   ) : (
-                    <View style={{ width: 22, height: 22, borderRadius: 2, backgroundColor: "#E6E7E8", alignItems: "center", justifyContent: "center" }}>
+                    <View style={{ width: 24, height: 24, borderRadius: 0, backgroundColor: "#E6E7E8", alignItems: "center", justifyContent: "center" }}>
                       <Text style={{ fontSize: 5, color: colors.secondary }}>MAT</Text>
                     </View>
                   )}
 
-                  <View style={{ flex: 1, minWidth: 0, justifyContent: "center" }}>
+                  <View style={{ flex: 1, minWidth: 0, justifyContent: "center", alignSelf: "center" }}>
                     <Text style={{ fontSize: 6.5, fontWeight: "bold", color: colors.primary, lineHeight: 1.1 }}>
                       {mat.code || `MAT-${idx + 1}`}
                     </Text>
