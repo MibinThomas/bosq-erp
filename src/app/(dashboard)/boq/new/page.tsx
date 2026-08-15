@@ -2108,7 +2108,7 @@ function NewBOQForm() {
               <CardHeader className="bg-muted/30 border-b py-3 px-4 sm:px-6 flex flex-row items-center justify-between">
                 <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
                   <Building2 className="h-4 w-4 text-primary" />
-                  1. BOQ & Client Details
+                  1. Client & Project Information
                 </CardTitle>
                 {selectedClientObj && (
                   <Badge variant="outline" className="text-[11px] font-medium bg-background border-border/80">
@@ -2615,12 +2615,26 @@ function NewBOQForm() {
               </CardContent>
             </Card>
 
-            {/* Line Items Card */}
-            <Card className="rounded-xl shadow-sm border bg-card">
-              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  Line Items Catalog
-                </CardTitle>
+            {/* CARD 2: Line Items Catalog & Product Sections */}
+            <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">
+              <CardHeader className="bg-muted/30 border-b py-3 px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    2. BOQ Line Items ({fields.length} Products)
+                  </CardTitle>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleAddBatch()}
+                    className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Section
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-6 space-y-8">
                 {batches.map((batch, batchIdx) => {

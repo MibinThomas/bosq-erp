@@ -3447,7 +3447,7 @@ function NewQuotationForm() {
                       </div>
 
                       {/* Section Bottom Action Controls */}
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-3 border-t border-border/50">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-2.5 pt-3 border-t border-border/50">
                         <Button
                           type="button"
                           variant="outline"
@@ -3456,15 +3456,6 @@ function NewQuotationForm() {
                           className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted"
                         >
                           <Plus className="h-3.5 w-3.5" /> Add Product to {batch.name}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleAddBatch(batchIdx)}
-                          className="text-xs h-8 flex items-center gap-1.5 cursor-pointer font-semibold bg-primary/10 text-primary hover:bg-primary/20 shadow-2xs"
-                        >
-                          <Plus className="h-3.5 w-3.5" /> Add New Section Below
                         </Button>
                       </div>
                     </div>
