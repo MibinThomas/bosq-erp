@@ -57,6 +57,7 @@ const primaryActions = [
   { id: "manage", label: "Manage / Category Mgmt" },
   { id: "share", label: "Share / Add to Quote" },
   { id: "canApplySpecialDiscount", label: "Special Discount" },
+  { id: "canExportBoqExcel", label: "Export Admin Costing Excel" },
 ]
 
 
@@ -1133,7 +1134,8 @@ export default function AccessControlPage() {
                             <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-200 border-r dark:border-zinc-800">{m.name}</td>
                             {primaryActions.map((a) => {
                               const isSpecialDiscount = a.id === "canApplySpecialDiscount";
-                              const shouldRender = !isSpecialDiscount || m.id === "QUOTATIONS";
+                              const isExportBoqExcel = a.id === "canExportBoqExcel";
+                              const shouldRender = (!isSpecialDiscount || m.id === "QUOTATIONS") && (!isExportBoqExcel || m.id === "BOQS");
                               return (
                                 <td key={a.id} className="p-3 text-center">
                                   {shouldRender && (

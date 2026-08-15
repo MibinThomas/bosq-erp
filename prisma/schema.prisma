@@ -448,6 +448,7 @@ model RolePermission {
   canAddCustomCharges Boolean  @default(false)
   canConfirmQuotation Boolean  @default(false)
   canApplySpecialDiscount Boolean @default(false)
+  canExportBoqExcel   Boolean  @default(false)
 }
 
 model UserPermissionOverride {
@@ -465,6 +466,7 @@ model UserPermissionOverride {
   canAddCustomCharges Boolean  @default(false)
   canConfirmQuotation Boolean  @default(false)
   canApplySpecialDiscount Boolean @default(false)
+  canExportBoqExcel   Boolean  @default(false)
 
   
   createdAt     DateTime @default(now())

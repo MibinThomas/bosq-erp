@@ -30,10 +30,14 @@ export async function POST(
     const userRole = (dbUser.role || "").toUpperCase()
     const isAuthorizedRole = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER", "ESTIMATOR", "COST_ESTIMATOR"].includes(userRole)
     const canExportPermission = await hasPermission(dbUser.id, "BOQS", "export")
+    const canExportExcelOverride = dbUser.permissionOverrides.find(o => o.action === "canExportBoqExcel")?.value
+    const canExportBoqExcelPerm = await hasPermission(dbUser.id, "BOQS", "canExportBoqExcel")
 
-    if (!isAuthorizedRole && !canExportPermission) {
+    const isAuthorized = isAuthorizedRole || canExportPermission || canExportExcelOverride === true || canExportBoqExcelPerm
+
+    if (!isAuthorized) {
       return NextResponse.json(
-        { error: "Forbidden: You do not have management-level permission to export detailed BOQ costing breakdowns." },
+        { error: "Forbidden: You do not have permission to export detailed BOQ costing breakdowns." },
         { status: 403 }
       )
     }

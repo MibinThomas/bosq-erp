@@ -294,6 +294,7 @@ export async function POST(request: Request) {
             canApplySpecialDiscount: basePerm ? basePerm.canApplySpecialDiscount : false,
             canOverrideVat: basePerm ? basePerm.canOverrideVat : false,
             canAddCustomCharges: basePerm ? basePerm.canAddCustomCharges : false,
+            canExportBoqExcel: basePerm ? basePerm.canExportBoqExcel : false,
             maxDiscountPercent: basePerm ? basePerm.maxDiscountPercent : 0,
           }
         })
@@ -383,6 +384,7 @@ export async function PUT(request: Request) {
           canApplySpecialDiscount: p.canApplySpecialDiscount ?? false,
           canOverrideVat: p.canOverrideVat ?? false,
           canAddCustomCharges: p.canAddCustomCharges ?? false,
+          canExportBoqExcel: p.canExportBoqExcel ?? false,
           maxDiscountPercent: p.maxDiscountPercent !== undefined ? (p.maxDiscountPercent === "" || p.maxDiscountPercent === null ? 0 : parseFloat(p.maxDiscountPercent)) : 0,
         }
 

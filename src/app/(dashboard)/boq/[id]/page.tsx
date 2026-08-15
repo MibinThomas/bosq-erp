@@ -1976,7 +1976,7 @@ function NewBOQForm() {
                 </>
               )}
 
-              {isManagerOrAdmin && existingQuote?.id && (
+              {(isManagerOrAdmin || userPermissions?.canExportBoqExcel === true) && existingQuote?.id && (
                 <Button
                   type="button"
                   variant="outline"
