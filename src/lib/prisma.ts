@@ -2,46 +2,38 @@ import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import pg from "pg"
 
-const prismaClientSingleton = () => {
-  let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL
+const FALLBACK_DB_URL = "postgresql://neondb_owner:npg_kSwG9Ic8MNyx@ep-rough-bar-adwnszst-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
-  if (!connectionString) {
-    console.error("[Prisma] WARNING: DATABASE_URL is not defined in environment variables!")
-  } else {
-    try {
-      const parsedUrl = new URL(connectionString)
-      parsedUrl.searchParams.delete("channel_binding")
-      connectionString = parsedUrl.toString()
-    } catch {
-      connectionString = connectionString
-        .replace(/([?&])channel_binding=[^&]*(&|$)/, '$1')
-        .replace(/[?&]$/, '')
-    }
+const prismaClientSingleton = () => {
+  let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL || FALLBACK_DB_URL
+
+  try {
+    const parsedUrl = new URL(connectionString)
+    parsedUrl.searchParams.delete("channel_binding")
+    connectionString = parsedUrl.toString()
+  } catch {
+    connectionString = connectionString
+      .replace(/([?&])channel_binding=[^&]*(&|$)/, '$1')
+      .replace(/[?&]$/, '')
   }
 
   const isDisableSsl = connectionString?.includes("sslmode=disable")
   const isServerless = process.env.VERCEL === "1" || process.env.NODE_ENV === "production"
 
-  try {
-    const pool = new pg.Pool({
-      connectionString,
-      // On Vercel serverless containers, limit pool to max 2 connections per instance to avoid exhausting Neon pooler limits
-      max: isServerless ? 3 : 10,
-      idleTimeoutMillis: 10000,
-      connectionTimeoutMillis: 5000,
-      ssl: isDisableSsl ? false : { rejectUnauthorized: false }
-    })
+  const pool = new pg.Pool({
+    connectionString,
+    max: isServerless ? 3 : 10,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 5000,
+    ssl: isDisableSsl ? false : { rejectUnauthorized: false }
+  })
 
-    pool.on("error", (err) => {
-      console.error("[Prisma] Idle pg pool client error:", err.message)
-    })
+  pool.on("error", (err) => {
+    console.error("[Prisma] Idle pg pool client error:", err.message)
+  })
 
-    const adapter = new PrismaPg(pool)
-    return new PrismaClient({ adapter })
-  } catch (err: any) {
-    console.error("[Prisma] Adapter initialization failed, falling back to default PrismaClient:", err?.message || err)
-    return new PrismaClient()
-  }
+  const adapter = new PrismaPg(pool)
+  return new PrismaClient({ adapter })
 }
 
 declare const globalThis: {
