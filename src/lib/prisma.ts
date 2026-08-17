@@ -4,11 +4,17 @@ import pg from "pg"
 
 const prismaClientSingleton = () => {
   const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    console.error("[Prisma] WARNING: DATABASE_URL is not defined in environment variables!")
+  }
+
+  const isDisableSsl = connectionString?.includes("sslmode=disable")
   const pool = new pg.Pool({
     connectionString,
     max: 15,
     idleTimeoutMillis: 20000,
     connectionTimeoutMillis: 10000,
+    ssl: isDisableSsl ? false : { rejectUnauthorized: false }
   })
 
   pool.on("error", (err) => {
@@ -28,3 +34,4 @@ const prisma = globalThis.prismaGlobal2 ?? prismaClientSingleton()
 export default prisma
 
 if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal2 = prisma
+

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { uploadBoqExcel } from "@/lib/sharepoint"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
 import { buildBoqExcelWorkbook } from "@/lib/boq-excel-builder"
 

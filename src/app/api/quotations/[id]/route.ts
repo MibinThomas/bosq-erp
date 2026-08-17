@@ -9,7 +9,7 @@ import path from "path"
 import { getSettings } from "@/lib/settings"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { authOptions } from "@/lib/authOptions"
 import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 

@@ -25,6 +25,7 @@ export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
   title: "BOSQ ERP - Quotation Management",
   description: "BOSQ ERP Enterprise Quotation, SharePoint Sync, & IDC Revision Audit Log",
+  manifest: "/assets/favicon/site.webmanifest",
   icons: {
     icon: [
       { url: "/assets/favicon/favicon-16x16.png", sizes: "16x16", type: "image/png" },
@@ -33,9 +34,6 @@ export const metadata: Metadata = {
     ],
     apple: [
       { url: "/assets/favicon/apple-touch-icon.png", sizes: "180x180", type: "image/png" }
-    ],
-    other: [
-      { rel: "manifest", url: "/assets/favicon/site.webmanifest" }
     ]
   }
 };

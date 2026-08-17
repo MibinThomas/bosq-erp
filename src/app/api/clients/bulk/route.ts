@@ -2,7 +2,7 @@ export const maxDuration = 300; // 5 minutes timeout for bulk operations
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
-import { authOptions } from "../../auth/[...nextauth]/route"
+import { authOptions } from "@/lib/authOptions"
 import { createClientFolder } from "@/lib/sharepoint"
 import { getSettings } from "@/lib/settings"
 import ExcelJS from "exceljs"
