@@ -108,13 +108,10 @@ const formatRole = (role?: string | null) => {
     .join(" ")
 }
 
-export default function QuotationHtmlPreviewPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
-  const { id } = use(params)
+export default function QuotationHtmlPreviewPage() {
   const router = useRouter()
+  const rawParams = useParams()
+  const id = (rawParams?.id as string) || ""
   const { data: session } = useSession()
   const [quotation, setQuotation] = useState<Quotation | null>(null)
   const [costingModalItem, setCostingModalItem] = useState<any>(null)
