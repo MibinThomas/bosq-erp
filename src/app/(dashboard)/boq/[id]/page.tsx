@@ -99,6 +99,8 @@ const boqSchema = z.object({
       overheadCost: z.union([z.number(), z.string()]).optional(),
       factoryCost: z.union([z.number(), z.string()]).optional(),
       accessoriesCost: z.union([z.number(), z.string()]).optional(),
+      unitCost: z.union([z.number(), z.string()]).optional(),
+      unitSellingPrice: z.union([z.number(), z.string()]).optional(),
       negotiationPercentage: z.union([z.number(), z.string()]).optional(),
       negotiationAmount: z.union([z.number(), z.string()]).optional(),
     })
@@ -949,17 +951,18 @@ function NewBOQForm() {
     const itemsList = watchItems || []
     for (const item of itemsList) {
       if (!item) continue
-      const q = Number(item.quantity) || 1
-      const m = Number(item.materialCost) || 0
-      const l = Number(item.laborCost) || 0
-      const i = Number(item.installationCost) || 0
-      const t = Number(item.transportCost) || 0
-      const o = Number(item.overheadCost) || 0
-      const fc = Number(item.factoryCost) || 0
-      const ac = Number(item.accessoriesCost) || 0
+      const rawItem = item as any
+      const q = Number(rawItem.quantity) || 1
+      const m = Number(rawItem.materialCost) || 0
+      const l = Number(rawItem.laborCost) || 0
+      const i = Number(rawItem.installationCost) || 0
+      const t = Number(rawItem.transportCost) || 0
+      const o = Number(rawItem.overheadCost) || 0
+      const fc = Number(rawItem.factoryCost) || 0
+      const ac = Number(rawItem.accessoriesCost) || 0
 
-      const unitC = Number(item.unitCost) > 0 ? Number(item.unitCost) : (fc > 0 || ac > 0 ? fc + ac : m + l + i + t + o)
-      const unitS = Number(item.unitSellingPrice ?? item.unitPrice) || 0
+      const unitC = Number(rawItem.unitCost) > 0 ? Number(rawItem.unitCost) : (fc > 0 || ac > 0 ? fc + ac : m + l + i + t + o)
+      const unitS = Number(rawItem.unitSellingPrice ?? rawItem.unitPrice) || 0
 
       mat += m * q
       lab += l * q
