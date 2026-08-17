@@ -173,7 +173,9 @@ export async function getPermissionsProfile(userId: string) {
     "NOTIFICATIONS", "SHAREPOINT", "SYSTEM_CONFIGURATION"
   ]
 
-  if (user.role === "SUPER_ADMIN") {
+  const isManager = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(user.role)
+
+  if (isManager) {
     const profile: Record<string, any> = {}
     for (const m of allModules) {
       profile[m] = {
@@ -186,7 +188,8 @@ export async function getPermissionsProfile(userId: string) {
     }
     return {
       role: user.role,
-      isSuperAdmin: true,
+      isSuperAdmin: user.role === "SUPER_ADMIN",
+      isAdmin: true,
       permissions: profile,
     }
   }
