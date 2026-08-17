@@ -47,4 +47,5 @@ const prisma = globalThis.prismaGlobal2 ?? prismaClientSingleton()
 
 export default prisma
 
-if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal2 = prisma
+// Reuse Prisma client and connection pool across warm serverless lambda invocations
+globalThis.prismaGlobal2 = prisma
