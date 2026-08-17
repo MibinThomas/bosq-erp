@@ -238,7 +238,7 @@ export async function GET(request: Request) {
       pendingStats
     ] = await Promise.all([
       prisma.quotation.aggregate({
-        where: { ...whereClause, status: { notIn: ["DRAFT", "REVISED"] } },
+        where: whereClause,
         _count: true,
         _sum: { grandTotal: true }
       }),
@@ -449,16 +449,12 @@ export async function GET(request: Request) {
 
     const totalAssignedClients = await prisma.client.count({ where: clientWhere })
 
-    // Calculate total global clients matching the active filters
+    // Calculate total global clients matching the active filters (without restricting master account database to specific date range)
     const totalGlobalClients = await prisma.client.count({ 
       where: { 
         deletedAt: null,
         id: (clientIdFilter && clientIdFilter !== "all") ? clientIdFilter : undefined,
         clientType: (clientTypeFilter && clientTypeFilter !== "all") ? clientTypeFilter : undefined,
-        createdAt: (startDate || endDate) ? {
-          gte: (startDate && startDate !== "null") ? new Date(startDate) : undefined,
-          lte: (endDate && endDate !== "null") ? (() => { const end = new Date(endDate); end.setHours(23, 59, 59, 999); return end; })() : undefined
-        } : undefined
       } 
     })
 
