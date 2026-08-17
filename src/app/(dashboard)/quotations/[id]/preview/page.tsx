@@ -118,7 +118,7 @@ export default function QuotationHtmlPreviewPage({
   const { data: session } = useSession()
   const [quotation, setQuotation] = useState<Quotation | null>(null)
   const [costingModalItem, setCostingModalItem] = useState<any>(null)
-  const [activeViewMode, setActiveViewMode] = useState<"pdf" | "costing">("pdf")
+  const [activeViewMode, setActiveViewMode] = useState<"html" | "pdf" | "costing">("html")
   const [loading, setLoading] = useState(true)
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
@@ -550,17 +550,26 @@ export default function QuotationHtmlPreviewPage({
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          {isManagerOrAdmin && quotationMetrics && quotationMetrics.totalCost > 0 && (
-            <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-border mr-2">
-              <Button
-                type="button"
-                variant={activeViewMode === "pdf" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveViewMode("pdf")}
-                className="h-7 text-xs font-semibold px-2.5 cursor-pointer"
-              >
-                <FileText className="h-3.5 w-3.5 mr-1" /> Customer PDF
-              </Button>
+          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-border mr-2">
+            <Button
+              type="button"
+              variant={activeViewMode === "html" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveViewMode("html")}
+              className="h-7 text-xs font-semibold px-2.5 cursor-pointer"
+            >
+              <FileText className="h-3.5 w-3.5 mr-1" /> Customer Document
+            </Button>
+            <Button
+              type="button"
+              variant={activeViewMode === "pdf" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveViewMode("pdf")}
+              className="h-7 text-xs font-semibold px-2.5 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5 mr-1" /> PDF Viewer
+            </Button>
+            {isManagerOrAdmin && quotationMetrics && quotationMetrics.totalCost > 0 && (
               <Button
                 type="button"
                 variant={activeViewMode === "costing" ? "default" : "ghost"}
@@ -568,10 +577,10 @@ export default function QuotationHtmlPreviewPage({
                 onClick={() => setActiveViewMode("costing")}
                 className="h-7 text-xs font-semibold px-2.5 cursor-pointer"
               >
-                <Calculator className="h-3.5 w-3.5 mr-1 text-emerald-500" /> Costing Audit
+                <Calculator className="h-3.5 w-3.5 mr-1 text-emerald-500" /> Cost Breakdown
               </Button>
-            </div>
-          )}
+            )}
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -626,12 +635,11 @@ export default function QuotationHtmlPreviewPage({
             </Button>
           )}
           <Button
-            variant="outline"
+            variant="default"
             size="sm"
-            onClick={() => window.open(`/api/quotations/${quotation.id}/pdf?preview=true`, "_blank")}
+            onClick={() => window.open(`/api/quotations/${quotation.id}/pdf`, "_blank")}
             title="Download PDF"
-            className="cursor-not-allowed opacity-50"
-            disabled
+            className="bg-primary hover:bg-primary/90 text-white font-semibold cursor-pointer"
           >
             <Download className="mr-2 h-4 w-4" /> Download PDF
           </Button>
@@ -732,12 +740,118 @@ export default function QuotationHtmlPreviewPage({
               </table>
             </div>
           </div>
+        ) : activeViewMode === "pdf" ? (
+          <div className="w-full flex-1 flex flex-col space-y-3">
+            <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-xs flex items-center justify-between text-blue-800 dark:text-blue-200 shrink-0">
+              <span>Streaming PDF document preview directly from server. If your browser blocks embedded PDF viewers:</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(`/api/quotations/${quotation.id}/pdf`, "_blank")}
+                className="h-7 text-xs bg-white dark:bg-slate-900 border-blue-300 text-blue-700 dark:text-blue-300 hover:bg-blue-100 font-semibold cursor-pointer shrink-0"
+              >
+                <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open PDF in New Tab
+              </Button>
+            </div>
+            <iframe
+              src={`/api/quotations/${quotation.id}/pdf?preview=true#toolbar=0&navpanes=0`}
+              className="w-full flex-1 min-h-[85vh] border-0 shadow-xl rounded-md bg-white"
+              title={`Quotation ${(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()} Preview`}
+            />
+          </div>
         ) : (
-          <iframe
-            src={`/api/quotations/${quotation.id}/pdf?preview=true#toolbar=0&navpanes=0`}
-            className="w-full flex-1 min-h-[85vh] border-0 shadow-xl rounded-md bg-white"
-            title={`Quotation ${(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()} Preview`}
-          />
+          <div className="max-w-4xl mx-auto w-full bg-white text-slate-900 border rounded-xl p-8 sm:p-10 shadow-lg space-y-6 font-sans">
+            {/* Header section with Company Logo & Customer Details */}
+            <div className="flex flex-col sm:flex-row justify-between items-start border-b pb-6 gap-4">
+              <div>
+                <h2 className="text-2xl font-black tracking-tight text-primary">BOSQ ERGONOMICS</h2>
+                <p className="text-xs text-slate-500 font-medium">Premium Commercial Furniture & Office Solutions</p>
+                <div className="text-xs text-slate-600 mt-2 space-y-0.5">
+                  <p>Client: <strong className="text-slate-900">{quotation.client?.companyName}</strong></p>
+                  {quotation.client?.contactPerson && <p>Contact: {quotation.client.contactPerson}</p>}
+                  {quotation.client?.email && <p>Email: {quotation.client.email}</p>}
+                  {quotation.client?.phone && <p>Phone: {quotation.client.phone}</p>}
+                  {quotation.client?.trn && <p>TRN: {quotation.client.trn}</p>}
+                </div>
+              </div>
+              <div className="text-right text-xs space-y-1 sm:self-start">
+                <Badge variant="outline" className="text-sm font-bold bg-primary/10 text-primary border-primary/20 px-3 py-1 mb-1">
+                  {(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()}
+                </Badge>
+                <p className="text-slate-500">Date: <strong className="text-slate-900">{formattedDate}</strong></p>
+                <p className="text-slate-500">Valid Until: <strong className="text-slate-900">{formattedValidityDate}</strong></p>
+                {quotation.projectName && <p className="text-slate-500">Project: <strong className="text-slate-900">{quotation.projectName}</strong></p>}
+                <p className="text-slate-500">Prepared By: <strong className="text-slate-900">{quotation.preparedBy?.name || quotation.preparedBy?.email || "Bosq Team"}</strong></p>
+              </div>
+            </div>
+
+            {/* Line Items Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b-2 border-slate-200 bg-slate-50 text-slate-700 font-bold uppercase text-[10px]">
+                    <th className="p-3">#</th>
+                    <th className="p-3">Item Description</th>
+                    <th className="p-3 text-center">Qty</th>
+                    <th className="p-3 text-right">Unit Price (AED)</th>
+                    <th className="p-3 text-right">Total (AED)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {quotation.items.map((item, idx) => (
+                    <tr key={item.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="p-3 font-mono text-slate-500 align-top">{item.itemNo || idx + 1}</td>
+                      <td className="p-3 align-top space-y-1">
+                        <div className="font-bold text-slate-900 text-xs">{item.description}</div>
+                        {renderSpecificationsHtml(item.specifications, item.productNotes)}
+                      </td>
+                      <td className="p-3 text-center font-bold align-top text-xs">{item.quantity}</td>
+                      <td className="p-3 text-right font-mono align-top text-xs">{formatCurrency(item.unitPrice)}</td>
+                      <td className="p-3 text-right font-mono font-bold align-top text-xs text-primary">{formatCurrency(item.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Subtotal & Financial Summary */}
+            <div className="flex flex-col sm:flex-row justify-between items-start pt-4 border-t gap-6">
+              <div className="text-xs text-slate-600 space-y-1 max-w-md">
+                <p className="font-bold text-slate-900 mb-1">Terms & Conditions:</p>
+                <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-slate-500">
+                  {termsArray.map((t, idx) => (
+                    <li key={idx}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="w-full sm:w-64 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs font-sans">
+                <div className="flex justify-between text-slate-600">
+                  <span>Subtotal:</span>
+                  <span className="font-mono font-semibold">AED {formatCurrency(quotation.subtotal)}</span>
+                </div>
+                {quotation.deliveryCharge > 0 && (
+                  <div className="flex justify-between text-slate-600">
+                    <span>Delivery Charge:</span>
+                    <span className="font-mono">AED {formatCurrency(quotation.deliveryCharge)}</span>
+                  </div>
+                )}
+                {quotation.discount && quotation.discount > 0 && (
+                  <div className="flex justify-between text-emerald-600 font-medium">
+                    <span>Discount:</span>
+                    <span className="font-mono">- AED {formatCurrency(quotation.discount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-slate-600">
+                  <span>VAT (5%):</span>
+                  <span className="font-mono">AED {formatCurrency(quotation.vatAmount)}</span>
+                </div>
+                <div className="flex justify-between text-slate-900 font-bold text-sm border-t border-slate-300 pt-2 mt-1">
+                  <span>Grand Total:</span>
+                  <span className="font-mono text-primary">AED {formatCurrency(quotation.grandTotal)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
