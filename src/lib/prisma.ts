@@ -8,10 +8,15 @@ const prismaClientSingleton = () => {
   if (!connectionString) {
     console.error("[Prisma] WARNING: DATABASE_URL is not defined in environment variables!")
   } else {
-    // Clean connection string to remove unsupported parameters like channel_binding
-    connectionString = connectionString
-      .replace(/([?&])channel_binding=[^&]*(&|$)/, '$1')
-      .replace(/[?&]$/, '')
+    try {
+      const parsedUrl = new URL(connectionString)
+      parsedUrl.searchParams.delete("channel_binding")
+      connectionString = parsedUrl.toString()
+    } catch {
+      connectionString = connectionString
+        .replace(/([?&])channel_binding=[^&]*(&|$)/, '$1')
+        .replace(/[?&]$/, '')
+    }
   }
 
   const isDisableSsl = connectionString?.includes("sslmode=disable")
