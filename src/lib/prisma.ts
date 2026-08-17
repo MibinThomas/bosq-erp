@@ -4,28 +4,40 @@ import pg from "pg"
 
 const prismaClientSingleton = () => {
   let connectionString = process.env.DATABASE_URL
+
   if (!connectionString) {
     console.error("[Prisma] WARNING: DATABASE_URL is not defined in environment variables!")
-  } else {
-    // Strip channel_binding if present to ensure node-pg pool compatibility across all environments
-    connectionString = connectionString.replace(/([?&])channel_binding=[^&]*(&|$)/, '$1').replace(/[?&]$/, '')
+    return new PrismaClient()
   }
 
-  const isDisableSsl = connectionString?.includes("sslmode=disable")
-  const pool = new pg.Pool({
-    connectionString,
-    max: 15,
-    idleTimeoutMillis: 20000,
-    connectionTimeoutMillis: 10000,
-    ssl: isDisableSsl ? false : { rejectUnauthorized: false }
-  })
+  // Clean connection string to remove unsupported parameters like channel_binding
+  connectionString = connectionString
+    .replace(/([?&])channel_binding=[^&]*(&|$)/, '$1')
+    .replace(/[?&]$/, '')
 
-  pool.on("error", (err) => {
-    console.error("Unexpected error on idle pg pool client:", err.message)
-  })
+  const isDisableSsl = connectionString.includes("sslmode=disable")
+  const isServerless = process.env.VERCEL === "1" || process.env.NODE_ENV === "production"
 
-  const adapter = new PrismaPg(pool)
-  return new PrismaClient({ adapter })
+  try {
+    const pool = new pg.Pool({
+      connectionString,
+      // On Vercel serverless containers, limit pool to max 2 connections per instance to avoid exhausting Neon pooler limits
+      max: isServerless ? 3 : 10,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 5000,
+      ssl: isDisableSsl ? false : { rejectUnauthorized: false }
+    })
+
+    pool.on("error", (err) => {
+      console.error("[Prisma] Idle pg pool client error:", err.message)
+    })
+
+    const adapter = new PrismaPg(pool)
+    return new PrismaClient({ adapter })
+  } catch (err: any) {
+    console.error("[Prisma] Adapter initialization failed, falling back to default PrismaClient:", err?.message || err)
+    return new PrismaClient()
+  }
 }
 
 declare const globalThis: {
@@ -37,4 +49,3 @@ const prisma = globalThis.prismaGlobal2 ?? prismaClientSingleton()
 export default prisma
 
 if (process.env.NODE_ENV !== "production") globalThis.prismaGlobal2 = prisma
-
