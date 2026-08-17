@@ -38,9 +38,11 @@ import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal
 import { AssignmentModal } from "@/components/clients/assignment-modal"
 import { ImageCropper } from "@/components/ui/image-cropper"
 import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
+import { CostingBreakdownModal } from "@/components/costing/CostingBreakdownModal"
+import { ExecutiveCostSummaryCard } from "@/components/costing/ExecutiveCostSummaryCard"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
-import { Image as ImageIcon, UploadCloud } from "lucide-react"
+import { Image as ImageIcon, UploadCloud, Calculator } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -498,6 +500,7 @@ function NewBOQForm() {
   const [isCropperOpen, setIsCropperOpen] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
 
+  const [costingModalItem, setCostingModalItem] = useState<any>(null)
   const [batches, setBatches] = useState<{ id: string; name: string }[]>([
     { id: "default", name: "General Items" }
   ])
@@ -940,6 +943,45 @@ function NewBOQForm() {
   const watchVatMode = form.watch("vatMode") || "EXCLUDING"
 
   const selectedClientObj = clients.find((c) => c.id === watchClientId)
+
+  const executiveMetrics = useMemo(() => {
+    let mat = 0, lab = 0, inst = 0, trans = 0, over = 0, totalC = 0, totalS = 0
+    const itemsList = watchItems || []
+    for (const item of itemsList) {
+      if (!item) continue
+      const q = Number(item.quantity) || 1
+      const m = Number(item.materialCost) || 0
+      const l = Number(item.laborCost) || 0
+      const i = Number(item.installationCost) || 0
+      const t = Number(item.transportCost) || 0
+      const o = Number(item.overheadCost) || 0
+      const fc = Number(item.factoryCost) || 0
+      const ac = Number(item.accessoriesCost) || 0
+
+      const unitC = Number(item.unitCost) > 0 ? Number(item.unitCost) : (fc > 0 || ac > 0 ? fc + ac : m + l + i + t + o)
+      const unitS = Number(item.unitSellingPrice ?? item.unitPrice) || 0
+
+      mat += m * q
+      lab += l * q
+      inst += i * q
+      trans += t * q
+      over += o * q
+      totalC += unitC * q
+      totalS += unitS * q
+    }
+
+    return {
+      totalMaterialCost: mat,
+      totalLaborCost: lab,
+      totalInstallation: inst,
+      totalTransport: trans,
+      totalOverhead: over,
+      totalCost: totalC,
+      marginAmount: totalS - totalC,
+      totalSellingPrice: totalS,
+      itemCount: itemsList.length
+    }
+  }, [watchItems])
 
   const watchSegment = form.watch("customerSegment") || "Project"
 
@@ -2041,6 +2083,10 @@ function NewBOQForm() {
           </div>
         </div>
       </Card>
+
+      {isManagerOrAdmin && executiveMetrics.totalCost > 0 && (
+        <ExecutiveCostSummaryCard metrics={executiveMetrics} />
+      )}
 
       {isLockedForCreator && (
         <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-xl p-4 flex items-center gap-3 text-amber-950 dark:text-amber-200 shadow-2xs">
@@ -3401,42 +3447,56 @@ function NewBOQForm() {
                                 </div>
 
                                 {/* Actions */}
-                                {!isRestrictedEstimator && (
-                                  <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto shrink-0 mt-2 xl:mt-0 pb-1">
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleDuplicateItem(index)}
-                                      className="text-muted-foreground hover:text-foreground h-9 text-[11px] px-3.5 flex items-center gap-1.5 cursor-pointer"
-                                    >
-                                      <Copy className="h-3.5 w-3.5" />
-                                      Duplicate Item
-                                    </Button>
-                                    {fields.length > 1 && (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => remove(index)}
-                                        className="text-destructive hover:bg-destructive/10 h-9 text-[11px] px-4"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                        Remove Line
-                                      </Button>
-                                    )}
+                                <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto shrink-0 mt-2 xl:mt-0 pb-1">
+                                  {isManagerOrAdmin && (
                                     <Button
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      className="h-9 text-[11px] px-4 bg-background"
-                                      onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: watchItems[index]?.batchHeading || "", saveToCatalog: false, isCostingRequired: true, type: "custom", materialCost: 0, laborCost: 0, installationCost: 0, transportCost: 0, overheadCost: 0 })}
+                                      onClick={() => setCostingModalItem({ ...watchItems[index], itemNo: index + 1 })}
+                                      className="border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 h-9 text-[11px] px-3 flex items-center gap-1.5 cursor-pointer"
                                     >
-                                      <Plus className="h-3.5 w-3.5 mr-2" />
-                                      Add Custom Item
+                                      <Calculator className="h-3.5 w-3.5" />
+                                      Cost Breakdown
                                     </Button>
-                                  </div>
-                                )}
+                                  )}
+                                  {!isRestrictedEstimator && (
+                                    <>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleDuplicateItem(index)}
+                                        className="text-muted-foreground hover:text-foreground h-9 text-[11px] px-3.5 flex items-center gap-1.5 cursor-pointer"
+                                      >
+                                        <Copy className="h-3.5 w-3.5" />
+                                        Duplicate Item
+                                      </Button>
+                                      {fields.length > 1 && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => remove(index)}
+                                          className="text-destructive hover:bg-destructive/10 h-9 text-[11px] px-4"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                          Remove Line
+                                        </Button>
+                                      )}
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-9 text-[11px] px-4 bg-background"
+                                        onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: watchItems[index]?.batchHeading || "", saveToCatalog: false, isCostingRequired: true, type: "custom", materialCost: 0, laborCost: 0, installationCost: 0, transportCost: 0, overheadCost: 0 })}
+                                      >
+                                        <Plus className="h-3.5 w-3.5 mr-2" />
+                                        Add Custom Item
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           )
@@ -4551,6 +4611,11 @@ function NewBOQForm() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CostingBreakdownModal
+        isOpen={!!costingModalItem}
+        onClose={() => setCostingModalItem(null)}
+        item={costingModalItem}
+      />
     </div>
   )
 }

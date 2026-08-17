@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge"
 import parse from "html-react-parser"
 import { useSession } from "next-auth/react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { CostingBreakdownModal } from "@/components/costing/CostingBreakdownModal"
+import { ExecutiveCostSummaryCard } from "@/components/costing/ExecutiveCostSummaryCard"
+import { Calculator } from "lucide-react"
 
 interface QuotationItem {
   id: string
@@ -80,6 +83,17 @@ interface Quotation {
     trn: string | null
     clientId: string
   }
+  boq?: {
+    totalMaterialCost?: number
+    totalLaborCost?: number
+    totalInstallation?: number
+    totalTransport?: number
+    totalOverhead?: number
+    totalCost?: number
+    marginAmount?: number
+    totalSellingPrice?: number
+    items?: any[]
+  } | null
   items: QuotationItem[]
   companyLogoUrl?: string | null
   aynMuskLogoUrl?: string | null
@@ -103,6 +117,7 @@ export default function QuotationHtmlPreviewPage({
   const router = useRouter()
   const { data: session } = useSession()
   const [quotation, setQuotation] = useState<Quotation | null>(null)
+  const [costingModalItem, setCostingModalItem] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
@@ -440,6 +455,23 @@ export default function QuotationHtmlPreviewPage({
     "Warranty: All structural elements carry a 5-year warranty.",
   ]
 
+  const quotationMetrics = React.useMemo(() => {
+    if (!quotation) return null
+    if (quotation.boq && Number(quotation.boq.totalCost) > 0) {
+      return {
+        totalMaterialCost: quotation.boq.totalMaterialCost || 0,
+        totalLaborCost: quotation.boq.totalLaborCost || 0,
+        totalInstallation: quotation.boq.totalInstallation || 0,
+        totalTransport: quotation.boq.totalTransport || 0,
+        totalOverhead: quotation.boq.totalOverhead || 0,
+        totalCost: quotation.boq.totalCost || 0,
+        marginAmount: quotation.boq.marginAmount ?? (quotation.grandTotal - (quotation.boq.totalCost || 0)),
+        totalSellingPrice: quotation.grandTotal || quotation.boq.totalSellingPrice || 0
+      }
+    }
+    return null
+  }, [quotation])
+
   return (
     <div className="absolute inset-0 bg-slate-100 dark:bg-slate-900 flex flex-col overflow-hidden z-20 print:relative print:inset-auto print:bg-white print:h-auto print:overflow-visible">
       {/* Top Header Bar - Invisible when printed */}
@@ -463,22 +495,30 @@ export default function QuotationHtmlPreviewPage({
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Verify the exact layout & values before approval.
+              Client: <span className="font-semibold text-foreground">{quotation.client?.companyName}</span> | Date: {formattedDate} | Total: <span className="font-bold text-primary">AED {formatCurrency(quotation.grandTotal)}</span>
             </p>
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          {((isManagerOrAdmin || (session?.user as any)?.id === quotation.preparedById) && quotation.status === "DRAFT") && (
-            <Link href={`/quotations/new?editId=${quotation.id}`}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-primary/50 text-primary hover:bg-primary/10 cursor-pointer"
-              >
-                <Edit className="mr-2 h-4 w-4" /> Edit
-              </Button>
-            </Link>
+          {isManagerOrAdmin && quotation.boq && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCostingModalItem(quotation.boq?.items?.[0] || { description: "Overall BOQ Costing", unitCost: quotation.boq?.totalCost, unitSellingPrice: quotation.grandTotal })}
+              className="border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 font-semibold cursor-pointer"
+            >
+              <Calculator className="mr-1.5 h-4 w-4 text-blue-600" /> Cost Breakdown
+            </Button>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/quotations/new?editId=${quotation.id}`)}
+            title="Edit Quotation"
+            className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold cursor-pointer"
+          >
+            <Edit className="mr-2 h-4 w-4 text-slate-600" /> Edit
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -546,6 +586,12 @@ export default function QuotationHtmlPreviewPage({
         </div>
       </div>
 
+      {isManagerOrAdmin && quotationMetrics && quotationMetrics.totalCost > 0 && (
+        <div className="p-4 bg-slate-100 dark:bg-slate-900 border-b shrink-0 max-w-5xl mx-auto w-full print:hidden">
+          <ExecutiveCostSummaryCard metrics={quotationMetrics} />
+        </div>
+      )}
+
       {/* Dedicated Scrollable Preview Area Workspace */}
       <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-900 p-4 sm:p-6 md:p-8 flex flex-col print:hidden">
         <iframe
@@ -554,6 +600,12 @@ export default function QuotationHtmlPreviewPage({
           title={`Quotation ${(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()} Preview`}
         />
       </div>
+
+      <CostingBreakdownModal
+        isOpen={!!costingModalItem}
+        onClose={() => setCostingModalItem(null)}
+        item={costingModalItem}
+      />
       
       <Dialog open={isReplaceDialogOpen} onOpenChange={setIsReplaceDialogOpen}>
         <DialogContent className="max-w-md rounded-xl">

@@ -35,6 +35,11 @@ export async function GET(
       },
       include: {
         client: true,
+        boq: {
+          include: {
+            items: true
+          }
+        },
         items: {
           orderBy: [
             { sortOrder: "asc" },
