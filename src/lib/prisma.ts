@@ -3,9 +3,12 @@ import { PrismaPg } from "@prisma/adapter-pg"
 import pg from "pg"
 
 const prismaClientSingleton = () => {
-  const connectionString = process.env.DATABASE_URL
+  let connectionString = process.env.DATABASE_URL
   if (!connectionString) {
     console.error("[Prisma] WARNING: DATABASE_URL is not defined in environment variables!")
+  } else {
+    // Strip channel_binding if present to ensure node-pg pool compatibility across all environments
+    connectionString = connectionString.replace(/([?&])channel_binding=[^&]*(&|$)/, '$1').replace(/[?&]$/, '')
   }
 
   const isDisableSsl = connectionString?.includes("sslmode=disable")
