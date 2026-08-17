@@ -169,6 +169,23 @@ export default function QuotationHtmlPreviewPage() {
     })
   }, [quotation])
 
+  const quotationMetrics = React.useMemo(() => {
+    if (!quotation) return null
+    if (quotation.boq && Number(quotation.boq.totalCost) > 0) {
+      return {
+        totalMaterialCost: quotation.boq.totalMaterialCost || 0,
+        totalLaborCost: quotation.boq.totalLaborCost || 0,
+        totalInstallation: quotation.boq.totalInstallation || 0,
+        totalTransport: quotation.boq.totalTransport || 0,
+        totalOverhead: quotation.boq.totalOverhead || 0,
+        totalCost: quotation.boq.totalCost || 0,
+        marginAmount: quotation.boq.marginAmount ?? (quotation.grandTotal - (quotation.boq.totalCost || 0)),
+        totalSellingPrice: quotation.grandTotal || quotation.boq.totalSellingPrice || 0
+      }
+    }
+    return null
+  }, [quotation])
+
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
   const isPending = quotation?.status === "PENDING_APPROVAL"
@@ -501,23 +518,6 @@ export default function QuotationHtmlPreviewPage() {
     "Delivery: Delivery within 4-6 weeks of order approval.",
     "Warranty: All structural elements carry a 5-year warranty.",
   ]
-
-  const quotationMetrics = React.useMemo(() => {
-    if (!quotation) return null
-    if (quotation.boq && Number(quotation.boq.totalCost) > 0) {
-      return {
-        totalMaterialCost: quotation.boq.totalMaterialCost || 0,
-        totalLaborCost: quotation.boq.totalLaborCost || 0,
-        totalInstallation: quotation.boq.totalInstallation || 0,
-        totalTransport: quotation.boq.totalTransport || 0,
-        totalOverhead: quotation.boq.totalOverhead || 0,
-        totalCost: quotation.boq.totalCost || 0,
-        marginAmount: quotation.boq.marginAmount ?? (quotation.grandTotal - (quotation.boq.totalCost || 0)),
-        totalSellingPrice: quotation.grandTotal || quotation.boq.totalSellingPrice || 0
-      }
-    }
-    return null
-  }, [quotation])
 
   return (
     <div className="absolute inset-0 bg-slate-100 dark:bg-slate-900 flex flex-col overflow-hidden z-20 print:relative print:inset-auto print:bg-white print:h-auto print:overflow-visible">
