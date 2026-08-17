@@ -3,17 +3,16 @@ import { PrismaPg } from "@prisma/adapter-pg"
 import pg from "pg"
 
 const prismaClientSingleton = () => {
-  let connectionString = process.env.DATABASE_URL
+  let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL
 
   if (!connectionString) {
     console.error("[Prisma] WARNING: DATABASE_URL is not defined in environment variables!")
-    return new PrismaClient()
+  } else {
+    // Clean connection string to remove unsupported parameters like channel_binding
+    connectionString = connectionString
+      .replace(/([?&])channel_binding=[^&]*(&|$)/, '$1')
+      .replace(/[?&]$/, '')
   }
-
-  // Clean connection string to remove unsupported parameters like channel_binding
-  connectionString = connectionString
-    .replace(/([?&])channel_binding=[^&]*(&|$)/, '$1')
-    .replace(/[?&]$/, '')
 
   const isDisableSsl = connectionString.includes("sslmode=disable")
   const isServerless = process.env.VERCEL === "1" || process.env.NODE_ENV === "production"
