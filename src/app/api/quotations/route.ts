@@ -15,6 +15,9 @@ import { hasPermission } from "@/lib/rbac"
 import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
