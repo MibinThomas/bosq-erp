@@ -2,7 +2,7 @@
 
 import React, { use, useEffect, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { ArrowLeft, Loader2, Download, ExternalLink, Check, X, Edit, Copy, PackagePlus, CheckCircle2, FileText, Coins, TrendingUp, AlertTriangle, Eye, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { isManagerOrAdminRole } from "@/lib/utils"
