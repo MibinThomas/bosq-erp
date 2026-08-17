@@ -44,11 +44,18 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
 
   // Filter items dynamically based on roles/profile permissions
   const filteredItems = navItems.filter((item) => {
-    if (!profile) {
-      return false
+    if (userRole === "SUPER_ADMIN" || userRole === "ADMIN") {
+      return true
     }
 
-    if (profile.isSuperAdmin) return true
+    if (profile?.isSuperAdmin) {
+      return true
+    }
+
+    if (!profile) {
+      // Show core items while profile is loading
+      return ["Dashboard", "My Profile"].includes(item.name)
+    }
 
     // Map nav item name to system module name
     const permMap: Record<string, string> = {

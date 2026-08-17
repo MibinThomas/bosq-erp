@@ -25,19 +25,28 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     const loadProfile = async () => {
       if (status === "authenticated" && session?.user) {
+        const userRole = (session.user as any)?.role
+        const isSuperAdmin = userRole === "SUPER_ADMIN"
+
         try {
           const res = await fetch("/api/settings/access-control/profile")
           if (res.ok) {
             const data = await res.json()
             if (data && data.permissions) {
               setProfile(data)
+              setLoading(false)
+              return
             }
           }
         } catch (err) {
           console.error("Error loading permissions profile:", err)
-        } finally {
-          setLoading(false)
         }
+
+        // Fallback for Super Admin if network fetch fails or profile is uninitialized
+        if (isSuperAdmin) {
+          setProfile({ isSuperAdmin: true, role: "SUPER_ADMIN" })
+        }
+        setLoading(false)
       } else if (status === "unauthenticated") {
         setLoading(false)
       }
@@ -52,6 +61,8 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
   }, [session, status])
 
   const hasPermission = (module: string, action: string): boolean => {
+    const userRole = (session?.user as any)?.role
+    if (userRole === "SUPER_ADMIN") return true
     if (!profile) return false
     if (profile.isSuperAdmin) return true
     return profile.permissions?.[module]?.[action] === true
