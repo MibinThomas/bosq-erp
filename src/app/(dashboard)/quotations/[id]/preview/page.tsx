@@ -121,7 +121,7 @@ export default function QuotationHtmlPreviewPage() {
   const [isRejecting, setIsRejecting] = useState(false)
 
   const costingItemsList = React.useMemo(() => {
-    if (!quotation) return []
+    if (!quotation || !Array.isArray(quotation.items)) return []
     const boqItems = quotation.boq?.items || []
     return quotation.items.map((qItem, idx) => {
       const matchedBoqItem = boqItems.find((b: any) => b.itemNo === qItem.itemNo || b.id === qItem.id) || boqItems[idx]
@@ -488,12 +488,12 @@ export default function QuotationHtmlPreviewPage() {
     );
   }
 
-  const formattedDate = quotation.date ? new Date(quotation.date).toISOString().split("T")[0] : ""
-  const formattedValidityDate = quotation.validityDate ? new Date(quotation.validityDate).toISOString().split("T")[0] : ""
+  const formattedDate = quotation?.date ? new Date(quotation.date).toISOString().split("T")[0] : ""
+  const formattedValidityDate = quotation?.validityDate ? new Date(quotation.validityDate).toISOString().split("T")[0] : ""
 
-  const barcodeUrl = `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(
+  const barcodeUrl = quotation?.quotationNumber ? `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(
     quotation.quotationNumber
-  )}&scale=2&rotate=N&includetext=false`
+  )}&scale=2&rotate=N&includetext=false` : ""
 
   // Terms and conditions matched exactly with PDF
   const termsArray = [
