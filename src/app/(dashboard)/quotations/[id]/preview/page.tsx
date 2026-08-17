@@ -3,7 +3,7 @@
 import React, { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Loader2, Download, ExternalLink, Check, X, Edit, Copy, PackagePlus, CheckCircle2 } from "lucide-react"
+import { ArrowLeft, Loader2, Download, ExternalLink, Check, X, Edit, Copy, PackagePlus, CheckCircle2, FileText, Coins, TrendingUp, AlertTriangle, Eye, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { isManagerOrAdminRole } from "@/lib/utils"
 import { toast } from "sonner"
@@ -118,9 +118,59 @@ export default function QuotationHtmlPreviewPage({
   const { data: session } = useSession()
   const [quotation, setQuotation] = useState<Quotation | null>(null)
   const [costingModalItem, setCostingModalItem] = useState<any>(null)
+  const [activeViewMode, setActiveViewMode] = useState<"pdf" | "costing">("pdf")
   const [loading, setLoading] = useState(true)
   const [isApproving, setIsApproving] = useState(false)
   const [isRejecting, setIsRejecting] = useState(false)
+
+  const costingItemsList = React.useMemo(() => {
+    if (!quotation) return []
+    const boqItems = quotation.boq?.items || []
+    return quotation.items.map((qItem, idx) => {
+      const matchedBoqItem = boqItems.find((b: any) => b.itemNo === qItem.itemNo || b.id === qItem.id) || boqItems[idx]
+      
+      const matCost = Number(matchedBoqItem?.materialCost || 0)
+      const factoryCost = Number(matchedBoqItem?.factoryCost || 0)
+      const accessoriesCost = Number(matchedBoqItem?.accessoriesCost || 0)
+      const labCost = Number(matchedBoqItem?.laborCost || 0)
+      const instCost = Number(matchedBoqItem?.installationCost || 0)
+      const transCost = Number(matchedBoqItem?.transportCost || 0)
+      const overCost = Number(matchedBoqItem?.overheadCost || 0)
+
+      const legacyUnitCost = matCost + labCost + instCost + transCost + overCost
+      const unitCost = Number(matchedBoqItem?.unitCost) > 0 
+        ? Number(matchedBoqItem?.unitCost) 
+        : (factoryCost > 0 || accessoriesCost > 0 ? factoryCost + accessoriesCost : legacyUnitCost)
+
+      const unitSellingPrice = Number(matchedBoqItem?.unitSellingPrice ?? qItem.unitPrice ?? 0)
+      const qty = Math.max(1, qItem.quantity || 1)
+      const totalCost = unitCost * qty
+      const totalSellingPrice = (unitSellingPrice - (unitSellingPrice * ((qItem.discount || 0) / 100))) * qty
+      const netProfitUnit = unitSellingPrice - unitCost
+      const netProfitTotal = totalSellingPrice - totalCost
+      const marginPct = Number(matchedBoqItem?.marginPercentage ?? qItem.margin ?? 0)
+
+      return {
+        ...qItem,
+        itemNo: qItem.itemNo || idx + 1,
+        factoryCost,
+        accessoriesCost,
+        materialCost: matCost,
+        laborCost: labCost,
+        installationCost: instCost,
+        transportCost: transCost,
+        overheadCost: overCost,
+        unitCost,
+        totalCost,
+        unitSellingPrice,
+        totalSellingPrice,
+        marginPercentage: marginPct,
+        netProfitUnit,
+        netProfitTotal,
+        netMarginPct: totalSellingPrice > 0 ? (netProfitTotal / totalSellingPrice) * 100 : 0
+      }
+    })
+  }, [quotation])
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
@@ -500,15 +550,27 @@ export default function QuotationHtmlPreviewPage({
           </div>
         </div>
         <div className="flex items-center space-x-2">
-          {isManagerOrAdmin && quotation.boq && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCostingModalItem(quotation.boq?.items?.[0] || { description: "Overall BOQ Costing", unitCost: quotation.boq?.totalCost, unitSellingPrice: quotation.grandTotal })}
-              className="border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/30 font-semibold cursor-pointer"
-            >
-              <Calculator className="mr-1.5 h-4 w-4 text-blue-600" /> Cost Breakdown
-            </Button>
+          {isManagerOrAdmin && quotationMetrics && quotationMetrics.totalCost > 0 && (
+            <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-border mr-2">
+              <Button
+                type="button"
+                variant={activeViewMode === "pdf" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setActiveViewMode("pdf")}
+                className="h-7 text-xs font-semibold px-2.5 cursor-pointer"
+              >
+                <FileText className="h-3.5 w-3.5 mr-1" /> Customer PDF
+              </Button>
+              <Button
+                type="button"
+                variant={activeViewMode === "costing" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setActiveViewMode("costing")}
+                className="h-7 text-xs font-semibold px-2.5 cursor-pointer"
+              >
+                <Calculator className="h-3.5 w-3.5 mr-1 text-emerald-500" /> Costing Audit
+              </Button>
+            </div>
           )}
           <Button
             variant="outline"
@@ -586,19 +648,97 @@ export default function QuotationHtmlPreviewPage({
         </div>
       </div>
 
-      {isManagerOrAdmin && quotationMetrics && quotationMetrics.totalCost > 0 && (
-        <div className="p-4 bg-slate-100 dark:bg-slate-900 border-b shrink-0 max-w-5xl mx-auto w-full print:hidden">
+      {/* Internal Costing Audit Header Summary */}
+      {activeViewMode === "costing" && isManagerOrAdmin && quotationMetrics && quotationMetrics.totalCost > 0 && (
+        <div className="p-4 bg-slate-100 dark:bg-slate-900 border-b shrink-0 max-w-5xl mx-auto w-full print:hidden space-y-4">
           <ExecutiveCostSummaryCard metrics={quotationMetrics} />
         </div>
       )}
 
-      {/* Dedicated Scrollable Preview Area Workspace */}
-      <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-900 p-4 sm:p-6 md:p-8 flex flex-col print:hidden">
-        <iframe
-          src={`/api/quotations/${quotation.id}/pdf?preview=true#toolbar=0&navpanes=0`}
-          className="w-full flex-1 min-h-[85vh] border-0 shadow-xl rounded-md bg-white"
-          title={`Quotation ${(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()} Preview`}
-        />
+      {/* Dedicated Scrollable Workspace */}
+      <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-900 p-4 sm:p-6 md:p-8 flex flex-col print:hidden overflow-y-auto">
+        {activeViewMode === "costing" && isManagerOrAdmin ? (
+          <div className="max-w-5xl mx-auto w-full bg-card border rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                  <Calculator className="h-5 w-5 text-emerald-500" />
+                  Line-Item Costing Breakdown Audit
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Internal audit of estimator factory costs, labor/overhead allocations, and net profit per item.
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs bg-muted/40 font-mono">
+                {costingItemsList.length} Items Total
+              </Badge>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse font-sans">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-muted-foreground font-bold uppercase text-[10px]">
+                    <th className="p-2.5">#</th>
+                    <th className="p-2.5">Description</th>
+                    <th className="p-2.5 text-center">Qty</th>
+                    <th className="p-2.5 text-right">Material Cost</th>
+                    <th className="p-2.5 text-right">Labor / Overhead</th>
+                    <th className="p-2.5 text-right">Unit Cost</th>
+                    <th className="p-2.5 text-right">Quoted Price</th>
+                    <th className="p-2.5 text-right">Margin %</th>
+                    <th className="p-2.5 text-right">Net Profit</th>
+                    <th className="p-2.5 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y border-b">
+                  {costingItemsList.map((item, idx) => {
+                    const isProfitable = item.netProfitTotal >= 0
+                    return (
+                      <tr key={item.id || idx} className="hover:bg-muted/20 transition-colors">
+                        <td className="p-2.5 font-mono text-muted-foreground">{item.itemNo}</td>
+                        <td className="p-2.5">
+                          <div className="font-semibold text-foreground leading-tight line-clamp-1">{item.description}</div>
+                          {item.categoryName && (
+                            <span className="text-[10px] text-muted-foreground font-mono">{item.categoryName}</span>
+                          )}
+                        </td>
+                        <td className="p-2.5 text-center font-bold">{item.quantity}</td>
+                        <td className="p-2.5 text-right font-mono">AED {formatCurrency(item.materialCost)}</td>
+                        <td className="p-2.5 text-right font-mono">AED {formatCurrency(item.laborCost + item.overheadCost)}</td>
+                        <td className="p-2.5 text-right font-mono font-semibold text-foreground">AED {formatCurrency(item.unitCost)}</td>
+                        <td className="p-2.5 text-right font-mono font-semibold text-primary">AED {formatCurrency(item.unitSellingPrice)}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-blue-600 dark:text-blue-400">
+                          {item.marginPercentage.toFixed(1)}%
+                        </td>
+                        <td className={`p-2.5 text-right font-mono font-bold ${isProfitable ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                          AED {formatCurrency(item.netProfitTotal)}
+                        </td>
+                        <td className="p-2.5 text-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCostingModalItem(item)}
+                            className="h-7 text-[11px] px-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Inspect
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <iframe
+            src={`/api/quotations/${quotation.id}/pdf?preview=true#toolbar=0&navpanes=0`}
+            className="w-full flex-1 min-h-[85vh] border-0 shadow-xl rounded-md bg-white"
+            title={`Quotation ${(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()} Preview`}
+          />
+        )}
       </div>
 
       <CostingBreakdownModal
