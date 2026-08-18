@@ -19,9 +19,15 @@ export const authOptions: NextAuthOptions = {
         const cleanEmail = credentials.email.trim().toLowerCase()
         const cleanPassword = credentials.password.trim()
 
-        const user = await prisma.user.findUnique({
-          where: { email: cleanEmail }
-        })
+        let user: any = null
+        try {
+          user = await prisma.user.findUnique({
+            where: { email: cleanEmail }
+          })
+        } catch (dbErr: any) {
+          console.error("[NextAuth] DB lookup error during authorize:", dbErr)
+          throw new Error("Unable to connect to authentication server. Please try again.")
+        }
 
         if (!user || !user.password) {
           console.warn(`[NextAuth] Auth failed: No user found with email "${cleanEmail}"`)
