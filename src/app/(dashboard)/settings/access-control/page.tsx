@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { 
   Shield, 
@@ -25,42 +25,66 @@ import {
   UserCheck,
   Building,
   AlertTriangle,
-  Sparkles
+  Sparkles,
+  Filter,
+  Lock,
+  Unlock,
+  Coins,
+  DollarSign,
+  Eye,
+  FileSpreadsheet,
+  PackagePlus,
+  Edit3,
+  UserPlus,
+  FolderGit2,
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  Percent,
+  Calculator,
+  Briefcase,
+  Loader2,
+  Key,
+  X
 } from "lucide-react"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 
 const modules = [
-  { id: "CLIENTS", name: "Clients" },
-  { id: "QUOTATIONS", name: "Quotations" },
-  { id: "PRODUCTS", name: "Products" },
-  { id: "BOQS", name: "BOQs" },
-  { id: "REPORTS", name: "Reports" },
-  { id: "USER_MANAGEMENT", name: "Users" },
-  { id: "DASHBOARD", name: "Dashboard" },
-  { id: "PURCHASE_ORDERS", name: "Purchase Orders" },
-  { id: "SETTINGS", name: "Settings" },
-  { id: "PRICING_MARKUP", name: "Pricing Markup" },
-  { id: "ACCESS_CONTROL", name: "Access Control" },
-  { id: "NOTIFICATIONS", name: "Notifications" },
-  { id: "SHAREPOINT", name: "SharePoint Files" },
-  { id: "SYSTEM_CONFIGURATION", name: "System Configuration" },
+  { id: "QUOTATIONS", name: "Quotations & Revisions", category: "Sales & Pricing", icon: FileSpreadsheet },
+  { id: "BOQS", name: "BOQs & Costing", category: "Costing & BOQ", icon: Calculator },
+  { id: "CLIENTS", name: "Clients & CRM", category: "Sales & Pricing", icon: Building },
+  { id: "PRODUCTS", name: "Products & Master Catalog", category: "Catalog & Inventory", icon: PackagePlus },
+  { id: "PURCHASE_ORDERS", name: "Purchase Orders", category: "Sales & Pricing", icon: Coins },
+  { id: "REPORTS", name: "Analytics & Reports", category: "System & Governance", icon: Layers },
+  { id: "USER_MANAGEMENT", name: "Users & Employee Profiles", category: "System & Governance", icon: Users },
+  { id: "DASHBOARD", name: "Executive Dashboard", category: "System & Governance", icon: Sparkles },
+  { id: "PRICING_MARKUP", name: "Pricing Markups & Margins", category: "Catalog & Inventory", icon: Percent },
+  { id: "SETTINGS", name: "System Settings", category: "System & Governance", icon: Settings },
+  { id: "ACCESS_CONTROL", name: "Access Control & Security", category: "System & Governance", icon: Shield },
+  { id: "NOTIFICATIONS", name: "Notifications & Alerts", category: "System & Governance", icon: Clock },
+  { id: "SHAREPOINT", name: "SharePoint File Manager", category: "System & Governance", icon: FolderGit2 },
+  { id: "SYSTEM_CONFIGURATION", name: "System Configuration", category: "System & Governance", icon: Settings },
 ]
 
-const primaryActions = [
-  { id: "view", label: "View" },
-  { id: "create", label: "Create" },
-  { id: "edit", label: "Edit" },
-  { id: "delete", label: "Delete" },
-  { id: "approve", label: "Approve" },
-  { id: "export", label: "Export" },
-  { id: "uploadFiles", label: "Bulk Upload" },
-  { id: "manage", label: "Manage / Category Mgmt" },
-  { id: "share", label: "Share / Add to Quote" },
-  { id: "canApplySpecialDiscount", label: "Special Discount" },
-  { id: "canExportBoqExcel", label: "Export Admin Costing Excel" },
-  { id: "costPriceVisible", label: "View Costing & BOQ Details" },
+// Primary columns for the matrix table (similar to old UI, but cleaner)
+const matrixColumns = [
+  { id: "view", label: "View", title: "View module records" },
+  { id: "create", label: "Create", title: "Create new records" },
+  { id: "edit", label: "Edit", title: "Edit existing records" },
+  { id: "delete", label: "Delete", title: "Delete or archive records" },
+  { id: "approve", label: "Approve", title: "Approve submitted records" },
+  { id: "export", label: "Export", title: "Export data to Excel / CSV" },
+  { id: "uploadFiles", label: "Bulk Upload", title: "Upload attachments or files" },
+  { id: "manage", label: "Manage", title: "Manage master settings & categories" },
+  { id: "costPriceVisible", label: "View Costing & BOQ", title: "View raw unit cost and factory allocations" },
+  { id: "canApplySpecialDiscount", label: "Special Discount", title: "Apply un-capped special discount" },
+  { id: "canExportBoqExcel", label: "Export BOQ Excel", title: "Export raw BOQ estimator spreadsheets" },
+  { id: "canConfirmQuotation", label: "Confirm Quote", title: "Mark quote as Client Approved / Confirmed" },
+  { id: "canSaveToCatalog", label: "Save to Catalog", title: "Save custom items into master product catalog" },
 ]
-
 
 export default function AccessControlPage() {
   const { data: session } = useSession()
@@ -84,2024 +108,701 @@ export default function AccessControlPage() {
     }
   }
 
-  const [activeTab, setActiveTab] = useState<"dashboard" | "roles" | "users" | "requests" | "logs">("dashboard")
+  const [activeTab, setActiveTab] = useState<"roles" | "overrides" | "requests" | "logs">("roles")
   const [loading, setLoading] = useState(true)
-  
-  // Dynamic statistics
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    activeUsers: 0,
-    pendingRequests: 0,
-    suspendedUsers: 0,
-    totalRoles: 0
-  })
+  const [savingMatrix, setSavingMatrix] = useState(false)
   
   // Data lists
   const [roles, setRoles] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
-  const [clients, setClients] = useState<any[]>([])
   const [clientAccessRequests, setClientAccessRequests] = useState<any[]>([])
-  const [recentlyAddedUsers, setRecentlyAddedUsers] = useState<any[]>([])
   const [logs, setLogs] = useState<any[]>([])
   
-  // Approval settings
-  const [approvalSettings, setApprovalSettings] = useState<Record<string, boolean>>({})
-  const [workstationConfiguratorEnabled, setWorkstationConfiguratorEnabled] = useState<boolean>(false)
-
-  // Selection states
+  // Matrix selection & filters
   const [selectedRoleId, setSelectedRoleId] = useState<string>("")
-  const [selectedUserId, setSelectedUserId] = useState<string>("")
-
+  const [searchQuery, setSearchQuery] = useState("")
+  
   // Edit states
   const [editingPermissions, setEditingPermissions] = useState<Record<string, any>>({})
-  const [newRoleModal, setNewRoleModal] = useState(false)
-  const [newRoleName, setNewRoleName] = useState("")
-  const [newRoleDesc, setNewRoleDesc] = useState("")
-  const [baseRoleId, setBaseRoleId] = useState("")
+  
+  // User Overrides modal state
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [userOverrideQuery, setUserOverrideQuery] = useState("")
+  const [editingOverrides, setEditingOverrides] = useState<Record<string, any>>({})
+  const [savingUserOverride, setSavingUserOverride] = useState(false)
 
-  const [editRoleModal, setEditRoleModal] = useState(false)
-  const [editRoleName, setEditRoleName] = useState("")
-  const [editRoleDesc, setEditRoleDesc] = useState("")
-
-  // User Profile Edit states
-  const [editingUserProfile, setEditingUserProfile] = useState({
-    name: "",
-    email: "",
-    role: "",
-    department: "",
-    employeeId: "",
-    status: "Active",
-    password: "",
-    clientAssignments: [] as string[]
-  })
-
-  // Add User State
-  const [showAddUserModal, setShowAddUserModal] = useState(false)
-  const [newUserName, setNewUserName] = useState("")
-  const [newUserEmail, setNewUserEmail] = useState("")
-  const [newUserPassword, setNewUserPassword] = useState("")
-  const [newUserPhone, setNewUserPhone] = useState("")
-  const [newUserDepartment, setNewUserDepartment] = useState("")
-  const [newUserRole, setNewUserRole] = useState("")
-  const [addingUser, setAddingUser] = useState(false)
-
-  // Transfer client state
-  const [transferModal, setTransferModal] = useState({
-    isOpen: false,
-    clientId: "",
-    clientName: "",
-    fromUserId: "",
-    toUserId: ""
-  })
-
-  // Access request process states
-  const [rejectModal, setRejectModal] = useState({
-    isOpen: false,
-    requestId: "",
-    clientName: "",
-    userName: "",
-    reason: ""
-  })
-
-  const [reassignModal, setReassignModal] = useState({
-    isOpen: false,
-    requestId: "",
-    clientName: "",
-    userName: "",
-    newOwnerId: ""
-  })
-
-  // Search filter states
-  const [userSearchTerm, setUserSearchTerm] = useState("")
-  const [clientSearchTerm, setClientSearchTerm] = useState("")
-  const [logFilterTerm, setLogFilterTerm] = useState("")
-
-  const fetchData = async () => {
+  // Fetch access control data
+  const loadData = async () => {
     setLoading(true)
     try {
       const res = await fetch("/api/settings/access-control")
-      if (res.ok) {
-        const data = await res.json()
-        
-        let filteredRoles = data.roles || []
-        let filteredUsers = data.users || []
-        
-        if (currentUserRole !== "SUPER_ADMIN") {
-          filteredRoles = filteredRoles.filter((r: any) => r.name !== "SUPER_ADMIN")
-          filteredUsers = filteredUsers.filter((u: any) => u.role !== "SUPER_ADMIN")
-        }
+      if (!res.ok) throw new Error("Failed to fetch access control data")
+      const data = await res.json()
+      
+      setRoles(data.roles || [])
+      setUsers(data.users || [])
+      setClientAccessRequests(data.clientAccessRequests || [])
+      setLogs(data.logs || [])
 
-        setRoles(filteredRoles)
-        setUsers(filteredUsers)
-        setClients(data.clients || [])
-        setClientAccessRequests(data.clientAccessRequests || [])
-        setRecentlyAddedUsers(data.recentlyAddedUsers || [])
-        setLogs(data.logs || [])
-        
-        if (data.stats) {
-          setStats(data.stats)
-        }
-
-        // Map system settings to local approvals state
-        const approvalsMap: Record<string, boolean> = {
-          client_creation: false,
-          client_access: false,
-          product_creation: false,
-          product_bulk_upload: false,
-          quotation: false,
-          revision: false
-        }
-        data.systemSettings?.forEach((setting: any) => {
-          const suffix = setting.key.replace("approval_control_", "")
-          approvalsMap[suffix] = setting.value === "true"
-        })
-        setApprovalSettings(approvalsMap)
-
-        const cfgSetting = data.systemSettings?.find((s: any) => s.key === "enable_workstation_configurator")
-        setWorkstationConfiguratorEnabled(cfgSetting?.value === "true")
-
-        // Default selections
-        if (filteredRoles.length > 0 && !selectedRoleId) {
-          setSelectedRoleId(filteredRoles[0].id)
-          loadRolePermissions(filteredRoles[0].permissions)
-        }
-        if (filteredUsers.length > 0 && !selectedUserId) {
-          setSelectedUserId(filteredUsers[0].id)
-          loadUserProfile(filteredUsers[0])
-        }
-      } else {
-        toast.error("Failed to load access control configurations")
+      if (data.roles && data.roles.length > 0 && !selectedRoleId) {
+        setSelectedRoleId(data.roles[0].id)
       }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error fetching access control data")
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load access control configuration")
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchData()
+    loadData()
   }, [])
 
-  const loadRolePermissions = (permissions: any[]) => {
-    const matrix: Record<string, any> = {}
-    modules.forEach(m => {
-      const perm = permissions?.find((p: any) => p.module === m.id)
-      matrix[m.id] = {
-        view: perm?.view ?? false,
-        create: perm?.create ?? false,
-        edit: perm?.edit ?? false,
-        delete: perm?.delete ?? false,
-        approve: perm?.approve ?? false,
-        export: perm?.export ?? false,
-        uploadFiles: perm?.uploadFiles ?? false,
-        manage: perm?.manage ?? false,
-        share: perm?.share ?? false,
+  // Selected role object
+  const selectedRole = useMemo(() => {
+    return roles.find(r => r.id === selectedRoleId) || roles[0] || null
+  }, [roles, selectedRoleId])
+
+  // Sync editing permissions when selected role changes
+  useEffect(() => {
+    if (!selectedRole) return
+    const initialPerms: Record<string, any> = {}
+    for (const m of modules) {
+      const existing = selectedRole.permissions?.find((p: any) => p.module === m.id)
+      if (existing) {
+        initialPerms[m.id] = { ...existing }
+      } else {
+        initialPerms[m.id] = {
+          module: m.id,
+          view: false, create: false, edit: false, delete: false, approve: false, reject: false,
+          export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false,
+          ownership: "NONE", approvalLimit: null,
+          costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false,
+          maxDiscountPercent: 0, canOverrideVat: false, canAddCustomCharges: false, canConfirmQuotation: false,
+          canApplySpecialDiscount: false, canExportBoqExcel: false, canSaveToCatalog: false, canReviseQuotation: false,
+          canAssignClients: false, canApproveClientAccess: false
+        }
       }
-    })
-    setEditingPermissions(matrix)
-  }
-
-  const loadUserProfile = (user: any) => {
-    if (!user) return
-    const clientIds = user.clientAssignments ? user.clientAssignments.filter((ca: any) => !ca.isPrimary).map((ca: any) => ca.clientId) : []
-    
-    setEditingUserProfile({
-      name: user.name || "",
-      email: user.email || "",
-      role: user.role || "",
-      department: user.department || "",
-      employeeId: user.employeeId || "",
-      status: user.status || "Active",
-      password: "",
-      clientAssignments: clientIds
-    })
-  }
-
-  const handleRoleSelect = (roleId: string) => {
-    setSelectedRoleId(roleId)
-    const role = roles.find(r => r.id === roleId)
-    if (role) {
-      loadRolePermissions(role.permissions)
     }
-  }
+    setEditingPermissions(initialPerms)
+  }, [selectedRole])
 
-  const handleUserSelect = (userId: string) => {
-    setSelectedUserId(userId)
-    const user = users.find(u => u.id === userId)
-    if (user) {
-      loadUserProfile(user)
-    }
-  }
-
-  const handleRolePermChange = (moduleId: string, actionId: string, value: boolean) => {
+  // Handle matrix permission toggle
+  const handleRolePermChange = (moduleId: string, actionKey: string, value: any) => {
+    if (selectedRole?.name === "SUPER_ADMIN") return
     setEditingPermissions(prev => ({
       ...prev,
       [moduleId]: {
         ...prev[moduleId],
-        [actionId]: value
+        [actionKey]: value
       }
     }))
   }
 
-  const saveRolePermissions = async () => {
-    const selectedRole = roles.find(r => r.id === selectedRoleId)
-    if (!selectedRole) return
-
-    if (selectedRole.name === "SUPER_ADMIN") {
-      toast.error("Super Admin permissions cannot be modified")
-      return
-    }
-
-    setLoading(true)
+  // Save role permissions matrix
+  const handleSaveRoleMatrix = async () => {
+    if (!selectedRole || selectedRole.name === "SUPER_ADMIN") return
+    setSavingMatrix(true)
     try {
-      const payload = Object.entries(editingPermissions).map(([module, perms]) => ({
-        module,
-        ...perms
-      }))
-
+      const payload = {
+        roleId: selectedRole.id,
+        permissions: Object.values(editingPermissions)
+      }
       const res = await fetch("/api/settings/access-control", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "update_role",
-          roleId: selectedRoleId,
-          permissions: payload
-        })
+        body: JSON.stringify(payload)
       })
-
-      if (res.ok) {
-        toast.success("Role permissions updated successfully")
-        window.dispatchEvent(new CustomEvent("visibility-refresh"))
-        fetchData()
-      } else {
-        const errData = await res.json()
-        toast.error(errData.error || "Failed to update role permissions")
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to update role permissions")
       }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error saving workflow configuration")
+      toast.success(`Role permissions matrix for "${getRoleDisplayName(selectedRole.name)}" updated successfully!`)
+      await loadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save permissions matrix")
     } finally {
-      setLoading(false)
+      setSavingMatrix(false)
     }
   }
 
-  const handleToggleWorkstationConfigurator = async (newValue: boolean) => {
-    setLoading(true)
+  // Handle Client Access Request Approval/Rejection
+  const handleActionClientRequest = async (requestId: string, status: "Approved" | "Rejected") => {
     try {
-      const res = await fetch("/api/settings/system", {
+      const res = await fetch(`/api/clients/access-requests/${requestId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enable_workstation_configurator: String(newValue)
-        })
+        body: JSON.stringify({ status })
       })
-
-      if (res.ok) {
-        setWorkstationConfiguratorEnabled(newValue)
-        toast.success(
-          newValue
-            ? "Workstation Product Configurator is now ENABLED for all users!"
-            : "Workstation Product Configurator is now HIDDEN for non-Super Admins."
-        )
-        fetchData()
-      } else {
-        toast.error("Failed to update feature setting")
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || `Failed to ${status.toLowerCase()} request`)
       }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error updating system feature setting")
-    } finally {
-      setLoading(false)
+      toast.success(`Client access request ${status.toLowerCase()} successfully!`)
+      await loadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to process request")
     }
   }
 
-  // Handle adding new user profile
-  const handleAddUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newUserRole) {
-      toast.error("Please select a system role")
-      return
-    }
-    if (!newUserName || !newUserEmail || !newUserPassword || !newUserPhone) {
-      toast.error("Name, email, password, and contact number are required")
-      return
-    }
-    setAddingUser(true)
-    try {
-      const res = await fetch("/api/settings/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newUserName,
-          email: newUserEmail,
-          password: newUserPassword,
-          role: newUserRole,
-          phone: newUserPhone,
-          department: newUserDepartment
-        })
-      })
+  // Filter modules based on search
+  const filteredModules = useMemo(() => {
+    return modules.filter(m => {
+      return searchQuery === "" || 
+        m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        m.id.toLowerCase().includes(searchQuery.toLowerCase())
+    })
+  }, [searchQuery])
 
-      if (res.ok) {
-        toast.success(`User ${newUserName} added successfully!`)
-        setShowAddUserModal(false)
-        setNewUserName("")
-        setNewUserEmail("")
-        setNewUserPassword("")
-        setNewUserPhone("")
-        setNewUserDepartment("")
-        fetchData()
-      } else {
-        const errData = await res.json()
-        toast.error(errData.error || "Failed to create user account")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("Connection failed")
-    } finally {
-      setAddingUser(false)
-    }
-  }
-
-  // Update user profile info & client assignments
-  const handleSaveUserProfile = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const targetUser = users.find(u => u.id === selectedUserId)
-    if (!targetUser) return
-
-    setLoading(true)
-    try {
-      const res = await fetch("/api/settings/access-control", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "update_user_profile",
-          targetUserId: selectedUserId,
-          name: editingUserProfile.name,
-          email: editingUserProfile.email,
-          role: editingUserProfile.role,
-          department: editingUserProfile.department,
-          employeeId: editingUserProfile.employeeId,
-          status: editingUserProfile.status,
-          password: editingUserProfile.password || undefined,
-          clientAssignments: editingUserProfile.clientAssignments
-        })
-      })
-
-      if (res.ok) {
-        toast.success(
-          editingUserProfile.password && editingUserProfile.password.trim() !== ""
-            ? "User profile & password updated successfully!"
-            : "User profile and assignments saved successfully"
-        )
-        setEditingUserProfile(prev => ({ ...prev, password: "" }))
-        window.dispatchEvent(new CustomEvent("visibility-refresh"))
-        fetchData()
-      } else {
-        const errData = await res.json()
-        toast.error(errData.error || "Failed to update user profile")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error updating user details")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Toggle global approval workflows
-  const handleToggleApprovalSetting = async (key: string, currentValue: boolean) => {
-    const updatedValue = !currentValue
-    const settingKey = `approval_control_${key}`
-
-    // Optimistic UI update
-    setApprovalSettings(prev => ({
-      ...prev,
-      [key]: updatedValue
-    }))
-
-    try {
-      const res = await fetch("/api/settings/access-control", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "update_approval_settings",
-          settings: {
-            [settingKey]: String(updatedValue)
-          }
-        })
-      })
-
-      if (res.ok) {
-        toast.success(`Workflow setting updated: ${key.replace("_", " ")} approval ${updatedValue ? "Enabled" : "Disabled"}`)
-      } else {
-        toast.error("Failed to update approval workflow setting")
-        // Revert
-        setApprovalSettings(prev => ({
-          ...prev,
-          [key]: currentValue
-        }))
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error updating approval workflow setting")
-      // Revert
-      setApprovalSettings(prev => ({
-        ...prev,
-        [key]: currentValue
-      }))
-    }
-  }
-
-  // Assign client to user
-  const handleAssignClient = (clientId: string) => {
-    if (!clientId) return
-    if (editingUserProfile.clientAssignments.includes(clientId)) {
-      toast.warning("Client is already assigned to this user")
-      return
-    }
-
-    setEditingUserProfile(prev => ({
-      ...prev,
-      clientAssignments: [...prev.clientAssignments, clientId]
-    }))
-    toast.success("Added client to user's pending assignments list (Click Save changes to commit)")
-  }
-
-  // Revoke client access instantly
-  const handleRevokeClientAccess = async (clientId: string) => {
-    if (!confirm("Are you sure you want to instantly revoke access to this client for the user?")) {
-      return
-    }
-
-    setLoading(true)
-    try {
-      const res = await fetch("/api/settings/access-control", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "remove_client_access",
-          clientId,
-          userId: selectedUserId
-        })
-      })
-
-      if (res.ok) {
-        toast.success("Client access revoked successfully")
-        fetchData()
-      } else {
-        toast.error("Failed to revoke client access")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error revoking client access")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Transfer client ownership from user profile
-  const handleTransferClient = async () => {
-    if (!transferModal.toUserId) {
-      toast.error("Please select the target consultant to transfer ownership to")
-      return
-    }
-
-    setLoading(true)
-    try {
-      const res = await fetch("/api/settings/access-control", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "transfer_client",
-          clientId: transferModal.clientId,
-          fromUserId: transferModal.fromUserId,
-          toUserId: transferModal.toUserId
-        })
-      })
-
-      if (res.ok) {
-        toast.success("Client ownership transferred successfully")
-        setTransferModal(prev => ({ ...prev, isOpen: false }))
-        fetchData()
-      } else {
-        toast.error("Failed to transfer client ownership")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error transferring client ownership")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Access Requests processing
-  const handleProcessAccessRequest = async (requestId: string, action: "Approve" | "Reject" | "Reassign", payload: any = {}) => {
-    setLoading(true)
-    try {
-      const res = await fetch("/api/settings/access-control", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "process_access_request",
-          requestId,
-          action,
-          ...payload
-        })
-      })
-
-      if (res.ok) {
-        toast.success(`Access request successfully ${action === "Approve" ? "Approved" : action === "Reject" ? "Rejected" : "Reassigned"}`)
-        setRejectModal(prev => ({ ...prev, isOpen: false }))
-        setReassignModal(prev => ({ ...prev, isOpen: false }))
-        fetchData()
-      } else {
-        toast.error("Failed to process access request")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error processing access request")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCreateRole = async () => {
-    if (!newRoleName) {
-      toast.error("Role name is required")
-      return
-    }
-    setLoading(true)
-    try {
-      const res = await fetch("/api/settings/access-control", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "create_role",
-          roleName: newRoleName,
-          description: newRoleDesc,
-          baseRoleId
-        })
-      })
-      const data = await res.json()
-      if (res.ok) {
-        toast.success("Role created successfully")
-        setNewRoleModal(false)
-        setNewRoleName("")
-        setNewRoleDesc("")
-        setBaseRoleId("")
-        fetchData()
-        if (data.role?.id) {
-          setSelectedRoleId(data.role.id)
-          loadRolePermissions(data.role.permissions || [])
+  // Open User Override modal
+  const handleOpenUserOverride = (user: any) => {
+    setSelectedUserId(user.id)
+    const existingOverridesMap: Record<string, any> = {}
+    if (user.permissionOverrides) {
+      for (const ov of user.permissionOverrides) {
+        existingOverridesMap[`${ov.module}:${ov.action}`] = ov.value
+        if (ov.action === "ownership") {
+          existingOverridesMap[`${ov.module}:ownership`] = ov.ownership
         }
-      } else {
-        toast.error(data.error || "Failed to create role")
       }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error creating role")
-    } finally {
-      setLoading(false)
     }
+    setEditingOverrides(existingOverridesMap)
   }
 
-  const handleUpdateRoleDetails = async () => {
-    if (!editRoleName) {
-      toast.error("Role name is required")
-      return
-    }
-    setLoading(true)
+  // Selected user for override modal
+  const selectedUserObj = useMemo(() => {
+    return users.find(u => u.id === selectedUserId) || null
+  }, [users, selectedUserId])
+
+  // Save User Override
+  const handleSaveUserOverrides = async () => {
+    if (!selectedUserObj) return
+    setSavingUserOverride(true)
     try {
-      const res = await fetch("/api/settings/access-control", {
+      const res = await fetch(`/api/settings/access-control/users/${selectedUserObj.id}/overrides`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "update_role_details",
-          roleId: selectedRoleId,
-          roleName: editRoleName,
-          description: editRoleDesc
-        })
+        body: JSON.stringify({ overrides: editingOverrides })
       })
-      const data = await res.json()
-      if (res.ok) {
-        toast.success("Role details updated")
-        setEditRoleModal(false)
-        fetchData()
-      } else {
-        toast.error(data.error || "Failed to update role")
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to save user overrides")
       }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error updating role details")
+      toast.success(`User permission overrides for ${selectedUserObj.name} saved!`)
+      setSelectedUserId(null)
+      await loadData()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save user overrides")
     } finally {
-      setLoading(false)
+      setSavingUserOverride(false)
     }
   }
 
-  const handleDeleteRole = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this custom role? Users assigned to this role will lose their permissions. This action cannot be undone.")) {
-      return
-    }
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/settings/access-control?roleId=${id}`, {
-        method: "DELETE"
-      })
-      if (res.ok) {
-        toast.success("Role deleted successfully")
-        setSelectedRoleId("")
-        fetchData()
-      } else {
-        const data = await res.json()
-        toast.error(data.error || "Failed to delete role")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("Error deleting role")
-    } finally {
-      setLoading(false)
-    }
+  const pendingRequestsCount = clientAccessRequests.filter(r => r.status === "Pending").length
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading Access Control &amp; Security Hub...</p>
+      </div>
+    )
   }
-
-  // Filtered lists
-  const filteredUsersList = users.filter(u => {
-    const search = userSearchTerm.toLowerCase()
-    return (
-      (u.name && u.name.toLowerCase().includes(search)) ||
-      u.email.toLowerCase().includes(search) ||
-      (u.employeeId && u.employeeId.toLowerCase().includes(search)) ||
-      u.role.toLowerCase().includes(search)
-    )
-  })
-
-  const filteredClientsForAssign = clients.filter(c => {
-    const search = clientSearchTerm.toLowerCase()
-    return (
-      c.companyName.toLowerCase().includes(search) ||
-      c.clientId.toLowerCase().includes(search)
-    )
-  })
-
-  const filteredLogs = logs.filter(l => {
-    const search = logFilterTerm.toLowerCase()
-    return (
-      l.action.toLowerCase().includes(search) ||
-      l.details.toLowerCase().includes(search) ||
-      (l.user?.name && l.user.name.toLowerCase().includes(search)) ||
-      (l.user?.email && l.user.email.toLowerCase().includes(search)) ||
-      (l.targetUser?.name && l.targetUser.name.toLowerCase().includes(search))
-    )
-  })
-
-  const selectedRole = roles.find(r => r.id === selectedRoleId)
-  const selectedUser = users.find(u => u.id === selectedUserId)
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-7xl">
-      {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-zinc-200 dark:border-zinc-800 pb-5 mb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-amber-600 to-amber-400 bg-clip-text text-transparent">
-            Super Admin Access Control Panel
-          </h1>
-          <p className="text-sm text-zinc-500 mt-1">
-            Redesigned centralized dashboard for user roles, granular module permissions, approvals configuration, client assignments, and audit compliance logs.
-          </p>
+    <div className="p-6 space-y-6 max-w-7xl mx-auto font-sans">
+      
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+            <Shield className="h-6 w-6" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              Access Control Settings
+              <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 font-mono font-bold">
+                Super Admin Matrix
+              </Badge>
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Configure role permissions, module visibility, and individual user permission overrides.
+            </p>
+          </div>
         </div>
+
+        {activeTab === "roles" && selectedRole && selectedRole.name !== "SUPER_ADMIN" && (
+          <Button
+            onClick={handleSaveRoleMatrix}
+            disabled={savingMatrix}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-xs"
+          >
+            {savingMatrix ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save Permissions Matrix
+          </Button>
+        )}
       </div>
 
-      {/* Overview Cards (Static stats loaded from API) */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:scale-[1.01] transition-all flex items-center space-x-3.5">
-          <div className="p-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-            <Users size={20} />
-          </div>
-          <div>
-            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Total Users</div>
-            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{stats.totalUsers}</div>
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:scale-[1.01] transition-all flex items-center space-x-3.5">
-          <div className="p-2.5 rounded-lg bg-green-50 dark:bg-green-950/20 text-green-600 dark:text-green-400">
-            <UserCheck size={20} />
-          </div>
-          <div>
-            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Active Users</div>
-            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{stats.activeUsers}</div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:scale-[1.01] transition-all flex items-center space-x-3.5">
-          <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 relative">
-            <Clock size={20} />
-            {stats.pendingRequests > 0 && (
-              <span className="absolute top-1 right-1 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-              </span>
-            )}
-          </div>
-          <div>
-            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Pending Access</div>
-            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{stats.pendingRequests}</div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:scale-[1.01] transition-all flex items-center space-x-3.5">
-          <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400">
-            <Ban size={20} />
-          </div>
-          <div>
-            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Suspended</div>
-            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{stats.suspendedUsers}</div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm hover:scale-[1.01] transition-all flex items-center space-x-3.5">
-          <div className="p-2.5 rounded-lg bg-purple-50 dark:bg-purple-950/20 text-purple-600 dark:text-purple-400">
-            <Shield size={20} />
-          </div>
-          <div>
-            <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Total Roles</div>
-            <div className="text-xl font-bold text-zinc-900 dark:text-white mt-0.5">{stats.totalRoles}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs navigation */}
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800 mb-6 gap-2 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab("dashboard")}
-          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
-            activeTab === "dashboard"
-              ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
-              : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-          }`}
-        >
-          <Settings size={16} />
-          Overview Dashboard
-        </button>
+      {/* Main Navigation Tabs */}
+      <div className="flex items-center space-x-1 border-b pb-1 overflow-x-auto">
         <button
           onClick={() => setActiveTab("roles")}
-          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
-            activeTab === "roles"
-              ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
-              : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-          }`}
+          className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer ${activeTab === "roles" ? "bg-primary text-white shadow-xs" : "text-muted-foreground hover:bg-muted"}`}
         >
-          <Shield size={16} />
-          Role Permissions Matrix
+          <Shield className="h-4 w-4" /> Role Permissions Matrix
         </button>
         <button
-          onClick={() => setActiveTab("users")}
-          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
-            activeTab === "users"
-              ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
-              : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-          }`}
+          onClick={() => setActiveTab("overrides")}
+          className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer ${activeTab === "overrides" ? "bg-primary text-white shadow-xs" : "text-muted-foreground hover:bg-muted"}`}
         >
-          <User size={16} />
-          User &amp; Client Access Console
+          <UserCheck className="h-4 w-4" /> User Level Overrides ({users.filter(u => u.permissionOverrides && u.permissionOverrides.length > 0).length})
         </button>
         <button
           onClick={() => setActiveTab("requests")}
-          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap relative ${
-            activeTab === "requests"
-              ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
-              : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-          }`}
+          className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer relative ${activeTab === "requests" ? "bg-primary text-white shadow-xs" : "text-muted-foreground hover:bg-muted"}`}
         >
-          <Clock size={16} />
-          Access Requests
-          {stats.pendingRequests > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-amber-500 text-white font-bold">
-              {stats.pendingRequests}
-            </span>
+          <Key className="h-4 w-4" /> Client Access Requests
+          {pendingRequestsCount > 0 && (
+            <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0 rounded-full font-bold ml-1">
+              {pendingRequestsCount}
+            </Badge>
           )}
         </button>
         <button
           onClick={() => setActiveTab("logs")}
-          className={`pb-3 px-4 text-sm font-semibold transition-all border-b-2 flex items-center gap-2 whitespace-nowrap ${
-            activeTab === "logs"
-              ? "border-amber-500 text-amber-600 dark:text-amber-400 font-bold"
-              : "border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-          }`}
+          className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer ${activeTab === "logs" ? "bg-primary text-white shadow-xs" : "text-muted-foreground hover:bg-muted"}`}
         >
-          <History size={16} />
-          Compliance Logs
+          <History className="h-4 w-4" /> Security Audit Logs ({logs.length})
         </button>
       </div>
 
-      {loading && (
-        <div className="py-20 text-center text-zinc-400 text-sm animate-pulse flex flex-col items-center justify-center space-y-2">
-          <Clock size={24} className="animate-spin text-amber-500" />
-          <span>Synchronizing access control data, please wait...</span>
-        </div>
-      )}
-
-      {/* Tab 1: Dashboard Overview */}
-      {!loading && activeTab === "dashboard" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* TAB 1: ROLE PERMISSIONS MATRIX (Clean Tabular View - Similar to Old UI) */}
+      {activeTab === "roles" && (
+        <div className="space-y-5">
           
-          {/* Approval Controls ON/OFF */}
-          <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
-            <div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Workflow Approval Controls</h2>
-              <p className="text-xs text-zinc-400 mt-0.5">Toggle which core ERP transactions require strict Admin/Super Admin approval before final processing.</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                { key: "client_creation", label: "Client Creation Approval", desc: "Requires admin confirmation when a consultant adds a new client." },
-                { key: "client_access", label: "Client Access Approval", desc: "Requires admin review when a consultant requests client records transfer." },
-                { key: "product_creation", label: "Product Creation Approval", desc: "Requires authorization when new items are added to catalog." },
-                { key: "product_bulk_upload", label: "Product Bulk Upload Approval", desc: "Requires verification when products are imported via CSV files." },
-                { key: "quotation", label: "Quotation Approval", desc: "Requires manager signature for quotes above default margin thresholds." },
-                { key: "revision", label: "Revision Confirmation Approval", desc: "Requires authorization when quotations are revised with custom items." },
-              ].map((setting) => (
-                <div key={setting.key} className="flex items-start justify-between p-3.5 border dark:border-zinc-800 rounded-xl hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 transition-all">
-                  <div className="space-y-0.5 max-w-[80%]">
-                    <span className="block text-xs font-bold text-zinc-900 dark:text-zinc-200">{setting.label}</span>
-                    <span className="block text-[10px] text-zinc-400 leading-normal">{setting.desc}</span>
-                  </div>
+          {/* Role Selector Horizontal Tabs */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Configure Role Matrix:</label>
+            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+              {roles.map(r => {
+                const isSelected = selectedRoleId === r.id
+                const isSuper = r.name === "SUPER_ADMIN"
+                return (
                   <button
-                    onClick={() => handleToggleApprovalSetting(setting.key, approvalSettings[setting.key] || false)}
-                    className={`h-5 w-9 rounded-full transition-all shrink-0 relative ${
-                      approvalSettings[setting.key]
-                        ? "bg-amber-500"
-                        : "bg-zinc-200 dark:bg-zinc-800"
+                    key={r.id}
+                    onClick={() => setSelectedRoleId(r.id)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 border flex items-center gap-2 cursor-pointer ${
+                      isSelected 
+                        ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-900 shadow-xs" 
+                        : "bg-card hover:bg-muted text-muted-foreground border-border"
                     }`}
                   >
-                    <span
-                      className={`absolute top-0.5 left-0.5 bg-white h-4 w-4 rounded-full transition-all ${
-                        approvalSettings[setting.key]
-                          ? "translate-x-4"
-                          : "translate-x-0"
-                      }`}
-                    />
+                    {isSuper ? <ShieldAlert className="h-3.5 w-3.5 text-amber-400" /> : <Shield className="h-3.5 w-3.5" />}
+                    <span>{getRoleDisplayName(r.name)}</span>
+                    <span className="text-[10px] opacity-75 font-mono">({users.filter(u => u.role === r.name).length})</span>
                   </button>
-                </div>
-              ))}
-            </div>
-
-            {/* System Feature Controls (Super Admin Only) */}
-            <div className="pt-4 border-t dark:border-zinc-800 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                  System Feature Toggles (Super Admin)
-                </h3>
-              </div>
-
-              <div className="p-3.5 border dark:border-zinc-800 rounded-xl hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 transition-all flex items-start justify-between gap-4">
-                <div className="space-y-1 max-w-[80%]">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-zinc-900 dark:text-zinc-200">
-                      Workstation Product Configurator
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                        workstationConfiguratorEnabled
-                          ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
-                      }`}
-                    >
-                      {workstationConfiguratorEnabled ? "Enabled (All Users)" : "Disabled (Super Admin Only)"}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    Allows sales executives and consultants to configure workstation products by attributes (Model, Leg Type, Table Top Finish, Dimensions). When disabled, this feature is hidden from non-Super Admin users.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => handleToggleWorkstationConfigurator(!workstationConfiguratorEnabled)}
-                  disabled={currentUserRole !== "SUPER_ADMIN"}
-                  className={`h-5 w-9 rounded-full transition-all shrink-0 relative mt-1 ${
-                    workstationConfiguratorEnabled
-                      ? "bg-amber-500"
-                      : "bg-zinc-200 dark:bg-zinc-800"
-                  } ${currentUserRole !== "SUPER_ADMIN" ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
-                  title={currentUserRole !== "SUPER_ADMIN" ? "Super Admin permission required" : "Toggle feature"}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 bg-white h-4 w-4 rounded-full transition-all ${
-                      workstationConfiguratorEnabled
-                        ? "translate-x-4"
-                        : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
+                )
+              })}
             </div>
           </div>
 
-          {/* Recently Added Users & Quick Actions */}
-          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
-            <h3 className="text-sm font-bold text-zinc-900 dark:text-white uppercase tracking-wider border-b pb-2.5">Recently Added Users</h3>
-            <div className="divide-y dark:divide-zinc-800">
-              {recentlyAddedUsers.map((user) => (
-                <div key={user.id} className="py-3 flex items-center justify-between text-xs">
-                  <div className="min-w-0 pr-2">
-                    <span className="block font-semibold text-zinc-800 dark:text-zinc-200 truncate">{user.name || user.email}</span>
-                    <span className="block text-[10px] text-zinc-400 truncate mt-0.5">{getRoleDisplayName(user.role)} | {user.department || "No Dept"}</span>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                    user.status === "Active" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
-                    user.status === "Suspended" ? "bg-red-100 text-red-700 dark:bg-red-950/20 dark:text-red-400" :
-                    "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-400"
-                  }`}>
-                    {user.status}
-                  </span>
-                </div>
-              ))}
+          {/* Super Admin Notice */}
+          {selectedRole?.name === "SUPER_ADMIN" && (
+            <div className="p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-xl text-amber-900 dark:text-amber-200 text-xs flex items-center gap-3">
+              <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>
+                <strong>Super Admin Bypass Active:</strong> The SUPER_ADMIN role bypasses matrix permissions and has full access across all modules.
+              </span>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Tab 2: Role Permissions Matrix */}
-      {!loading && activeTab === "roles" && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Roles Side Panel */}
-          <div className="lg:col-span-1 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b pb-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Roles List</h3>
-              <button
-                onClick={() => setNewRoleModal(true)}
-                className="text-[10px] font-bold text-amber-600 hover:text-amber-700 flex items-center gap-0.5"
-              >
-                <Plus size={10} /> Add Custom
-              </button>
+          {/* Module Filter / Search */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search modules..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-xl text-xs focus:outline-none font-sans"
+              />
             </div>
-            
-            <div className="space-y-1.5">
-              {roles.map((r) => (
-                <div
-                  key={r.id}
-                  onClick={() => handleRoleSelect(r.id)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left text-sm font-medium transition-all cursor-pointer border ${
-                    selectedRoleId === r.id
-                      ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
-                      : "border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300"
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="block truncate font-bold text-xs">{r.name}</span>
-                    <span className="block text-[10px] text-zinc-400 truncate mt-0.5">{r.description || "No description"}</span>
-                  </div>
-                  {r.isSystem && (
-                    <span className="ml-2 px-1.5 py-0.5 rounded text-[8px] bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 border font-semibold shrink-0">
-                      System
-                    </span>
-                  )}
-                </div>
-              ))}
+            <div className="text-xs text-muted-foreground font-mono">
+              Editing: <strong className="text-foreground font-sans">{selectedRole ? getRoleDisplayName(selectedRole.name) : ""}</strong>
             </div>
           </div>
 
-          {/* Permissions Matrix display */}
-          <div className="lg:col-span-3 space-y-4">
-            {selectedRole && (
-              <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-5">
-                
-                {/* Header detail */}
-                <div className="flex items-center justify-between gap-4 border-b dark:border-zinc-800 pb-4">
-                  <div>
-                    <h2 className="text-lg font-bold text-zinc-900 dark:text-white">{selectedRole.name} Permissions Matrix</h2>
-                    <p className="text-xs text-zinc-400 mt-0.5">{selectedRole.description}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setEditRoleName(selectedRole.name)
-                        setEditRoleDesc(selectedRole.description || "")
-                        setEditRoleModal(true)
-                      }}
-                      disabled={selectedRole.name === "SUPER_ADMIN"}
-                      className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 text-zinc-600 px-3 py-1.5 text-xs font-semibold hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <Settings size={12} />
-                      Edit Details
-                    </button>
-                    {!selectedRole.isSystem && (
-                      <button
-                        onClick={() => handleDeleteRole(selectedRole.id)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 text-red-600 px-3 py-1.5 text-xs font-semibold hover:bg-red-50 dark:border-red-950/20 dark:hover:bg-red-950/40"
+          {/* Clean Role Permission Matrix Table */}
+          <div className="bg-card border rounded-2xl shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse font-sans">
+                <thead>
+                  <tr className="border-b bg-slate-50 dark:bg-slate-900/80 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">
+                    <th className="p-3.5 min-w-[200px] sticky left-0 bg-slate-50 dark:bg-slate-900/90 z-10 border-r">Module Name</th>
+                    {matrixColumns.map(col => (
+                      <th key={col.id} className="p-3 text-center min-w-[85px]" title={col.title}>
+                        {col.label}
+                      </th>
+                    ))}
+                    <th className="p-3 min-w-[160px] text-left border-l">Ownership Scope</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y border-b">
+                  {filteredModules.map((m, idx) => {
+                    const rowPerm = editingPermissions[m.id] || {}
+                    const ModuleIcon = m.icon
+                    const isEven = idx % 2 === 0
+                    return (
+                      <tr 
+                        key={m.id} 
+                        className={`transition-colors ${isEven ? "bg-card" : "bg-muted/20"} hover:bg-slate-100/60 dark:hover:bg-slate-800/40`}
                       >
-                        <Trash2 size={12} />
-                        Delete Role
-                      </button>
-                    )}
-                    <button
-                      onClick={saveRolePermissions}
-                      disabled={selectedRole.name === "SUPER_ADMIN"}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-4 py-1.5 text-xs font-bold hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                    >
-                      <Save size={12} />
-                      Save Permissions Matrix
-                    </button>
-                  </div>
-                </div>
-
-                {selectedRole.name === "SUPER_ADMIN" && (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/25 border border-amber-200 dark:border-amber-900/40 rounded-xl text-amber-800 dark:text-amber-400 text-xs flex items-start gap-2">
-                    <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-                    <div>
-                      <strong>Super Admin Bypass Rule Enabled:</strong> The SUPER_ADMIN role bypasses all authorization matrix constraints and has hardcoded full system access. Editing Super Admin permissions is disabled.
-                    </div>
-                  </div>
-                )}
-
-                {/* Grid matrix */}
-                <div className="overflow-x-auto border dark:border-zinc-800 rounded-xl max-h-[500px]">
-                  <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
-                    <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold sticky top-0 z-10">
-                      <tr>
-                        <th className="p-3 border-r dark:border-zinc-800">Module</th>
-                        {primaryActions.map(a => (
-                          <th key={a.id} className="p-3 text-center min-w-[70px]">{a.label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                      {modules.map((m) => {
-                        const rowPerm = editingPermissions[m.id] || {}
-                        return (
-                          <tr key={m.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10 transition-all">
-                            <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-200 border-r dark:border-zinc-800">{m.name}</td>
-                            {primaryActions.map((a) => {
-                              const isSpecialDiscount = a.id === "canApplySpecialDiscount";
-                              const isExportBoqExcel = a.id === "canExportBoqExcel";
-                              const isCostBreakdown = a.id === "costPriceVisible";
-                              const shouldRender = (!isSpecialDiscount || m.id === "QUOTATIONS") && (!isExportBoqExcel || m.id === "BOQS") && (!isCostBreakdown || m.id === "QUOTATIONS" || m.id === "BOQS");
-                              return (
-                                <td key={a.id} className="p-3 text-center">
-                                  {shouldRender && (
-                                    <input
-                                      type="checkbox"
-                                      checked={rowPerm[a.id] ?? false}
-                                      disabled={selectedRole.name === "SUPER_ADMIN"}
-                                      onChange={(e) => handleRolePermChange(m.id, a.id, e.target.checked)}
-                                      className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-amber-600 focus:ring-amber-500 dark:bg-zinc-800 cursor-pointer"
-                                    />
-                                  )}
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Tab 3: User & Client Access Console */}
-      {!loading && activeTab === "users" && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* User selection panel */}
-          <div className="lg:col-span-1 bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">User Accounts</h3>
-              <button
-                onClick={() => setShowAddUserModal(true)}
-                className="inline-flex items-center justify-center gap-1 bg-amber-600 hover:bg-amber-700 text-white rounded px-2 py-1 text-[10px] font-bold"
-              >
-                <Plus size={10} /> Add
-              </button>
-            </div>
-            <div>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
-                <input
-                  type="text"
-                  placeholder="Filter users..."
-                  value={userSearchTerm}
-                  onChange={(e) => setUserSearchTerm(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent pl-8 pr-3 py-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-1.5 max-h-[500px] overflow-y-auto">
-              {filteredUsersList.map((u) => (
-                <div
-                  key={u.id}
-                  onClick={() => handleUserSelect(u.id)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg text-left text-sm font-medium transition-all cursor-pointer border ${
-                    selectedUserId === u.id
-                      ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
-                      : "border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800/50 text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-300"
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <span className="block truncate font-bold text-xs">{u.name || u.email}</span>
-                    <span className="block text-[10px] text-zinc-400 truncate mt-0.5">{getRoleDisplayName(u.role)}</span>
-                  </div>
-                  <span className={`ml-2 px-1.5 py-0.5 rounded text-[8px] font-bold ${
-                    u.status === "Active" ? "bg-green-50 text-green-700 border border-green-200" :
-                    u.status === "Suspended" ? "bg-red-50 text-red-700 border border-red-200" :
-                    "bg-zinc-100 text-zinc-700 border border-zinc-200"
-                  }`}>
-                    {u.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* User profile & Client Assignments detail */}
-          <div className="lg:col-span-3 space-y-4">
-            {selectedUser && (
-              <form onSubmit={handleSaveUserProfile} className="space-y-4">
-                
-                {/* Profile Editor */}
-                <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-5">
-                  <div className="flex items-center justify-between gap-4 border-b dark:border-zinc-800 pb-4">
-                    <div>
-                      <h2 className="text-lg font-bold text-zinc-900 dark:text-white">User Information</h2>
-                      <p className="text-xs text-zinc-400 mt-0.5">Manage permissions, status, employee IDs and assigned clients.</p>
-                    </div>
-                    
-                    <button
-                      type="submit"
-                      disabled={selectedUser.role === "SUPER_ADMIN" && currentUserRole !== "SUPER_ADMIN"}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 text-white px-4 py-1.5 text-xs font-bold hover:bg-amber-700 disabled:opacity-40 transition-all shadow-sm"
-                    >
-                      <Save size={12} />
-                      Save Changes
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={editingUserProfile.name}
-                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, name: e.target.value }))}
-                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Email</label>
-                      <input
-                        type="email"
-                        required
-                        value={editingUserProfile.email}
-                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, email: e.target.value }))}
-                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Employee ID</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. EMP-1002"
-                        value={editingUserProfile.employeeId}
-                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, employeeId: e.target.value }))}
-                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">System Role</label>
-                      <select
-                        value={editingUserProfile.role}
-                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, role: e.target.value }))}
-                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
-                      >
-                        {roles.map(r => (
-                          <option key={r.id} value={r.name}>{r.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Department</label>
-                      <select
-                        value={editingUserProfile.department}
-                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, department: e.target.value }))}
-                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
-                      >
-                        <option value="">No Department</option>
-                        <option value="SALES">Sales</option>
-                        <option value="DESIGN">Design</option>
-                        <option value="ESTIMATION">Estimation</option>
-                        <option value="ACCOUNTS">Accounts</option>
-                        <option value="PRODUCTION">Production</option>
-                        <option value="ADMIN">Administration</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Access Status</label>
-                      <select
-                        value={editingUserProfile.status}
-                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, status: e.target.value }))}
-                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
-                      >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="Suspended">Suspended</option>
-                        <option value="Pending Approval">Pending Approval</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1 flex items-center justify-between">
-                        <span>New Password (Reset)</span>
-                        {currentUserRole !== "SUPER_ADMIN" && (
-                          <span className="text-[10px] text-amber-500 font-normal">Super Admin Only</span>
-                        )}
-                      </label>
-                      <input
-                        type="password"
-                        disabled={currentUserRole !== "SUPER_ADMIN"}
-                        placeholder={currentUserRole === "SUPER_ADMIN" ? "Leave blank to keep current password" : "Only Super Admin can reset user passwords"}
-                        value={editingUserProfile.password || ""}
-                        onChange={(e) => setEditingUserProfile(prev => ({ ...prev, password: e.target.value }))}
-                        className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Client Assignment editor */}
-                <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
-                  <div>
-                    <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Client Access Control</h3>
-                    <p className="text-xs text-zinc-400 mt-0.5">Assign, transfer, or remove client ownership instantly.</p>
-                  </div>
-
-                  {/* Add client input search */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-semibold text-zinc-500 mb-1">Search Clients to Assign (Secondary Access)</label>
-                      <div className="relative">
-                        <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-zinc-400" />
-                        <input
-                          type="text"
-                          placeholder="Search client catalog by company name or ID..."
-                          value={clientSearchTerm}
-                          onChange={(e) => setClientSearchTerm(e.target.value)}
-                          className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent pl-7 pr-3 py-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                        />
-                      </div>
-                      
-                      {clientSearchTerm && (
-                        <div className="absolute z-20 mt-1 max-h-40 overflow-y-auto w-[400px] border bg-white dark:bg-zinc-900 dark:border-zinc-800 rounded-lg shadow-lg text-xs divide-y dark:divide-zinc-800">
-                          {filteredClientsForAssign.slice(0, 5).map(c => (
-                            <div
-                              key={c.id}
-                              onClick={() => {
-                                handleAssignClient(c.id)
-                                setClientSearchTerm("")
-                              }}
-                              className="p-2 hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer flex justify-between items-center"
-                            >
-                              <span>{c.companyName} ({c.clientId})</span>
-                              <span className="text-[10px] text-zinc-400">Add</span>
+                        {/* Module Name & Icon Column */}
+                        <td className="p-3.5 font-bold text-foreground sticky left-0 bg-card z-10 border-r shadow-2xs">
+                          <div className="flex items-center space-x-2.5">
+                            <div className="p-1.5 rounded-lg bg-primary/10 text-primary shrink-0">
+                              <ModuleIcon className="h-4 w-4" />
                             </div>
-                          ))}
-                          {filteredClientsForAssign.length === 0 && (
-                            <div className="p-2 text-zinc-400 text-center">No clients match query.</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                            <div>
+                              <div className="text-xs font-bold text-foreground leading-tight">{m.name}</div>
+                              <div className="text-[10px] text-muted-foreground font-mono font-normal">{m.id}</div>
+                            </div>
+                          </div>
+                        </td>
 
-                  {/* Assigned Clients table */}
-                  <div className="overflow-x-auto border dark:border-zinc-800 rounded-xl">
-                    <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
-                      <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold">
-                        <tr>
-                          <th className="p-3">Client ID</th>
-                          <th className="p-3">Company Name</th>
-                          <th className="p-3">Assignment Type</th>
-                          <th className="p-3 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                        {/* Primary Assignments */}
-                        {clients.filter(c => c.salespersonId === selectedUserId).map(c => (
-                          <tr key={c.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10">
-                            <td className="p-3 font-semibold text-zinc-950 dark:text-zinc-100">{c.clientId}</td>
-                            <td className="p-3 font-semibold text-zinc-950 dark:text-zinc-100">{c.companyName}</td>
-                            <td className="p-3">
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-200 dark:border-amber-900/30">
-                                Primary Owner
-                              </span>
-                            </td>
-                            <td className="p-3 text-right space-x-1.5">
-                              <button
-                                type="button"
-                                onClick={() => setTransferModal({
-                                  isOpen: true,
-                                  clientId: c.id,
-                                  clientName: c.companyName,
-                                  fromUserId: selectedUserId,
-                                  toUserId: ""
-                                })}
-                                className="inline-flex items-center gap-1 border border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800 text-[10px] font-semibold text-zinc-700 dark:text-zinc-300 px-2.5 py-1 rounded"
-                              >
-                                <ArrowLeftRight size={10} /> Transfer
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleRevokeClientAccess(c.id)}
-                                className="inline-flex items-center gap-1 border border-red-200 hover:bg-red-50 text-[10px] font-semibold text-red-600 px-2.5 py-1 rounded dark:border-red-950/30 dark:hover:bg-red-950/20"
-                              >
-                                <Ban size={10} /> Revoke
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-
-                        {/* Secondary Assignments (Loaded from user's current selected assignments list) */}
-                        {editingUserProfile.clientAssignments.map(clientId => {
-                          const client = clients.find(c => c.id === clientId)
-                          if (!client) return null
+                        {/* Permission Checkboxes */}
+                        {matrixColumns.map(col => {
+                          const isChecked = rowPerm[col.id] ?? false
+                          const isHighRisk = ["costPriceVisible", "canApplySpecialDiscount"].includes(col.id)
                           return (
-                            <tr key={clientId} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10">
-                              <td className="p-3 text-zinc-700 dark:text-zinc-300">{client.clientId}</td>
-                              <td className="p-3 text-zinc-700 dark:text-zinc-300">{client.companyName}</td>
-                              <td className="p-3">
-                                <span className="px-2 py-0.5 rounded-full text-[9px] font-medium bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                                  Secondary Access
-                                </span>
-                              </td>
-                              <td className="p-3 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    // If saved in DB, request direct API delete. Otherwise, remove from local state list
-                                    const savedAssignment = selectedUser.clientAssignments?.find((ca: any) => ca.clientId === clientId)
-                                    if (savedAssignment) {
-                                      handleRevokeClientAccess(clientId)
-                                    } else {
-                                      setEditingUserProfile(prev => ({
-                                        ...prev,
-                                        clientAssignments: prev.clientAssignments.filter(id => id !== clientId)
-                                      }))
-                                      toast.info("Removed client from unsaved secondary access list")
-                                    }
-                                  }}
-                                  className="inline-flex items-center gap-1 border border-red-200 hover:bg-red-50 text-[10px] font-semibold text-red-600 px-2.5 py-1 rounded dark:border-red-950/30 dark:hover:bg-red-950/20"
-                                >
-                                  <Ban size={10} /> Revoke
-                                </button>
-                              </td>
-                            </tr>
+                            <td key={col.id} className={`p-3 text-center align-middle ${isHighRisk ? "bg-amber-500/5 dark:bg-amber-950/10" : ""}`}>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={selectedRole?.name === "SUPER_ADMIN"}
+                                onChange={e => handleRolePermChange(m.id, col.id, e.target.checked)}
+                                className={`h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer disabled:opacity-40 transition-transform hover:scale-110 ${isHighRisk ? "accent-amber-600" : ""}`}
+                              />
+                            </td>
                           )
                         })}
 
-                        {clients.filter(c => c.salespersonId === selectedUserId).length === 0 &&
-                         editingUserProfile.clientAssignments.length === 0 && (
-                          <tr>
-                            <td colSpan={4} className="p-8 text-center text-zinc-400">No client assignments map to this user.</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Tab 4: Access Requests Queue */}
-      {!loading && activeTab === "requests" && (
-        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
-          <div>
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Client Access Request Queue</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">Approve, reject, or reassign requests submitted by Interior design consultants requesting access to other owners&apos; clients.</p>
-          </div>
-
-          <div className="overflow-x-auto border dark:border-zinc-800 rounded-xl">
-            <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
-              <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold">
-                <tr>
-                  <th className="p-3">Requesting User</th>
-                  <th className="p-3">Current Owner</th>
-                  <th className="p-3">Client Name</th>
-                  <th className="p-3">Submitted Date</th>
-                  <th className="p-3">Reason</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-zinc-650 dark:text-zinc-450">
-                {clientAccessRequests.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-10 text-center text-zinc-400">
-                      No client access requests are in the queue.
-                    </td>
-                  </tr>
-                ) : (
-                  clientAccessRequests.map((req) => {
-                    const owner = users.find(u => u.id === req.client.salespersonId)
-                    return (
-                      <tr key={req.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10">
-                        <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-100">
-                          {req.user?.name || req.userName || req.user?.email || "Unknown"}
-                        </td>
-                        <td className="p-3">
-                          {owner ? (
-                            <span className="font-semibold text-zinc-700 dark:text-zinc-300">{owner.name || owner.email}</span>
-                          ) : (
-                            <span className="text-zinc-400">Unassigned</span>
-                          )}
-                        </td>
-                        <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-100">
-                          {req.client.companyName} ({req.client.clientId})
-                        </td>
-                        <td className="p-3 whitespace-nowrap">{new Date(req.createdAt).toLocaleDateString()}</td>
-                        <td className="p-3 max-w-[200px] truncate" title={req.notes}>{req.notes || "-"}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                            req.status === "Requested" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 animate-pulse" :
-                            req.status === "Approved" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
-                            "bg-red-100 text-red-700 dark:bg-red-950/20 dark:text-red-400"
-                          }`}>
-                            {req.status}
-                          </span>
-                        </td>
-                        <td className="p-3 text-right space-x-1.5">
-                          {req.status === "Requested" ? (
-                            <>
-                              <button
-                                onClick={() => handleProcessAccessRequest(req.id, "Approve", { assignmentType: "secondary" })}
-                                className="inline-flex items-center gap-0.5 rounded bg-green-600 text-white px-2 py-1 text-[10px] font-bold hover:bg-green-700"
-                              >
-                                <Check size={10} /> Approve
-                              </button>
-                              <button
-                                onClick={() => setReassignModal({
-                                  isOpen: true,
-                                  requestId: req.id,
-                                  clientName: req.client.companyName,
-                                  userName: req.user?.name || req.userName || "Consultant",
-                                  newOwnerId: ""
-                                })}
-                                className="inline-flex items-center gap-0.5 rounded bg-amber-600 text-white px-2 py-1 text-[10px] font-bold hover:bg-amber-700"
-                              >
-                                <ArrowLeftRight size={10} /> Reassign
-                              </button>
-                              <button
-                                onClick={() => setRejectModal({
-                                  isOpen: true,
-                                  requestId: req.id,
-                                  clientName: req.client.companyName,
-                                  userName: req.user?.name || req.userName || "Consultant",
-                                  reason: ""
-                                })}
-                                className="inline-flex items-center gap-0.5 rounded bg-red-650 text-white px-2 py-1 text-[10px] font-bold hover:bg-red-750"
-                              >
-                                <XCircle size={10} /> Reject
-                              </button>
-                            </>
-                          ) : (
-                            <span className="text-[10px] text-zinc-400">Processed</span>
-                          )}
+                        {/* Ownership Scope Dropdown */}
+                        <td className="p-3 align-middle border-l">
+                          <select
+                            value={rowPerm.ownership || "NONE"}
+                            disabled={selectedRole?.name === "SUPER_ADMIN"}
+                            onChange={e => handleRolePermChange(m.id, "ownership", e.target.value)}
+                            className="w-full bg-muted/60 border border-border rounded-lg px-2 py-1 text-xs font-bold text-foreground focus:outline-none disabled:opacity-40 cursor-pointer font-mono"
+                          >
+                            <option value="ALL">ALL (Full)</option>
+                            <option value="DEPARTMENT">DEPARTMENT</option>
+                            <option value="ASSIGNED">ASSIGNED</option>
+                            <option value="OWN">OWN</option>
+                            <option value="NONE">NONE</option>
+                          </select>
                         </td>
                       </tr>
                     )
-                  })
-                )}
-              </tbody>
-            </table>
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Sticky Bottom Save Bar */}
+          {selectedRole && selectedRole.name !== "SUPER_ADMIN" && (
+            <div className="p-4 bg-card border rounded-2xl flex items-center justify-between shadow-sm">
+              <div className="text-xs text-muted-foreground">
+                Configuring access matrix for <strong className="text-foreground">{getRoleDisplayName(selectedRole.name)}</strong>.
+              </div>
+              <Button
+                onClick={handleSaveRoleMatrix}
+                disabled={savingMatrix}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-xs"
+              >
+                {savingMatrix ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save Permissions Matrix
+              </Button>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* TAB 2: USER LEVEL OVERRIDES */}
+      {activeTab === "overrides" && (
+        <div className="space-y-4">
+          <div className="p-4 bg-card border rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Filter users by name, email, department, or role..."
+                value={userOverrideQuery}
+                onChange={e => setUserOverrideQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-muted/40 border border-border rounded-xl text-xs focus:outline-none font-sans"
+              />
+            </div>
+            <Badge variant="outline" className="text-xs font-mono font-bold self-start md:self-auto">
+              {users.length} Total Users
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {users
+              .filter(u => 
+                userOverrideQuery === "" || 
+                u.name?.toLowerCase().includes(userOverrideQuery.toLowerCase()) || 
+                u.email.toLowerCase().includes(userOverrideQuery.toLowerCase()) ||
+                u.role.toLowerCase().includes(userOverrideQuery.toLowerCase())
+              )
+              .map(u => {
+                const overridesCount = u.permissionOverrides?.length || 0
+                return (
+                  <div key={u.id} className="p-4 bg-card border rounded-2xl shadow-2xs space-y-3 flex flex-col justify-between hover:border-border transition-all">
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-bold text-sm text-foreground leading-tight">{u.name || "User"}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{u.email}</p>
+                        </div>
+                        <Badge variant="secondary" className="text-[10px] font-bold">
+                          {getRoleDisplayName(u.role)}
+                        </Badge>
+                      </div>
+
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        {u.department && <p>Department: <strong className="text-foreground">{u.department}</strong></p>}
+                        <p>Status: <strong className={u.isActive ? "text-emerald-600" : "text-rose-600"}>{u.isActive ? "Active" : "Inactive"}</strong></p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {overridesCount > 0 ? (
+                          <span className="text-amber-600 font-bold">{overridesCount} Explicit Overrides</span>
+                        ) : (
+                          "Role Default"
+                        )}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleOpenUserOverride(u)}
+                        className="h-8 text-xs font-bold cursor-pointer"
+                      >
+                        <UserCheck className="h-3.5 w-3.5 mr-1" /> Configure Overrides
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
           </div>
         </div>
       )}
 
-      {/* Tab 5: Logs */}
-      {!loading && activeTab === "logs" && (
-        <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl p-5 shadow-sm space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      {/* TAB 3: CLIENT ACCESS REQUESTS QUEUE */}
+      {activeTab === "requests" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
             <div>
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Compliance &amp; Access Control Audit Logs</h2>
-              <p className="text-xs text-zinc-400 mt-0.5">View compliance trails for actions performed by supervisors and system administrators.</p>
+              <h3 className="font-bold text-base text-foreground">Client Access Requests Queue</h3>
+              <p className="text-xs text-muted-foreground">Requests submitted by sales reps to access restricted client files.</p>
             </div>
-            
-            <div className="relative w-64 shrink-0">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
-              <input
-                type="text"
-                placeholder="Search audit trail logs..."
-                value={logFilterTerm}
-                onChange={(e) => setLogFilterTerm(e.target.value)}
-                className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent pl-8 pr-3 py-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-              />
-            </div>
+            <Badge variant="outline" className="text-xs font-mono font-bold">
+              {clientAccessRequests.length} Total Requests
+            </Badge>
           </div>
 
-          <div className="overflow-x-auto border dark:border-zinc-800 rounded-xl max-h-[500px]">
-            <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
-              <thead className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-semibold sticky top-0 z-10">
-                <tr>
+          {clientAccessRequests.length > 0 ? (
+            <div className="space-y-3">
+              {clientAccessRequests.map(req => {
+                const isPending = req.status === "Pending"
+                const isApproved = req.status === "Approved"
+                return (
+                  <div key={req.id} className="p-4 bg-card border rounded-2xl shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="space-y-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-sm text-foreground">{req.userName || req.userEmail}</span>
+                        <Badge className={isPending ? "bg-amber-500" : isApproved ? "bg-emerald-600" : "bg-rose-600"}>
+                          {req.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Requested Client: <strong className="text-foreground">{req.clientCompanyName}</strong> | Requested on: {new Date(req.createdAt).toLocaleDateString()}
+                      </p>
+                      {req.reason && <p className="text-xs text-slate-600 dark:text-slate-400 italic bg-muted/30 p-2 rounded-lg border mt-1">"{req.reason}"</p>}
+                    </div>
+
+                    {isPending && (
+                      <div className="flex items-center space-x-2 shrink-0">
+                        <Button
+                          size="sm"
+                          onClick={() => handleActionClientRequest(req.id, "Approved")}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
+                        >
+                          <Check className="h-3.5 w-3.5 mr-1" /> Approve Access
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleActionClientRequest(req.id, "Rejected")}
+                          className="border-rose-300 text-rose-600 hover:bg-rose-50 text-xs font-bold cursor-pointer"
+                        >
+                          <X className="h-3.5 w-3.5 mr-1" /> Reject Request
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-2xl bg-muted/20">
+              No pending client access requests found.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: SECURITY AUDIT LOGS */}
+      {activeTab === "logs" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h3 className="font-bold text-base text-foreground">Security &amp; Access Control Audit Logs</h3>
+              <p className="text-xs text-muted-foreground">Audited records of system permission changes, role matrix updates, and access grants.</p>
+            </div>
+            <Badge variant="outline" className="text-xs font-mono font-bold">
+              {logs.length} Log Entries
+            </Badge>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="w-full text-left text-xs border-collapse font-sans">
+              <thead>
+                <tr className="border-b bg-muted/50 text-muted-foreground font-bold uppercase text-[10px]">
                   <th className="p-3">Timestamp</th>
-                  <th className="p-3">Operator</th>
+                  <th className="p-3">Operator User</th>
                   <th className="p-3">Action</th>
-                  <th className="p-3">Target</th>
+                  <th className="p-3">Entity Type</th>
                   <th className="p-3">Details</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-zinc-600 dark:text-zinc-400">
-                {filteredLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="p-10 text-center text-zinc-400">
-                      No matching audit logs found.
+              <tbody className="divide-y border-b">
+                {logs.map((log: any, idx: number) => (
+                  <tr key={log.id || idx} className="hover:bg-muted/20">
+                    <td className="p-3 font-mono text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</td>
+                    <td className="p-3 font-bold text-foreground">{log.userName || log.userEmail || log.userId}</td>
+                    <td className="p-3">
+                      <Badge variant="outline" className="text-[10px] font-mono">
+                        {log.action}
+                      </Badge>
+                    </td>
+                    <td className="p-3 font-mono text-muted-foreground">{log.entityType}</td>
+                    <td className="p-3 text-muted-foreground font-mono text-[11px] max-w-md truncate" title={log.details}>
+                      {log.details || "-"}
                     </td>
                   </tr>
-                ) : (
-                  filteredLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/10">
-                      <td className="p-3 whitespace-nowrap">{new Date(log.createdAt).toLocaleString()}</td>
-                      <td className="p-3 font-semibold text-zinc-900 dark:text-zinc-250">
-                        {log.user?.name || log.user?.email || "System"}
-                      </td>
-                      <td className="p-3">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 border dark:border-zinc-700">
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        {log.targetUser ? (
-                          <span className="font-semibold text-zinc-900 dark:text-zinc-250">
-                            {log.targetUser.name || log.targetUser.email}
-                          </span>
-                        ) : (
-                          <span className="text-zinc-400">Global/Role</span>
-                        )}
-                      </td>
-                      <td className="p-3 max-w-sm truncate" title={log.details}>
-                        {log.details}
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* New Role Modal */}
-      {newRoleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-150">
-          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-md w-full shadow-2xl p-6 space-y-4">
-            <div>
-              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">Create Custom Role</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Define a new custom role with standard permissions template.</p>
-            </div>
-
-            <form onSubmit={handleCreateRole} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Role Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Sales Coordinator"
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Description</label>
-                <textarea
-                  placeholder="e.g. Supports sales executives with coordination tasks."
-                  value={newRoleDesc}
-                  onChange={(e) => setNewRoleDesc(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Copy Permissions From (Optional)</label>
-                <select
-                  value={baseRoleId}
-                  onChange={(e) => setBaseRoleId(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
-                >
-                  <option value="">None (Empty Slate)</option>
-                  {roles.map(r => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setNewRoleModal(false)}
-                  className="px-4 py-2 font-semibold border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 font-bold bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all"
-                >
-                  Create Custom Role
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Transfer Ownership Modal */}
-      {transferModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-100">
-          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-sm w-full shadow-2xl p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                <ArrowLeftRight size={16} className="text-amber-500" />
-                Transfer Client Ownership
-              </h3>
-              <p className="text-[11px] text-zinc-400 mt-1">
-                Reassign the primary owner of client <strong>&quot;{transferModal.clientName}&quot;</strong> to a different consultant.
-              </p>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Select New Owner</label>
-                <select
-                  value={transferModal.toUserId}
-                  onChange={(e) => setTransferModal(prev => ({ ...prev, toUserId: e.target.value }))}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
-                >
-                  <option value="">-- Choose Consultant --</option>
-                  {users.filter(u => u.id !== transferModal.fromUserId).map(u => (
-                    <option key={u.id} value={u.id}>{u.name || u.email} ({u.role})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setTransferModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleTransferClient}
-                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg"
-                >
-                  Transfer Ownership
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reject Access Request Modal */}
-      {rejectModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-sm w-full shadow-2xl p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-red-650 dark:text-red-400 flex items-center gap-1.5">
-                <XCircle size={16} />
-                Reject Access Request
-              </h3>
-              <p className="text-[11px] text-zinc-400 mt-1">
-                Provide a reason for rejecting the client access request from <strong>{rejectModal.userName}</strong> for client <strong>&quot;{rejectModal.clientName}&quot;</strong>.
-              </p>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Rejection Reason</label>
-                <textarea
-                  required
-                  placeholder="e.g. This client belongs to another region and should not be shared."
-                  value={rejectModal.reason}
-                  onChange={(e) => setRejectModal(prev => ({ ...prev, reason: e.target.value }))}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  onClick={() => setRejectModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleProcessAccessRequest(rejectModal.requestId, "Reject", { rejectionReason: rejectModal.reason })}
-                  className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg"
-                >
-                  Reject Request
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Reassign Access Request Modal */}
-      {reassignModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-sm w-full shadow-2xl p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-amber-500 flex items-center gap-1.5">
-                <ArrowLeftRight size={16} />
-                Reassign Client &amp; Approve Request
-              </h3>
-              <p className="text-[11px] text-zinc-400 mt-1">
-                Reassign client <strong>&quot;{reassignModal.clientName}&quot;</strong> to a different primary consultant, while granting secondary access to the requesting user <strong>{reassignModal.userName}</strong>.
-              </p>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Select New Primary Owner</label>
-                <select
-                  value={reassignModal.newOwnerId}
-                  onChange={(e) => setReassignModal(prev => ({ ...prev, newOwnerId: e.target.value }))}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-850 dark:text-white"
-                >
-                  <option value="">-- Choose Consultant --</option>
-                  {users.map(u => (
-                    <option key={u.id} value={u.id}>{u.name || u.email} ({u.role})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  onClick={() => setReassignModal(prev => ({ ...prev, isOpen: false }))}
-                  className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleProcessAccessRequest(reassignModal.requestId, "Reassign", { newOwnerId: reassignModal.newOwnerId })}
-                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg"
-                >
-                  Reassign &amp; Approve
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Role Modal */}
-      {newRoleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-md w-full shadow-2xl p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                <Plus size={16} className="text-amber-500" />
-                Create Custom Role
-              </h3>
-              <p className="text-[11px] text-zinc-400 mt-1">
-                Define a new role and optionally clone base permissions from an existing role.
-              </p>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Role Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Junior Estimator"
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Description (Optional)</label>
-                <textarea
-                  placeholder="Describe the role's responsibilities"
-                  value={newRoleDesc}
-                  onChange={(e) => setNewRoleDesc(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                  rows={2}
-                />
-              </div>
-
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Clone Base Permissions</label>
-                <select
-                  value={baseRoleId}
-                  onChange={(e) => setBaseRoleId(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                >
-                  <option value="">-- None (Start Blank) --</option>
-                  {roles.map(r => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setNewRoleModal(false)}
-                  className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateRole}
-                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg"
-                >
-                  Create Role
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Role Modal */}
-      {editRoleModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 rounded-xl max-w-md w-full shadow-2xl p-5 space-y-4">
-            <div>
-              <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
-                <Settings size={16} className="text-amber-500" />
-                Edit Role Details
-              </h3>
-              <p className="text-[11px] text-zinc-400 mt-1">
-                Update the name and description of this role.
-              </p>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Role Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Senior Estimator"
-                  value={editRoleName}
-                  onChange={(e) => setEditRoleName(e.target.value)}
-                  disabled={selectedRole?.isSystem}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white disabled:opacity-50"
-                />
-                {selectedRole?.isSystem && (
-                  <p className="text-[10px] text-red-500 mt-1">System role names cannot be changed.</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-zinc-500 font-semibold mb-1">Description</label>
-                <textarea
-                  placeholder="Describe the role's responsibilities"
-                  value={editRoleDesc}
-                  onChange={(e) => setEditRoleDesc(e.target.value)}
-                  className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2.5 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                  rows={2}
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setEditRoleModal(false)}
-                  className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdateRoleDetails}
-                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add User Modal */}
-      {showAddUserModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-250">
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 border dark:border-zinc-800 text-zinc-900 dark:text-white shadow-2xl rounded-xl overflow-hidden">
-            <div className="border-b dark:border-zinc-800 p-4">
-              <h3 className="text-lg font-bold">Add User Account</h3>
-              <p className="text-xs text-zinc-500">Create new credentials to access BOSQ ERP.</p>
-            </div>
-            <form onSubmit={handleAddUser}>
-              <div className="p-6 space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="newName" className="text-xs font-semibold text-zinc-500">Full Name</label>
-                  <input 
-                    id="newName"
-                    placeholder="e.g. Alice Smith"
-                    value={newUserName}
-                    onChange={(e) => setNewUserName(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                    required
-                  />
+      {/* USER OVERRIDE DIALOG MODAL */}
+      {selectedUserObj && (
+        <Dialog open={!!selectedUserObj} onOpenChange={() => setSelectedUserId(null)}>
+          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto font-sans p-6 rounded-2xl">
+            <DialogHeader className="border-b pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+                  <UserCheck className="h-6 w-6" />
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="newEmail" className="text-xs font-semibold text-zinc-500">Corporate Email</label>
-                  <input 
-                    id="newEmail"
-                    type="email"
-                    placeholder="e.g. alice@bosq.ae"
-                    value={newUserEmail}
-                    onChange={(e) => setNewUserEmail(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                    required
-                  />
+                <div>
+                  <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                    User Permission Overrides: {selectedUserObj.name}
+                    <Badge variant="secondary" className="text-xs">
+                      {getRoleDisplayName(selectedUserObj.role)}
+                    </Badge>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    Explicitly grant or deny module permissions for this specific user account.
+                  </DialogDescription>
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="newPass" className="text-xs font-semibold text-zinc-500">Initial Password</label>
-                  <input 
-                    id="newPass"
-                    type="password"
-                    placeholder="Minimum 8 characters"
-                    value={newUserPassword}
-                    onChange={(e) => setNewUserPassword(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="newPhone" className="text-xs font-semibold text-zinc-500">Contact Number</label>
-                  <input 
-                    id="newPhone"
-                    type="tel"
-                    placeholder="+971 XXXXXXXX"
-                    value={newUserPhone}
-                    onChange={(e) => setNewUserPhone(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="newDepartment" className="text-xs font-semibold text-zinc-500">Department (Optional)</label>
-                  <input 
-                    id="newDepartment"
-                    type="text"
-                    placeholder="e.g. Sales"
-                    value={newUserDepartment}
-                    onChange={(e) => setNewUserDepartment(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="newRole" className="text-xs font-semibold text-zinc-500">System Role</label>
-                  <select 
-                    id="newRole"
-                    value={newUserRole}
-                    onChange={(e) => setNewUserRole(e.target.value)}
-                    className="w-full text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-transparent p-2 dark:bg-zinc-800 text-zinc-900 dark:text-white"
-                    required
-                  >
-                    <option value="" disabled>-- Select System Role --</option>
-                    {roles.map((r: any) => {
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-4 py-3 text-xs">
+              {modules.map(m => (
+                <div key={m.id} className="p-3.5 border rounded-xl bg-card space-y-3">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <span className="font-bold text-sm text-foreground">{m.name} ({m.id})</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">Category: {m.category}</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {matrixColumns.map(col => {
+                      const key = `${m.id}:${col.id}`
+                      const currentVal = editingOverrides[key]
                       return (
-                        <option key={r.id} value={r.name}>
-                          {getRoleDisplayName(r.name)}
-                        </option>
+                        <div key={col.id} className="p-2 border rounded-lg bg-muted/20 flex flex-col space-y-1">
+                          <span className="font-semibold text-[11px] text-foreground truncate" title={col.label}>{col.label}</span>
+                          <select
+                            value={currentVal === true ? "true" : currentVal === false ? "false" : "default"}
+                            onChange={e => {
+                              const val = e.target.value
+                              setEditingOverrides(prev => {
+                                const next = { ...prev }
+                                if (val === "default") {
+                                  delete next[key]
+                                } else {
+                                  next[key] = val === "true"
+                                }
+                                return next
+                              })
+                            }}
+                            className={`text-[10px] font-bold px-2 py-1 rounded border cursor-pointer ${
+                              currentVal === true 
+                                ? "bg-emerald-100 text-emerald-800 border-emerald-300" 
+                                : currentVal === false 
+                                ? "bg-rose-100 text-rose-800 border-rose-300" 
+                                : "bg-background text-muted-foreground"
+                            }`}
+                          >
+                            <option value="default">Inherit Role Default</option>
+                            <option value="true">Force Grant (Allow)</option>
+                            <option value="false">Force Deny (Restrict)</option>
+                          </select>
+                        </div>
                       )
                     })}
-                  </select>
+                  </div>
                 </div>
-              </div>
-              <div className="p-4 border-t dark:border-zinc-800 flex justify-end gap-3 bg-zinc-50 dark:bg-zinc-900/50">
-                <button type="button" onClick={() => setShowAddUserModal(false)} className="px-3.5 py-1.5 border rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                  Cancel
-                </button>
-                <button type="submit" className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center gap-2 text-xs font-semibold" disabled={addingUser}>
-                  {addingUser ? "Adding..." : "Create Account"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+              ))}
+            </div>
+
+            <DialogFooter className="border-t pt-4">
+              <Button variant="outline" size="sm" onClick={() => setSelectedUserId(null)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={savingUserOverride}
+                onClick={handleSaveUserOverrides}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+              >
+                {savingUserOverride ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                Save User Overrides
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
+
     </div>
   )
 }

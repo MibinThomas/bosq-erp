@@ -449,6 +449,10 @@ model RolePermission {
   canConfirmQuotation Boolean  @default(false)
   canApplySpecialDiscount Boolean @default(false)
   canExportBoqExcel   Boolean  @default(false)
+  canSaveToCatalog    Boolean  @default(false)
+  canReviseQuotation  Boolean  @default(false)
+  canAssignClients    Boolean  @default(false)
+  canApproveClientAccess Boolean @default(false)
 }
 
 model UserPermissionOverride {
@@ -467,6 +471,10 @@ model UserPermissionOverride {
   canConfirmQuotation Boolean  @default(false)
   canApplySpecialDiscount Boolean @default(false)
   canExportBoqExcel   Boolean  @default(false)
+  canSaveToCatalog    Boolean  @default(false)
+  canReviseQuotation  Boolean  @default(false)
+  canAssignClients    Boolean  @default(false)
+  canApproveClientAccess Boolean @default(false)
 
   
   createdAt     DateTime @default(now())

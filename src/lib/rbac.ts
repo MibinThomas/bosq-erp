@@ -183,7 +183,8 @@ export async function getPermissionsProfile(userId: string) {
         export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true,
         ownership: "ALL", approvalLimit: null,
         costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true,
-        maxDiscountPercent: 100, canOverrideVat: true, canAddCustomCharges: true, canConfirmQuotation: true, canApplySpecialDiscount: true, canExportBoqExcel: true, canViewCostingBreakdown: true
+        maxDiscountPercent: 100, canOverrideVat: true, canAddCustomCharges: true, canConfirmQuotation: true, canApplySpecialDiscount: true, canExportBoqExcel: true, canViewCostingBreakdown: true,
+        canSaveToCatalog: true, canReviseQuotation: true, canAssignClients: true, canApproveClientAccess: true
       }
     }
     return {
@@ -209,7 +210,8 @@ export async function getPermissionsProfile(userId: string) {
       export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false,
       ownership: "NONE", approvalLimit: null,
       costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false,
-      maxDiscountPercent: 0, canOverrideVat: false, canAddCustomCharges: false, canConfirmQuotation: false, canApplySpecialDiscount: false, canExportBoqExcel: false, canViewCostingBreakdown: false
+      maxDiscountPercent: 0, canOverrideVat: false, canAddCustomCharges: false, canConfirmQuotation: false, canApplySpecialDiscount: false, canExportBoqExcel: false, canViewCostingBreakdown: false,
+      canSaveToCatalog: false, canReviseQuotation: false, canAssignClients: false, canApproveClientAccess: false
     }
   }
 
@@ -240,7 +242,11 @@ export async function getPermissionsProfile(userId: string) {
         canConfirmQuotation: perm.canConfirmQuotation,
         canApplySpecialDiscount: perm.canApplySpecialDiscount,
         canExportBoqExcel: perm.canExportBoqExcel,
-        canViewCostingBreakdown: (perm as any).canViewCostingBreakdown ?? perm.costPriceVisible
+        canViewCostingBreakdown: (perm as any).canViewCostingBreakdown ?? perm.costPriceVisible,
+        canSaveToCatalog: (perm as any).canSaveToCatalog ?? false,
+        canReviseQuotation: (perm as any).canReviseQuotation ?? false,
+        canAssignClients: (perm as any).canAssignClients ?? false,
+        canApproveClientAccess: (perm as any).canApproveClientAccess ?? false
       }
     }
   }
@@ -268,6 +274,14 @@ export async function getPermissionsProfile(userId: string) {
       profile[override.module].canExportBoqExcel = override.value
     } else if (action === "canViewCostingBreakdown") {
       profile[override.module].canViewCostingBreakdown = override.value
+    } else if (action === "canSaveToCatalog") {
+      profile[override.module].canSaveToCatalog = override.value
+    } else if (action === "canReviseQuotation") {
+      profile[override.module].canReviseQuotation = override.value
+    } else if (action === "canAssignClients") {
+      profile[override.module].canAssignClients = override.value
+    } else if (action === "canApproveClientAccess") {
+      profile[override.module].canApproveClientAccess = override.value
     } else {
       profile[override.module][action] = override.value
     }

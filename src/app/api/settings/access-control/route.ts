@@ -25,14 +25,22 @@ async function ensureDbSchema() {
       WHERE "status" IS NULL;
     `)
 
-    // 3. Add canApplySpecialDiscount column to RolePermission and UserPermissionOverride tables
+    // 3. Add permission columns to RolePermission and UserPermissionOverride tables
     await prisma.$executeRawUnsafe(`
       ALTER TABLE "RolePermission" 
-      ADD COLUMN IF NOT EXISTS "canApplySpecialDiscount" BOOLEAN DEFAULT false;
+      ADD COLUMN IF NOT EXISTS "canApplySpecialDiscount" BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "canSaveToCatalog" BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "canReviseQuotation" BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "canAssignClients" BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "canApproveClientAccess" BOOLEAN DEFAULT false;
     `)
     await prisma.$executeRawUnsafe(`
       ALTER TABLE "UserPermissionOverride" 
-      ADD COLUMN IF NOT EXISTS "canApplySpecialDiscount" BOOLEAN DEFAULT false;
+      ADD COLUMN IF NOT EXISTS "canApplySpecialDiscount" BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "canSaveToCatalog" BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "canReviseQuotation" BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "canAssignClients" BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "canApproveClientAccess" BOOLEAN DEFAULT false;
     `)
 
     isMigrated = true
