@@ -7,6 +7,15 @@ const FALLBACK_DB_URL = "postgresql://neondb_owner:npg_kSwG9Ic8MNyx@ep-old-term-
 const prismaClientSingleton = () => {
   let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL || FALLBACK_DB_URL
 
+  // Intercept stale/obsolete database host URLs injected by Vercel environment variables
+  if (
+    !connectionString || 
+    connectionString.includes("ep-rough-bar-adwnszst") || 
+    connectionString.includes("ep-lucky-leaf-adynkc0f")
+  ) {
+    connectionString = FALLBACK_DB_URL
+  }
+
   try {
     const parsedUrl = new URL(connectionString)
     parsedUrl.searchParams.delete("channel_binding")
