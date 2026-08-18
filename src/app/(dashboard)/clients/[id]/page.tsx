@@ -28,6 +28,7 @@ import {
   ClipboardList,
   ChevronDown,
   ChevronRight,
+  Key,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -106,7 +107,7 @@ interface ActivityEntry {
   user: { name: string | null; role: string | null }
 }
 
-type Tab = "details" | "quotations" | "boqs" | "documents" | "activity"
+type Tab = "details" | "quotations" | "boqs" | "documents" | "requests" | "activity"
 
 // ─── Status badge helpers ──────────────────────────────────────────────────────
 
@@ -177,6 +178,11 @@ export default function ClientDetailPage() {
   const [activityLoaded, setActivityLoaded] = useState(false)
   const [activityLoading, setActivityLoading] = useState(false)
 
+  const [clientAccessRequests, setClientAccessRequests] = useState<any[]>([])
+  const [requestsLoaded, setRequestsLoaded] = useState(false)
+  const [requestsLoading, setRequestsLoading] = useState(false)
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
+
   // ── Fetch client details ───────────────────────────────────────────────────
   const fetchClient = useCallback(async () => {
     try {
@@ -228,6 +234,21 @@ export default function ClientDetailPage() {
     }
   }, [activeTab, boqsLoaded, clientId])
 
+  // ── Lazy load Access Requests when tab selected ──────────────────────────
+  useEffect(() => {
+    if (activeTab === "requests" && !requestsLoaded) {
+      setRequestsLoading(true)
+      fetch(`/api/clients/access-requests?clientId=${clientId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setClientAccessRequests(Array.isArray(data) ? data : [])
+          setRequestsLoaded(true)
+        })
+        .catch(() => toast.error("Failed to load access requests."))
+        .finally(() => setRequestsLoading(false))
+    }
+  }, [activeTab, requestsLoaded, clientId])
+
   // ── Lazy load Activity when tab selected ──────────────────────────────────
   useEffect(() => {
     if (activeTab === "activity" && !activityLoaded) {
@@ -267,6 +288,26 @@ export default function ClientDetailPage() {
     }
   }
 
+  async function handleActionAccessRequest(requestId: string, action: "Approve" | "Reject") {
+    setProcessingRequestId(requestId)
+    try {
+      const res = await fetch("/api/clients/access-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || `Failed to ${action.toLowerCase()} request`)
+      toast.success(`Access request ${action === "Approve" ? "approved" : "rejected"}!`)
+      fetchClient()
+      setRequestsLoaded(false)
+    } catch (err: any) {
+      toast.error(err.message || "Failed to process access request")
+    } finally {
+      setProcessingRequestId(null)
+    }
+  }
+
   // ── Loading / empty states ─────────────────────────────────────────────────
   if (loading) {
     return (
@@ -285,6 +326,9 @@ export default function ClientDetailPage() {
     { key: "details", label: "Client Details", icon: <User className="h-3.5 w-3.5" /> },
     { key: "boqs", label: "BOQs", icon: <ClipboardList className="h-3.5 w-3.5" /> },
     { key: "documents", label: "Documents", icon: <Folder className="h-3.5 w-3.5" /> },
+    ...(isManagerOrAdmin
+      ? [{ key: "requests" as Tab, label: "Access Requests", icon: <Key className="h-3.5 w-3.5 text-amber-500" /> }]
+      : []),
     ...(canViewActivityTimeline
       ? [{ key: "activity" as Tab, label: "Activity Timeline", icon: <Activity className="h-3.5 w-3.5" /> }]
       : []),
@@ -618,6 +662,109 @@ export default function ClientDetailPage() {
             </div>
           )}
 
+        </div>
+      )}
+
+      {/* Access Requests */}
+      {activeTab === "requests" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                Client Access Requests
+                <Badge variant="outline" className="text-xs font-mono font-bold">
+                  {clientAccessRequests.length} Total
+                </Badge>
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Access requests submitted by sales consultants for client <strong>{client.companyName}</strong>.
+              </p>
+            </div>
+          </div>
+
+          {requestsLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-2">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-xs text-muted-foreground font-medium">Loading access requests...</p>
+            </div>
+          ) : clientAccessRequests.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-center border border-dashed rounded-2xl bg-muted/20">
+              <Key className="h-10 w-10 text-muted-foreground/40" />
+              <p className="text-base font-semibold">No Access Requests Submitted</p>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                No consultants have submitted access requests for this client profile yet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {clientAccessRequests.map((req) => {
+                const isPending = req.status === "Pending" || req.status === "Requested"
+                const isApproved = req.status === "Approved"
+                const isProcessing = processingRequestId === req.id
+                return (
+                  <div key={req.id} className="p-4 bg-card border rounded-2xl shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b pb-2.5">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-foreground">
+                            {req.user?.name || req.user?.email || "Sales Rep"}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] font-mono">
+                            {req.user?.role?.replace(/_/g, " ")}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          Submitted on {new Date(req.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+
+                      <Badge
+                        className={`text-xs font-bold ${
+                          isPending
+                            ? "bg-amber-500 text-white"
+                            : isApproved
+                            ? "bg-emerald-600 text-white"
+                            : "bg-rose-600 text-white"
+                        }`}
+                      >
+                        {req.status === "Requested" ? "Pending" : req.status}
+                      </Badge>
+                    </div>
+
+                    {req.reason && (
+                      <div className="p-3 bg-muted/30 rounded-xl border text-xs text-slate-700 dark:text-slate-300 italic">
+                        "{req.reason}"
+                      </div>
+                    )}
+
+                    {isPending && isManagerOrAdmin && (
+                      <div className="flex items-center justify-end space-x-2 pt-1 border-t">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={isProcessing}
+                          onClick={() => handleActionAccessRequest(req.id, "Reject")}
+                          className="h-8 text-xs border-rose-300 text-rose-600 hover:bg-rose-50 font-bold cursor-pointer"
+                        >
+                          {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <X className="h-3.5 w-3.5 mr-1" />}
+                          Reject Request
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={isProcessing}
+                          onClick={() => handleActionAccessRequest(req.id, "Approve")}
+                          className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer"
+                        >
+                          {isProcessing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                          Approve Access
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 

@@ -20,6 +20,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const clientIdFilter = searchParams.get("clientId")
+
     const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(dbSessionUser.role)
     
     let requestsClause: any = {}
@@ -37,6 +40,10 @@ export async function GET(request: Request) {
           ]
         }
       }
+    }
+
+    if (clientIdFilter) {
+      requestsClause.clientId = clientIdFilter
     }
 
     const requests = await prisma.clientAccessRequest.findMany({

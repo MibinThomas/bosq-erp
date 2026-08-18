@@ -358,17 +358,6 @@ export default function AccessControlPage() {
           <UserCheck className="h-4 w-4" /> User Level Overrides ({users.filter(u => u.permissionOverrides && u.permissionOverrides.length > 0).length})
         </button>
         <button
-          onClick={() => setActiveTab("requests")}
-          className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer relative ${activeTab === "requests" ? "bg-primary text-white shadow-xs" : "text-muted-foreground hover:bg-muted"}`}
-        >
-          <Key className="h-4 w-4" /> Client Access Requests
-          {pendingRequestsCount > 0 && (
-            <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0 rounded-full font-bold ml-1">
-              {pendingRequestsCount}
-            </Badge>
-          )}
-        </button>
-        <button
           onClick={() => setActiveTab("logs")}
           className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer ${activeTab === "logs" ? "bg-primary text-white shadow-xs" : "text-muted-foreground hover:bg-muted"}`}
         >
@@ -603,71 +592,7 @@ export default function AccessControlPage() {
         </div>
       )}
 
-      {/* TAB 3: CLIENT ACCESS REQUESTS QUEUE */}
-      {activeTab === "requests" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <div>
-              <h3 className="font-bold text-base text-foreground">Client Access Requests Queue</h3>
-              <p className="text-xs text-muted-foreground">Requests submitted by sales reps to access restricted client files.</p>
-            </div>
-            <Badge variant="outline" className="text-xs font-mono font-bold">
-              {clientAccessRequests.length} Total Requests
-            </Badge>
-          </div>
-
-          {clientAccessRequests.length > 0 ? (
-            <div className="space-y-3">
-              {clientAccessRequests.map(req => {
-                const isPending = req.status === "Pending"
-                const isApproved = req.status === "Approved"
-                return (
-                  <div key={req.id} className="p-4 bg-card border rounded-2xl shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-foreground">{req.userName || req.userEmail}</span>
-                        <Badge className={isPending ? "bg-amber-500" : isApproved ? "bg-emerald-600" : "bg-rose-600"}>
-                          {req.status}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Requested Client: <strong className="text-foreground">{req.clientCompanyName}</strong> | Requested on: {new Date(req.createdAt).toLocaleDateString()}
-                      </p>
-                      {req.reason && <p className="text-xs text-slate-600 dark:text-slate-400 italic bg-muted/30 p-2 rounded-lg border mt-1">"{req.reason}"</p>}
-                    </div>
-
-                    {isPending && (
-                      <div className="flex items-center space-x-2 shrink-0">
-                        <Button
-                          size="sm"
-                          onClick={() => handleActionClientRequest(req.id, "Approved")}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer"
-                        >
-                          <Check className="h-3.5 w-3.5 mr-1" /> Approve Access
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleActionClientRequest(req.id, "Rejected")}
-                          className="border-rose-300 text-rose-600 hover:bg-rose-50 text-xs font-bold cursor-pointer"
-                        >
-                          <X className="h-3.5 w-3.5 mr-1" /> Reject Request
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="p-8 text-center text-xs text-muted-foreground border border-dashed rounded-2xl bg-muted/20">
-              No pending client access requests found.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 4: SECURITY AUDIT LOGS */}
+      {/* SECURITY AUDIT LOGS */}
       {activeTab === "logs" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between border-b pb-3">

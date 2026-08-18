@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Plus, Search, MoreHorizontal, Loader2, Folder, FileSpreadsheet, Edit, Trash2, Check, X, Eye } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Loader2, Folder, FileSpreadsheet, Edit, Trash2, Check, X, Eye, Key } from "lucide-react"
 import { usePermissions } from "@/components/providers/PermissionsProvider"
 
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { BulkUploadModal } from "@/components/clients/bulk-upload-modal"
 import { EditClientModal } from "@/components/clients/edit-client-modal"
 import { BulkAssignModal } from "@/components/clients/bulk-assign-modal"
+import { ClientAccessRequestsModal } from "@/components/clients/client-access-requests-modal"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
@@ -81,6 +82,9 @@ export default function ClientsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const ITEMS_PER_PAGE = 15
 
+  const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false)
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
+
   async function fetchClients() {
     try {
       setLoading(true)
@@ -96,8 +100,24 @@ export default function ClientsPage() {
     }
   }
 
+  async function fetchPendingRequestsCount() {
+    try {
+      const res = await fetch("/api/clients/access-requests")
+      if (res.ok) {
+        const data = await res.json()
+        if (Array.isArray(data)) {
+          const pending = data.filter((r: any) => r.status === "Pending" || r.status === "Requested").length
+          setPendingRequestsCount(pending)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch pending requests count", err)
+    }
+  }
+
   useEffect(() => {
     fetchClients()
+    fetchPendingRequestsCount()
   }, [])
 
   // Admin-level functions still require SUPER_ADMIN or manage permissions for bulk reassign
@@ -273,15 +293,30 @@ export default function ClientsPage() {
               Assign Selected ({selectedIds.length})
             </Button>
           )}
+          {isManagerOrAdmin && (
+            <Button 
+              variant="outline" 
+              onClick={() => setIsRequestsModalOpen(true)} 
+              className="border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 font-bold relative cursor-pointer"
+            >
+              <Key className="mr-2 h-4 w-4 text-amber-600 dark:text-amber-400" />
+              Access Requests
+              {pendingRequestsCount > 0 && (
+                <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0 rounded-full font-bold ml-1.5">
+                  {pendingRequestsCount}
+                </Badge>
+              )}
+            </Button>
+          )}
           {canBulkUpload && (
-            <Button variant="outline" onClick={() => setIsBulkOpen(true)} className="border-primary/20 text-primary hover:bg-primary/5">
+            <Button variant="outline" onClick={() => setIsBulkOpen(true)} className="border-primary/20 text-primary hover:bg-primary/5 cursor-pointer">
               <FileSpreadsheet className="mr-2 h-4 w-4" />
               Bulk Import
             </Button>
           )}
           {canCreate && (
             <Link href="/clients/new">
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold cursor-pointer">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Client
               </Button>
@@ -565,6 +600,15 @@ export default function ClientsPage() {
         client={editingClient}
         onClose={() => setIsEditOpen(false)}
         onSuccess={() => fetchClients()}
+      />
+
+      <ClientAccessRequestsModal
+        isOpen={isRequestsModalOpen}
+        onClose={() => setIsRequestsModalOpen(false)}
+        onSuccess={() => {
+          fetchClients()
+          fetchPendingRequestsCount()
+        }}
       />
     </div>
   )
