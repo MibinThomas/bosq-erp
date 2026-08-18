@@ -2,7 +2,7 @@ import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import pg from "pg"
 
-const FALLBACK_DB_URL = "postgresql://neondb_owner:npg_kSwG9Ic8MNyx@ep-rough-bar-adwnszst-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
+const FALLBACK_DB_URL = "postgresql://neondb_owner:npg_kSwG9Ic8MNyx@ep-old-term-adz4r5o6-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
 
 const prismaClientSingleton = () => {
   let connectionString = process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL || FALLBACK_DB_URL

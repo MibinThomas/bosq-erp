@@ -16,19 +16,30 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Please enter your email and password")
         }
 
-        // Clean query to enforce strict single-user search
+        const cleanEmail = credentials.email.trim().toLowerCase()
+        const cleanPassword = credentials.password.trim()
+
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
+          where: { email: cleanEmail }
         })
 
         if (!user || !user.password) {
+          console.warn(`[NextAuth] Auth failed: No user found with email "${cleanEmail}"`)
           throw new Error("No user found with this email")
         }
 
-        const isValid = verifyPassword(credentials.password, user.password)
+        if (user.isActive === false) {
+          console.warn(`[NextAuth] Auth failed: User "${cleanEmail}" account is inactive`)
+          throw new Error("Your account has been deactivated. Please contact your system administrator.")
+        }
+
+        const isValid = verifyPassword(cleanPassword, user.password)
         if (!isValid) {
+          console.warn(`[NextAuth] Auth failed: Password mismatch for user "${cleanEmail}"`)
           throw new Error("Incorrect password")
         }
+
+        console.log(`[NextAuth] User authenticated successfully: ${user.email} (${user.role})`)
 
         return {
           id: user.id,
