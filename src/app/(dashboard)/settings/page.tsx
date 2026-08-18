@@ -8,46 +8,39 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { toast, Toaster } from "sonner"
 import { 
-  Building, 
+  Building2, 
   Key, 
-  Users, 
   FileText, 
   Trash2, 
   Plus, 
   Loader2, 
-  UserPlus,
-  Shield,
-  Briefcase,
-  UserCheck,
-  Eye,
-  EyeOff,
-  Pencil,
-  Tag,
-  AlertCircle,
-  CheckCircle2,
-  XCircle,
+  Eye, 
+  EyeOff, 
+  Tag, 
   AlertTriangle,
   Image as ImageIcon,
   Hash,
-  Palette
+  Palette,
+  CheckCircle2,
+  XCircle,
+  Briefcase,
+  Sliders,
+  Settings2,
+  Upload,
+  Mail,
+  MapPin,
+  Receipt,
+  Percent,
+  RefreshCw,
+  Cloud,
+  Check,
+  Sparkles,
+  HelpCircle
 } from "lucide-react"
 import { MaterialsFinishesManager } from "@/components/settings/materials-finishes-manager"
-
-// Types matching system models
-interface SystemUser {
-  id: string
-  name: string
-  email: string
-  role: string
-  phone?: string
-  department?: string
-  designation?: string
-  image?: string
-  isActive?: boolean
-  createdAt: string
-}
 
 interface PaymentTerm {
   id: string
@@ -70,7 +63,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false)
   const [pageLoading, setPageLoading] = useState(true)
 
-  // 1. Company & Integration Settings State
+  // 1. Company & Branding State
   const [companyName, setCompanyName] = useState("")
   const [companyAddress, setCompanyAddress] = useState("")
   const [companyTrn, setCompanyTrn] = useState("")
@@ -96,20 +89,7 @@ export default function SettingsPage() {
   const [clientSequence, setClientSequence] = useState<number | "">("")
   const [savingClientSequence, setSavingClientSequence] = useState(false)
 
-  // 2. Users Tab State
-  const [users, setUsers] = useState<SystemUser[]>([])
-  const [showAddUserModal, setShowAddUserModal] = useState(false)
-  const [newUserName, setNewUserName] = useState("")
-  const [newUserEmail, setNewUserEmail] = useState("")
-  const [newUserPassword, setNewUserPassword] = useState("")
-  const [newUserPhone, setNewUserPhone] = useState("")
-  const [newUserDepartment, setNewUserDepartment] = useState("")
-  const [newUserRole, setNewUserRole] = useState("")
-  
-  const [showEditUserModal, setShowEditUserModal] = useState(false)
-  const [editUserData, setEditUserData] = useState<{id: string, name: string, email: string, role: string, phone?: string, department?: string, password?: string, designation?: string, isActive?: boolean, image?: string} | null>(null)
-
-  // 3. Terms & Conditions Tab State
+  // 2. Terms & Conditions State
   const [paymentTerms, setPaymentTerms] = useState<PaymentTerm[]>([])
   const [termsConditions, setTermsConditions] = useState<TermsCondition[]>([])
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false)
@@ -125,117 +105,23 @@ export default function SettingsPage() {
   const [termIsDefault, setTermIsDefault] = useState(true)
 
   // Deletion modal state
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: "payment" | "condition" | "user"; label: string } | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; type: "payment" | "condition"; label: string } | null>(null)
 
-  // 4. Pricing Markup State
+  // 3. Pricing Markup State
   const [dealerPct, setDealerPct] = useState(15)
   const [interiorPct, setInteriorPct] = useState(30)
   const [directPct, setDirectPct] = useState(50)
   const [onlinePct, setOnlinePct] = useState(75)
   const [savingPricing, setSavingPricing] = useState(false)
   const [recalculateExisting, setRecalculateExisting] = useState(false)
-  const [dbRoles, setDbRoles] = useState<any[]>([])
 
-  // 5. Client Access Requests State
-  const [accessRequests, setAccessRequests] = useState<any[]>([])
-  const [loadingRequests, setLoadingRequests] = useState(false)
-  const [showApproveModal, setShowApproveModal] = useState(false)
-  const [showRejectModal, setShowRejectModal] = useState(false)
-  const [activeRequest, setActiveRequest] = useState<any>(null)
-  const [rejectionReason, setRejectionReason] = useState("")
-  const [assignmentType, setAssignmentType] = useState("secondary")
-  const [submittingAction, setSubmittingAction] = useState(false)
-
-  // Fetch all system settings on load
+  // Fetch system settings on load
   useEffect(() => {
     fetchSettings()
-    fetchUsers()
     fetchTerms()
     fetchPricing()
-    fetchDbRoles()
-    fetchAccessRequests()
     fetchSequence()
   }, [])
-
-  const fetchAccessRequests = async () => {
-    try {
-      setLoadingRequests(true)
-      const res = await fetch("/api/clients/access-requests")
-      if (res.ok) {
-        const data = await res.json()
-        setAccessRequests(data)
-      }
-    } catch (err) {
-      console.error("Failed to fetch access requests:", err)
-    } finally {
-      setLoadingRequests(false)
-    }
-  }
-
-  const handleApproveRequest = async (requestId: string, type: string) => {
-    setSubmittingAction(true)
-    try {
-      const res = await fetch("/api/clients/access-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, action: "Approve", assignmentType: type })
-      })
-
-      if (res.ok) {
-        toast.success("Access request approved successfully!")
-        setShowApproveModal(false)
-        setActiveRequest(null)
-        fetchAccessRequests()
-      } else {
-        const err = await res.json()
-        toast.error(err.error || "Failed to approve request.")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("An error occurred.")
-    } finally {
-      setSubmittingAction(false)
-    }
-  }
-
-  const handleRejectRequest = async (requestId: string, reason: string) => {
-    setSubmittingAction(true)
-    try {
-      const res = await fetch("/api/clients/access-requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, action: "Reject", rejectionReason: reason })
-      })
-
-      if (res.ok) {
-        toast.success("Access request rejected successfully.")
-        setShowRejectModal(false)
-        setActiveRequest(null)
-        setRejectionReason("")
-        fetchAccessRequests()
-      } else {
-        const err = await res.json()
-        toast.error(err.error || "Failed to reject request.")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("An error occurred.")
-    } finally {
-      setSubmittingAction(false)
-    }
-  }
-
-  const fetchDbRoles = async () => {
-    try {
-      const res = await fetch("/api/settings/access-control")
-      if (res.ok) {
-        const data = await res.json()
-        setDbRoles(data.roles || [])
-      }
-    } catch (err) {
-      console.error("Failed to fetch roles:", err)
-    }
-  }
 
   const fetchPricing = async () => {
     try {
@@ -248,7 +134,7 @@ export default function SettingsPage() {
         setOnlinePct(data.online || 75)
       }
     } catch (err) {
-      console.error(err)
+      console.error("Failed to fetch pricing:", err)
     }
   }
 
@@ -263,13 +149,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/settings/test-sharepoint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tenantId,
-          clientId,
-          clientSecret,
-          siteId,
-          driveId
-        })
+        body: JSON.stringify({ tenantId, clientId, clientSecret, siteId, driveId })
       })
       const data = await res.json()
       setTestResult(data)
@@ -386,18 +266,6 @@ export default function SettingsPage() {
     }
   }
 
-  const fetchUsers = async () => {
-    try {
-      const res = await fetch("/api/settings/users")
-      if (res.ok) {
-        const data = await res.json()
-        setUsers(data)
-      }
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
   const fetchTerms = async () => {
     try {
       const res = await fetch("/api/settings/terms")
@@ -411,7 +279,6 @@ export default function SettingsPage() {
     }
   }
 
-  // Handle saving company and integration settings
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -454,119 +321,41 @@ export default function SettingsPage() {
     }
   }
 
-  // Handle adding new user profile
-  const handleAddUser = async (e: React.FormEvent) => {
+  const handleSavePricing = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newUserRole) {
-      toast.error("Please select a system role")
-      return
-    }
-    if (!newUserName || !newUserEmail || !newUserPassword || !newUserPhone) {
-      toast.error("Name, email, password, and contact number are required")
-      return
-    }
-    setLoading(true)
+    setSavingPricing(true)
     try {
-      const res = await fetch("/api/settings/users", {
-        method: "POST",
+      const res = await fetch("/api/settings/pricing", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: newUserName,
-          email: newUserEmail,
-          password: newUserPassword,
-          role: newUserRole,
-          phone: newUserPhone,
-          department: newUserDepartment
+          dealer: dealerPct,
+          interior: interiorPct,
+          direct: directPct,
+          online: onlinePct,
+          recalculate: recalculateExisting
         })
       })
-
       if (res.ok) {
-        toast.success(`User ${newUserName} added successfully!`)
-        setShowAddUserModal(false)
-        setNewUserName("")
-        setNewUserEmail("")
-        setNewUserPassword("")
-        setNewUserPhone("")
-        setNewUserDepartment("")
-        fetchUsers()
+        const data = await res.json()
+        if (recalculateExisting && data.recalculatedCount !== undefined) {
+          toast.success(`Pricing markup percentages saved & recalculated for ${data.recalculatedCount} products!`)
+        } else {
+          toast.success("Pricing markup percentages saved!")
+        }
+        setRecalculateExisting(false)
       } else {
         const errData = await res.json()
-        toast.error(errData.error || "Failed to create user account")
+        toast.error(errData.error || "Failed to save pricing percentages")
       }
     } catch (err) {
       console.error(err)
-      toast.error("Connection failed")
+      toast.error("An error occurred while saving pricing percentages")
     } finally {
-      setLoading(false)
+      setSavingPricing(false)
     }
   }
 
-  // Handle updating user profile
-  const handleEditUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editUserData?.id || !editUserData.name || !editUserData.email || !editUserData.role || !editUserData.phone) {
-      toast.error("Name, email, role, and contact number are required")
-      return
-    }
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/settings/users/${editUserData.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editUserData.name,
-          email: editUserData.email,
-          role: editUserData.role,
-          phone: editUserData.phone,
-          department: editUserData.department,
-          designation: editUserData.designation,
-          isActive: editUserData.isActive,
-          password: editUserData.password || undefined // Only send if entered
-        })
-      })
-
-      if (res.ok) {
-        toast.success(`User ${editUserData.name} updated successfully!`)
-        setShowEditUserModal(false)
-        setEditUserData(null)
-        fetchUsers()
-      } else {
-        const errData = await res.json()
-        toast.error(errData.error || "Failed to update user account")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("Connection failed")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Handle deleting a user profile
-  const handleDeleteUser = async (userId: string, userName: string) => {
-    setDeleteConfirm({ id: userId, type: "user", label: userName })
-  }
-
-  const executeDeleteUser = async (userId: string, userName: string) => {
-    try {
-      const res = await fetch(`/api/settings/users?id=${userId}`, {
-        method: "DELETE"
-      })
-
-      if (res.ok) {
-        toast.success(`User ${userName} deleted successfully`)
-        fetchUsers()
-      } else {
-        const errData = await res.json()
-        toast.error(errData.error || "Failed to delete user account")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("Connection failed")
-    }
-  }
-
-  // Handle adding custom payment term
   const handleAddPaymentTerm = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!paymentName) {
@@ -604,7 +393,6 @@ export default function SettingsPage() {
     }
   }
 
-  // Handle adding custom default terms condition
   const handleAddTermsCondition = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!termTitle || !termContent) {
@@ -642,219 +430,249 @@ export default function SettingsPage() {
     }
   }
 
-  // Handle deleting term/condition
   const handleDeleteTerm = async (type: "payment" | "condition", id: string, label: string) => {
     setDeleteConfirm({ id, type, label })
   }
 
   const executeDeleteTerm = async (type: "payment" | "condition", id: string, label: string) => {
     try {
-      const res = await fetch(`/api/settings/terms?type=${type}&id=${id}`, {
+      const res = await fetch(`/api/settings/terms?id=${id}&type=${type}`, {
         method: "DELETE"
       })
       if (res.ok) {
-        toast.success("Default configuration entry removed")
+        toast.success(`Deleted ${label}`)
         fetchTerms()
       } else {
-        toast.error("Failed to delete entry")
+        toast.error("Failed to delete item")
       }
     } catch (err) {
       console.error(err)
     }
   }
-
-  const handleSavePricing = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSavingPricing(true)
-    try {
-      const res = await fetch("/api/settings/pricing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          dealer: dealerPct, 
-          interior: interiorPct, 
-          direct: directPct, 
-          online: onlinePct,
-          recalculateExisting
-        })
-      })
-      if (res.ok) {
-        const data = await res.json()
-        if (recalculateExisting && data.recalculatedCount !== undefined) {
-          toast.success(`Pricing markup percentages saved & recalculated for ${data.recalculatedCount} products!`)
-        } else {
-          toast.success("Pricing markup percentages saved!")
-        }
-        setRecalculateExisting(false)
-      } else {
-        const errData = await res.json()
-        toast.error(errData.error || "Failed to save pricing percentages")
-      }
-    } catch (err) {
-      console.error(err)
-      toast.error("An error occurred while saving pricing percentages")
-    } finally {
-      setSavingPricing(false)
-    }
-  }
-
-
 
   if (pageLoading) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-orange-600" />
+      <div className="flex h-[65vh] flex-col items-center justify-center gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-base font-semibold text-muted-foreground">Loading system settings...</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 font-sans pb-16 max-w-7xl mx-auto px-2 sm:px-4">
       <Toaster position="top-right" richColors />
-      <div className="flex items-center justify-between border-b pb-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-100">Settings Console</h1>
-          <p className="text-slate-400 mt-1">
-            Manage organization details, user accounts, and default quotation terms.
-          </p>
+      
+      {/* ── Executive Hero Header ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-card border rounded-3xl p-6 sm:p-8 shadow-xs">
+        <div className="flex items-start sm:items-center space-x-4">
+          <div className="p-4 rounded-2xl bg-primary/10 text-primary shrink-0 shadow-2xs">
+            <Settings2 className="h-8 w-8 sm:h-9 sm:w-9" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-foreground">
+                Settings Console
+              </h1>
+              <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-bold px-3 py-1 rounded-full">
+                System Administration
+              </Badge>
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              Manage company profiles, quotation PDF branding, channel pricing margins, default terms, and SharePoint integrations.
+            </p>
+          </div>
+        </div>
+
+        {/* Live Status Indicators */}
+        <div className="flex items-center gap-3 flex-wrap font-mono text-xs sm:text-sm">
+          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 px-3.5 py-1.5 font-bold rounded-2xl flex items-center gap-2">
+            <Cloud className="h-4 w-4 text-emerald-500" />
+            SharePoint Connected
+          </Badge>
+          <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30 px-3.5 py-1.5 font-bold rounded-2xl flex items-center gap-2">
+            <Tag className="h-4 w-4 text-blue-500" />
+            4 Margin Tiers Active
+          </Badge>
         </div>
       </div>
 
-      <Tabs defaultValue="company" className="w-full" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6 h-auto gap-2 bg-slate-900/60 p-2 border border-slate-800 rounded-xl max-w-5xl">
-          <TabsTrigger value="company" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
-            <Building className="h-4 w-4" />
-            Company Details
-          </TabsTrigger>
-          <TabsTrigger value="pricing" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
-            <Tag className="h-4 w-4" />
-            Pricing Margins
-          </TabsTrigger>
+      {/* ── Large, Accessible Segmented Navigation Bar ── */}
+      <Tabs defaultValue="company" className="w-full space-y-8" onValueChange={setActiveTab}>
+        <div className="overflow-x-auto pb-2 custom-scrollbar">
+          <TabsList className="inline-flex h-auto p-2 gap-2 bg-card border rounded-3xl shadow-2xs min-w-full sm:min-w-0">
+            <TabsTrigger 
+              value="company" 
+              className="flex items-center gap-2.5 py-3 px-5 sm:px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs transition-all cursor-pointer whitespace-nowrap"
+            >
+              <Building2 className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+              Company Details
+            </TabsTrigger>
+            
+            <TabsTrigger 
+              value="pricing" 
+              className="flex items-center gap-2.5 py-3 px-5 sm:px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs transition-all cursor-pointer whitespace-nowrap"
+            >
+              <Tag className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+              Pricing Margins
+            </TabsTrigger>
 
-          <TabsTrigger value="terms" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
-            <FileText className="h-4 w-4" />
-            Default Terms
-          </TabsTrigger>
-          <TabsTrigger value="integrations" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
-            <Key className="h-4 w-4" />
-            SharePoint Keys
-          </TabsTrigger>
-          <TabsTrigger value="materials" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
-            <Palette className="h-4 w-4" />
-            Materials & Finishes
-          </TabsTrigger>
-          <TabsTrigger value="client-requests" className="flex items-center gap-2 rounded-lg data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all">
-            <UserCheck className="h-4 w-4" />
-            Client Requests
-          </TabsTrigger>
-        </TabsList>
+            <TabsTrigger 
+              value="terms" 
+              className="flex items-center gap-2.5 py-3 px-5 sm:px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs transition-all cursor-pointer whitespace-nowrap"
+            >
+              <FileText className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+              Default Terms
+            </TabsTrigger>
 
-        {/* Tab 0: Materials & Finishes Library */}
-        <TabsContent value="materials" className="mt-6">
+            <TabsTrigger 
+              value="materials" 
+              className="flex items-center gap-2.5 py-3 px-5 sm:px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs transition-all cursor-pointer whitespace-nowrap"
+            >
+              <Palette className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+              Materials Catalog
+            </TabsTrigger>
+
+            <TabsTrigger 
+              value="integrations" 
+              className="flex items-center gap-2.5 py-3 px-5 sm:px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs transition-all cursor-pointer whitespace-nowrap"
+            >
+              <Key className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+              SharePoint Keys
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* ── Tab 1: Materials & Finishes Catalog ── */}
+        <TabsContent value="materials" className="mt-0">
           <MaterialsFinishesManager userRole={userRole} />
         </TabsContent>
 
-        {/* Tab 1: Company Profile Info */}
-        <TabsContent value="company" className="mt-6">
+        {/* ── Tab 2: Company Profile & PDF Branding ── */}
+        <TabsContent value="company" className="mt-0 space-y-8">
           <form onSubmit={handleSaveSettings}>
-            <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl">
-              <CardHeader className="border-b border-slate-800/80 pb-4">
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Building className="text-orange-500 h-5 w-5" />
-                  Corporate Details
-                </CardTitle>
-                <CardDescription className="text-slate-400">
-                  Configure details that will be rendered directly on the PDF quotation documents.
-                </CardDescription>
+            <Card className="bg-card border rounded-3xl shadow-xs overflow-hidden">
+              <CardHeader className="border-b p-6 sm:p-8 bg-muted/20">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
+                    <Building2 className="h-6 w-6 sm:h-7 sm:w-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg sm:text-xl font-bold text-foreground">
+                      Corporate Information & Tax Registration
+                    </CardTitle>
+                    <CardDescription className="text-xs sm:text-sm text-muted-foreground">
+                      Enter corporate details rendered directly on PDF quotation headers and client documents.
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4 pt-6">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="companyName" className="text-slate-300">Company Name</Label>
+              
+              <CardContent className="space-y-8 p-6 sm:p-8">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2.5">
+                    <Label htmlFor="companyName" className="text-sm font-bold flex items-center gap-2 text-foreground">
+                      <Building2 className="h-4 w-4 text-muted-foreground" /> Company Name
+                    </Label>
                     <Input 
                       id="companyName" 
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
-                      className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600"
+                      className="text-sm font-semibold h-11 sm:h-12 rounded-xl"
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="companyEmail" className="text-slate-300">Support / Sales Email</Label>
+
+                  <div className="space-y-2.5">
+                    <Label htmlFor="companyEmail" className="text-sm font-bold flex items-center gap-2 text-foreground">
+                      <Mail className="h-4 w-4 text-muted-foreground" /> Support / Sales Email
+                    </Label>
                     <Input 
                       id="companyEmail" 
                       type="email"
                       value={companyEmail}
                       onChange={(e) => setCompanyEmail(e.target.value)}
-                      className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600"
+                      className="text-sm font-semibold h-11 sm:h-12 rounded-xl"
                       required
                     />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="companyAddress" className="text-slate-300">Company Office Address</Label>
+
+                  <div className="space-y-2.5 md:col-span-2">
+                    <Label htmlFor="companyAddress" className="text-sm font-bold flex items-center gap-2 text-foreground">
+                      <MapPin className="h-4 w-4 text-muted-foreground" /> Company Office Address
+                    </Label>
                     <Input 
                       id="companyAddress" 
                       value={companyAddress}
                       onChange={(e) => setCompanyAddress(e.target.value)}
-                      className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600"
+                      className="text-sm font-semibold h-11 sm:h-12 rounded-xl"
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="companyTrn" className="text-slate-300">Company TRN (Tax Registration Number)</Label>
+
+                  <div className="space-y-2.5 md:col-span-2">
+                    <Label htmlFor="companyTrn" className="text-sm font-bold flex items-center gap-2 text-foreground">
+                      <Receipt className="h-4 w-4 text-muted-foreground" /> Company TRN (Tax Registration Number)
+                    </Label>
                     <Input 
                       id="companyTrn" 
                       value={companyTrn}
                       onChange={(e) => setCompanyTrn(e.target.value)}
-                      className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600"
+                      className="text-sm font-mono font-bold h-11 sm:h-12 rounded-xl max-w-md"
                       required
                     />
                   </div>
                 </div>
 
                 {userRole === "SUPER_ADMIN" && (
-                  <div className="pt-6 border-t border-slate-800 space-y-4">
-                    <h3 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
-                      <ImageIcon className="text-orange-500 h-5 w-5" />
-                      Quotation Document Branding
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      Customize the branding assets loaded in the Quotation PDF headers and footers. Supported formats: PNG, JPG, WebP, SVG.
-                    </p>
+                  <div className="pt-8 border-t space-y-6">
+                    <div>
+                      <h3 className="text-lg font-bold text-foreground flex items-center gap-2.5">
+                        <ImageIcon className="text-primary h-5 w-5" />
+                        Quotation PDF Document Branding & Logos
+                      </h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                        Customize branding logos and seals rendered on Quotation PDF exports. Recommended formats: PNG, WebP, SVG.
+                      </p>
+                    </div>
+
                     <div className="grid gap-6 md:grid-cols-2">
-                      {/* Header Logo Upload */}
-                      <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+                      
+                      {/* Header Logo Upload Card */}
+                      <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-4 hover:border-border transition-all">
                         <div className="flex justify-between items-center">
-                          <Label className="text-sm font-semibold text-slate-200">Quotation Header Logo</Label>
+                          <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-amber-500" /> Quotation Header Logo
+                          </Label>
                           {headerLogo && (
                             <Button 
                               type="button" 
                               variant="ghost" 
                               size="sm" 
-                              className="h-7 text-xs text-red-500 hover:text-red-400 hover:bg-red-950/20 px-2"
+                              className="h-7 text-xs text-rose-600 hover:bg-rose-50 font-bold px-2.5 cursor-pointer"
                               onClick={() => setHeaderLogo("")}
                             >
-                              Reset to Default
+                              Reset Default
                             </Button>
                           )}
                         </div>
                         
                         {headerLogo ? (
-                          <div className="h-24 w-full rounded-lg bg-slate-950 border border-slate-800 p-2 flex items-center justify-center overflow-hidden">
+                          <div className="h-32 sm:h-36 w-full rounded-2xl bg-background border p-4 flex items-center justify-center overflow-hidden shadow-2xs">
                             <img src={headerLogo} alt="Quotation Header Logo" className="max-h-full max-w-full object-contain" />
                           </div>
                         ) : (
-                          <div className="h-24 w-full rounded-lg border border-dashed border-slate-800 flex flex-col items-center justify-center text-xs text-slate-500 bg-slate-950/20">
-                            <span>Using System Default Logo</span>
-                            <span className="text-[10px] text-slate-600 mt-0.5">(BOSQ Logo)</span>
+                          <div className="h-32 sm:h-36 w-full rounded-2xl border border-dashed flex flex-col items-center justify-center text-sm text-muted-foreground bg-background/50">
+                            <span className="font-bold text-foreground">System Default Header Logo</span>
+                            <span className="text-xs opacity-75 mt-1">(BOSQ Ergonomic Living Logo)</span>
                           </div>
                         )}
 
-                        <div className="flex items-center gap-2">
+                        <div className="space-y-1.5">
                           <Input 
                             type="file" 
                             accept="image/png, image/jpeg, image/webp, image/svg+xml"
-                            className="bg-slate-950 border-slate-800 text-xs text-slate-400 file:bg-slate-800 file:text-slate-200 file:border-0 file:rounded file:px-2.5 file:py-1 file:mr-3 file:cursor-pointer cursor-pointer hover:border-slate-700"
+                            className="text-xs cursor-pointer h-10"
                             onChange={(e) => {
                               const file = e.target.files?.[0]
                               if (file) {
@@ -866,45 +684,47 @@ export default function SettingsPage() {
                               }
                             }}
                           />
+                          <p className="text-xs text-muted-foreground italic">
+                            💡 Recommended size: <b>280px x 90px</b> (3:1 aspect ratio) transparent PNG/SVG.
+                          </p>
                         </div>
-                        <p className="text-[10px] text-slate-500 italic mt-1">
-                          💡 Recommended dimension: <b>280px x 90px</b> (or 3:1 aspect ratio) with a transparent background.
-                        </p>
                       </div>
 
-                      {/* Footer Logo Upload */}
-                      <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+                      {/* Footer Logo Upload Card */}
+                      <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-4 hover:border-border transition-all">
                         <div className="flex justify-between items-center">
-                          <Label className="text-sm font-semibold text-slate-200">Quotation Footer Logo</Label>
+                          <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-amber-500" /> Quotation Footer Logo
+                          </Label>
                           {footerLogo && (
                             <Button 
                               type="button" 
                               variant="ghost" 
                               size="sm" 
-                              className="h-7 text-xs text-red-500 hover:text-red-400 hover:bg-red-950/20 px-2"
+                              className="h-7 text-xs text-rose-600 hover:bg-rose-50 font-bold px-2.5 cursor-pointer"
                               onClick={() => setFooterLogo("")}
                             >
-                              Reset to Default
+                              Reset Default
                             </Button>
                           )}
                         </div>
 
                         {footerLogo ? (
-                          <div className="h-24 w-full rounded-lg bg-slate-950 border border-slate-800 p-2 flex items-center justify-center overflow-hidden">
+                          <div className="h-32 sm:h-36 w-full rounded-2xl bg-background border p-4 flex items-center justify-center overflow-hidden shadow-2xs">
                             <img src={footerLogo} alt="Quotation Footer Logo" className="max-h-full max-w-full object-contain" />
                           </div>
                         ) : (
-                          <div className="h-24 w-full rounded-lg border border-dashed border-slate-800 flex flex-col items-center justify-center text-xs text-slate-500 bg-slate-950/20">
-                            <span>Using System Default Footer Logo</span>
-                            <span className="text-[10px] text-slate-600 mt-0.5">(AYN Musk Logo)</span>
+                          <div className="h-32 sm:h-36 w-full rounded-2xl border border-dashed flex flex-col items-center justify-center text-sm text-muted-foreground bg-background/50">
+                            <span className="font-bold text-foreground">System Default Footer Logo</span>
+                            <span className="text-xs opacity-75 mt-1">(AYN Musk Furniture Logo)</span>
                           </div>
                         )}
 
-                        <div className="flex items-center gap-2">
+                        <div className="space-y-1.5">
                           <Input 
                             type="file" 
                             accept="image/png, image/jpeg, image/webp, image/svg+xml"
-                            className="bg-slate-950 border-slate-800 text-xs text-slate-400 file:bg-slate-800 file:text-slate-200 file:border-0 file:rounded file:px-2.5 file:py-1 file:mr-3 file:cursor-pointer cursor-pointer hover:border-slate-700"
+                            className="text-xs cursor-pointer h-10"
                             onChange={(e) => {
                               const file = e.target.files?.[0]
                               if (file) {
@@ -916,45 +736,47 @@ export default function SettingsPage() {
                               }
                             }}
                           />
+                          <p className="text-xs text-muted-foreground italic">
+                            💡 Recommended size: <b>180px x 45px</b> (4:1 aspect ratio) transparent PNG/SVG.
+                          </p>
                         </div>
-                        <p className="text-[10px] text-slate-500 italic mt-1">
-                          💡 Recommended dimension: <b>180px x 45px</b> (or 4:1 aspect ratio) with a transparent background.
-                        </p>
                       </div>
 
-                      {/* Company Seal Upload */}
-                      <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
+                      {/* Company Seal Upload Card */}
+                      <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-4 hover:border-border transition-all">
                         <div className="flex justify-between items-center">
-                          <Label className="text-sm font-semibold text-slate-200">Company Seal / Stamp Image</Label>
+                          <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                            <Receipt className="h-4 w-4 text-blue-500" /> Company Stamp / Seal Image
+                          </Label>
                           {companySeal && (
                             <Button 
                               type="button" 
                               variant="ghost" 
                               size="sm" 
-                              className="h-7 text-xs text-red-500 hover:text-red-400 hover:bg-red-950/20 px-2"
+                              className="h-7 text-xs text-rose-600 hover:bg-rose-50 font-bold px-2.5 cursor-pointer"
                               onClick={() => setCompanySeal("")}
                             >
-                              Reset to Default
+                              Reset Default
                             </Button>
                           )}
                         </div>
 
                         {companySeal ? (
-                          <div className="h-24 w-full rounded-lg bg-slate-950 border border-slate-800 p-2 flex items-center justify-center overflow-hidden">
+                          <div className="h-32 sm:h-36 w-full rounded-2xl bg-background border p-4 flex items-center justify-center overflow-hidden shadow-2xs">
                             <img src={companySeal} alt="Company Seal" className="max-h-full max-w-full object-contain" />
                           </div>
                         ) : (
-                          <div className="h-24 w-full rounded-lg border border-dashed border-slate-800 flex flex-col items-center justify-center text-xs text-slate-500 bg-slate-950/20">
-                            <span>No Company Seal Uploaded</span>
-                            <span className="text-[10px] text-slate-600 mt-0.5">(Stamps bottom-left of signature)</span>
+                          <div className="h-32 sm:h-36 w-full rounded-2xl border border-dashed flex flex-col items-center justify-center text-sm text-muted-foreground bg-background/50">
+                            <span className="font-bold text-foreground">No Stamp Uploaded</span>
+                            <span className="text-xs opacity-75 mt-1">(Stamps bottom-left of signature)</span>
                           </div>
                         )}
 
-                        <div className="flex items-center gap-2">
+                        <div className="space-y-1.5">
                           <Input 
                             type="file" 
                             accept="image/png, image/jpeg, image/webp, image/svg+xml"
-                            className="bg-slate-950 border-slate-800 text-xs text-slate-400 file:bg-slate-800 file:text-slate-200 file:border-0 file:rounded file:px-2.5 file:py-1 file:mr-3 file:cursor-pointer cursor-pointer hover:border-slate-700"
+                            className="text-xs cursor-pointer h-10"
                             onChange={(e) => {
                               const file = e.target.files?.[0]
                               if (file) {
@@ -966,75 +788,24 @@ export default function SettingsPage() {
                               }
                             }}
                           />
+                          <p className="text-xs text-muted-foreground italic">
+                            💡 Transparent PNG stamp image placed next to signature block on PDF exports.
+                          </p>
                         </div>
-                        <p className="text-[10px] text-slate-500 italic mt-1">
-                          💡 Transparent PNG/SVG recommended. Placed slightly bottom-left on signature block in PDF quotations.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-6 md:grid-cols-2">
-                      {/* Company Bank Details */}
-                      <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
-                        <div className="flex justify-between items-center">
-                          <Label className="text-sm font-semibold text-slate-200">Company Bank Details</Label>
-                          <span className="text-[10px] text-orange-400 font-medium">Appears next to Cost Breakdown</span>
-                        </div>
-                        <Textarea
-                          rows={4}
-                          value={bankDetails}
-                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBankDetails(e.target.value)}
-                          placeholder="Enter bank name, account number, IBAN, SWIFT code, branch details..."
-                          className="bg-slate-950 border-slate-800 text-xs text-slate-200 focus:border-orange-500 font-mono"
-                        />
-                        <p className="text-[10px] text-slate-500 italic">
-                          💡 Displays on the left side of the Cost Breakdown section on PDF exports.
-                        </p>
                       </div>
 
-                      {/* Quotation Disclaimers */}
-                      <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-3">
+                      {/* Promotional Banner Upload Card */}
+                      <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-4 hover:border-border transition-all">
                         <div className="flex justify-between items-center">
-                          <Label className="text-sm font-semibold text-slate-200">Default Quotation Disclaimers</Label>
-                          <span className="text-[10px] text-orange-400 font-medium">Appears above Terms & Conditions</span>
-                        </div>
-                        
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-slate-400">Disclaimer Heading / Title</Label>
-                          <Input
-                            value={disclaimerTitle}
-                            onChange={(e) => setDisclaimerTitle(e.target.value)}
-                            placeholder="e.g. Disclaimers, Special Notes"
-                            className="bg-slate-950 border-slate-800 text-xs text-slate-200 focus:border-orange-500 h-9"
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-slate-400">Default Disclaimer Content (Optional)</Label>
-                          <Textarea
-                            rows={4}
-                            value={disclaimer}
-                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDisclaimer(e.target.value)}
-                            placeholder="Leave empty if no disclaimer should appear by default..."
-                            className="bg-slate-950 border-slate-800 text-xs text-slate-200 focus:border-orange-500"
-                          />
-                        </div>
-
-                        <p className="text-[10px] text-slate-500 italic">
-                          💡 If left empty, no disclaimer section will appear on PDF exports.
-                        </p>
-                      </div>
-
-                      {/* Promotional Banner Image Upload */}
-                      <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-4">
-                        <div className="flex justify-between items-center">
-                          <Label className="text-sm font-semibold text-slate-200">Quotation Promotional Banner</Label>
+                          <Label className="text-sm font-bold text-foreground flex items-center gap-2">
+                            <ImageIcon className="h-4 w-4 text-indigo-500" /> Quotation Promotional Banner
+                          </Label>
                           {promotionalImage && (
                             <Button 
                               type="button" 
                               variant="ghost" 
                               size="sm" 
-                              className="h-7 text-xs text-red-500 hover:text-red-400 hover:bg-red-950/20 px-2"
+                              className="h-7 text-xs text-rose-600 hover:bg-rose-50 font-bold px-2.5 cursor-pointer"
                               onClick={() => setPromotionalImage("")}
                             >
                               Remove Image
@@ -1043,21 +814,20 @@ export default function SettingsPage() {
                         </div>
 
                         {promotionalImage ? (
-                          <div className="h-24 w-full rounded-lg bg-slate-950 border border-slate-800 p-2 flex items-center justify-center overflow-hidden">
+                          <div className="h-32 sm:h-36 w-full rounded-2xl bg-background border p-4 flex items-center justify-center overflow-hidden shadow-2xs">
                             <img src={promotionalImage} alt="Promotional Banner" className="max-h-full max-w-full object-contain" />
                           </div>
                         ) : (
-                          <div className="h-24 w-full rounded-lg border border-dashed border-slate-800 flex flex-col items-center justify-center text-xs text-slate-500 bg-slate-950/20">
-                            <span>No Promotional Image Set</span>
-                            <span className="text-[10px] text-slate-600 mt-0.5">(Will fallback to Watermark)</span>
+                          <div className="h-32 sm:h-36 w-full rounded-2xl border border-dashed flex flex-col items-center justify-center text-sm text-muted-foreground bg-background/50">
+                            <span className="font-bold text-foreground">No Promotional Banner Uploaded</span>
                           </div>
                         )}
 
-                        <div className="flex items-center gap-2">
+                        <div className="space-y-1.5">
                           <Input 
                             type="file" 
                             accept="image/png, image/jpeg, image/webp"
-                            className="bg-slate-950 border-slate-800 text-xs text-slate-400 file:bg-slate-800 file:text-slate-200 file:border-0 file:rounded file:px-2.5 file:py-1 file:mr-3 file:cursor-pointer cursor-pointer hover:border-slate-700"
+                            className="text-xs cursor-pointer h-10"
                             onChange={(e) => {
                               const file = e.target.files?.[0]
                               if (file) {
@@ -1069,194 +839,273 @@ export default function SettingsPage() {
                               }
                             }}
                           />
+                          <p className="text-xs text-muted-foreground italic">
+                            💡 Displays alongside Cost Breakdown section. Recommended: Portrait (500x700).
+                          </p>
                         </div>
-                        <p className="text-[10px] text-slate-500 italic mt-1">
-                          💡 Replaces the watermark next to Cost Breakdown. Recommended: <b>Portrait (e.g. 500x700)</b>.
+                      </div>
+
+                    </div>
+
+                    {/* Bank Details & Disclaimers */}
+                    <div className="grid gap-6 md:grid-cols-2 pt-4">
+                      <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-3">
+                        <Label className="text-sm font-bold text-foreground">Company Bank Account Details</Label>
+                        <Textarea
+                          rows={4}
+                          value={bankDetails}
+                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBankDetails(e.target.value)}
+                          placeholder="Bank name, Account Number, IBAN, SWIFT Code, Branch Details..."
+                          className="text-sm font-mono bg-background"
+                        />
+                        <p className="text-xs text-muted-foreground italic">
+                          💡 Rendered in the left payment details panel on PDF quotation exports.
                         </p>
+                      </div>
+
+                      <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-sm font-bold text-foreground">Default Quotation Disclaimers</Label>
+                          <Input
+                            value={disclaimerTitle}
+                            onChange={(e) => setDisclaimerTitle(e.target.value)}
+                            placeholder="e.g. Disclaimers, Special Notes"
+                            className="text-sm font-semibold h-10 bg-background"
+                          />
+                        </div>
+                        <Textarea
+                          rows={3}
+                          value={disclaimer}
+                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDisclaimer(e.target.value)}
+                          placeholder="Optional disclaimer text included above Terms & Conditions..."
+                          className="text-sm bg-background"
+                        />
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="pt-4 border-t border-slate-800 flex justify-end">
-                  <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white font-semibold flex items-center gap-2" disabled={loading}>
-                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Save Company Details
+                <div className="pt-6 border-t flex justify-end">
+                  <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-sm h-11 sm:h-12 px-6 rounded-xl cursor-pointer shadow-xs" disabled={loading}>
+                    {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Save Corporate Details
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </form>
 
+          {/* Sequence Counters Section */}
           {userRole === "SUPER_ADMIN" && (
-            <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl mt-6">
-              <CardHeader className="border-b border-slate-800/80 pb-4">
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Hash className="text-orange-500 h-5 w-5" />
-                  System Sequence Counters
-                </CardTitle>
-                <CardDescription className="text-slate-400">
-                  Manage the sequence trackers used for automatically generating IDs across the system.
-                </CardDescription>
+            <Card className="bg-card border rounded-3xl shadow-xs overflow-hidden">
+              <CardHeader className="border-b p-6 sm:p-8 bg-muted/20">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
+                    <Hash className="h-6 w-6 sm:h-7 sm:w-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg sm:text-xl font-bold text-foreground">
+                      System Auto-Sequence Base Trackers
+                    </CardTitle>
+                    <CardDescription className="text-xs sm:text-sm text-muted-foreground">
+                      Configure baseline numbers used for auto-incrementing Quotation & Client IDs.
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4 pt-6">
-                <div className="flex flex-col gap-6">
-                  {/* Quotation Sequence */}
-                  <div className="flex flex-col md:flex-row gap-4 items-end">
-                    <div className="space-y-2 flex-1 max-w-sm">
-                      <Label htmlFor="quotationSequence" className="text-slate-300">Base Quotation Sequence Number</Label>
+
+              <CardContent className="space-y-6 p-6 sm:p-8">
+                <div className="grid gap-6 md:grid-cols-2">
+                  
+                  <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-4">
+                    <Label htmlFor="quotationSequence" className="text-sm font-bold text-foreground">Base Quotation Sequence Number</Label>
+                    <div className="flex items-center gap-3">
                       <Input 
                         id="quotationSequence" 
                         type="number"
                         min="1"
                         value={quotationSequence}
                         onChange={(e) => setQuotationSequence(e.target.value ? parseInt(e.target.value) : "")}
-                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 font-mono"
+                        className="text-base font-mono font-bold bg-background h-11"
                         placeholder="e.g. 3670"
                       />
-                      <p className="text-[10px] text-slate-500">
-                        The next quotation will use this number + 1 (e.g. if set to 3671, next is 3672).
-                      </p>
+                      <Button 
+                        type="button" 
+                        onClick={handleSaveSequence} 
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl cursor-pointer shrink-0"
+                        disabled={savingSequence || quotationSequence === ""}
+                      >
+                        {savingSequence ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                        Update Base
+                      </Button>
                     </div>
-                    <Button 
-                      type="button" 
-                      onClick={handleSaveSequence} 
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold w-36"
-                      disabled={savingSequence || quotationSequence === ""}
-                    >
-                      {savingSequence ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Update
-                    </Button>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      Next quotation number will generate as base + 1.
+                    </p>
                   </div>
-                  
-                  {/* Client Sequence */}
-                  <div className="flex flex-col md:flex-row gap-4 items-end pt-4 border-t border-slate-800">
-                    <div className="space-y-2 flex-1 max-w-sm">
-                      <Label htmlFor="clientSequence" className="text-slate-300">Base Client ID Sequence Number</Label>
+
+                  <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-4">
+                    <Label htmlFor="clientSequence" className="text-sm font-bold text-foreground">Base Client ID Sequence Number</Label>
+                    <div className="flex items-center gap-3">
                       <Input 
                         id="clientSequence" 
                         type="number"
                         min="1"
                         value={clientSequence}
                         onChange={(e) => setClientSequence(e.target.value ? parseInt(e.target.value) : "")}
-                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 font-mono"
+                        className="text-base font-mono font-bold bg-background h-11"
                         placeholder="e.g. 1000"
                       />
-                      <p className="text-[10px] text-slate-500">
-                        The next client will use this number + 1 (e.g. if set to 1000, next is C-1001).
-                      </p>
+                      <Button 
+                        type="button" 
+                        onClick={handleSaveClientSequence} 
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm h-11 px-4 rounded-xl cursor-pointer shrink-0"
+                        disabled={savingClientSequence || clientSequence === ""}
+                      >
+                        {savingClientSequence ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                        Update Base
+                      </Button>
                     </div>
-                    <Button 
-                      type="button" 
-                      onClick={handleSaveClientSequence} 
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold w-36"
-                      disabled={savingClientSequence || clientSequence === ""}
-                    >
-                      {savingClientSequence ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Update
-                    </Button>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      Next client will generate as C-[base + 1].
+                    </p>
                   </div>
+
                 </div>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
-        {/* Tab: Pricing Margins */}
-        <TabsContent value="pricing" className="mt-6">
+        {/* ── Tab 3: Pricing Margins ── */}
+        <TabsContent value="pricing" className="mt-0 space-y-8">
           <form onSubmit={handleSavePricing}>
-            <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl">
-              <CardHeader className="border-b border-slate-800/80 pb-4">
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Tag className="text-orange-500 h-5 w-5" />
-                  Pricing Margins
-                </CardTitle>
-                <CardDescription className="text-slate-400">
-                  Set the default margin percentages used to auto-calculate price tiers based on product Cost Price.
-                </CardDescription>
+            <Card className="bg-card border rounded-3xl shadow-xs overflow-hidden">
+              <CardHeader className="border-b p-6 sm:p-8 bg-muted/20">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                    <Tag className="h-6 w-6 sm:h-7 sm:w-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg sm:text-xl font-bold text-foreground">
+                      Sales Channel Pricing Margins (%)
+                    </CardTitle>
+                    <CardDescription className="text-xs sm:text-sm text-muted-foreground">
+                      Define baseline markup percentages used to auto-calculate channel prices from factory cost.
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4 pt-6">
+              
+              <CardContent className="space-y-8 p-6 sm:p-8">
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-                  <div className="space-y-2">
-                    <Label className="text-slate-300">Dealer Margin (%)</Label>
+                  
+                  {/* Dealer Margin Card */}
+                  <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-4 hover:border-border transition-all">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-bold text-foreground">Dealer Channel</Label>
+                      <Badge variant="outline" className="text-xs font-mono bg-background px-2.5 py-0.5">Tier 1</Badge>
+                    </div>
                     <div className="relative">
                       <Input 
                         type="number" 
                         value={dealerPct}
                         onChange={(e) => setDealerPct(parseFloat(e.target.value))}
-                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
+                        className="pl-8 text-base font-bold font-mono bg-background h-12 rounded-xl"
                         required
                         min="0"
                         max="99.99"
                         step="0.01"
                       />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">%</span>
                     </div>
+                    <p className="text-xs text-muted-foreground">Standard margin markup for wholesale dealers.</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-slate-300">Interior Margin (%)</Label>
+
+                  {/* Interior Margin Card */}
+                  <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-4 hover:border-border transition-all">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-bold text-foreground">Interior Consultant</Label>
+                      <Badge variant="outline" className="text-xs font-mono bg-background px-2.5 py-0.5">Tier 2</Badge>
+                    </div>
                     <div className="relative">
                       <Input 
                         type="number" 
                         value={interiorPct}
                         onChange={(e) => setInteriorPct(parseFloat(e.target.value))}
-                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
+                        className="pl-8 text-base font-bold font-mono bg-background h-12 rounded-xl"
                         required
                         min="0"
                         max="99.99"
                         step="0.01"
                       />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">%</span>
                     </div>
+                    <p className="text-xs text-muted-foreground">Markup applied for interior design consultants.</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-slate-300">Direct Margin (%)</Label>
+
+                  {/* Direct Client Margin Card */}
+                  <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-4 hover:border-border transition-all">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-bold text-foreground">Direct Client</Label>
+                      <Badge variant="outline" className="text-xs font-mono bg-background px-2.5 py-0.5">Tier 3</Badge>
+                    </div>
                     <div className="relative">
                       <Input 
                         type="number" 
                         value={directPct}
                         onChange={(e) => setDirectPct(parseFloat(e.target.value))}
-                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
+                        className="pl-8 text-base font-bold font-mono bg-background h-12 rounded-xl"
                         required
                         min="0"
                         max="99.99"
                         step="0.01"
                       />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">%</span>
                     </div>
+                    <p className="text-xs text-muted-foreground">Standard retail price markup for direct clients.</p>
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-slate-300">Online Margin (%)</Label>
+
+                  {/* Online Catalog Margin Card */}
+                  <div className="p-5 sm:p-6 rounded-2xl border bg-muted/20 space-y-4 hover:border-border transition-all">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-bold text-foreground">Online Catalog</Label>
+                      <Badge variant="outline" className="text-xs font-mono bg-background px-2.5 py-0.5">Tier 4</Badge>
+                    </div>
                     <div className="relative">
                       <Input 
                         type="number" 
                         value={onlinePct}
                         onChange={(e) => setOnlinePct(parseFloat(e.target.value))}
-                        className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600 pl-8"
+                        className="pl-8 text-base font-bold font-mono bg-background h-12 rounded-xl"
                         required
                         min="0"
                         max="99.99"
                         step="0.01"
                       />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">%</span>
                     </div>
+                    <p className="text-xs text-muted-foreground">MSRP list price markup for web catalog.</p>
                   </div>
+
                 </div>
-                <div className="flex items-center gap-2 pt-2 pb-2 mt-4">
+
+                <div className="flex items-center space-x-3 pt-4 border-t">
                   <input 
                     id="recalculateExisting"
                     type="checkbox"
                     checked={recalculateExisting}
                     onChange={(e) => setRecalculateExisting(e.target.checked)}
-                    className="rounded border-slate-800 text-orange-600 focus:ring-orange-600 bg-slate-900 h-4 w-4 cursor-pointer"
+                    className="rounded border-border text-primary focus:ring-primary h-5 w-5 cursor-pointer"
                   />
-                  <Label htmlFor="recalculateExisting" className="text-slate-300 cursor-pointer select-none">
-                    Recalculate Existing Product Prices
+                  <Label htmlFor="recalculateExisting" className="text-sm font-bold cursor-pointer select-none text-foreground flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 text-primary" /> Recalculate existing product catalog pricing upon saving
                   </Label>
                 </div>
-                <div className="pt-4 border-t border-slate-800 flex justify-end mt-4">
-                  <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white font-semibold flex items-center gap-2" disabled={savingPricing}>
-                    {savingPricing && <Loader2 className="h-4 w-4 animate-spin" />}
+
+                <div className="pt-6 border-t flex justify-end">
+                  <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-sm h-11 sm:h-12 px-6 rounded-xl cursor-pointer shadow-xs" disabled={savingPricing}>
+                    {savingPricing && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                     Save Pricing Margins
                   </Button>
                 </div>
@@ -1265,807 +1114,326 @@ export default function SettingsPage() {
           </form>
         </TabsContent>
 
-        {/* Tab 2: Users Management Console */}
-        <TabsContent value="users" className="mt-6">
-          <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl">
-            <CardHeader className="border-b border-slate-800 pb-4 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Users className="text-orange-500 h-5 w-5" />
-                  Users Management Console
-                </CardTitle>
-                <CardDescription className="text-slate-400">
-                  Manage active employees, roles, and credential parameters.
-                </CardDescription>
-              </div>
-              <Button onClick={() => setShowAddUserModal(true)} className="bg-orange-600 hover:bg-orange-500 text-white flex items-center gap-2">
-                <UserPlus className="h-4 w-4" />
-                Add User Account
-              </Button>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="relative overflow-x-auto rounded-lg border border-slate-800">
-                <table className="w-full text-sm text-left text-slate-300">
-                  <thead className="text-xs uppercase bg-slate-900 text-slate-400 border-b border-slate-800">
-                    <tr>
-                      <th scope="col" className="px-6 py-4">Name</th>
-                      <th scope="col" className="px-6 py-4">Email</th>
-                      <th scope="col" className="px-6 py-4">Role</th>
-                      <th scope="col" className="px-6 py-4">Created Date</th>
-                      <th scope="col" className="px-6 py-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.map((usr) => (
-                      <tr key={usr.id} className={`border-b border-slate-800 transition-colors ${usr.isActive === false ? "bg-slate-950/20 opacity-70" : "bg-slate-950/40 hover:bg-slate-900/60"}`}>
-                        <td className="px-6 py-4 font-semibold text-slate-100 flex items-center gap-3">
-                          {usr.image ? (
-                            <img src={usr.image} alt={usr.name} className="h-8 w-8 rounded-full object-cover shrink-0" />
-                          ) : (
-                            <div className="h-8 w-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center text-xs font-bold shrink-0">
-                              {usr.name.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          <div className="flex flex-col">
-                            <span>{usr.name}</span>
-                            {usr.designation && <span className="text-[10px] text-slate-400 font-normal">{usr.designation}</span>}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span>{usr.email}</span>
-                            {usr.isActive === false && <span className="text-[10px] text-red-400">Inactive</span>}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            usr.role === "SUPER_ADMIN" ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" :
-                            usr.role === "ADMIN" ? "bg-red-500/10 text-red-400 border border-red-500/20" :
-                            (usr.role === "SALES_MANAGER" || usr.role === "MANAGER") ? "bg-orange-500/10 text-orange-400 border border-orange-500/20" :
-                            "bg-slate-500/15 text-slate-300 border border-slate-500/10"
-                          }`}>
-                            {usr.role === "SUPER_ADMIN" ? "Super Admin" :
-                             usr.role === "ADMIN" ? "Administrator" :
-                             (usr.role === "SALES_MANAGER" || usr.role === "MANAGER") ? "Manager" :
-                             usr.role === "SALES_EXECUTIVE" ? "Interior Design Consultant (IDC)" :
-                             usr.role === "INTERIOR_DESIGN_CONSULTANT" ? "Interior Design Consultant" :
-                             usr.role === "ESTIMATOR" ? "Cost Estimator" :
-                             usr.role === "ACCOUNTS" ? "Finance & Accounts" :
-                             usr.role === "PROCUREMENT" ? "Procurement" :
-                             usr.role === "PRODUCTION" ? "Production" :
-                             usr.role === "VIEWER" ? "Viewer" :
-                             usr.role ? usr.role.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "User"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-slate-400">
-                          {new Date(usr.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          {(userRole === "SUPER_ADMIN" || (usr.role !== "SUPER_ADMIN" && usr.role !== "ADMIN" && usr.role !== "SALES_MANAGER" && usr.role !== "MANAGER")) && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-blue-500 hover:text-blue-400 hover:bg-blue-950/30 mr-2"
-                              onClick={() => {
-                                setEditUserData({ ...usr })
-                                setShowEditUserModal(true)
-                              }}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {(userRole === "SUPER_ADMIN" || (usr.role !== "SUPER_ADMIN" && usr.role !== "ADMIN" && usr.role !== "SALES_MANAGER" && usr.role !== "MANAGER")) && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-red-500 hover:text-red-400 hover:bg-red-950/30"
-                              onClick={() => handleDeleteUser(usr.id, usr.name)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab 3: Default Terms & Conditions */}
-        <TabsContent value="terms" className="mt-6">
+        {/* ── Tab 4: Default Quotation Terms & Conditions ── */}
+        <TabsContent value="terms" className="mt-0 space-y-8">
           <div className="grid gap-6 md:grid-cols-2">
-            {/* Column A: Payment Terms */}
-            <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl">
-              <CardHeader className="border-b border-slate-800 pb-4 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Briefcase className="text-orange-500 h-5 w-5" />
-                    Payment Terms
-                  </CardTitle>
-                  <CardDescription className="text-slate-400">Default settings for quotations.</CardDescription>
+            
+            {/* Payment Terms List */}
+            <Card className="bg-card border rounded-3xl shadow-xs overflow-hidden">
+              <CardHeader className="border-b p-6 sm:p-8 bg-muted/20 flex flex-row items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+                    <Briefcase className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base sm:text-lg font-bold">Payment Term Options</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm text-muted-foreground">Options available in quotation dropdowns.</CardDescription>
+                  </div>
                 </div>
-                <Button onClick={() => setShowAddPaymentModal(true)} variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-900 flex items-center gap-1">
-                  <Plus className="h-3.5 w-3.5" />
-                  Add
+                <Button 
+                  onClick={() => setShowAddPaymentModal(true)} 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-10 text-xs sm:text-sm font-bold border-primary/30 text-primary hover:bg-primary/5 cursor-pointer flex items-center gap-1.5 px-4 rounded-xl"
+                >
+                  <Plus className="h-4 w-4" /> Add Option
                 </Button>
               </CardHeader>
-              <CardContent className="pt-6 space-y-4">
-                {paymentTerms.map((term) => (
-                  <div key={term.id} className="p-4 rounded-lg bg-slate-900/60 border border-slate-850 flex items-start justify-between hover:border-slate-800 transition-all">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-100">{term.name}</span>
-                        {term.isDefault && (
-                          <span className="text-[10px] bg-orange-600/10 text-orange-500 border border-orange-500/20 px-2 py-0.5 rounded-full font-bold">
-                            DEFAULT
-                          </span>
-                        )}
+
+              <CardContent className="p-6 sm:p-8 space-y-4">
+                {paymentTerms.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic text-center py-10">No custom payment terms created yet.</p>
+                ) : (
+                  paymentTerms.map((term) => (
+                    <div key={term.id} className="p-4 rounded-2xl bg-muted/20 border flex items-start justify-between hover:border-border transition-all">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-foreground">{term.name}</span>
+                          {term.isDefault && (
+                            <Badge className="bg-primary text-primary-foreground text-xs font-bold px-2.5 py-0.5">
+                              DEFAULT
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs sm:text-sm text-muted-foreground">{term.description || "No description provided."}</p>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1">{term.description || "No description provided."}</p>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-rose-600 hover:bg-rose-50 cursor-pointer shrink-0"
+                        onClick={() => handleDeleteTerm("payment", term.id, term.name)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-red-500 hover:text-red-400 hover:bg-red-950/20"
-                      onClick={() => handleDeleteTerm("payment", term.id, term.name)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
 
-            {/* Column B: Terms & Conditions default list */}
-            <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl">
-              <CardHeader className="border-b border-slate-800 pb-4 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <FileText className="text-orange-500 h-5 w-5" />
-                    Terms & Conditions Clauses
-                  </CardTitle>
-                  <CardDescription className="text-slate-400">Generated automatically on PDF page footers.</CardDescription>
+            {/* Terms & Conditions Clauses */}
+            <Card className="bg-card border rounded-3xl shadow-xs overflow-hidden">
+              <CardHeader className="border-b p-6 sm:p-8 bg-muted/20 flex flex-row items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0">
+                    <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base sm:text-lg font-bold">Legal Terms Clauses</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm text-muted-foreground">Clauses included on PDF quotation exports.</CardDescription>
+                  </div>
                 </div>
-                <Button onClick={() => setShowAddTermsModal(true)} variant="outline" size="sm" className="border-slate-700 text-slate-300 hover:bg-slate-900 flex items-center gap-1">
-                  <Plus className="h-3.5 w-3.5" />
-                  Add
+                <Button 
+                  onClick={() => setShowAddTermsModal(true)} 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-10 text-xs sm:text-sm font-bold border-primary/30 text-primary hover:bg-primary/5 cursor-pointer flex items-center gap-1.5 px-4 rounded-xl"
+                >
+                  <Plus className="h-4 w-4" /> Add Clause
                 </Button>
               </CardHeader>
-              <CardContent className="pt-6 space-y-4">
-                {termsConditions.map((cond) => (
-                  <div key={cond.id} className="p-4 rounded-lg bg-slate-900/60 border border-slate-850 flex items-start justify-between hover:border-slate-800 transition-all">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-100">{cond.title}</span>
-                        {cond.isDefault && (
-                          <span className="text-[10px] bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
-                            ON BY DEFAULT
-                          </span>
-                        )}
+
+              <CardContent className="p-6 sm:p-8 space-y-4">
+                {termsConditions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic text-center py-10">No custom terms clauses created yet.</p>
+                ) : (
+                  termsConditions.map((cond) => (
+                    <div key={cond.id} className="p-4 rounded-2xl bg-muted/20 border flex items-start justify-between hover:border-border transition-all">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-foreground">{cond.title}</span>
+                          {cond.isDefault && (
+                            <Badge className="bg-emerald-600 text-white text-xs font-bold px-2.5 py-0.5">
+                              DEFAULT
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{cond.content}</p>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">{cond.content}</p>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-rose-600 hover:bg-rose-50 cursor-pointer shrink-0 ml-2"
+                        onClick={() => handleDeleteTerm("condition", cond.id, cond.title)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="text-red-500 hover:text-red-400 hover:bg-red-950/20 ml-2 shrink-0"
-                      onClick={() => handleDeleteTerm("condition", cond.id, cond.title)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
+
           </div>
         </TabsContent>
 
-        {/* Tab 4: SharePoint Credentials */}
-        <TabsContent value="integrations" className="mt-6">
+        {/* ── Tab 5: SharePoint Credentials Integration ── */}
+        <TabsContent value="integrations" className="mt-0 space-y-8">
           <form onSubmit={handleSaveSettings}>
-            <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl">
-              <CardHeader className="border-b border-slate-800 pb-4">
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Key className="text-orange-500 h-5 w-5" />
-                  Microsoft SharePoint & Graph API Configuration
-                </CardTitle>
-                <CardDescription className="text-slate-400">
-                  Configure directory access properties. Set values to override environment variables. Empty fields fall back to local `.env`.
-                </CardDescription>
+            <Card className="bg-card border rounded-3xl shadow-xs overflow-hidden">
+              <CardHeader className="border-b p-6 sm:p-8 bg-muted/20">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                    <Cloud className="h-6 w-6 sm:h-7 sm:w-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <CardTitle className="text-lg sm:text-xl font-bold text-foreground">
+                      Microsoft SharePoint & Graph API Credentials
+                    </CardTitle>
+                    <CardDescription className="text-xs sm:text-sm text-muted-foreground">
+                      Configure Azure App Registration credentials for automatic SharePoint document synchronization.
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4 pt-6">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="tenantId" className="text-slate-300">Directory (Tenant) ID</Label>
+              
+              <CardContent className="space-y-8 p-6 sm:p-8">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div className="space-y-2.5">
+                    <Label htmlFor="tenantId" className="text-sm font-bold text-foreground">Directory (Tenant) ID</Label>
                     <Input 
                       id="tenantId" 
                       type="password"
                       placeholder="e.g. 98d74360-a4e2-4ad2-9247-f406c295d619"
                       value={tenantId}
                       onChange={(e) => setTenantId(e.target.value)}
-                      className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600"
+                      className="text-sm font-mono h-11 sm:h-12 rounded-xl bg-background"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="clientId" className="text-slate-300">Application (Client) ID</Label>
+
+                  <div className="space-y-2.5">
+                    <Label htmlFor="clientId" className="text-sm font-bold text-foreground">Application (Client) ID</Label>
                     <Input 
                       id="clientId" 
                       type="password"
                       placeholder="e.g. 7118d073-306f-4c1a-a7af-a924ad85671a"
                       value={clientId}
                       onChange={(e) => setClientId(e.target.value)}
-                      className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600"
+                      className="text-sm font-mono h-11 sm:h-12 rounded-xl bg-background"
                     />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="clientSecret" className="text-slate-300 flex items-center justify-between">
-                      <span>Application Client Secret</span>
+
+                  <div className="space-y-2.5 md:col-span-2">
+                    <Label htmlFor="clientSecret" className="text-sm font-bold text-foreground flex items-center justify-between">
+                      <span>Application Client Secret Value</span>
                       <button 
                         type="button" 
                         onClick={() => setShowSecret(!showSecret)}
-                        className="text-xs text-orange-500 hover:text-orange-400 focus:outline-none flex items-center gap-1"
+                        className="text-xs sm:text-sm text-primary hover:underline focus:outline-none flex items-center gap-1 font-bold cursor-pointer"
                       >
-                        {showSecret ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                        {showSecret ? "Hide secret" : "Show secret"}
+                        {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showSecret ? "Hide Token" : "Show Token"}
                       </button>
                     </Label>
                     <Input 
                       id="clientSecret" 
                       type={showSecret ? "text" : "password"}
-                      placeholder="Enter Client Secret token"
+                      placeholder="Enter Client Secret Value token"
                       value={clientSecret}
                       onChange={(e) => setClientSecret(e.target.value)}
-                      className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600"
+                      className="text-sm font-mono h-11 sm:h-12 rounded-xl bg-background"
                     />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="siteId" className="text-slate-300">SharePoint Target Site ID</Label>
+
+                  <div className="space-y-2.5 md:col-span-2">
+                    <Label htmlFor="siteId" className="text-sm font-bold text-foreground">SharePoint Target Site ID</Label>
                     <Input 
                       id="siteId" 
                       placeholder="site.sharepoint.com,site-uuid-1,site-uuid-2"
                       value={siteId}
                       onChange={(e) => setSiteId(e.target.value)}
-                      className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600"
+                      className="text-sm font-mono h-11 sm:h-12 rounded-xl bg-background"
                     />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="driveId" className="text-slate-300">SharePoint Target Drive ID</Label>
+
+                  <div className="space-y-2.5 md:col-span-2">
+                    <Label htmlFor="driveId" className="text-sm font-bold text-foreground">SharePoint Target Drive ID</Label>
                     <Input 
                       id="driveId" 
                       placeholder="Documents Library ID"
                       value={driveId}
                       onChange={(e) => setDriveId(e.target.value)}
-                      className="bg-slate-900 border-slate-800 focus-visible:ring-orange-600"
+                      className="text-sm font-mono h-11 sm:h-12 rounded-xl bg-background"
                     />
                   </div>
                 </div>
 
                 {testingConnection && (
-                  <div className="p-4 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-3">
-                    <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
-                    <span className="text-sm text-slate-300">Testing connection to SharePoint & resolving document libraries...</span>
+                  <div className="p-5 rounded-2xl bg-muted/40 border flex items-center gap-3">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="text-sm font-medium text-foreground">Testing connection to SharePoint & resolving document libraries...</span>
                   </div>
                 )}
 
                 {testResult && (
-                  <div className={`p-4 rounded-lg border text-sm ${testResult.success ? "bg-emerald-950/20 border-emerald-800/60 text-emerald-300" : "bg-red-950/20 border-red-800/60 text-red-300"} space-y-3`}>
-                    <div className="flex items-start gap-2.5">
+                  <div className={`p-5 rounded-2xl border text-sm ${testResult.success ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300" : "bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-300"} space-y-4`}>
+                    <div className="flex items-start gap-3">
                       {testResult.success ? (
-                        <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                        <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0 mt-0.5" />
                       ) : (
-                        <XCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                        <XCircle className="h-6 w-6 text-rose-600 shrink-0 mt-0.5" />
                       )}
                       <div>
-                        <h4 className="font-semibold text-slate-100">
-                          {testResult.success ? "Connection Test Succeeded" : "Connection Test Failed"}
+                        <h4 className="font-extrabold text-base">
+                          {testResult.success ? "SharePoint Connection Successful" : "SharePoint Connection Failed"}
                         </h4>
-                        <p className="text-xs text-slate-300 mt-1">{testResult.message || testResult.error}</p>
+                        <p className="text-xs sm:text-sm mt-1">{testResult.message || testResult.error}</p>
                       </div>
                     </div>
 
-                    {!testResult.success && testResult.isSecretId && (
-                      <div className="p-3 rounded bg-red-950/40 border border-red-900/60 flex items-start gap-2 text-xs text-red-200">
-                        <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-                        <div>
-                          <strong>Azure Client Secret mismatch detected:</strong> The Client Secret you entered matches a 36-character UUID format (Secret ID). In the Azure Portal, you must copy the <strong>Value</strong> of the client secret (which is a longer random string) rather than the Secret ID. Please generate a new secret in Azure App Registrations and copy its <strong>Value</strong>.
-                        </div>
-                      </div>
-                    )}
-
                     {testResult.success && testResult.drives && (
-                      <div className="space-y-2 pt-2 border-t border-slate-800/60">
-                        <div className="text-xs font-semibold text-slate-400">Available Site Document Libraries:</div>
-                        <div className="max-h-36 overflow-y-auto space-y-1.5 pr-2 custom-scrollbar text-xs">
+                      <div className="space-y-3 pt-3 border-t border-emerald-500/20">
+                        <div className="text-xs font-bold uppercase tracking-wider">Available Site Document Libraries:</div>
+                        <div className="max-h-40 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                           {testResult.drives.map((d: any) => {
                             const isResolved = d.id === testResult.resolvedDriveId;
                             return (
                               <div 
                                 key={d.id} 
-                                className={`flex items-center justify-between p-2 rounded ${isResolved ? "bg-emerald-950/50 border border-emerald-800/40 font-medium text-emerald-200" : "bg-slate-900/40 border border-slate-800/20 text-slate-400"}`}
+                                className={`flex items-center justify-between p-3 rounded-xl ${isResolved ? "bg-emerald-600 text-white font-bold" : "bg-background/80 border text-muted-foreground text-xs"}`}
                               >
-                                <span>{d.name}</span>
-                                <span className="font-mono text-[10px] opacity-75">{d.id}</span>
+                                <span className="font-semibold text-sm">{d.name}</span>
+                                <span className="font-mono text-xs opacity-80">{d.id}</span>
                               </div>
                             )
                           })}
                         </div>
-                        {testResult.resolutionLog && (
-                          <div className="text-[11px] text-slate-400 italic mt-1.5">
-                            <strong>Library Resolution:</strong> {testResult.resolutionLog}
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
                 )}
 
-                <div className="pt-4 border-t border-slate-800 flex justify-end gap-3">
+                <div className="pt-6 border-t flex justify-end gap-3">
                   <Button 
                     type="button" 
                     onClick={handleTestConnection}
                     disabled={testingConnection || loading}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold flex items-center gap-2"
+                    variant="outline"
+                    className="h-11 sm:h-12 px-5 text-sm font-bold border-primary/30 text-primary hover:bg-primary/5 cursor-pointer flex items-center gap-2 rounded-xl"
                   >
                     {testingConnection && <Loader2 className="h-4 w-4 animate-spin" />}
                     Test Connection
                   </Button>
-                  <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white font-semibold flex items-center gap-2" disabled={loading}>
-                    {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Save Integration Credentials
+                  
+                  <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground font-extrabold text-sm h-11 sm:h-12 px-6 rounded-xl cursor-pointer shadow-xs" disabled={loading}>
+                    {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Save Integration Keys
                   </Button>
                 </div>
               </CardContent>
             </Card>
           </form>
         </TabsContent>
-
-        {/* Tab 5: Client Access Requests */}
-        <TabsContent value="client-requests" className="mt-6">
-          <Card className="bg-slate-950 border-slate-800 text-white shadow-2xl">
-            <CardHeader className="border-b border-slate-800 pb-4">
-              <CardTitle className="text-xl flex items-center gap-2">
-                <UserCheck className="text-orange-500 h-5 w-5" />
-                Client Access Requests
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                Review and approve client access requests submitted by consultants.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              {loadingRequests ? (
-                <div className="flex justify-center p-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-orange-600" />
-                </div>
-              ) : accessRequests.length === 0 ? (
-                <div className="text-sm text-slate-400 italic text-center p-8 border border-dashed border-slate-800 rounded-xl">
-                  No access requests submitted.
-                </div>
-              ) : (
-                <div className="relative overflow-x-auto rounded-lg border border-slate-800">
-                  <table className="w-full text-sm text-left text-slate-300">
-                    <thead className="text-xs uppercase bg-slate-900 text-slate-400 border-b border-slate-800">
-                      <tr>
-                        <th scope="col" className="px-6 py-4">Client Name</th>
-                        <th scope="col" className="px-6 py-4">Requested By</th>
-                        <th scope="col" className="px-6 py-4">User Role</th>
-                        <th scope="col" className="px-6 py-4">Current Owner</th>
-                        <th scope="col" className="px-6 py-4">Notes</th>
-                        <th scope="col" className="px-6 py-4">Request Date</th>
-                        <th scope="col" className="px-6 py-4">Status</th>
-                        <th scope="col" className="px-6 py-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {accessRequests.map((req) => (
-                        <tr key={req.id} className="border-b border-slate-800 bg-slate-950/40 hover:bg-slate-900/60 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-slate-100">
-                            <div className="flex flex-col">
-                              <span>{req.client?.companyName}</span>
-                              <span className="text-[10px] text-slate-400 font-mono font-normal">{req.client?.clientId}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 font-medium text-slate-200">
-                            <div className="flex flex-col">
-                              <span>{req.userName || req.user?.name}</span>
-                              <span className="text-[10px] text-slate-400 font-normal">{req.user?.email}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="inline-flex px-2 py-0.5 rounded bg-slate-800 text-xs text-slate-300">
-                              {req.user?.role?.replace(/_/g, " ")}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-slate-200">
-                            {req.client?.assignments?.find((a: any) => a.isPrimary)?.user?.name || "Unassigned"}
-                          </td>
-                          <td className="px-6 py-4 text-slate-400 max-w-[200px] truncate animate-none" title={req.notes || ""}>
-                            <span className="italic text-xs">{req.notes || "No note"}</span>
-                          </td>
-                          <td className="px-6 py-4 text-slate-400">
-                            {new Date(req.createdAt).toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                              req.status === "Approved" ? "bg-green-500/10 text-green-400 border-green-500/20" :
-                              req.status === "Rejected" ? "bg-red-500/10 text-red-400 border-red-500/20" :
-                              "bg-amber-500/10 text-amber-400 border-amber-500/20 animate-pulse"
-                            }`}>
-                              {req.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            {req.status === "Requested" && (
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  size="sm"
-                                  className="bg-green-600 hover:bg-green-500 text-white font-semibold"
-                                  onClick={() => {
-                                    setActiveRequest(req)
-                                    setAssignmentType("secondary")
-                                    setShowApproveModal(true)
-                                  }}
-                                >
-                                  Approve
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="border-red-900 text-red-500 hover:bg-red-950 font-semibold"
-                                  onClick={() => {
-                                    setActiveRequest(req)
-                                    setRejectionReason("")
-                                    setShowRejectModal(true)
-                                  }}
-                                >
-                                  Reject
-                                </Button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
-      {/* Add User Modal */}
-      {showAddUserModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-250">
-          <Card className="w-full max-w-md bg-slate-950 border-slate-800 text-white shadow-2xl">
-            <CardHeader className="border-b border-slate-800">
-              <CardTitle className="text-lg">Add User Account</CardTitle>
-              <CardDescription className="text-slate-400">Create new credentials to access BOSQ ERP.</CardDescription>
-            </CardHeader>
-            <form onSubmit={handleAddUser}>
-              <CardContent className="space-y-4 pt-6">
-                <div className="space-y-2">
-                  <Label htmlFor="newName" className="text-slate-300">Full Name</Label>
-                  <Input 
-                    id="newName"
-                    placeholder="e.g. Alice Smith"
-                    value={newUserName}
-                    onChange={(e) => setNewUserName(e.target.value)}
-                    className="bg-slate-900 border-slate-800"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newEmail" className="text-slate-300">Corporate Email</Label>
-                  <Input 
-                    id="newEmail"
-                    type="email"
-                    placeholder="e.g. alice@bosq.ae"
-                    value={newUserEmail}
-                    onChange={(e) => setNewUserEmail(e.target.value)}
-                    className="bg-slate-900 border-slate-800"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newPass" className="text-slate-300">Initial Password</Label>
-                  <Input 
-                    id="newPass"
-                    type="password"
-                    placeholder="Minimum 8 characters"
-                    value={newUserPassword}
-                    onChange={(e) => setNewUserPassword(e.target.value)}
-                    className="bg-slate-900 border-slate-800"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newPhone" className="text-slate-300">Contact Number</Label>
-                  <Input 
-                    id="newPhone"
-                    type="tel"
-                    placeholder="+971 XXXXXXXX"
-                    value={newUserPhone}
-                    onChange={(e) => setNewUserPhone(e.target.value)}
-                    className="bg-slate-900 border-slate-800"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newDepartment" className="text-slate-300">Department (Optional)</Label>
-                  <Input 
-                    id="newDepartment"
-                    type="text"
-                    placeholder="e.g. Sales"
-                    value={newUserDepartment}
-                    onChange={(e) => setNewUserDepartment(e.target.value)}
-                    className="bg-slate-900 border-slate-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newRole" className="text-slate-300">System Role</Label>
-                  <select 
-                    id="newRole"
-                    value={newUserRole}
-                    onChange={(e) => setNewUserRole(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600"
-                    required
-                  >
-                    <option value="" disabled>-- Select System Role --</option>
-                    {dbRoles.length > 0 ? (
-                      dbRoles.map((r: any) => {
-                        const isProtected = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(r.name)
-                        if (isProtected && userRole !== "SUPER_ADMIN") return null
-                        
-                        let label = r.name.replace(/_/g, " ")
-                        if (r.name === "SALES_EXECUTIVE") label = "Interior Design Consultant (IDC)"
-                        else if (r.name === "INTERIOR_DESIGN_CONSULTANT") label = "Interior Design Consultant"
-                        else if (r.name === "ESTIMATOR") label = "Cost Estimator"
-                        else if (r.name === "ACCOUNTS") label = "Finance & Accounts"
-                        else if (r.name === "SUPER_ADMIN") label = "Super Administrator"
-                        else if (r.name === "ADMIN") label = "Administrator"
-                        else if (r.name === "MANAGER" || r.name === "SALES_MANAGER") label = "Manager"
-                        else label = label.replace(/\b\w/g, (c: string) => c.toUpperCase())
-
-                        return (
-                          <option key={r.id} value={r.name}>
-                            {label}
-                          </option>
-                        )
-                      })
-                    ) : (
-                      <>
-                        <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
-                        <option value="INTERIOR_DESIGN_CONSULTANT">Interior Design Consultant</option>
-                        <option value="ESTIMATOR">Cost Estimator</option>
-                        {userRole === "SUPER_ADMIN" && (
-                          <>
-                            <option value="MANAGER">Manager</option>
-                            <option value="ADMIN">Administrator</option>
-                            <option value="SUPER_ADMIN">Super Administrator</option>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </select>
-                </div>
-              </CardContent>
-              <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
-                <Button type="button" variant="ghost" onClick={() => setShowAddUserModal(false)} className="text-slate-400 hover:text-slate-200">
-                  Cancel
-                </Button>
-                <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white flex items-center gap-2" disabled={loading}>
-                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create Account
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
-
-      {/* Edit User Modal */}
-      {showEditUserModal && editUserData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-250">
-          <Card className="w-full max-w-md bg-slate-950 border-slate-800 text-white shadow-2xl">
-            <CardHeader className="border-b border-slate-800">
-              <CardTitle className="text-lg">Edit User Account</CardTitle>
-              <CardDescription className="text-slate-400">Update employee details or role.</CardDescription>
-            </CardHeader>
-            <form onSubmit={handleEditUser}>
-              <CardContent className="space-y-4 pt-6">
-                <div className="space-y-2">
-                  <Label htmlFor="editName" className="text-slate-300">Full Name</Label>
-                  <Input 
-                    id="editName"
-                    value={editUserData.name}
-                    onChange={(e) => setEditUserData({...editUserData, name: e.target.value})}
-                    className="bg-slate-900 border-slate-800"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editEmail" className="text-slate-300">Corporate Email</Label>
-                  <Input 
-                    id="editEmail"
-                    type="email"
-                    value={editUserData.email}
-                    onChange={(e) => setEditUserData({...editUserData, email: e.target.value})}
-                    className="bg-slate-900 border-slate-800"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editPass" className="text-slate-300">New Password (Optional)</Label>
-                  <Input 
-                    id="editPass"
-                    type="password"
-                    disabled={userRole !== "SUPER_ADMIN"}
-                    placeholder={userRole !== "SUPER_ADMIN" ? "Only Super Admin can reset password" : "Leave blank to keep current password"}
-                    value={editUserData.password || ""}
-                    onChange={(e) => setEditUserData({...editUserData, password: e.target.value})}
-                    className="bg-slate-900 border-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editPhone" className="text-slate-300">Contact Number</Label>
-                  <Input 
-                    id="editPhone"
-                    type="tel"
-                    placeholder="+971 XXXXXXXX"
-                    value={editUserData.phone || ""}
-                    onChange={(e) => setEditUserData({...editUserData, phone: e.target.value})}
-                    className="bg-slate-900 border-slate-800"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editDepartment" className="text-slate-300">Department (Optional)</Label>
-                  <Input 
-                    id="editDepartment"
-                    type="text"
-                    placeholder="e.g. Sales"
-                    value={editUserData.department || ""}
-                    onChange={(e) => setEditUserData({...editUserData, department: e.target.value})}
-                    className="bg-slate-900 border-slate-800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editDesignation" className="text-slate-300">Designation (Optional)</Label>
-                  <Input 
-                    id="editDesignation"
-                    type="text"
-                    placeholder="e.g. Senior Architect"
-                    value={editUserData.designation || ""}
-                    onChange={(e) => setEditUserData({...editUserData, designation: e.target.value})}
-                    className="bg-slate-900 border-slate-800"
-                  />
-                </div>
-                <div className="flex items-center gap-2 pt-2 pb-2">
-                  <input 
-                    id="editIsActive"
-                    type="checkbox"
-                    disabled={userRole !== "SUPER_ADMIN"}
-                    checked={editUserData.isActive !== false}
-                    onChange={(e) => setEditUserData({...editUserData, isActive: e.target.checked})}
-                    className="rounded border-slate-850 text-orange-600 focus:ring-orange-600 bg-slate-900 h-4 w-4 disabled:opacity-50"
-                  />
-                  <Label htmlFor="editIsActive" className="text-slate-300 cursor-pointer select-none">Account is Active</Label>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editRole" className="text-slate-300">System Role</Label>
-                  <select 
-                    id="editRole"
-                    value={editUserData.role}
-                    disabled={userRole !== "SUPER_ADMIN" && (editUserData.role === "SUPER_ADMIN" || editUserData.role === "ADMIN" || editUserData.role === "SALES_MANAGER" || editUserData.role === "MANAGER")}
-                    onChange={(e) => setEditUserData({...editUserData, role: e.target.value})}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {dbRoles.length > 0 ? (
-                      dbRoles.map((r: any) => {
-                        const isProtected = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(r.name)
-                        // Allow if current user is Super Admin OR the target user already has this role (to avoid locking them out of options)
-                        if (isProtected && userRole !== "SUPER_ADMIN" && editUserData.role !== r.name) return null
-                        
-                        let label = r.name.replace(/_/g, " ")
-                        if (r.name === "SALES_EXECUTIVE") label = "Interior Design Consultant (IDC)"
-                        else if (r.name === "INTERIOR_DESIGN_CONSULTANT") label = "Interior Design Consultant"
-                        else if (r.name === "ESTIMATOR") label = "Cost Estimator"
-                        else if (r.name === "ACCOUNTS") label = "Finance & Accounts"
-                        else if (r.name === "SUPER_ADMIN") label = "Super Administrator"
-                        else if (r.name === "ADMIN") label = "Administrator"
-                        else if (r.name === "MANAGER" || r.name === "SALES_MANAGER") label = "Manager"
-                        else label = label.replace(/\b\w/g, (c: string) => c.toUpperCase())
-
-                        return (
-                          <option key={r.id} value={r.name}>
-                            {label}
-                          </option>
-                        )
-                      })
-                    ) : (
-                      <>
-                        <option value="SALES_EXECUTIVE">Interior Design Consultant (IDC)</option>
-                        <option value="INTERIOR_DESIGN_CONSULTANT">Interior Design Consultant</option>
-                        <option value="ESTIMATOR">Cost Estimator</option>
-                        {(userRole === "SUPER_ADMIN" || editUserData.role === "SALES_MANAGER" || editUserData.role === "MANAGER") && (
-                          <option value="MANAGER">Manager</option>
-                        )}
-                        {(userRole === "SUPER_ADMIN" || editUserData.role === "ADMIN") && (
-                          <option value="ADMIN">Administrator</option>
-                        )}
-                        {(userRole === "SUPER_ADMIN" || editUserData.role === "SUPER_ADMIN") && (
-                          <option value="SUPER_ADMIN">Super Administrator</option>
-                        )}
-                      </>
-                    )}
-                  </select>
-                </div>
-              </CardContent>
-              <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
-                <Button type="button" variant="ghost" onClick={() => { setShowEditUserModal(false); setEditUserData(null); }} className="text-slate-400 hover:text-slate-200">
-                  Cancel
-                </Button>
-                <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white flex items-center gap-2" disabled={loading}>
-                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Save Changes
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-      )}
-
-      {/* Add Payment Term Modal */}
+      {/* ── Add Payment Term Modal ── */}
       {showAddPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-md bg-slate-950 border-slate-800 text-white shadow-2xl">
-            <CardHeader className="border-b border-slate-800">
-              <CardTitle className="text-lg">Add Payment Term Option</CardTitle>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <Card className="w-full max-w-lg bg-card border text-card-foreground shadow-2xl rounded-3xl overflow-hidden">
+            <CardHeader className="border-b p-6 bg-muted/20">
+              <CardTitle className="text-lg font-bold">Add Payment Term Option</CardTitle>
             </CardHeader>
             <form onSubmit={handleAddPaymentTerm}>
-              <CardContent className="space-y-4 pt-6">
+              <CardContent className="space-y-5 p-6">
                 <div className="space-y-2">
-                  <Label htmlFor="payName" className="text-slate-300">Payment Term Label</Label>
+                  <Label htmlFor="payName" className="text-sm font-bold">Payment Term Label</Label>
                   <Input 
                     id="payName"
                     placeholder="e.g. 50% Advance, 50% on Delivery"
                     value={paymentName}
                     onChange={(e) => setPaymentName(e.target.value)}
-                    className="bg-slate-900 border-slate-800"
+                    className="text-sm font-medium h-11 rounded-xl"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="payDesc" className="text-slate-300">Detailed Description</Label>
+                  <Label htmlFor="payDesc" className="text-sm font-bold">Detailed Description</Label>
                   <Input 
                     id="payDesc"
-                    placeholder="Details about cheques, PDC terms, etc."
+                    placeholder="Details about PDC terms, advance terms, etc."
                     value={paymentDesc}
                     onChange={(e) => setPaymentDesc(e.target.value)}
-                    className="bg-slate-900 border-slate-800"
+                    className="text-sm font-medium h-11 rounded-xl"
                   />
                 </div>
-                <div className="flex items-center gap-2 pt-2">
+                <div className="flex items-center space-x-2.5 pt-2">
                   <input 
                     id="payDefault"
                     type="checkbox"
                     checked={paymentIsDefault}
                     onChange={(e) => setPaymentIsDefault(e.target.checked)}
-                    className="rounded border-slate-850 text-orange-600 focus:ring-orange-600 bg-slate-900 h-4 w-4"
+                    className="rounded border-border text-primary focus:ring-primary h-5 w-5 cursor-pointer"
                   />
-                  <Label htmlFor="payDefault" className="text-slate-300 cursor-pointer select-none">Set as primary default selection</Label>
+                  <Label htmlFor="payDefault" className="text-sm font-bold cursor-pointer select-none">Set as primary default selection</Label>
                 </div>
               </CardContent>
-              <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
-                <Button type="button" variant="ghost" onClick={() => setShowAddPaymentModal(false)} className="text-slate-400 hover:text-slate-200">
+              <div className="p-5 border-t bg-muted/20 flex justify-end gap-3">
+                <Button type="button" variant="ghost" onClick={() => setShowAddPaymentModal(false)} className="text-sm font-bold h-10 px-4 cursor-pointer">
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white flex items-center gap-2" disabled={loading}>
-                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Save
+                <Button type="submit" className="bg-primary text-primary-foreground font-extrabold text-sm h-10 px-5 rounded-xl cursor-pointer" disabled={loading}>
+                  {loading && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+                  Save Option
                 </Button>
               </div>
             </form>
@@ -2073,56 +1441,56 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Add Terms Condition Modal */}
+      {/* ── Add Terms Condition Clause Modal ── */}
       {showAddTermsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-md bg-slate-950 border-slate-800 text-white shadow-2xl">
-            <CardHeader className="border-b border-slate-800">
-              <CardTitle className="text-lg">Add Default Terms & Conditions Clause</CardTitle>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <Card className="w-full max-w-lg bg-card border text-card-foreground shadow-2xl rounded-3xl overflow-hidden">
+            <CardHeader className="border-b p-6 bg-muted/20">
+              <CardTitle className="text-lg font-bold">Add Terms Clause</CardTitle>
             </CardHeader>
             <form onSubmit={handleAddTermsCondition}>
-              <CardContent className="space-y-4 pt-6">
+              <CardContent className="space-y-5 p-6">
                 <div className="space-y-2">
-                  <Label htmlFor="termTitle" className="text-slate-300">Clause Title</Label>
+                  <Label htmlFor="termTitle" className="text-sm font-bold">Clause Title</Label>
                   <Input 
                     id="termTitle"
-                    placeholder="e.g. Delivery Time, Validity"
+                    placeholder="e.g. Delivery Schedule, Warranty"
                     value={termTitle}
                     onChange={(e) => setTermTitle(e.target.value)}
-                    className="bg-slate-900 border-slate-800"
+                    className="text-sm font-medium h-11 rounded-xl"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="termContent" className="text-slate-300">Clause Details / Content</Label>
+                  <Label htmlFor="termContent" className="text-sm font-bold">Clause Details / Content</Label>
                   <textarea 
                     id="termContent"
-                    placeholder="Enter detailed content of this default terms clause"
+                    placeholder="Detailed content of this terms clause..."
                     value={termContent}
                     onChange={(e) => setTermContent(e.target.value)}
                     rows={4}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600"
+                    className="w-full bg-background border border-border rounded-xl p-3.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium"
                     required
                   />
                 </div>
-                <div className="flex items-center gap-2 pt-2">
+                <div className="flex items-center space-x-2.5 pt-2">
                   <input 
                     id="termDefault"
                     type="checkbox"
                     checked={termIsDefault}
                     onChange={(e) => setTermIsDefault(e.target.checked)}
-                    className="rounded border-slate-850 text-orange-600 focus:ring-orange-600 bg-slate-900 h-4 w-4"
+                    className="rounded border-border text-primary focus:ring-primary h-5 w-5 cursor-pointer"
                   />
-                  <Label htmlFor="termDefault" className="text-slate-300 cursor-pointer select-none">Include on generated PDF quotations by default</Label>
+                  <Label htmlFor="termDefault" className="text-sm font-bold cursor-pointer select-none">Include on generated PDF quotations by default</Label>
                 </div>
               </CardContent>
-              <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
-                <Button type="button" variant="ghost" onClick={() => setShowAddTermsModal(false)} className="text-slate-400 hover:text-slate-200">
+              <div className="p-5 border-t bg-muted/20 flex justify-end gap-3">
+                <Button type="button" variant="ghost" onClick={() => setShowAddTermsModal(false)} className="text-sm font-bold h-10 px-4 cursor-pointer">
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white flex items-center gap-2" disabled={loading}>
-                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Save
+                <Button type="submit" className="bg-primary text-primary-foreground font-extrabold text-sm h-10 px-5 rounded-xl cursor-pointer" disabled={loading}>
+                  {loading && <Loader2 className="h-4 w-4 animate-spin mr-1.5" />}
+                  Save Clause
                 </Button>
               </div>
             </form>
@@ -2130,151 +1498,37 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* ── Delete Confirmation Modal ── */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <Card className="w-full max-w-sm bg-slate-950 border-slate-800 text-white shadow-2xl">
-            <CardHeader className="border-b border-slate-800 pb-4">
-              <CardTitle className="text-lg text-red-500 flex items-center gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <Card className="w-full max-w-md bg-card border text-card-foreground shadow-2xl rounded-3xl overflow-hidden">
+            <CardHeader className="border-b p-6 bg-muted/20">
+              <CardTitle className="text-lg font-bold text-rose-600 flex items-center gap-2">
                 <Trash2 className="h-5 w-5" />
                 Confirm Deletion
               </CardTitle>
-              <CardDescription className="text-slate-400">
+              <CardDescription className="text-xs sm:text-sm text-muted-foreground mt-1">
                 Are you sure you want to delete "{deleteConfirm.label}"? This action cannot be undone.
               </CardDescription>
             </CardHeader>
-            <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
+            <div className="p-5 bg-muted/20 flex justify-end gap-3">
               <Button 
                 type="button" 
                 variant="ghost" 
                 onClick={() => setDeleteConfirm(null)} 
-                className="text-slate-400 hover:text-slate-200"
+                className="text-sm font-bold h-10 px-4 cursor-pointer"
               >
                 Cancel
               </Button>
               <Button 
                 type="button" 
-                className="bg-red-600 hover:bg-red-500 text-white" 
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm h-10 px-5 rounded-xl cursor-pointer" 
                 onClick={() => {
-                  if (deleteConfirm.type === "user") {
-                    executeDeleteUser(deleteConfirm.id, deleteConfirm.label)
-                  } else {
-                    executeDeleteTerm(deleteConfirm.type, deleteConfirm.id, deleteConfirm.label)
-                  }
+                  executeDeleteTerm(deleteConfirm.type, deleteConfirm.id, deleteConfirm.label)
                   setDeleteConfirm(null)
                 }}
               >
                 Delete
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Approve Request Modal */}
-      {showApproveModal && activeRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <Card className="w-full max-w-md bg-slate-950 border-slate-800 text-white shadow-2xl">
-            <CardHeader className="border-b border-slate-800">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <UserCheck className="text-green-500 h-5 w-5" />
-                Approve Client Access Request
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                Grant access to client "{activeRequest.client?.companyName}" for consultant "{activeRequest.userName || activeRequest.user?.name}".
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="space-y-2">
-                <Label className="text-slate-300">Assignment Type</Label>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-3 cursor-pointer p-3 border border-slate-800 rounded-lg bg-slate-900/40 hover:bg-slate-900 transition-colors">
-                    <input 
-                      type="radio" 
-                      name="assignmentType" 
-                      value="secondary"
-                      checked={assignmentType === "secondary"}
-                      onChange={() => setAssignmentType("secondary")}
-                      className="accent-orange-500 h-4 w-4"
-                    />
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-100">Add as Secondary consultant (Recommended)</span>
-                      <span className="text-xs text-slate-400 mt-0.5">Allows access without changing primary client ownership.</span>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer p-3 border border-slate-800 rounded-lg bg-slate-900/40 hover:bg-slate-900 transition-colors">
-                    <input 
-                      type="radio" 
-                      name="assignmentType" 
-                      value="primary"
-                      checked={assignmentType === "primary"}
-                      onChange={() => setAssignmentType("primary")}
-                      className="accent-orange-500 h-4 w-4"
-                    />
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-100">Make Primary Assigned Consultant</span>
-                      <span className="text-xs text-slate-400 mt-0.5">Replaces current salesperson ownership for this client.</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </CardContent>
-            <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
-              <Button type="button" variant="ghost" onClick={() => { setShowApproveModal(false); setActiveRequest(null); }} className="text-slate-400 hover:text-slate-200" disabled={submittingAction}>
-                Cancel
-              </Button>
-              <Button 
-                type="button" 
-                onClick={() => handleApproveRequest(activeRequest.id, assignmentType)}
-                className="bg-green-600 hover:bg-green-500 text-white font-semibold flex items-center gap-2"
-                disabled={submittingAction}
-              >
-                {submittingAction && <Loader2 className="h-4 w-4 animate-spin" />}
-                Confirm Approval
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Reject Request Modal */}
-      {showRejectModal && activeRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <Card className="w-full max-w-md bg-slate-950 border-slate-800 text-white shadow-2xl">
-            <CardHeader className="border-b border-slate-800">
-              <CardTitle className="text-lg text-red-500 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-red-500" />
-                Reject Client Access Request
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                Reject access to client "{activeRequest.client?.companyName}" for consultant "{activeRequest.userName || activeRequest.user?.name}".
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              <div className="space-y-2">
-                <Label htmlFor="rejectionReason" className="text-slate-300">Rejection Reason (Optional)</Label>
-                <textarea 
-                  id="rejectionReason"
-                  placeholder="e.g. This client is already managed by another division."
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  rows={3}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-md py-2 px-3 text-sm text-white focus:outline-none focus:ring-1 focus:ring-orange-600"
-                />
-              </div>
-            </CardContent>
-            <div className="p-6 border-t border-slate-800 flex justify-end gap-3">
-              <Button type="button" variant="ghost" onClick={() => { setShowRejectModal(false); setActiveRequest(null); setRejectionReason(""); }} className="text-slate-400 hover:text-slate-200" disabled={submittingAction}>
-                Cancel
-              </Button>
-              <Button 
-                type="button" 
-                onClick={() => handleRejectRequest(activeRequest.id, rejectionReason)}
-                className="bg-red-600 hover:bg-red-500 text-white font-semibold flex items-center gap-2"
-                disabled={submittingAction}
-              >
-                {submittingAction && <Loader2 className="h-4 w-4 animate-spin" />}
-                Confirm Rejection
               </Button>
             </div>
           </Card>
