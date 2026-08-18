@@ -58,6 +58,7 @@ const primaryActions = [
   { id: "share", label: "Share / Add to Quote" },
   { id: "canApplySpecialDiscount", label: "Special Discount" },
   { id: "canExportBoqExcel", label: "Export Admin Costing Excel" },
+  { id: "costPriceVisible", label: "View Costing & BOQ Details" },
 ]
 
 
@@ -1135,7 +1136,8 @@ export default function AccessControlPage() {
                             {primaryActions.map((a) => {
                               const isSpecialDiscount = a.id === "canApplySpecialDiscount";
                               const isExportBoqExcel = a.id === "canExportBoqExcel";
-                              const shouldRender = (!isSpecialDiscount || m.id === "QUOTATIONS") && (!isExportBoqExcel || m.id === "BOQS");
+                              const isCostBreakdown = a.id === "costPriceVisible";
+                              const shouldRender = (!isSpecialDiscount || m.id === "QUOTATIONS") && (!isExportBoqExcel || m.id === "BOQS") && (!isCostBreakdown || m.id === "QUOTATIONS" || m.id === "BOQS");
                               return (
                                 <td key={a.id} className="p-3 text-center">
                                   {shouldRender && (

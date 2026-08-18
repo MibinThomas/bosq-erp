@@ -3,12 +3,46 @@
 import React, { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter, useParams } from "next/navigation"
-import { ArrowLeft, Loader2, Download, ExternalLink, Check, X, Edit, Copy, PackagePlus, CheckCircle2, FileText, Coins, TrendingUp, AlertTriangle, Eye, ShieldCheck } from "lucide-react"
+import { 
+  ArrowLeft, 
+  Loader2, 
+  Download, 
+  ExternalLink, 
+  Check, 
+  X, 
+  Edit, 
+  Copy, 
+  PackagePlus, 
+  CheckCircle2, 
+  FileText, 
+  Coins, 
+  TrendingUp, 
+  TrendingDown,
+  AlertTriangle, 
+  Eye, 
+  ShieldCheck,
+  UserCheck,
+  Briefcase,
+  Paperclip,
+  Phone,
+  Mail,
+  ZoomIn,
+  FolderGit2,
+  FileCode,
+  User,
+  ShieldAlert,
+  Info,
+  Building2,
+  FileSpreadsheet,
+  Clock,
+  History,
+  Layers,
+  ChevronRight
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { isManagerOrAdminRole } from "@/lib/utils"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
-import parse from "html-react-parser"
 import { useSession } from "next-auth/react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { CostingBreakdownModal } from "@/components/costing/CostingBreakdownModal"
@@ -40,6 +74,35 @@ interface QuotationItem {
   } | null
 }
 
+interface SupportingDocument {
+  id: string
+  title: string
+  documentType: string
+  url: string
+  fileSize?: number
+  uploadedByName?: string
+  createdAt: string
+  source: string
+}
+
+interface UserInfo {
+  id: string
+  name: string | null
+  email: string
+  phone?: string | null
+  designation?: string | null
+  role?: string | null
+}
+
+interface RevisionHistoryItem {
+  id: string
+  revisionNumber: number
+  revisionDate: string
+  previousTotal: number
+  newTotal: number
+  notes?: string | null
+}
+
 interface Quotation {
   id: string
   quotationNumber: string
@@ -48,13 +111,7 @@ interface Quotation {
   date: string
   validityDate: string
   preparedById: string
-  preparedBy: {
-    name: string | null
-    email: string
-    phone: string | null
-    designation?: string | null
-    role?: string | null
-  }
+  preparedBy: UserInfo
   deliveryDate: string | null
   paymentTerms: string | null
   status: string
@@ -84,17 +141,26 @@ interface Quotation {
     clientId: string
   }
   boq?: {
+    id?: string
+    boqNumber?: string
+    status?: string
     totalMaterialCost?: number
     totalLaborCost?: number
     totalInstallation?: number
     totalTransport?: number
     totalOverhead?: number
+    totalFactoryCost?: number
     totalCost?: number
     marginAmount?: number
     totalSellingPrice?: number
+    preparedBy?: UserInfo | null
+    estimator?: UserInfo | null
     items?: any[]
   } | null
   items: QuotationItem[]
+  supportingDocuments?: SupportingDocument[]
+  revisions?: RevisionHistoryItem[]
+  seriesQuotations?: any[]
   companyLogoUrl?: string | null
   aynMuskLogoUrl?: string | null
   barcodeBase64?: string | null
@@ -115,10 +181,9 @@ export default function QuotationHtmlPreviewPage() {
   const { data: session } = useSession()
   const [quotation, setQuotation] = useState<Quotation | null>(null)
   const [costingModalItem, setCostingModalItem] = useState<any>(null)
-  const [activeViewMode, setActiveViewMode] = useState<"html" | "pdf" | "costing">("html")
+  const [activeViewMode, setActiveViewMode] = useState<"html" | "pdf" | "costing">("costing")
   const [loading, setLoading] = useState(true)
-  const [isApproving, setIsApproving] = useState(false)
-  const [isRejecting, setIsRejecting] = useState(false)
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
 
   const costingItemsList = React.useMemo(() => {
     if (!quotation || !Array.isArray(quotation.items)) return []
@@ -147,9 +212,12 @@ export default function QuotationHtmlPreviewPage() {
       const netProfitTotal = totalSellingPrice - totalCost
       const marginPct = Number(matchedBoqItem?.marginPercentage ?? qItem.margin ?? 0)
 
+      const imageUrl = qItem.customImageUrl || qItem.product?.imageUrl || null
+
       return {
         ...qItem,
         itemNo: qItem.itemNo || idx + 1,
+        imageUrl,
         factoryCost,
         accessoriesCost,
         materialCost: matCost,
@@ -188,9 +256,7 @@ export default function QuotationHtmlPreviewPage() {
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
-  const isPending = quotation?.status === "PENDING_APPROVAL"
-  const isSalesPerson = userRole === "SALES_EXECUTIVE"
-  const disableDownload = isSalesPerson && isPending
+  const isSuperAdmin = userRole === "SUPER_ADMIN"
 
   const [userPermissions, setUserPermissions] = useState<any>(null)
   const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false)
@@ -211,9 +277,18 @@ export default function QuotationHtmlPreviewPage() {
       .catch(err => console.error("Failed to load permissions", err))
   }, [])
 
-  const isSuperAdmin = userRole === "SUPER_ADMIN"
+  const isAuthorizedForCosting = isSuperAdmin || isManagerOrAdmin || (userPermissions?.costPriceVisible === true) || (userPermissions?.canViewCostingBreakdown === true)
   const isAuthorizedToConfirm = isSuperAdmin || isManagerOrAdmin || (userPermissions?.canConfirmQuotation === true)
   const canSaveToCatalog = isManagerOrAdminRole(userRole)
+
+  // Auto set active view mode based on authorization
+  useEffect(() => {
+    if (isAuthorizedForCosting) {
+      setActiveViewMode("costing")
+    } else {
+      setActiveViewMode("html")
+    }
+  }, [isAuthorizedForCosting])
 
   const handleSaveItemToCatalog = async (item: QuotationItem) => {
     if (!quotation) return
@@ -296,44 +371,6 @@ export default function QuotationHtmlPreviewPage() {
     loadQuotation()
   }, [id])
 
-  const handleApprove = async () => {
-    if (!quotation) return
-    setIsApproving(true)
-    try {
-      const res = await fetch(`/api/quotations/${quotation.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "APPROVED" })
-      })
-      if (!res.ok) throw new Error("Failed to approve quotation")
-      setQuotation({ ...quotation, status: "APPROVED" })
-      toast.success("Quotation approved successfully!")
-    } catch (error: any) {
-      toast.error(error.message || "Failed to approve quotation")
-    } finally {
-      setIsApproving(false)
-    }
-  }
-
-  const handleReject = async () => {
-    if (!quotation) return
-    setIsRejecting(true)
-    try {
-      const res = await fetch(`/api/quotations/${quotation.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "REJECTED" })
-      })
-      if (!res.ok) throw new Error("Failed to reject quotation")
-      setQuotation({ ...quotation, status: "REJECTED" })
-      toast.success("Quotation rejected.")
-    } catch (error: any) {
-      toast.error(error.message || "Failed to reject quotation")
-    } finally {
-      setIsRejecting(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
@@ -365,14 +402,6 @@ export default function QuotationHtmlPreviewPage() {
       maximumFractionDigits: 2,
     })
   }
-
-  const hasAdditionalCost = quotation.deliveryCharge > 0
-  const hasDiscount = !!quotation.discount && Number(quotation.discount) > 0
-  const hasTaxableSubtotal = hasAdditionalCost || hasDiscount
-
-  const subtotalAfterAdditional = quotation.subtotal + quotation.deliveryCharge
-  const discountAmount = Number(quotation.discount) || 0
-  const taxableSubtotal = Math.max(0, subtotalAfterAdditional - discountAmount)
 
   const sanitizeHtmlToText = (html: string) => {
     if (!html) return "";
@@ -455,8 +484,6 @@ export default function QuotationHtmlPreviewPage() {
 
   const renderSpecificationsHtml = (specs: string | null | undefined, productNotes?: string | null) => {
     const parsed = parseSpecifications(specs);
-    
-    // Filter out remarks from specifications list
     const specsList = parsed.filter(s => s.key?.toLowerCase() !== "remarks");
     const remarksFromSpecs = parsed.filter(s => s.key?.toLowerCase() === "remarks").map(s => s.value);
     
@@ -468,22 +495,20 @@ export default function QuotationHtmlPreviewPage() {
     if (specsList.length === 0 && remarksLines.length === 0) return null;
 
     return (
-      <div className="mt-2.5">
+      <div className="mt-2 text-[11px] leading-relaxed font-sans space-y-1">
         {specsList.length > 0 && (
-          <div className="mb-2">
+          <div className="grid grid-cols-1 gap-0.5 bg-slate-50 dark:bg-slate-900/50 p-2 rounded-lg border border-slate-200/60 dark:border-slate-800">
             {specsList.map((spec, idx) => {
               const isProdTime = spec.key?.toLowerCase() === "production time";
-              const textColorClass = isProdTime ? "text-[#1e3a8a]" : "text-[#444444]";
-              const keyColorClass = isProdTime ? "text-[#1e3a8a]" : "text-slate-900";
               return (
-                <div key={`spec-${idx}`} className="flex items-start text-[8.5px] mb-[2px] leading-tight pl-0 ml-0">
+                <div key={`spec-${idx}`} className="flex items-start">
                   {spec.key ? (
                     <>
-                      <span className={`font-bold ${keyColorClass} shrink-0 mr-1`}>{spec.key}:</span>
-                      <span className={`${textColorClass} flex-1`}>{spec.value}</span>
+                      <span className={`font-semibold shrink-0 mr-1.5 text-[10px] uppercase ${isProdTime ? "text-blue-700 dark:text-blue-400 font-bold" : "text-slate-700 dark:text-slate-300"}`}>{spec.key}:</span>
+                      <span className={`text-[11px] ${isProdTime ? "text-blue-700 dark:text-blue-300 font-semibold" : "text-slate-600 dark:text-slate-400"}`}>{spec.value}</span>
                     </>
                   ) : (
-                    <span className={`${textColorClass} flex-1`}>{spec.value}</span>
+                    <span className="text-[11px] text-slate-600 dark:text-slate-400">{spec.value}</span>
                   )}
                 </div>
               );
@@ -492,9 +517,9 @@ export default function QuotationHtmlPreviewPage() {
         )}
 
         {remarksLines.length > 0 && (
-          <div className="text-[8.5px] leading-tight flex mt-2 pl-0 ml-0">
-            <span className="font-bold text-[#F17423] mr-1 shrink-0">Remarks:</span>
-            <span className="text-[#444444] flex-1">
+          <div className="flex items-start text-amber-800 dark:text-amber-300 bg-amber-50/80 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200/80 dark:border-amber-900/50 text-[11px]">
+            <span className="font-bold mr-1.5 shrink-0 text-amber-900 dark:text-amber-200 text-[10px] uppercase">Remarks:</span>
+            <span className="flex-1 font-medium">
                {remarksLines.map((r, i) => (
                  <div key={i}>{r}</div>
                ))}
@@ -508,11 +533,6 @@ export default function QuotationHtmlPreviewPage() {
   const formattedDate = quotation?.date ? new Date(quotation.date).toISOString().split("T")[0] : ""
   const formattedValidityDate = quotation?.validityDate ? new Date(quotation.validityDate).toISOString().split("T")[0] : ""
 
-  const barcodeUrl = quotation?.quotationNumber ? `https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(
-    quotation.quotationNumber
-  )}&scale=2&rotate=N&includetext=false` : ""
-
-  // Terms and conditions matched exactly with PDF
   const termsArray = [
     "Validity: This quotation is valid for 30 days from date of issue.",
     "Delivery: Delivery within 4-6 weeks of order approval.",
@@ -520,9 +540,10 @@ export default function QuotationHtmlPreviewPage() {
   ]
 
   return (
-    <div className="absolute inset-0 bg-slate-100 dark:bg-slate-900 flex flex-col overflow-hidden z-20 print:relative print:inset-auto print:bg-white print:h-auto print:overflow-visible">
-      {/* Top Header Bar - Invisible when printed */}
-      <div className="bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 py-4 px-6 flex flex-wrap justify-between items-center gap-4 print:hidden shrink-0 z-30 shadow-sm">
+    <div className="absolute inset-0 bg-slate-100 dark:bg-slate-950 flex flex-col overflow-hidden z-20 print:relative print:inset-auto print:bg-white print:h-auto print:overflow-visible font-sans">
+      
+      {/* Top Header Bar */}
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-3 px-6 flex flex-wrap justify-between items-center gap-4 print:hidden shrink-0 z-30 shadow-xs">
         <div className="flex items-center space-x-3">
           <Link href="/quotations">
             <Button variant="ghost" size="icon" className="rounded-full">
@@ -531,11 +552,11 @@ export default function QuotationHtmlPreviewPage() {
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight">
+              <h1 className="text-lg font-bold tracking-tight text-foreground">
                 Quotation Preview ({(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()})
               </h1>
               {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(quotation.status) && (
-                <Badge className="bg-green-600 hover:bg-green-700 text-white font-semibold flex items-center gap-1 shrink-0">
+                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1 shrink-0">
                   <Check className="h-3 w-3" />
                   Client Approved
                 </Badge>
@@ -546,38 +567,45 @@ export default function QuotationHtmlPreviewPage() {
             </p>
           </div>
         </div>
+
         <div className="flex items-center space-x-2">
-          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-border mr-2">
-            <Button
-              type="button"
-              variant={activeViewMode === "html" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveViewMode("html")}
-              className="h-7 text-xs font-semibold px-2.5 cursor-pointer"
-            >
-              <FileText className="h-3.5 w-3.5 mr-1" /> Customer Document
-            </Button>
-            <Button
-              type="button"
-              variant={activeViewMode === "pdf" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveViewMode("pdf")}
-              className="h-7 text-xs font-semibold px-2.5 cursor-pointer"
-            >
-              <Download className="h-3.5 w-3.5 mr-1" /> PDF Viewer
-            </Button>
-            {isManagerOrAdmin && quotationMetrics && quotationMetrics.totalCost > 0 && (
+          {/* View Mode Navigation Bar - Removed 'Customer Document' for Managerial Users */}
+          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 p-0.5 rounded-lg border border-border mr-2">
+            {!isAuthorizedForCosting && (
+              <Button
+                type="button"
+                variant={activeViewMode === "html" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setActiveViewMode("html")}
+                className="h-7 text-xs font-semibold px-3 cursor-pointer"
+              >
+                <FileText className="h-3.5 w-3.5 mr-1" /> Customer Document
+              </Button>
+            )}
+
+            {isAuthorizedForCosting && (
               <Button
                 type="button"
                 variant={activeViewMode === "costing" ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setActiveViewMode("costing")}
-                className="h-7 text-xs font-semibold px-2.5 cursor-pointer"
+                className={`h-7 text-xs font-bold px-3 cursor-pointer ${activeViewMode === "costing" ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs" : "text-emerald-700 dark:text-emerald-400"}`}
               >
-                <Calculator className="h-3.5 w-3.5 mr-1 text-emerald-500" /> Cost Breakdown
+                <Calculator className="h-3.5 w-3.5 mr-1.5" /> Managerial Audit &amp; Costing
               </Button>
             )}
+
+            <Button
+              type="button"
+              variant={activeViewMode === "pdf" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveViewMode("pdf")}
+              className="h-7 text-xs font-semibold px-3 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5 mr-1" /> PDF Viewer
+            </Button>
           </div>
+
           <Button
             variant="outline"
             size="sm"
@@ -585,8 +613,9 @@ export default function QuotationHtmlPreviewPage() {
             title="Edit Quotation"
             className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold cursor-pointer"
           >
-            <Edit className="mr-2 h-4 w-4 text-slate-600" /> Edit
+            <Edit className="mr-1.5 h-4 w-4 text-slate-600" /> Edit
           </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -607,8 +636,9 @@ export default function QuotationHtmlPreviewPage() {
             title="Make a Copy"
             className="border-teal-600/50 text-teal-700 hover:bg-teal-50 dark:text-teal-300 font-semibold cursor-pointer"
           >
-            <Copy className="mr-2 h-4 w-4 text-teal-600" /> Copy Quotation
+            <Copy className="mr-1.5 h-4 w-4 text-teal-600" /> Copy Quotation
           </Button>
+
           {canSaveToCatalog && (
             <Button
               variant="outline"
@@ -617,9 +647,10 @@ export default function QuotationHtmlPreviewPage() {
               title="Save Products to Catalog"
               className="border-indigo-600/50 text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 font-semibold cursor-pointer"
             >
-              <PackagePlus className="mr-2 h-4 w-4 text-indigo-600" /> Save Products to Catalog
+              <PackagePlus className="mr-1.5 h-4 w-4 text-indigo-600" /> Save Products to Catalog
             </Button>
           )}
+
           {quotation.sharepointUrl && (
             <Button
               variant="outline"
@@ -628,9 +659,10 @@ export default function QuotationHtmlPreviewPage() {
               title="Open SharePoint Folder"
               className="cursor-pointer"
             >
-              <ExternalLink className="mr-2 h-4 w-4" /> SharePoint File
+              <ExternalLink className="mr-1.5 h-4 w-4" /> SharePoint File
             </Button>
           )}
+
           <Button
             variant="default"
             size="sm"
@@ -638,104 +670,363 @@ export default function QuotationHtmlPreviewPage() {
             title="Download PDF"
             className="bg-primary hover:bg-primary/90 text-white font-semibold cursor-pointer"
           >
-            <Download className="mr-2 h-4 w-4" /> Download PDF
+            <Download className="mr-1.5 h-4 w-4" /> Download PDF
           </Button>
+
           {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quotation.status) && (
             <Button
               variant="outline"
               size="sm"
-              className="border-green-600 text-green-700 hover:bg-green-50 font-semibold cursor-pointer"
+              className="border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 font-semibold cursor-pointer"
               onClick={() => handleConfirmQuote(false)}
             >
-              <Check className="mr-2 h-4 w-4" /> Mark as Client Approved
+              <Check className="mr-1.5 h-4 w-4 text-emerald-600" /> Mark as Client Approved
             </Button>
           )}
         </div>
       </div>
 
-      {/* Internal Costing Audit Header Summary */}
-      {activeViewMode === "costing" && isManagerOrAdmin && quotationMetrics && quotationMetrics.totalCost > 0 && (
-        <div className="p-4 bg-slate-100 dark:bg-slate-900 border-b shrink-0 max-w-5xl mx-auto w-full print:hidden space-y-4">
-          <ExecutiveCostSummaryCard metrics={quotationMetrics} />
-        </div>
-      )}
-
-      {/* Dedicated Scrollable Workspace */}
-      <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-900 p-4 sm:p-6 md:p-8 flex flex-col print:hidden overflow-y-auto">
-        {activeViewMode === "costing" && isManagerOrAdmin ? (
-          <div className="max-w-5xl mx-auto w-full bg-card border rounded-2xl p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
-              <div>
-                <h3 className="font-bold text-base text-foreground flex items-center gap-2">
-                  <Calculator className="h-5 w-5 text-emerald-500" />
-                  Line-Item Costing Breakdown Audit
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Internal audit of estimator factory costs, labor/overhead allocations, and net profit per item.
-                </p>
+      {/* Main Executive Workspace Area */}
+      <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-950 p-4 sm:p-6 md:p-8 flex flex-col print:hidden overflow-y-auto">
+        {activeViewMode === "costing" && isAuthorizedForCosting ? (
+          <div className="max-w-6xl mx-auto w-full space-y-6">
+            
+            {/* Executive Top Profitability & Cost Summary Card */}
+            {quotationMetrics && quotationMetrics.totalCost > 0 ? (
+              <ExecutiveCostSummaryCard metrics={quotationMetrics} />
+            ) : (
+              <div className="p-5 bg-card border rounded-2xl shadow-xs flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-foreground">Direct BOQ Cost Data Pending</h3>
+                    <p className="text-xs text-muted-foreground">Line items were created without standard BOQ factory cost allocations. Margins are computed from quoted selling rates.</p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-xs font-mono">
+                  {costingItemsList.length} Items Quoted
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-xs bg-muted/40 font-mono">
-                {costingItemsList.length} Items Total
-              </Badge>
+            )}
+
+            {/* BOQ Creator, Estimator & Sales Owner Team Attribution Grid */}
+            <div className="bg-card border rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <UserCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-foreground tracking-tight">BOQ &amp; Estimator Audit Team Attribution</h3>
+                    <p className="text-xs text-muted-foreground">Structured audit trail of authoring BOQ creator, assigned cost estimator, and sales manager/executive.</p>
+                  </div>
+                </div>
+                {quotation.boq?.boqNumber && (
+                  <Badge variant="secondary" className="font-mono text-xs px-3 py-1 font-bold bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                    BOQ: {quotation.boq.boqNumber}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                {/* BOQ Creator Details */}
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                      <User className="h-4 w-4" /> BOQ Creator
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-background">Author</Badge>
+                  </div>
+                  <div className="space-y-1 pt-1">
+                    <p className="font-bold text-sm text-foreground">{quotation.boq?.preparedBy?.name || "Not Specified"}</p>
+                    {quotation.boq?.preparedBy?.designation && (
+                      <p className="text-muted-foreground font-medium flex items-center gap-1 text-[11px]">
+                        <Briefcase className="h-3 w-3 text-muted-foreground" /> {quotation.boq.preparedBy.designation}
+                      </p>
+                    )}
+                    {quotation.boq?.preparedBy?.email && (
+                      <p className="text-muted-foreground flex items-center gap-1 text-[11px] font-mono">
+                        <Mail className="h-3 w-3 text-muted-foreground" /> {quotation.boq.preparedBy.email}
+                      </p>
+                    )}
+                    {quotation.boq?.preparedBy?.phone && (
+                      <p className="text-muted-foreground flex items-center gap-1 text-[11px] font-mono">
+                        <Phone className="h-3 w-3 text-muted-foreground" /> {quotation.boq.preparedBy.phone}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cost Estimator Details */}
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                      <Calculator className="h-4 w-4" /> Cost Estimator
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-background">Costing</Badge>
+                  </div>
+                  <div className="space-y-1 pt-1">
+                    <p className="font-bold text-sm text-foreground">{quotation.boq?.estimator?.name || "Not Assigned"}</p>
+                    {quotation.boq?.estimator?.designation && (
+                      <p className="text-muted-foreground font-medium flex items-center gap-1 text-[11px]">
+                        <Briefcase className="h-3 w-3 text-muted-foreground" /> {quotation.boq.estimator.designation}
+                      </p>
+                    )}
+                    {quotation.boq?.estimator?.email && (
+                      <p className="text-muted-foreground flex items-center gap-1 text-[11px] font-mono">
+                        <Mail className="h-3 w-3 text-muted-foreground" /> {quotation.boq.estimator.email}
+                      </p>
+                    )}
+                    {quotation.boq?.estimator?.phone && (
+                      <p className="text-muted-foreground flex items-center gap-1 text-[11px] font-mono">
+                        <Phone className="h-3 w-3 text-muted-foreground" /> {quotation.boq.estimator.phone}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quotation Owner Details */}
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5 text-purple-600 dark:text-purple-400">
+                      <Building2 className="h-4 w-4" /> Quotation Prepared By
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-background">Sales</Badge>
+                  </div>
+                  <div className="space-y-1 pt-1">
+                    <p className="font-bold text-sm text-foreground">{quotation.preparedBy?.name || quotation.salesAgentName || "Bosq Executive"}</p>
+                    {quotation.preparedBy?.designation && (
+                      <p className="text-muted-foreground font-medium flex items-center gap-1 text-[11px]">
+                        <Briefcase className="h-3 w-3 text-muted-foreground" /> {quotation.preparedBy.designation}
+                      </p>
+                    )}
+                    {quotation.preparedBy?.email && (
+                      <p className="text-muted-foreground flex items-center gap-1 text-[11px] font-mono">
+                        <Mail className="h-3 w-3 text-muted-foreground" /> {quotation.preparedBy.email}
+                      </p>
+                    )}
+                    {quotation.salesAgentContactNumber && (
+                      <p className="text-muted-foreground flex items-center gap-1 text-[11px] font-mono">
+                        <Phone className="h-3 w-3 text-muted-foreground" /> {quotation.salesAgentContactNumber}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse font-sans">
-                <thead>
-                  <tr className="border-b bg-muted/40 text-muted-foreground font-bold uppercase text-[10px]">
-                    <th className="p-2.5">#</th>
-                    <th className="p-2.5">Description</th>
-                    <th className="p-2.5 text-center">Qty</th>
-                    <th className="p-2.5 text-right">Material Cost</th>
-                    <th className="p-2.5 text-right">Labor / Overhead</th>
-                    <th className="p-2.5 text-right">Unit Cost</th>
-                    <th className="p-2.5 text-right">Quoted Price</th>
-                    <th className="p-2.5 text-right">Margin %</th>
-                    <th className="p-2.5 text-right">Net Profit</th>
-                    <th className="p-2.5 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y border-b">
-                  {costingItemsList.map((item, idx) => {
-                    const isProfitable = item.netProfitTotal >= 0
-                    return (
-                      <tr key={item.id || idx} className="hover:bg-muted/20 transition-colors">
-                        <td className="p-2.5 font-mono text-muted-foreground">{item.itemNo}</td>
-                        <td className="p-2.5">
-                          <div className="font-semibold text-foreground leading-tight line-clamp-1">{item.description}</div>
-                          {item.categoryName && (
-                            <span className="text-[10px] text-muted-foreground font-mono">{item.categoryName}</span>
-                          )}
-                        </td>
-                        <td className="p-2.5 text-center font-bold">{item.quantity}</td>
-                        <td className="p-2.5 text-right font-mono">AED {formatCurrency(item.materialCost)}</td>
-                        <td className="p-2.5 text-right font-mono">AED {formatCurrency(item.laborCost + item.overheadCost)}</td>
-                        <td className="p-2.5 text-right font-mono font-semibold text-foreground">AED {formatCurrency(item.unitCost)}</td>
-                        <td className="p-2.5 text-right font-mono font-semibold text-primary">AED {formatCurrency(item.unitSellingPrice)}</td>
-                        <td className="p-2.5 text-right font-mono font-bold text-blue-600 dark:text-blue-400">
-                          {item.marginPercentage.toFixed(1)}%
-                        </td>
-                        <td className={`p-2.5 text-right font-mono font-bold ${isProfitable ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                          AED {formatCurrency(item.netProfitTotal)}
-                        </td>
-                        <td className="p-2.5 text-center">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setCostingModalItem(item)}
-                            className="h-7 text-[11px] px-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 flex items-center gap-1 cursor-pointer"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Inspect
-                          </Button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+            {/* High-Readability Line-Item Costing Breakdown & Product Images Table */}
+            <div className="bg-card border rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <Calculator className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-foreground tracking-tight">Line-Item Costing Breakdown &amp; Product Images Audit</h3>
+                    <p className="text-xs text-muted-foreground">Itemized factory costs, labor allocations, quoted rates, margin %, and net profit per product.</p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-xs font-mono font-bold bg-muted/30">
+                  {costingItemsList.length} Line Items Total
+                </Badge>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-border/60">
+                <table className="w-full text-left text-xs border-collapse font-sans">
+                  <thead>
+                    <tr className="border-b bg-muted/60 text-muted-foreground font-bold uppercase text-[10px]">
+                      <th className="p-3">#</th>
+                      <th className="p-3 min-w-[70px]">Image</th>
+                      <th className="p-3 min-w-[240px]">Product &amp; Specifications</th>
+                      <th className="p-3 text-center">Qty</th>
+                      <th className="p-3 text-right">Material Cost</th>
+                      <th className="p-3 text-right">Labor / Overhead</th>
+                      <th className="p-3 text-right">Unit Factory Cost</th>
+                      <th className="p-3 text-right">Quoted Rate</th>
+                      <th className="p-3 text-right">Margin %</th>
+                      <th className="p-3 text-right">Net Profit</th>
+                      <th className="p-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y border-b">
+                    {costingItemsList.map((item, idx) => {
+                      const isProfitable = item.netProfitTotal >= 0
+                      return (
+                        <tr key={item.id || idx} className="hover:bg-muted/30 transition-colors">
+                          <td className="p-3 font-mono text-muted-foreground align-top font-bold text-xs">{item.itemNo}</td>
+                          <td className="p-3 align-top">
+                            {item.imageUrl ? (
+                              <div 
+                                className="relative group w-16 h-16 rounded-xl overflow-hidden border border-border bg-white shadow-2xs shrink-0 cursor-pointer"
+                                onClick={() => setPreviewImageUrl(item.imageUrl)}
+                                title="Click to view high-res product image"
+                              >
+                                <img src={item.imageUrl} alt={item.description} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <ZoomIn className="h-4 w-4 text-white" />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-16 h-16 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/30 flex items-center justify-center text-[10px] text-muted-foreground text-center font-medium">
+                                No Image
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3 align-top space-y-1.5">
+                            <div className="font-bold text-foreground text-xs leading-tight">{item.description}</div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {item.categoryName && (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono font-medium">
+                                  {item.categoryName}
+                                </Badge>
+                              )}
+                              {item.chairType && (
+                                <Badge variant="secondary" className="text-[10px] py-0 px-1.5 font-mono font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                                  {item.chairType}
+                                </Badge>
+                              )}
+                            </div>
+                            {renderSpecificationsHtml(item.specifications, item.productNotes)}
+                          </td>
+                          <td className="p-3 text-center font-extrabold align-top text-xs text-foreground">{item.quantity}</td>
+                          <td className="p-3 text-right font-mono align-top text-xs font-semibold text-slate-700 dark:text-slate-300">AED {formatCurrency(item.materialCost)}</td>
+                          <td className="p-3 text-right font-mono align-top text-xs font-semibold text-slate-700 dark:text-slate-300">AED {formatCurrency(item.laborCost + item.overheadCost)}</td>
+                          <td className="p-3 text-right font-mono font-bold text-foreground align-top text-xs">AED {formatCurrency(item.unitCost)}</td>
+                          <td className="p-3 text-right font-mono font-extrabold text-primary align-top text-xs">AED {formatCurrency(item.unitSellingPrice)}</td>
+                          <td className="p-3 text-right font-mono font-extrabold text-blue-600 dark:text-blue-400 align-top text-xs">
+                            {item.marginPercentage.toFixed(1)}%
+                          </td>
+                          <td className={`p-3 text-right font-mono font-extrabold align-top text-xs ${isProfitable ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                            AED {formatCurrency(item.netProfitTotal)}
+                          </td>
+                          <td className="p-3 text-center align-top">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCostingModalItem(item)}
+                              className="h-7 text-[11px] px-2.5 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-1 cursor-pointer font-bold"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Inspect
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
+
+            {/* Supporting Documents & Revisions History Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* Supporting Documents Card */}
+              <div className="bg-card border rounded-2xl p-5 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                      <Paperclip className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base text-foreground tracking-tight">Supporting Documents</h3>
+                      <p className="text-xs text-muted-foreground">Linked SharePoint files and client uploads.</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-mono">
+                    {(quotation.supportingDocuments || []).length} Files
+                  </Badge>
+                </div>
+
+                {quotation.supportingDocuments && quotation.supportingDocuments.length > 0 ? (
+                  <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                    {quotation.supportingDocuments.map((doc) => (
+                      <div key={doc.id} className="p-3 border rounded-xl bg-slate-50/70 dark:bg-slate-900/40 flex items-center justify-between gap-3 hover:border-border transition-colors">
+                        <div className="flex items-center space-x-3 min-w-0">
+                          <div className="p-2 rounded-lg bg-white dark:bg-slate-800 border shrink-0">
+                            {doc.source === "SHAREPOINT" ? (
+                              <FolderGit2 className="h-4 w-4 text-blue-600" />
+                            ) : (
+                              <FileCode className="h-4 w-4 text-emerald-600" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-xs text-foreground truncate" title={doc.title}>{doc.title}</p>
+                            <p className="text-[10px] text-muted-foreground">{doc.documentType} • {new Date(doc.createdAt).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(doc.url, "_blank")}
+                          className="h-7 text-xs font-bold shrink-0 cursor-pointer"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 mr-1" /> View
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-xs text-muted-foreground border border-dashed rounded-xl bg-muted/20">
+                    No additional supporting documents attached.
+                  </div>
+                )}
+              </div>
+
+              {/* Quotation Revision History Timeline Card */}
+              <div className="bg-card border rounded-2xl p-5 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      <History className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base text-foreground tracking-tight">Revision Audit History</h3>
+                      <p className="text-xs text-muted-foreground">Historical revision sequence for auditability.</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-xs font-mono font-bold">
+                    Revision #{quotation.revisionNumber || 0}
+                  </Badge>
+                </div>
+
+                {quotation.revisions && quotation.revisions.length > 0 ? (
+                  <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
+                    {quotation.revisions.map((rev) => (
+                      <div key={rev.id} className="p-3 border rounded-xl bg-slate-50/70 dark:bg-slate-900/40 space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="font-bold text-foreground flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-amber-600" />
+                            Revision R{rev.revisionNumber}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {new Date(rev.revisionDate).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs font-mono text-muted-foreground pt-1">
+                          <span>Prev: AED {formatCurrency(rev.previousTotal)}</span>
+                          <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                          <span className="font-bold text-foreground">New: AED {formatCurrency(rev.newTotal)}</span>
+                        </div>
+                        {rev.notes && (
+                          <p className="text-[11px] text-muted-foreground italic border-t border-border/40 pt-1 mt-1">{rev.notes}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-xs text-muted-foreground border border-dashed rounded-xl bg-muted/20">
+                    This is the original quotation (Revision 0). No previous revisions recorded.
+                  </div>
+                )}
+              </div>
+
+            </div>
+
           </div>
         ) : activeViewMode === "pdf" ? (
           <div className="w-full flex-1 flex flex-col space-y-3">
@@ -758,11 +1049,11 @@ export default function QuotationHtmlPreviewPage() {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto w-full bg-white text-slate-900 border rounded-xl p-8 sm:p-10 shadow-lg space-y-6 font-sans">
-            {/* Header section with Company Logo & Customer Details */}
+            {/* Customer Document View Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start border-b pb-6 gap-4">
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-primary">BOSQ ERGONOMICS</h2>
-                <p className="text-xs text-slate-500 font-medium">Premium Commercial Furniture & Office Solutions</p>
+                <p className="text-xs text-slate-500 font-medium">Premium Commercial Furniture &amp; Office Solutions</p>
                 <div className="text-xs text-slate-600 mt-2 space-y-0.5">
                   <p>Client: <strong className="text-slate-900">{quotation.client?.companyName}</strong></p>
                   {quotation.client?.contactPerson && <p>Contact: {quotation.client.contactPerson}</p>}
@@ -782,7 +1073,7 @@ export default function QuotationHtmlPreviewPage() {
               </div>
             </div>
 
-            {/* Line Items Table */}
+            {/* Line Items Table with Product Images */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
@@ -795,18 +1086,36 @@ export default function QuotationHtmlPreviewPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {quotation.items.map((item, idx) => (
-                    <tr key={item.id || idx} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="p-3 font-mono text-slate-500 align-top">{item.itemNo || idx + 1}</td>
-                      <td className="p-3 align-top space-y-1">
-                        <div className="font-bold text-slate-900 text-xs">{item.description}</div>
-                        {renderSpecificationsHtml(item.specifications, item.productNotes)}
-                      </td>
-                      <td className="p-3 text-center font-bold align-top text-xs">{item.quantity}</td>
-                      <td className="p-3 text-right font-mono align-top text-xs">{formatCurrency(item.unitPrice)}</td>
-                      <td className="p-3 text-right font-mono font-bold align-top text-xs text-primary">{formatCurrency(item.amount)}</td>
-                    </tr>
-                  ))}
+                  {quotation.items.map((item, idx) => {
+                    const itemImg = item.customImageUrl || item.product?.imageUrl
+                    return (
+                      <tr key={item.id || idx} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="p-3 font-mono text-slate-500 align-top">{item.itemNo || idx + 1}</td>
+                        <td className="p-3 align-top space-y-2">
+                          <div className="flex items-start gap-3">
+                            {itemImg && (
+                              <div 
+                                className="relative group w-14 h-14 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 shrink-0 cursor-pointer"
+                                onClick={() => setPreviewImageUrl(itemImg)}
+                              >
+                                <img src={itemImg} alt={item.description} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                  <ZoomIn className="h-4 w-4 text-white" />
+                                </div>
+                              </div>
+                            )}
+                            <div className="space-y-1 flex-1">
+                              <div className="font-bold text-slate-900 text-xs">{item.description}</div>
+                              {renderSpecificationsHtml(item.specifications, item.productNotes)}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 text-center font-bold align-top text-xs">{item.quantity}</td>
+                        <td className="p-3 text-right font-mono align-top text-xs">{formatCurrency(item.unitPrice)}</td>
+                        <td className="p-3 text-right font-mono font-bold align-top text-xs text-primary">{formatCurrency(item.amount)}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -814,7 +1123,7 @@ export default function QuotationHtmlPreviewPage() {
             {/* Subtotal & Financial Summary */}
             <div className="flex flex-col sm:flex-row justify-between items-start pt-4 border-t gap-6">
               <div className="text-xs text-slate-600 space-y-1 max-w-md">
-                <p className="font-bold text-slate-900 mb-1">Terms & Conditions:</p>
+                <p className="font-bold text-slate-900 mb-1">Terms &amp; Conditions:</p>
                 <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-slate-500">
                   {termsArray.map((t, idx) => (
                     <li key={idx}>{t}</li>
@@ -852,12 +1161,31 @@ export default function QuotationHtmlPreviewPage() {
         )}
       </div>
 
+      {/* Lightbox Image Preview Modal */}
+      {previewImageUrl && (
+        <Dialog open={!!previewImageUrl} onOpenChange={() => setPreviewImageUrl(null)}>
+          <DialogContent className="max-w-3xl p-3 rounded-2xl bg-black/95 border-slate-800 text-white z-50">
+            <div className="relative flex flex-col items-center justify-center p-2">
+              <img src={previewImageUrl} alt="Product Preview" className="max-h-[75vh] w-auto rounded-lg object-contain" />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPreviewImageUrl(null)}
+                className="mt-3 text-xs text-white hover:bg-white/20"
+              >
+                Close Preview
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       <CostingBreakdownModal
         isOpen={!!costingModalItem}
         onClose={() => setCostingModalItem(null)}
         item={costingModalItem}
       />
-      
+
       <Dialog open={isReplaceDialogOpen} onOpenChange={setIsReplaceDialogOpen}>
         <DialogContent className="max-w-md rounded-xl">
           <DialogHeader>
@@ -872,7 +1200,7 @@ export default function QuotationHtmlPreviewPage() {
             <Button variant="outline" onClick={() => setIsReplaceDialogOpen(false)}>
               Cancel
             </Button>
-            <Button className="bg-green-600 hover:bg-green-700 text-white font-semibold" onClick={() => handleConfirmQuote(true)}>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold" onClick={() => handleConfirmQuote(true)}>
               Replace Confirmed Quote
             </Button>
           </DialogFooter>
@@ -907,7 +1235,7 @@ export default function QuotationHtmlPreviewPage() {
                           </Badge>
                         )}
                         {isSaved && (
-                          <Badge variant="secondary" className="text-[10px] bg-green-500/10 text-green-700 border-green-200 py-0 flex items-center gap-1 font-semibold">
+                          <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-200 py-0 flex items-center gap-1 font-semibold">
                             <CheckCircle2 className="h-3 w-3" /> Saved in Catalog
                           </Badge>
                         )}

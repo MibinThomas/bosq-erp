@@ -34,9 +34,21 @@ export async function GET(
         ]
       },
       include: {
-        client: true,
+        client: {
+          include: {
+            documents: {
+              orderBy: { createdAt: "desc" }
+            }
+          }
+        },
         boq: {
           include: {
+            preparedBy: {
+              select: { id: true, name: true, email: true, designation: true, role: true, phone: true }
+            },
+            estimator: {
+              select: { id: true, name: true, email: true, designation: true, role: true, phone: true }
+            },
             items: true
           }
         },
@@ -51,7 +63,9 @@ export async function GET(
             }
           }
         },
-        preparedBy: true,
+        preparedBy: {
+          select: { id: true, name: true, email: true, designation: true, role: true, phone: true }
+        },
       },
     })
 
@@ -126,6 +140,39 @@ export async function GET(
       }
     })
 
+    const sharepointFiles = await prisma.sharePointFile.findMany({
+      where: {
+        OR: [
+          { entityType: "QUOTATION", entityId: quotation.id },
+          { entityType: "CLIENT", entityId: quotation.clientId },
+          ...(quotation.boqId ? [{ entityType: "BOQ", entityId: quotation.boqId }] : [])
+        ]
+      },
+      orderBy: { createdAt: "desc" }
+    })
+
+    const clientDocs = (quotation.client as any)?.documents || []
+    const supportingDocuments = [
+      ...sharepointFiles.map(f => ({
+        id: f.id,
+        title: f.fileName,
+        documentType: `SharePoint (${f.entityType})`,
+        url: f.fileUrl,
+        createdAt: f.createdAt,
+        source: "SHAREPOINT"
+      })),
+      ...clientDocs.map((d: any) => ({
+        id: d.id,
+        title: d.title,
+        documentType: d.documentType || "Client Document",
+        url: d.sharepointUrl,
+        fileSize: d.fileSize,
+        uploadedByName: d.uploadedByName,
+        createdAt: d.createdAt,
+        source: "CLIENT_DOCUMENT"
+      }))
+    ]
+
     const logoBase64 = await getLogoBase64()
     const aynMuskLogoBase64 = await getAynMuskLogoBase64()
     const barcodeBase64 = generateCode128DataUri(quotation.quotationNumber)
@@ -134,6 +181,7 @@ export async function GET(
       ...quotation,
       revisions,
       seriesQuotations,
+      supportingDocuments,
       companyLogoUrl: logoBase64 || null,
       aynMuskLogoUrl: aynMuskLogoBase64 || null,
       barcodeBase64: barcodeBase64 || null,

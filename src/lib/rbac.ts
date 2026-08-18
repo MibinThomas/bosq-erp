@@ -183,7 +183,7 @@ export async function getPermissionsProfile(userId: string) {
         export: true, downloadPdf: true, uploadFiles: true, share: true, manage: true,
         ownership: "ALL", approvalLimit: null,
         costPriceVisible: true, dealerPriceVisible: true, marginVisible: true, profitVisible: true, markupVisible: true,
-        maxDiscountPercent: 100, canOverrideVat: true, canAddCustomCharges: true, canConfirmQuotation: true, canApplySpecialDiscount: true, canExportBoqExcel: true
+        maxDiscountPercent: 100, canOverrideVat: true, canAddCustomCharges: true, canConfirmQuotation: true, canApplySpecialDiscount: true, canExportBoqExcel: true, canViewCostingBreakdown: true
       }
     }
     return {
@@ -209,7 +209,7 @@ export async function getPermissionsProfile(userId: string) {
       export: false, downloadPdf: false, uploadFiles: false, share: false, manage: false,
       ownership: "NONE", approvalLimit: null,
       costPriceVisible: false, dealerPriceVisible: false, marginVisible: false, profitVisible: false, markupVisible: false,
-      maxDiscountPercent: 0, canOverrideVat: false, canAddCustomCharges: false, canConfirmQuotation: false, canApplySpecialDiscount: false, canExportBoqExcel: false
+      maxDiscountPercent: 0, canOverrideVat: false, canAddCustomCharges: false, canConfirmQuotation: false, canApplySpecialDiscount: false, canExportBoqExcel: false, canViewCostingBreakdown: false
     }
   }
 
@@ -239,7 +239,8 @@ export async function getPermissionsProfile(userId: string) {
         canAddCustomCharges: perm.canAddCustomCharges,
         canConfirmQuotation: perm.canConfirmQuotation,
         canApplySpecialDiscount: perm.canApplySpecialDiscount,
-        canExportBoqExcel: perm.canExportBoqExcel
+        canExportBoqExcel: perm.canExportBoqExcel,
+        canViewCostingBreakdown: (perm as any).canViewCostingBreakdown ?? perm.costPriceVisible
       }
     }
   }
@@ -265,6 +266,8 @@ export async function getPermissionsProfile(userId: string) {
       profile[override.module].canApplySpecialDiscount = override.value
     } else if (action === "canExportBoqExcel") {
       profile[override.module].canExportBoqExcel = override.value
+    } else if (action === "canViewCostingBreakdown") {
+      profile[override.module].canViewCostingBreakdown = override.value
     } else {
       profile[override.module][action] = override.value
     }
