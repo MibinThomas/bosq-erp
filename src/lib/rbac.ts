@@ -12,15 +12,20 @@ export async function hasPermission(
   action: string,
   amount?: number
 ): Promise<boolean> {
-  // 1. Fetch user and their overrides
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      permissionOverrides: {
-        where: { module }
+  if (!userId || typeof userId !== "string") {
+    return false
+  }
+
+  try {
+    // 1. Fetch user and their overrides
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        permissionOverrides: {
+          where: { module }
+        }
       }
-    }
-  })
+    })
 
   if (!user || !user.isActive || user.deletedAt) {
     return false
@@ -78,6 +83,10 @@ export async function hasPermission(
   }
 
   return false
+  } catch (error) {
+    console.error(`[rbac] Error checking permission for user "${userId}":`, error)
+    return false
+  }
 }
 
 /**
@@ -91,14 +100,19 @@ export async function checkOwnership(
   recordDepartment?: string,
   assignedUserIds?: string[]
 ): Promise<boolean> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      permissionOverrides: {
-        where: { module }
+  if (!userId || typeof userId !== "string") {
+    return false
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        permissionOverrides: {
+          where: { module }
+        }
       }
-    }
-  })
+    })
 
   if (!user || !user.isActive || user.deletedAt) {
     return false
@@ -150,18 +164,27 @@ export async function checkOwnership(
     default:
       return false
   }
+  } catch (error) {
+    console.error(`[rbac] Error checking ownership for user "${userId}":`, error)
+    return false
+  }
 }
 
 /**
  * Get permissions profile for a user
  */
 export async function getPermissionsProfile(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      permissionOverrides: true,
-    }
-  })
+  if (!userId || typeof userId !== "string") {
+    return null
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        permissionOverrides: true,
+      }
+    })
 
   if (!user || !user.isActive || user.deletedAt) {
     return null
@@ -291,5 +314,9 @@ export async function getPermissionsProfile(userId: string) {
     role: user.role,
     isSuperAdmin: false,
     permissions: profile,
+  }
+  } catch (error) {
+    console.error(`[rbac] Error getting permissions profile for user "${userId}":`, error)
+    return null
   }
 }
