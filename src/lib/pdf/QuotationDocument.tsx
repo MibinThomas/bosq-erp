@@ -620,22 +620,16 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   status = null,
 }) => {
   const formatCurrency = (val: number) => {
-    return val.toLocaleString("en-AE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+    return Math.round(val || 0).toLocaleString("en-AE", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     })
   }
 
-  const formatItemPrice = (val: number, hasDiscount: boolean) => {
-    if (hasDiscount) {
-      return Math.round(val).toLocaleString("en-AE", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      })
-    }
-    return val.toLocaleString("en-AE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+  const formatItemPrice = (val: number) => {
+    return Math.round(val || 0).toLocaleString("en-AE", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     })
   }
 
@@ -1123,9 +1117,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                             {/* Qty, Price, Total */}
                             <Text style={styles.colQty}>{item.quantity}</Text>
                             <Text style={styles.colPrice}>
-                              {formatItemPrice(effectiveUnitPrice, hasItemDiscount)}
+                              {formatItemPrice(effectiveUnitPrice)}
                             </Text>
-                            <Text style={styles.colAmount}>{formatItemPrice(item.amount, hasItemDiscount)}</Text>
+                            <Text style={styles.colAmount}>{formatItemPrice(item.amount)}</Text>
                           </View>
                         );
                       })}
@@ -1186,9 +1180,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                           {/* Qty, Price, Total */}
                           <Text style={styles.colQty}>{item.quantity}</Text>
                           <Text style={styles.colPrice}>
-                            {formatItemPrice(effectiveUnitPrice, hasItemDiscount)}
+                            {formatItemPrice(effectiveUnitPrice)}
                           </Text>
-                          <Text style={styles.colAmount}>{formatItemPrice(item.amount, hasItemDiscount)}</Text>
+                          <Text style={styles.colAmount}>{formatItemPrice(item.amount)}</Text>
                         </View>
                       );
                     })}
@@ -1249,9 +1243,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                         {/* Qty, Price, Total */}
                         <Text style={styles.colQty}>{item.quantity}</Text>
                         <Text style={styles.colPrice}>
-                          {formatItemPrice(effectiveUnitPrice, hasItemDiscount)}
+                          {formatItemPrice(effectiveUnitPrice)}
                         </Text>
-                        <Text style={styles.colAmount}>{formatItemPrice(item.amount, hasItemDiscount)}</Text>
+                        <Text style={styles.colAmount}>{formatItemPrice(item.amount)}</Text>
                       </View>
                     );
                   })
@@ -1419,7 +1413,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             
             <View style={styles.grandTotalRow}>
               <Text style={styles.grandTotalLabel}>GRAND TOTAL</Text>
-              <Text style={styles.grandTotalValue}>AED {grandTotal.toLocaleString("en-AE", { maximumFractionDigits: 0 })}</Text>
+              <Text style={styles.grandTotalValue}>AED {formatCurrency(grandTotal)}</Text>
             </View>
           </View>
         </View>
