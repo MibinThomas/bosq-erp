@@ -281,9 +281,9 @@ export function CostingBreakdownModal({
               <div className="p-3.5 bg-zinc-50 dark:bg-zinc-900 border rounded-xl space-y-1 shadow-2xs">
                 <span className="text-[10px] uppercase font-bold text-muted-foreground block">Target Margin</span>
                 <span className="text-base font-extrabold text-blue-600 dark:text-blue-400 whitespace-nowrap">{marginPct.toFixed(1)}%</span>
-                {negAmt > 0 && (
+                {(negAmt > 0 || negPct > 0) && (
                   <span className="text-[10px] text-amber-600 dark:text-amber-400 block font-mono whitespace-nowrap">
-                    Buffer: +{currency} {formatCurrency(negAmt)}
+                    Neg. Margin: +{negPct > 0 ? `${negPct.toFixed(1)}%` : ""} (+{currency} {formatCurrency(negAmt)})
                   </span>
                 )}
               </div>

@@ -56,15 +56,22 @@ export async function POST(
           const preNegPrice = baseCost > 0 ? Number((baseCost / (1 - Math.min(0.9999, marginPct / 100))).toFixed(2)) : 0
 
           let negPct = parseFloat(item.negotiationPercentage ?? item.negotiationPct) || 0
-          let negAmt = parseFloat(item.negotiationAmount ?? item.negotiationAdj) || (preNegPrice > 0 && negPct > 0 ? Number((preNegPrice * (negPct / 100)).toFixed(2)) : 0)
+          let negAmt = parseFloat(item.negotiationAmount ?? item.negotiationAdj) || 0
 
-          if (negAmt > 0 && negPct === 0 && preNegPrice > 0) {
-            negPct = Number(((negAmt / preNegPrice) * 100).toFixed(2))
+          if (negPct > 0 && (!item.negotiationAmount || parseFloat(item.negotiationAmount) === 0)) {
+            const totalMarginDec = Math.min(0.9999, (marginPct + negPct) / 100)
+            const finalPrice = baseCost > 0 ? (baseCost / (1 - totalMarginDec)) : 0
+            negAmt = baseCost > 0 ? Number((finalPrice - preNegPrice).toFixed(2)) : 0
+          } else if (negAmt > 0 && negPct === 0 && baseCost > 0) {
+            const finalPrice = preNegPrice + negAmt
+            const totalMarginPct = finalPrice > 0 ? (1 - (baseCost / finalPrice)) * 100 : marginPct
+            negPct = Number(Math.max(0, totalMarginPct - marginPct).toFixed(2))
           }
 
           let unitSelling = parseFloat(item.unitSellingPrice ?? item.unitPrice)
-          if (isNaN(unitSelling) || unitSelling <= 0 || (baseCost > 0 && (marginPct !== 0 || negAmt !== 0))) {
-            unitSelling = Number((preNegPrice + negAmt).toFixed(2))
+          if (isNaN(unitSelling) || unitSelling <= 0 || (baseCost > 0 && (marginPct !== 0 || negAmt !== 0 || negPct !== 0))) {
+            const totalMarginDec = Math.min(0.9999, (marginPct + negPct) / 100)
+            unitSelling = baseCost > 0 ? Number((baseCost / (1 - totalMarginDec)).toFixed(2)) : Number((preNegPrice + negAmt).toFixed(2))
           }
 
           const itemTotalSelling = Number((unitSelling * qty).toFixed(2))

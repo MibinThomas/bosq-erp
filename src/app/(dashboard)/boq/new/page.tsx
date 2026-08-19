@@ -1443,16 +1443,23 @@ function NewBOQForm() {
     let negPct = fieldName === "negotiationPercentage" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).negotiationPercentage || 0)) || 0)
     let negAmt = fieldName === "negotiationAmount" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).negotiationAmount || 0)) || 0)
 
-    if (fieldName === "negotiationPercentage") {
-      negAmt = preNegPrice > 0 ? Number((preNegPrice * (negPct / 100)).toFixed(2)) : 0
+    if (fieldName === "negotiationPercentage" || fieldName === "margin" || fieldName === "factoryCost" || fieldName === "accessoriesCost") {
+      const totalMarginDec = Math.min(0.9999, (marginPct + negPct) / 100)
+      const finalPrice = basePrice > 0 ? (basePrice / (1 - totalMarginDec)) : 0
+      negAmt = basePrice > 0 ? Number((finalPrice - preNegPrice).toFixed(2)) : 0
       form.setValue(`items.${index}.negotiationAmount` as any, negAmt, { shouldValidate: false, shouldDirty: true })
+      form.setValue(`items.${index}.unitPrice`, Number(finalPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
     } else if (fieldName === "negotiationAmount") {
-      negPct = preNegPrice > 0 ? Number(((negAmt / preNegPrice) * 100).toFixed(2)) : 0
+      const finalPrice = preNegPrice + negAmt
+      const totalMarginPct = finalPrice > 0 ? (1 - (basePrice / finalPrice)) * 100 : marginPct
+      negPct = Number(Math.max(0, totalMarginPct - marginPct).toFixed(2))
       form.setValue(`items.${index}.negotiationPercentage` as any, negPct, { shouldValidate: false, shouldDirty: true })
+      form.setValue(`items.${index}.unitPrice`, Number(finalPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
+    } else {
+      const totalMarginDec = Math.min(0.9999, (marginPct + negPct) / 100)
+      const finalPrice = basePrice > 0 ? (basePrice / (1 - totalMarginDec)) : (preNegPrice + negAmt)
+      form.setValue(`items.${index}.unitPrice`, Number(finalPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
     }
-
-    const finalUnitPrice = preNegPrice + negAmt
-    form.setValue(`items.${index}.unitPrice`, Number(finalUnitPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
   }
 
   const handleCostBreakdownChange = (index: number, costField: string, val: string) => {
@@ -3495,7 +3502,7 @@ function NewBOQForm() {
                                   </div>
                                   <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-1">
                                     <Info className="h-3 w-3 shrink-0" />
-                                    <span>Formula: Base Price ÷ (1 - Margin %)</span>
+                                    <span>Formula: Unit Price = Base Price ÷ (1 - Total Margin %)</span>
                                   </div>
                                 </div>
 
@@ -3934,7 +3941,7 @@ function NewBOQForm() {
                                 <div className="flex flex-col gap-2 pt-4 mt-auto">
                                   <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 bg-muted/20 px-2 py-1 rounded">
                                     <Info className="h-3 w-3 text-muted-foreground/75 shrink-0" />
-                                    <span>Formula: Base Price ÷ (1 - Margin %)</span>
+                                    <span>Formula: Unit Price = Base Price ÷ (1 - Total Margin %)</span>
                                   </div>
                                   
                                   <div className="flex gap-2 w-full">
