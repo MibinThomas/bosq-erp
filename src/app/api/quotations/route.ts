@@ -360,10 +360,14 @@ export async function POST(request: Request) {
 
     if (session.user) {
       const userRole = (session.user as any).role || "SALES_EXECUTIVE"
-      let finalId = (session.user as any).id
-      
-      if (["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole) && body.preparedById) {
-        finalId = body.preparedById
+      let finalId = body.preparedById || clientObj.salespersonId
+
+      if (!finalId) {
+        const primaryAssignment = await prisma.clientAssignment.findFirst({
+          where: { clientId: clientObj.id, isPrimary: true },
+          select: { userId: true }
+        })
+        finalId = primaryAssignment?.userId || (session.user as any).id
       }
 
       const dbUser = await prisma.user.findUnique({

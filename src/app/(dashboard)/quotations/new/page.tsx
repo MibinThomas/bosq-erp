@@ -1350,6 +1350,11 @@ function NewQuotationForm() {
     else resolvedSegment = "Project"
 
     form.setValue("customerSegment", resolvedSegment)
+
+    const assignedConsultantId = selectedClientObj.salespersonId || selectedClientObj.assignments?.find((a: any) => a.isPrimary)?.userId || selectedClientObj.assignments?.[0]?.userId
+    if (assignedConsultantId) {
+      form.setValue("preparedById", assignedConsultantId, { shouldDirty: true, shouldValidate: true })
+    }
   }, [selectedClientObj])
 
   const [isRevision, setIsRevision] = useState(false)
@@ -3070,6 +3075,37 @@ function NewQuotationForm() {
                             <SelectItem value="Dealer">Dealer (Prefix: D)</SelectItem>
                             <SelectItem value="Project">Direct (Prefix: P)</SelectItem>
                             <SelectItem value="Special">Online (Prefix: P)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Interior Design Consultant */}
+                  <FormField
+                    control={form.control}
+                    name="preparedById"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-semibold text-foreground flex items-center justify-between">
+                          <span>Interior Design Consultant</span>
+                          {selectedClientObj?.salespersonId && (
+                            <span className="text-[10px] text-emerald-600 font-medium">Assigned</span>
+                          )}
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                          <FormControl>
+                            <SelectTrigger className="h-10 text-xs sm:text-sm bg-background border-border/80">
+                              <SelectValue placeholder="Select Design Consultant..." />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {users.map((u: any) => (
+                              <SelectItem key={u.id} value={u.id} className="text-xs">
+                                {u.name || u.email || u.id} ({u.employeeId || u.role})
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />

@@ -950,6 +950,18 @@ export async function PUT(
       const targetClientId = body.clientId || existingQuotation.clientId
       const revisionClient = (await prisma.client.findUnique({ where: { id: targetClientId } })) || existingQuotation.client
 
+      const finalPreparedById = body.preparedById || revisionClient.salespersonId || existingQuotation.preparedById || logUserId
+      const dbPreparedUser = await prisma.user.findUnique({ where: { id: finalPreparedById } })
+      const finalPreparedByUser = dbPreparedUser || {
+        id: logUserId,
+        name: session?.user?.name || "Sales Rep",
+        phone: null,
+        email: session?.user?.email || null,
+        designation: null,
+        role: logUserRole,
+        signature: null
+      }
+
       // Resolve material swatch images for revision PDF
       const rawSelectedMaterialsRev = Array.isArray(selectedMaterials) ? selectedMaterials : []
       const docSelectedMaterialsRev = await Promise.all(
