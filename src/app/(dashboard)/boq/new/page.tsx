@@ -215,23 +215,10 @@ const ProductSearchSelect = React.memo(({
           if (value.toLowerCase().includes(search.toLowerCase())) return 1
           return 0
         }}>
-          <CommandInput placeholder="Search products..." />
+          <CommandInput placeholder="Search catalog product by name or code..." />
           <CommandList className="max-h-[350px] overflow-y-auto overflow-x-hidden">
-            <CommandEmpty className="p-3 text-center flex flex-col items-center justify-center">
-              <p className="text-xs text-muted-foreground mb-2">No product found.</p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full flex items-center justify-center gap-1.5 cursor-pointer"
-                onClick={() => {
-                  onCustomProductClick()
-                  setOpen(false)
-                }}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Create New Custom Product
-              </Button>
+            <CommandEmpty className="p-4 text-center text-xs text-muted-foreground">
+              No matching product found in catalog.
             </CommandEmpty>
             <CommandGroup>
               {products.map((product) => {
@@ -301,22 +288,6 @@ const ProductSearchSelect = React.memo(({
               })}
             </CommandGroup>
           </CommandList>
-          {/* Bottom Action Footer */}
-          <div className="p-2 border-t border-muted/60 bg-muted/5 sticky bottom-0">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-primary hover:text-primary hover:bg-primary/10 font-semibold flex items-center gap-2 h-10 cursor-pointer rounded-md"
-              onClick={() => {
-                onCustomProductClick()
-                setOpen(false)
-              }}
-            >
-              <Plus className="h-4 w-4" />
-              <span>+ New Custom Product</span>
-            </Button>
-          </div>
         </Command>
       </PopoverContent>
     </Popover>
