@@ -2013,7 +2013,7 @@ function NewBOQForm() {
 
         {/* Top Header Desktop Action Bar */}
         <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
-          <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50">
             {isAutoSaving ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
@@ -2028,46 +2028,6 @@ function NewBOQForm() {
               <span>Draft ready</span>
             )}
           </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={submitting}
-            onClick={() => onSubmit(form.getValues(), "DRAFT")}
-            className="text-xs h-9 font-medium flex items-center gap-1.5 cursor-pointer"
-          >
-            <Save className="h-3.5 w-3.5" />
-            <span>Save Draft</span>
-          </Button>
-
-          {!isEstimator && (!existingQuote?.status || existingQuote?.status === "DRAFT" || existingQuote?.status === "NEEDS_REVISION") && (
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={() => setIsSendEstimatorOpen(true)}
-              className="bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs h-9 flex items-center gap-1.5 cursor-pointer shadow-xs"
-            >
-              <Send className="h-3.5 w-3.5" />
-              <span>Send to Estimator</span>
-            </Button>
-          )}
-
-          <Button
-            type="button"
-            size="sm"
-            disabled={submitting}
-            onClick={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"))}
-            className="text-xs h-9 font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
-          >
-            {submitting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Check className="h-3.5 w-3.5" />
-            )}
-            <span>{isRevision ? "Save Revision" : "Compile & Save BOQ"}</span>
-          </Button>
         </div>
       </div>
 
@@ -4625,6 +4585,24 @@ function NewBOQForm() {
                 >
                   <Send className="h-4 w-4" />
                   <span>Send to Estimator</span>
+                </Button>
+              )}
+
+              {/* 3. Direct Convert to Quotation Button */}
+              {!isEstimator && (!existingQuote?.status || existingQuote?.status === "DRAFT" || existingQuote?.status === "NEEDS_REVISION" || existingQuote?.status === "COSTING_COMPLETED") && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isConverting || submitting}
+                  onClick={handleConvertToQuotationSubmit}
+                  className="h-10 text-xs font-semibold px-4 flex items-center gap-2 cursor-pointer border-primary/40 text-primary hover:bg-primary/5 shadow-xs"
+                >
+                  {isConverting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                  )}
+                  <span>Direct Convert to Quotation</span>
                 </Button>
               )}
 
