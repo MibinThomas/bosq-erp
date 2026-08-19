@@ -458,6 +458,116 @@ function NewBOQForm() {
     defaultCategories.forEach((cat) => names.add(cat))
     return Array.from(names)
   }, [dbCategories])
+  // Usability & Productivity State
+  const [estimatorOnlyView, setEstimatorOnlyView] = useState(false)
+  const [selectedItemIndices, setSelectedItemIndices] = useState<number[]>([])
+  const [bulkMarginInput, setBulkMarginInput] = useState("")
+
+  const PRODUCT_PACKAGES = [
+    {
+      name: "Executive Director Suite",
+      description: "Executive Veneer Desk + Ergonomic Leather Manager Chair + Visitor Armchairs (2) + Credenza",
+      items: [
+        { description: "Executive Desk in Natural Oak Veneer (2200x1000mm)", quantity: 1, basePrice: 2800, unitPrice: 3500, categoryName: "Desks", isCostingRequired: false },
+        { description: "BOSQ High-Back Ergonomic Genuine Leather Manager Chair", quantity: 1, basePrice: 1200, unitPrice: 1500, categoryName: "Chairs", isCostingRequired: false },
+        { description: "Mid-Back Visitor Executive Leather Armchair", quantity: 2, basePrice: 450, unitPrice: 600, categoryName: "Chairs", isCostingRequired: false },
+        { description: "Executive Side Storage Credenza with Soft-Close Doors", quantity: 1, basePrice: 1800, unitPrice: 2200, categoryName: "Storage", isCostingRequired: false },
+      ]
+    },
+    {
+      name: "Open Workstation Pod (4-Pax)",
+      description: "4-Person Back-to-Back Modular Workstation + Mesh Task Chairs (4) + Pedestals (4)",
+      items: [
+        { description: "4-Pax Back-to-Back Modular Workstation with Powder-Coated Metal Legs", quantity: 1, basePrice: 3200, unitPrice: 4200, categoryName: "Desks", isCostingRequired: true },
+        { description: "High-Back Mesh Ergonomic Task Chair with Adjustable Lumbar Support", quantity: 4, basePrice: 380, unitPrice: 500, categoryName: "Chairs", isCostingRequired: false },
+        { description: "3-Drawer Under-Desk Mobile Steel Pedestal Locker", quantity: 4, basePrice: 220, unitPrice: 320, categoryName: "Storage", isCostingRequired: false },
+      ]
+    },
+    {
+      name: "Boardroom Conference Setup",
+      description: "10-Person Boat-Shaped Conference Table + Leather Boardroom Chairs (10)",
+      items: [
+        { description: "Boat-Shaped Veneer Conference Table (3600x1200mm) with Dual Flip-Up Cable Boxes", quantity: 1, basePrice: 4500, unitPrice: 6000, categoryName: "Tables", isCostingRequired: true },
+        { description: "Mid-Back Genuine Leather Executive Boardroom Chair", quantity: 10, basePrice: 650, unitPrice: 850, categoryName: "Chairs", isCostingRequired: false },
+      ]
+    }
+  ]
+
+  const handleInsertPackagePreset = (pkg: typeof PRODUCT_PACKAGES[0]) => {
+    const currentItems = form.getValues("items") || []
+    const targetBatch = batches[0]?.name || "General Items"
+    const newItems = pkg.items.map((pi, idx) => ({
+      productId: "",
+      priceSource: "manual",
+      description: pi.description,
+      specifications: pi.description,
+      productNotes: "",
+      quantity: pi.quantity,
+      basePrice: pi.basePrice,
+      unitPrice: pi.unitPrice,
+      discount: 0,
+      margin: Math.round(((pi.unitPrice - pi.basePrice) / pi.unitPrice) * 100) || 20,
+      manualMargin: "",
+      customImageUrl: "",
+      productDescription: pi.description,
+      categoryName: pi.categoryName || "Chairs",
+      chairType: "",
+      batchHeading: targetBatch,
+      saveToCatalog: false,
+      isCostingRequired: pi.isCostingRequired,
+      type: "custom",
+      materialCost: 0,
+      laborCost: 0,
+      installationCost: 0,
+      transportCost: 0,
+      overheadCost: 0,
+      factoryCost: 0,
+      accessoriesCost: 0,
+      unitCost: pi.basePrice,
+      unitSellingPrice: pi.unitPrice,
+      negotiationPercentage: 0,
+      negotiationAmount: 0
+    }))
+
+    form.setValue("items", [...currentItems, ...newItems] as any, { shouldValidate: true, shouldDirty: true })
+    toast.success(`Inserted ${pkg.name} package (${pkg.items.length} items)!`)
+  }
+
+  const handleApplyBulkMargin = () => {
+    const marginVal = parseFloat(bulkMarginInput)
+    if (isNaN(marginVal) || marginVal < -100 || marginVal >= 100) {
+      toast.error("Please enter a valid margin percentage (-100% to 99.9%)")
+      return
+    }
+    const currentItems = form.getValues("items") || []
+    selectedItemIndices.forEach(idx => {
+      if (currentItems[idx]) {
+        form.setValue(`items.${idx}.margin`, marginVal, { shouldValidate: true, shouldDirty: true })
+        const base = Number(currentItems[idx].basePrice) || 0
+        if (base > 0) {
+          const marginDec = Math.min(0.9999, marginVal / 100)
+          const newSelling = Number((base / (1 - marginDec)).toFixed(2))
+          form.setValue(`items.${idx}.unitPrice`, newSelling, { shouldValidate: true, shouldDirty: true })
+        }
+      }
+    })
+    toast.success(`Applied ${marginVal}% margin across ${selectedItemIndices.length} items!`)
+    setBulkMarginInput("")
+    setSelectedItemIndices([])
+  }
+
+  const handleToggleBulkCosting = () => {
+    const currentItems = form.getValues("items") || []
+    selectedItemIndices.forEach(idx => {
+      if (currentItems[idx]) {
+        const currentReq = !!currentItems[idx].isCostingRequired
+        form.setValue(`items.${idx}.isCostingRequired`, !currentReq, { shouldValidate: true, shouldDirty: true })
+      }
+    })
+    toast.success(`Toggled costing requirement for ${selectedItemIndices.length} items!`)
+    setSelectedItemIndices([])
+  }
+
   const [submitting, setSubmitting] = useState(false)
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
   const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false)

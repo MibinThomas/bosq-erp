@@ -462,6 +462,116 @@ function NewBOQForm() {
   const [isSubmittingCosting, setIsSubmittingCosting] = useState(false)
   const [allUsersList, setAllUsersList] = useState<any[]>([])
 
+  // Usability & Productivity State
+  const [estimatorOnlyView, setEstimatorOnlyView] = useState(false)
+  const [selectedItemIndices, setSelectedItemIndices] = useState<number[]>([])
+  const [bulkMarginInput, setBulkMarginInput] = useState("")
+
+  const PRODUCT_PACKAGES = [
+    {
+      name: "Executive Director Suite",
+      description: "Executive Veneer Desk + Ergonomic Leather Manager Chair + Visitor Armchairs (2) + Credenza",
+      items: [
+        { description: "Executive Desk in Natural Oak Veneer (2200x1000mm)", quantity: 1, basePrice: 2800, unitPrice: 3500, categoryName: "Desks", isCostingRequired: false },
+        { description: "BOSQ High-Back Ergonomic Genuine Leather Manager Chair", quantity: 1, basePrice: 1200, unitPrice: 1500, categoryName: "Chairs", isCostingRequired: false },
+        { description: "Mid-Back Visitor Executive Leather Armchair", quantity: 2, basePrice: 450, unitPrice: 600, categoryName: "Chairs", isCostingRequired: false },
+        { description: "Executive Side Storage Credenza with Soft-Close Doors", quantity: 1, basePrice: 1800, unitPrice: 2200, categoryName: "Storage", isCostingRequired: false },
+      ]
+    },
+    {
+      name: "Open Workstation Pod (4-Pax)",
+      description: "4-Person Back-to-Back Modular Workstation + Mesh Task Chairs (4) + Pedestals (4)",
+      items: [
+        { description: "4-Pax Back-to-Back Modular Workstation with Powder-Coated Metal Legs", quantity: 1, basePrice: 3200, unitPrice: 4200, categoryName: "Desks", isCostingRequired: true },
+        { description: "High-Back Mesh Ergonomic Task Chair with Adjustable Lumbar Support", quantity: 4, basePrice: 380, unitPrice: 500, categoryName: "Chairs", isCostingRequired: false },
+        { description: "3-Drawer Under-Desk Mobile Steel Pedestal Locker", quantity: 4, basePrice: 220, unitPrice: 320, categoryName: "Storage", isCostingRequired: false },
+      ]
+    },
+    {
+      name: "Boardroom Conference Setup",
+      description: "10-Person Boat-Shaped Conference Table + Leather Boardroom Chairs (10)",
+      items: [
+        { description: "Boat-Shaped Veneer Conference Table (3600x1200mm) with Dual Flip-Up Cable Boxes", quantity: 1, basePrice: 4500, unitPrice: 6000, categoryName: "Tables", isCostingRequired: true },
+        { description: "Mid-Back Genuine Leather Executive Boardroom Chair", quantity: 10, basePrice: 650, unitPrice: 850, categoryName: "Chairs", isCostingRequired: false },
+      ]
+    }
+  ]
+
+  const handleInsertPackagePreset = (pkg: typeof PRODUCT_PACKAGES[0]) => {
+    const currentItems = form.getValues("items") || []
+    const targetBatch = batches[0]?.name || "General Items"
+    const newItems = pkg.items.map((pi, idx) => ({
+      productId: "",
+      priceSource: "manual",
+      description: pi.description,
+      specifications: pi.description,
+      productNotes: "",
+      quantity: pi.quantity,
+      basePrice: pi.basePrice,
+      unitPrice: pi.unitPrice,
+      discount: 0,
+      margin: Math.round(((pi.unitPrice - pi.basePrice) / pi.unitPrice) * 100) || 20,
+      manualMargin: "",
+      customImageUrl: "",
+      productDescription: pi.description,
+      categoryName: pi.categoryName || "Chairs",
+      chairType: "",
+      batchHeading: targetBatch,
+      saveToCatalog: false,
+      isCostingRequired: pi.isCostingRequired,
+      type: "custom",
+      materialCost: 0,
+      laborCost: 0,
+      installationCost: 0,
+      transportCost: 0,
+      overheadCost: 0,
+      factoryCost: 0,
+      accessoriesCost: 0,
+      unitCost: pi.basePrice,
+      unitSellingPrice: pi.unitPrice,
+      negotiationPercentage: 0,
+      negotiationAmount: 0
+    }))
+
+    form.setValue("items", [...currentItems, ...newItems] as any, { shouldValidate: true, shouldDirty: true })
+    toast.success(`Inserted ${pkg.name} package (${pkg.items.length} items)!`)
+  }
+
+  const handleApplyBulkMargin = () => {
+    const marginVal = parseFloat(bulkMarginInput)
+    if (isNaN(marginVal) || marginVal < -100 || marginVal >= 100) {
+      toast.error("Please enter a valid margin percentage (-100% to 99.9%)")
+      return
+    }
+    const currentItems = form.getValues("items") || []
+    selectedItemIndices.forEach(idx => {
+      if (currentItems[idx]) {
+        form.setValue(`items.${idx}.margin`, marginVal, { shouldValidate: true, shouldDirty: true })
+        const base = Number(currentItems[idx].basePrice) || 0
+        if (base > 0) {
+          const marginDec = Math.min(0.9999, marginVal / 100)
+          const newSelling = Number((base / (1 - marginDec)).toFixed(2))
+          form.setValue(`items.${idx}.unitPrice`, newSelling, { shouldValidate: true, shouldDirty: true })
+        }
+      }
+    })
+    toast.success(`Applied ${marginVal}% margin across ${selectedItemIndices.length} items!`)
+    setBulkMarginInput("")
+    setSelectedItemIndices([])
+  }
+
+  const handleToggleBulkCosting = () => {
+    const currentItems = form.getValues("items") || []
+    selectedItemIndices.forEach(idx => {
+      if (currentItems[idx]) {
+        const currentReq = !!currentItems[idx].isCostingRequired
+        form.setValue(`items.${idx}.isCostingRequired`, !currentReq, { shouldValidate: true, shouldDirty: true })
+      }
+    })
+    toast.success(`Toggled costing requirement for ${selectedItemIndices.length} items!`)
+    setSelectedItemIndices([])
+  }
+
   const [clients, setClients] = useState<Client[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([])
@@ -2682,17 +2792,96 @@ function NewBOQForm() {
             {/* Line Items Card */}
             <Card className="rounded-xl shadow-sm border bg-card">
               <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  Line Items Catalog
-                </CardTitle>
-                {isRestrictedEstimator && (
-                  <Badge variant="outline" className="bg-amber-500/10 text-amber-900 dark:text-amber-200 border-amber-500/30 text-xs py-1 px-3 flex items-center gap-1.5 font-medium">
-                    <Lock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                    Product Structure Locked for Estimator
-                  </Badge>
-                )}
+                <div className="flex items-center gap-3">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    Line Items Catalog
+                  </CardTitle>
+
+                  {(isEstimator || isManagerOrAdmin) && (
+                    <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3 py-1.5 rounded-xl shadow-sm">
+                      <Switch
+                        id="estimator-workbench-toggle"
+                        checked={estimatorOnlyView}
+                        onCheckedChange={(checked) => setEstimatorOnlyView(checked)}
+                      />
+                      <label htmlFor="estimator-workbench-toggle" className="text-xs font-bold text-amber-900 dark:text-amber-200 cursor-pointer select-none">
+                        Estimator Focused View (Costing Items Only)
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {!isRestrictedEstimator && (
+                    <Popover>
+                      <PopoverTrigger render={
+                        <Button type="button" variant="outline" size="sm" className="text-xs font-semibold border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 flex items-center gap-1.5 cursor-pointer shadow-sm">
+                          <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                          Insert Package Preset
+                        </Button>
+                      } />
+                      <PopoverContent className="w-80 p-3 space-y-2 bg-card border border-border shadow-xl" align="end">
+                        <div className="text-xs font-bold text-foreground border-b pb-1.5 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Pre-configured Furniture Packages
+                        </div>
+                        {PRODUCT_PACKAGES.map((pkg, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => handleInsertPackagePreset(pkg)}
+                            className="w-full text-left p-2.5 rounded-lg hover:bg-muted transition-colors border border-border/50 text-xs space-y-1 cursor-pointer"
+                          >
+                            <div className="font-bold text-foreground flex items-center justify-between">
+                              <span>{pkg.name}</span>
+                              <Badge variant="secondary" className="text-[10px]">{pkg.items.length} items</Badge>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground line-clamp-2">{pkg.description}</p>
+                          </button>
+                        ))}
+                      </PopoverContent>
+                    </Popover>
+                  )}
+
+                  {isRestrictedEstimator && (
+                    <Badge variant="outline" className="bg-amber-500/10 text-amber-900 dark:text-amber-200 border-amber-500/30 text-xs py-1 px-3 flex items-center gap-1.5 font-medium">
+                      <Lock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                      Product Structure Locked for Estimator
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
+
               <CardContent className="p-6 space-y-8">
+                {/* Bulk Actions Toolbar */}
+                {selectedItemIndices.length > 0 && (
+                  <div className="bg-primary/10 border border-primary/30 p-3.5 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="font-bold text-foreground flex items-center gap-2">
+                      <Check className="h-4 w-4 text-primary" />
+                      <span>{selectedItemIndices.length} item(s) selected</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          placeholder="Margin %"
+                          value={bulkMarginInput}
+                          onChange={(e) => setBulkMarginInput(e.target.value)}
+                          className="h-8 w-24 text-xs font-mono bg-background"
+                        />
+                        <Button type="button" size="sm" variant="secondary" onClick={handleApplyBulkMargin} className="h-8 text-xs font-semibold">
+                          Apply Margin
+                        </Button>
+                      </div>
+                      <Button type="button" size="sm" variant="outline" onClick={handleToggleBulkCosting} className="h-8 text-xs font-semibold">
+                        Toggle Costing Req.
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setSelectedItemIndices([])} className="h-8 text-xs">
+                        Deselect All
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {isRestrictedEstimator && (
                   <div className="bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 px-4 py-3 rounded-xl text-xs font-medium flex items-center gap-2.5 shadow-sm">
                     <Lock className="h-4 w-4 text-amber-600 shrink-0" />
@@ -2705,6 +2894,7 @@ function NewBOQForm() {
                   const batchItems = fields
                     .map((field, index) => ({ field, index, item: watchItems[index] }))
                     .filter(x => x.item?.batchHeading === batch.name)
+                    .filter(x => estimatorOnlyView ? (x.item?.isCostingRequired === true) : true)
 
                   const batchSubtotal = batchItems.reduce((acc, { item }) => {
                     if (!item) return acc
@@ -3169,9 +3359,18 @@ function NewBOQForm() {
                                       <Sparkles className="w-4 h-4 text-orange-600 dark:text-orange-400" />
                                       <span className="text-sm font-bold text-orange-950 dark:text-orange-200">Cost Structure & Negotiation Breakdown</span>
                                     </div>
-                                    <Badge variant="outline" className="text-[10px] uppercase font-mono bg-background">
-                                      Authorized Management View
-                                    </Badge>
+                                    <div className="flex items-center gap-2">
+                                      {(() => {
+                                        const m = Number(watchItems[index]?.margin) || 0
+                                        if (m >= 25) return <Badge className="text-[10px] uppercase font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">🟢 High Margin ({m.toFixed(1)}%)</Badge>
+                                        if (m >= 15) return <Badge className="text-[10px] uppercase font-bold bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30">🔵 Healthy ({m.toFixed(1)}%)</Badge>
+                                        if (m >= 5) return <Badge className="text-[10px] uppercase font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30">🟡 Low Margin ({m.toFixed(1)}%)</Badge>
+                                        return <Badge className="text-[10px] uppercase font-bold bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30">🔴 Critical ({m.toFixed(1)}%)</Badge>
+                                      })()}
+                                      <Badge variant="outline" className="text-[10px] uppercase font-mono bg-background">
+                                        Authorized View
+                                      </Badge>
+                                    </div>
                                   </div>
 
                                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
