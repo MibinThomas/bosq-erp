@@ -703,6 +703,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   handleDrop,
   handleDragEnd,
   handleDuplicateItem,
+  handleMoveItem,
   remove,
   handleProductSelect,
   handleVariantSelect,
@@ -726,6 +727,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   handleDrop: (e: React.DragEvent, index: number, targetBatchName: string) => void
   handleDragEnd: () => void
   handleDuplicateItem: (index: number) => void
+  handleMoveItem: (index: number, direction: -1 | 1, batchName: string) => void
   remove: (index: number) => void
   handleProductSelect: (index: number, productId: string) => void
   handleVariantSelect?: (index: number, variantProduct: any) => void
@@ -756,6 +758,21 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   const netUnitPrice = Math.max(0, unitPriceNum - discPerUnit)
   const lineTotal = qtyNum * netUnitPrice
 
+  const watchAllItems = useWatch({ control, name: "items" }) || []
+  const sectionItemIndices = useMemo(() => {
+    return watchAllItems
+      .map((item: any, idx: number) => ({ item, idx }))
+      .filter(({ item }: any) => {
+        const b = item?.batchHeading || ""
+        return batchName === "General Items" ? (!b || b === "General Items") : b === batchName
+      })
+      .map(({ idx }: any) => idx)
+  }, [watchAllItems, batchName])
+
+  const posInSection = sectionItemIndices.indexOf(index)
+  const isFirstInSection = posInSection <= 0
+  const isLastInSection = posInSection === -1 || posInSection >= sectionItemIndices.length - 1
+
   return (
     <div
       onDragOver={(e) => handleDragOver(e, index)}
@@ -781,6 +798,33 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           <Badge variant="outline" className="font-mono text-xs font-bold bg-muted/40">
             #{index + 1}
           </Badge>
+
+          {/* Move Up / Move Down Arrow Controls */}
+          <div className="flex items-center gap-0.5 bg-muted/40 border border-border/80 rounded-lg p-0.5 shrink-0">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={isFirstInSection}
+              onClick={() => handleMoveItem(index, -1, batchName)}
+              className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+              title={isFirstInSection ? "First item in section" : "Move product up"}
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              disabled={isLastInSection}
+              onClick={() => handleMoveItem(index, 1, batchName)}
+              className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+              title={isLastInSection ? "Last item in section" : "Move product down"}
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
           {currentItemVal.categoryName && (
             <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
               {currentItemVal.categoryName}
@@ -1508,6 +1552,35 @@ function NewQuotationForm() {
     if (oldBatchHeading !== formattedTargetName) {
       toast.success(`Moved product to section "${formattedTargetName}"`)
     }
+  }
+
+  const handleMoveItem = (index: number, direction: -1 | 1, batchName: string) => {
+    const currentItems = [...form.getValues("items")]
+    if (index < 0 || index >= currentItems.length) return
+
+    const isItemInBatch = (item: any, bName: string) => {
+      const b = item?.batchHeading || ""
+      return bName === "General Items" ? (!b || b === "General Items") : b === bName
+    }
+
+    const sectionIndices = currentItems
+      .map((item, idx) => ({ item, idx }))
+      .filter(({ item }) => isItemInBatch(item, batchName))
+      .map(({ idx }) => idx)
+
+    const posInSection = sectionIndices.indexOf(index)
+    if (posInSection === -1) return
+
+    const targetPos = posInSection + direction
+    if (targetPos < 0 || targetPos >= sectionIndices.length) return
+
+    const targetIndex = sectionIndices[targetPos]
+
+    const temp = currentItems[index]
+    currentItems[index] = currentItems[targetIndex]
+    currentItems[targetIndex] = temp
+
+    form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
   }
 
   const handleBatchDragStart = (e: React.DragEvent, batchId: string) => {
@@ -3470,6 +3543,7 @@ function NewQuotationForm() {
                             handleDrop={handleDrop}
                             handleDragEnd={handleDragEnd}
                             handleDuplicateItem={handleDuplicateItem}
+                            handleMoveItem={handleMoveItem}
                             remove={remove}
                             handleProductSelect={handleProductSelect}
                             handleVariantSelect={handleVariantSelect}
