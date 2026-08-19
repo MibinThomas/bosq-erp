@@ -1444,21 +1444,21 @@ function NewBOQForm() {
     let negAmt = fieldName === "negotiationAmount" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).negotiationAmount || 0)) || 0)
 
     if (fieldName === "negotiationPercentage" || fieldName === "margin" || fieldName === "factoryCost" || fieldName === "accessoriesCost") {
-      const totalMarginDec = Math.min(0.9999, (marginPct + negPct) / 100)
-      const finalPrice = basePrice > 0 ? (basePrice / (1 - totalMarginDec)) : 0
-      negAmt = basePrice > 0 ? Number((finalPrice - preNegPrice).toFixed(2)) : 0
+      const negDec = Math.min(0.9999, negPct / 100)
+      const priceAfterNeg = preNegPrice > 0 ? (preNegPrice / (1 - negDec)) : 0
+      negAmt = preNegPrice > 0 ? Number((priceAfterNeg - preNegPrice).toFixed(2)) : 0
+      const finalUnitPrice = preNegPrice + negAmt
       form.setValue(`items.${index}.negotiationAmount` as any, negAmt, { shouldValidate: false, shouldDirty: true })
-      form.setValue(`items.${index}.unitPrice`, Number(finalPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.unitPrice`, Number(finalUnitPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
     } else if (fieldName === "negotiationAmount") {
-      const finalPrice = preNegPrice + negAmt
-      const totalMarginPct = finalPrice > 0 ? (1 - (basePrice / finalPrice)) * 100 : marginPct
-      negPct = Number(Math.max(0, totalMarginPct - marginPct).toFixed(2))
+      const finalUnitPrice = preNegPrice + negAmt
+      negPct = finalUnitPrice > 0 && preNegPrice > 0 ? Number(((1 - (preNegPrice / finalUnitPrice)) * 100).toFixed(2)) : 0
       form.setValue(`items.${index}.negotiationPercentage` as any, negPct, { shouldValidate: false, shouldDirty: true })
-      form.setValue(`items.${index}.unitPrice`, Number(finalPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
+      form.setValue(`items.${index}.unitPrice`, Number(finalUnitPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
     } else {
-      const totalMarginDec = Math.min(0.9999, (marginPct + negPct) / 100)
-      const finalPrice = basePrice > 0 ? (basePrice / (1 - totalMarginDec)) : (preNegPrice + negAmt)
-      form.setValue(`items.${index}.unitPrice`, Number(finalPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
+      const negDec = Math.min(0.9999, negPct / 100)
+      const finalUnitPrice = preNegPrice > 0 ? (preNegPrice / (1 - negDec)) : (preNegPrice + negAmt)
+      form.setValue(`items.${index}.unitPrice`, Number(finalUnitPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
     }
   }
 
