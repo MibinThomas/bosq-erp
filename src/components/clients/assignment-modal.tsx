@@ -160,7 +160,13 @@ export function AssignmentModal({ open, onOpenChange, clientId, clientName, quot
               <p className="text-xs text-muted-foreground mb-2">The primary owner has full access to this client and all related documents.</p>
               <Select value={primaryUserId} onValueChange={(val) => setPrimaryUserId(val || "")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select primary consultant" />
+                  <SelectValue placeholder="Select primary consultant">
+                    {(() => {
+                      if (!primaryUserId) return "Select primary consultant"
+                      const u = users.find(usr => usr.id === primaryUserId)
+                      return u ? `${u.name} (${u.role.replace(/_/g, " ")})` : "Select primary consultant"
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {users.map((u) => (
@@ -202,7 +208,13 @@ export function AssignmentModal({ open, onOpenChange, clientId, clientName, quot
                         <Label className="text-xs font-semibold mb-1 block">Select User</Label>
                         <Select value={sec.userId} onValueChange={(val) => handleSecondaryChange(index, "userId", val || "")}>
                           <SelectTrigger className="h-9 text-sm">
-                            <SelectValue placeholder="Select secondary user" />
+                            <SelectValue placeholder="Select secondary user">
+                              {(() => {
+                                if (!sec.userId) return "Select secondary user"
+                                const u = users.find(usr => usr.id === sec.userId)
+                                return u ? `${u.name} (${u.role.replace(/_/g, " ")})` : "Select secondary user"
+                              })()}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent>
                             {users.filter(u => u.id !== primaryUserId).map((u) => (

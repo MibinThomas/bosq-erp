@@ -104,7 +104,13 @@ export function BulkAssignModal({ isOpen, onClose, selectedIds, onSuccess }: Bul
             ) : (
               <Select value={targetUserId} onValueChange={(val) => setTargetUserId(val || "")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a user" />
+                  <SelectValue placeholder="Select a user">
+                    {(() => {
+                      if (!targetUserId) return "Select a user"
+                      const u = users.find(usr => usr.id === targetUserId)
+                      return u ? `${u.name || u.email} (${u.role.replace(/_/g, " ")})` : "Select a user"
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="max-h-[200px]">
                   {users.map(u => (

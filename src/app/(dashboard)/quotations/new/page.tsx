@@ -3024,7 +3024,7 @@ function NewQuotationForm() {
                             <FormControl>
                               <SelectTrigger className="h-10 text-xs sm:text-sm bg-background">
                                 <SelectValue placeholder="Select consultant">
-                                  {selectedConsultant ? (selectedConsultant.name || selectedConsultant.email) : undefined}
+                                  {selectedConsultant ? `${selectedConsultant.name || selectedConsultant.email}${selectedConsultant.role ? ` (${selectedConsultant.role.replace(/_/g, " ")})` : ''}` : "Select consultant"}
                                 </SelectValue>
                               </SelectTrigger>
                             </FormControl>

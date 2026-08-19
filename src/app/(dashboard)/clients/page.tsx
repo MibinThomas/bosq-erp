@@ -361,7 +361,13 @@ export default function ClientsPage() {
               <div className="w-full sm:w-[220px]">
                 <Select value={usernameFilter} onValueChange={(val) => setUsernameFilter(val || "All")}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Filter by Username" />
+                    <SelectValue placeholder="Filter by Username">
+                      {(() => {
+                        if (!usernameFilter || usernameFilter === "All") return "Filter by Username"
+                        const u = users.find(usr => usr.id === usernameFilter)
+                        return u ? `${u.name || u.email} (${u.role.replace(/_/g, " ")})` : "Filter by Username"
+                      })()}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="max-h-[250px]">
                     <SelectItem value="All">All Usernames</SelectItem>

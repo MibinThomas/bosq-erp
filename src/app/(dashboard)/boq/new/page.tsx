@@ -4600,7 +4600,13 @@ function NewBOQForm() {
               <label className="text-xs font-semibold">Select Estimator</label>
               <Select value={selectedEstimatorId} onValueChange={(val) => setSelectedEstimatorId(val || "")}>
                 <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Select Estimator..." />
+                  <SelectValue placeholder="Select Estimator...">
+                    {(() => {
+                      if (!selectedEstimatorId) return "Select Estimator..."
+                      const est = allUsersList.find((u: any) => u.id === selectedEstimatorId)
+                      return est ? `${est.name} (${est.role})${est.department ? ` · ${est.department}` : ""}` : "Select Estimator..."
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {allUsersList
