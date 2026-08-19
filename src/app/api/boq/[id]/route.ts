@@ -165,22 +165,20 @@ export async function PUT(
       )
     }
 
-    // Enforce restriction: estimators cannot add or remove products from BOQs created by other users
+    // Enforce restriction: estimators cannot add products to BOQs created by other users
     if (isRestrictedEstimator && items && Array.isArray(items)) {
-      const existingCount = existingBoq.items.length
-      const incomingCount = items.length
       const existingIds = new Set(existingBoq.items.map((i: any) => i.id))
-      const hasNewItems = items.some((i: any) => !i.id || !existingIds.has(i.id))
+      const hasNewItems = items.some((i: any) => i.id && !existingIds.has(i.id))
 
-      if (incomingCount !== existingCount || hasNewItems) {
+      if (hasNewItems) {
         return NextResponse.json(
-          { error: "Forbidden: Estimators are restricted from adding or removing products in BOQs created by other users." },
+          { error: "Forbidden: Estimators are restricted from adding products in BOQs created by other users." },
           { status: 403 }
         )
       }
     }
 
-    // If estimator, they can't change the number of items or non-cost fields
+    // If estimator, preserve all existing BOQ items from DB and merge cost updates
     const sourceItems = isEstimator ? existingBoq.items : items;
 
     const boqItemsToCreate = sourceItems.map((sourceItem: any, idx: number) => {

@@ -39,7 +39,14 @@ export async function POST(
     }
 
     // 1. Generate Excel with buildBoqExcelWorkbook matching template design
-    const workbook = await buildBoqExcelWorkbook(boq as any, true)
+    // Only products marked for costing are sent to the estimator in the workbook
+    const costingItems = boq.items.filter((item: any) => item.isCostingRequired === true)
+    const estimatorBoq = {
+      ...boq,
+      items: costingItems.length > 0 ? costingItems : boq.items
+    }
+
+    const workbook = await buildBoqExcelWorkbook(estimatorBoq as any, true)
     const buffer = await workbook.xlsx.writeBuffer()
     const excelBuffer = Buffer.from(buffer)
 

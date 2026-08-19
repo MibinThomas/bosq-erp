@@ -30,6 +30,8 @@ export async function POST(
     let totalInstallation = 0
     let totalTransport = 0
     let totalOverhead = 0
+    let totalFactoryCost = 0
+    let totalAccessoriesCost = 0
     let totalCost = 0
     let totalSellingPrice = 0
 
@@ -67,15 +69,6 @@ export async function POST(
 
           const itemTotalSelling = Number((unitSelling * qty).toFixed(2))
 
-          totalMaterialCost += matCost * qty
-          totalLaborCost += labCost * qty
-          totalInstallation += instCost * qty
-          totalTransport += transCost * qty
-          totalOverhead += overCost * qty
-
-          totalCost += itemTotalCost
-          totalSellingPrice += itemTotalSelling
-
           // Match by item.id OR fallback to item.itemNo or boq.items[idx]?.id
           const targetItem = boq.items.find(bi => (item.id && bi.id === item.id) || bi.itemNo === (item.itemNo || idx + 1)) || boq.items[idx]
           const targetItemId = targetItem?.id || item.id
@@ -102,17 +95,25 @@ export async function POST(
             })
           }
         }
-      } else {
-        // Fallback: sum from existing items
-        for (const item of boq.items) {
-          totalMaterialCost += (item.materialCost || 0) * item.quantity
-          totalLaborCost += (item.laborCost || 0) * item.quantity
-          totalInstallation += (item.installationCost || 0) * item.quantity
-          totalTransport += (item.transportCost || 0) * item.quantity
-          totalOverhead += (item.overheadCost || 0) * item.quantity
-          totalCost += item.totalCost || 0
-          totalSellingPrice += item.totalSellingPrice || 0
-        }
+      }
+
+      // Recalculate totals across ALL BOQ items (both costed and non-costed products)
+      const allBoqItems = await tx.boqItem.findMany({
+        where: { boqId: id },
+        orderBy: { itemNo: "asc" }
+      })
+
+      for (const item of allBoqItems) {
+        const qty = item.quantity || 1
+        totalMaterialCost += (item.materialCost || 0) * qty
+        totalLaborCost += (item.laborCost || 0) * qty
+        totalInstallation += (item.installationCost || 0) * qty
+        totalTransport += (item.transportCost || 0) * qty
+        totalOverhead += (item.overheadCost || 0) * qty
+        totalFactoryCost += (item.factoryCost || 0) * qty
+        totalAccessoriesCost += (item.accessoriesCost || 0) * qty
+        totalCost += item.totalCost || 0
+        totalSellingPrice += item.totalSellingPrice || 0
       }
 
       const marginAmt = totalSellingPrice - totalCost
@@ -126,10 +127,21 @@ export async function POST(
           totalInstallation,
           totalTransport,
           totalOverhead,
+          totalFactoryCost,
+          totalAccessoriesCost,
           totalCost,
           marginAmount: marginAmt,
           totalSellingPrice,
           notes: estimatorNotes ? `[Estimator Notes]: ${estimatorNotes}\n\n${boq.notes || ""}` : boq.notes
+        },
+        include: {
+          client: true,
+          items: {
+            include: {
+              product: true
+            },
+            orderBy: { itemNo: "asc" }
+          }
         }
       })
     })

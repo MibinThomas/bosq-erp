@@ -712,8 +712,11 @@ Thank you`
     })
 
     let cRow = 5
-    for (let i = 0; i < boq.items.length; i++) {
-      const item = boq.items[i]
+    const costingRequiredItems = boq.items.filter((item: any) => item.isCostingRequired === true)
+    const itemsForCostingSheet = costingRequiredItems.length > 0 ? costingRequiredItems : boq.items
+
+    for (let i = 0; i < itemsForCostingSheet.length; i++) {
+      const item = itemsForCostingSheet[i]
       const r = wsCost.getRow(cRow)
       r.height = 100
 
