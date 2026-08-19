@@ -568,7 +568,7 @@ function CalculationSummaryPanel({ control }: { control: any }) {
   )
 }
 
-function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid, isRevision, isEdit }: { control: any; submitting: boolean; form: any; onSubmit: any; onInvalid?: any; isRevision: boolean; isEdit?: boolean }) {
+function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid, isRevision, isEdit, existingQuote }: { control: any; submitting: boolean; form: any; onSubmit: any; onInvalid?: any; isRevision: boolean; isEdit?: boolean; existingQuote?: any }) {
   const watchItems = useWatch({ control, name: "items" }) || []
   const watchAdditionalCharges = useWatch({ control, name: "additionalCharges" }) || []
   const watchSpecialDiscountType = useWatch({ control, name: "specialDiscountType" })
@@ -601,6 +601,9 @@ function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid
     const vat = watchVatMode === "INCLUDING" ? 0 : taxable * 0.05
     return watchVatMode === "INCLUDING" ? taxable : taxable + vat
   }, [watchItems, watchAdditionalCharges, watchSpecialDiscountType, watchSpecialDiscountValue, watchVatMode])
+
+  const isOfficiallyCreated = isEdit && existingQuote && existingQuote.status !== "DRAFT"
+  const primaryButtonText = isRevision ? "Submit Revision" : isOfficiallyCreated ? "Update Quotation" : "Create Quotation"
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
@@ -638,7 +641,7 @@ function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid
             ) : (
               <Send className="h-4 w-4" />
             )}
-            <span>{isRevision ? "Submit Revision" : isEdit ? "Update Quotation" : "Create Quotation"}</span>
+            <span>{primaryButtonText}</span>
           </Button>
         </div>
       </div>
@@ -2479,6 +2482,10 @@ function NewQuotationForm() {
     }
   }
 
+  const isOfficiallyCreated = isEdit && existingQuote && existingQuote.status !== "DRAFT"
+  const headerTitle = isRevision ? "Revise Quotation" : isOfficiallyCreated ? "Update Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"
+  const primaryButtonText = isRevision ? "Save Revision" : isOfficiallyCreated ? "Update Quotation" : "Create Quotation"
+
   return (
     <div className="max-w-[1400px] mx-auto space-y-6 pb-32 px-3 sm:px-6 lg:px-8">
       {/* 1. Header Navigation & Dynamic Title */}
@@ -2492,14 +2499,14 @@ function NewQuotationForm() {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                {isRevision ? "Revise Quotation" : isEdit ? "Update Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"}
+                {headerTitle}
               </h1>
               {isRevision && existingQuote && (
                 <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs font-semibold py-0.5 px-2">
                   Rev #{existingQuote.revisionNumber + 1}
                 </Badge>
               )}
-              {isEdit && (
+              {isOfficiallyCreated && (
                 <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold py-0.5 px-2">
                   Edit Mode
                 </Badge>
@@ -2513,7 +2520,7 @@ function NewQuotationForm() {
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               {isRevision
                 ? `Creating Revision #${existingQuote?.revisionNumber + 1} for ${existingQuote?.quotationNumber}`
-                : isEdit
+                : isOfficiallyCreated
                   ? `Editing Quotation ${existingQuote?.quotationNumber}`
                   : isCopy
                     ? `Generating sequential copy of ${existingQuote?.quotationNumber}`
@@ -2565,7 +2572,7 @@ function NewQuotationForm() {
             ) : (
               <Send className="h-3.5 w-3.5" />
             )}
-            <span>{isRevision ? "Save Revision" : isEdit ? "Update Quotation" : "Create Quotation"}</span>
+            <span>{primaryButtonText}</span>
           </Button>
         </div>
       </div>
@@ -3827,6 +3834,7 @@ function NewQuotationForm() {
         onInvalid={onInvalid}
         isRevision={isRevision}
         isEdit={isEdit}
+        existingQuote={existingQuote}
       />
 
       {/* Modals & Dialogs */}
