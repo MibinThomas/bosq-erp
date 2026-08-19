@@ -4594,38 +4594,58 @@ function NewBOQForm() {
             </Card>
 
             {/* Submission Actions */}
-            <div className="flex justify-end items-center gap-4 mt-6">
+            <div className="flex flex-wrap justify-end items-center gap-3 mt-6 pt-4 border-t border-border/60">
               {lastAutoSavedAt && (
                 <span className="text-xs text-muted-foreground mr-auto flex items-center gap-1.5 animate-in fade-in duration-500">
-                  {isAutoSaving && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                  Last auto-saved: {lastAutoSavedAt.toLocaleTimeString()}
+                  {isAutoSaving && <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+                  <span>Last auto-saved: {lastAutoSavedAt.toLocaleTimeString()}</span>
                 </span>
               )}
+
+              {/* 1. Save Draft Button */}
               <Button
                 type="button"
                 variant="outline"
                 disabled={submitting}
-                onClick={() => router.push("/boq")}
+                onClick={() => onSubmit(form.getValues(), "DRAFT")}
+                className="h-10 text-xs font-semibold px-4 flex items-center gap-2 cursor-pointer border-border/80 hover:bg-muted"
               >
-                Cancel
+                <Save className="h-4 w-4 text-muted-foreground" />
+                <span>Save Draft</span>
               </Button>
+
+              {/* 2. Send to Estimator Button */}
+              {!isEstimator && (!existingQuote?.status || existingQuote?.status === "DRAFT" || existingQuote?.status === "NEEDS_REVISION") && (
+                <Button
+                  type="button"
+                  variant="default"
+                  disabled={submitting}
+                  onClick={() => setIsSendEstimatorOpen(true)}
+                  className="bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs h-10 px-4 flex items-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <Send className="h-4 w-4" />
+                  <span>Send to Estimator</span>
+                </Button>
+              )}
+
+              {/* 3. Primary Compile & Create BOQ Button */}
               {isEstimator ? (
                 <Button
                   type="button"
                   variant="default"
                   disabled={isSubmittingCosting}
                   onClick={handleCompleteCostingSubmit}
-                  className="bg-purple-600 hover:bg-purple-500 text-white font-semibold flex items-center gap-1.5 cursor-pointer"
+                  className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs h-10 px-5 flex items-center gap-2 cursor-pointer shadow-xs"
                 >
                   {isSubmittingCosting ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Submitting Costing...
+                      <span>Submitting Costing...</span>
                     </>
                   ) : (
                     <>
                       <Check className="h-4 w-4" />
-                      Complete Costing & Return to Creator
+                      <span>Complete Costing & Return to Creator</span>
                     </>
                   )}
                 </Button>
@@ -4634,25 +4654,28 @@ function NewBOQForm() {
                   type="button"
                   variant="secondary"
                   disabled
-                  className="opacity-75 font-semibold cursor-not-allowed flex items-center gap-1.5"
+                  className="opacity-75 font-semibold text-xs h-10 px-5 cursor-not-allowed flex items-center gap-2"
                 >
                   <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  Locked - Pending Costing
+                  <span>Locked - Pending Costing</span>
                 </Button>
               ) : (
                 <Button
-                  type="submit"
+                  type="button"
                   disabled={submitting}
+                  onClick={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"))}
+                  className="bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-50 dark:hover:bg-slate-200 dark:text-slate-900 font-semibold text-xs h-10 px-5 flex items-center gap-2 cursor-pointer shadow-xs"
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Submitting...</span>
                     </>
-                  ) : isRevision ? (
-                    "Save Revision"
                   ) : (
-                    "Compile & Create"
+                    <>
+                      <Check className="h-4 w-4" />
+                      <span>{isRevision ? "Save Revision" : "Compile & Save BOQ"}</span>
+                    </>
                   )}
                 </Button>
               )}
