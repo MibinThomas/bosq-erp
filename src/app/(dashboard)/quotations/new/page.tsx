@@ -72,6 +72,7 @@ import { AssignmentModal } from "@/components/clients/assignment-modal"
 import { WorkstationConfigurator } from "@/components/products/workstation-configurator"
 import { ImageCropper } from "@/components/ui/image-cropper"
 import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
+import { QuotationSuccessModal } from "@/components/quotations/QuotationSuccessModal"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Image as ImageIcon, UploadCloud } from "lucide-react"
@@ -92,7 +93,7 @@ const quotationSchema = z.object({
   date: z.string(),
   validityDate: z.string(),
   deliveryDate: z.string().optional(),
-  paymentTerms: z.string().min(1, "Payment terms is required"),
+  paymentTerms: z.string().optional().default("50% Advance, 50% on Delivery"),
   preparedById: z.string().optional(),
   includeSalesAgent: z.boolean().default(false).optional(),
   includeCompanySeal: z.boolean().default(true).optional(),
@@ -112,7 +113,7 @@ const quotationSchema = z.object({
       productId: z.string().nullable().optional(),
       priceSource: z.enum(["standard", "manual"]).default("standard"),
       description: z.string().optional(),
-      specifications: z.string(),
+      specifications: z.string().optional().default(""),
       productNotes: z.string().optional(),
       quantity: z.union([z.number(), z.string()]).refine(val => (val === "" ? 1 : Number(val)) >= 0, "Quantity must be at least 0"),
       basePrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Base price must be at least 0"),
@@ -128,17 +129,17 @@ const quotationSchema = z.object({
       batchHeading: z.string().optional(),
       saveToCatalog: z.boolean().optional(),
     })
-  ).min(1, "At least one item is required"),
+  ).min(1, "At least one product item is required"),
   vatMode: z.enum(["EXCLUDING", "INCLUDING"]).default("EXCLUDING"),
   specialDiscountType: z.enum(["PERCENTAGE", "FIXED"]).nullable().optional(),
   specialDiscountValue: z.union([z.number(), z.string()]).default(0).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Discount must be at least 0"),
   specialDiscountReason: z.string().optional(),
   additionalCharges: z.array(
     z.object({
-      name: z.string().min(1, "Cost Item is required"),
+      name: z.string().optional().default(""),
       amount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Amount must be at least 0"),
     })
-  ).default([{ name: "", amount: "" }]),
+  ).optional().default([]),
   termsConditions: z.array(z.string()).optional(),
 })
 
@@ -567,7 +568,7 @@ function CalculationSummaryPanel({ control }: { control: any }) {
   )
 }
 
-function StickyDockSummaryPanel({ control, submitting, form, onSubmit, isRevision }: { control: any; submitting: boolean; form: any; onSubmit: any; isRevision: boolean }) {
+function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid, isRevision, isEdit }: { control: any; submitting: boolean; form: any; onSubmit: any; onInvalid?: any; isRevision: boolean; isEdit?: boolean }) {
   const watchItems = useWatch({ control, name: "items" }) || []
   const watchAdditionalCharges = useWatch({ control, name: "additionalCharges" }) || []
   const watchSpecialDiscountType = useWatch({ control, name: "specialDiscountType" })
@@ -629,15 +630,15 @@ function StickyDockSummaryPanel({ control, submitting, form, onSubmit, isRevisio
             type="button"
             size="sm"
             disabled={submitting}
-            onClick={form.handleSubmit((data: any) => onSubmit(data, "SUBMITTED"))}
-            className="text-xs h-9 sm:h-10 px-4 sm:px-6 font-bold flex items-center gap-1.5 cursor-pointer shadow-md"
+            onClick={form.handleSubmit((data: any) => onSubmit(data, "SUBMITTED"), onInvalid)}
+            className="text-xs h-9 sm:h-10 px-4 sm:px-6 font-bold flex items-center gap-1.5 cursor-pointer shadow-md bg-orange-600 hover:bg-orange-500 text-white"
           >
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Send className="h-4 w-4" />
             )}
-            <span>{isRevision ? "Submit Revision" : "Create Quotation"}</span>
+            <span>{isRevision ? "Submit Revision" : isEdit ? "Update Quotation" : "Create Quotation"}</span>
           </Button>
         </div>
       </div>
@@ -1602,6 +1603,20 @@ function NewQuotationForm() {
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
   const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false)
 
+  const [successModalData, setSuccessModalData] = useState<{
+    isOpen: boolean
+    quotation: {
+      id: string
+      quotationNumber: string
+      clientName?: string
+      projectName?: string
+      grandTotal?: number
+      isRevision?: boolean
+      isEdit?: boolean
+      pdfUrl?: string
+    } | null
+  }>({ isOpen: false, quotation: null })
+
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [assigningClient, setAssigningClient] = useState<{ id: string; name: string } | null>(null)
 
@@ -2108,6 +2123,28 @@ function NewQuotationForm() {
     handleAddItemToBatch(newBatchName)
   }
 
+  const onInvalid = (errors: any) => {
+    console.error("Quotation form validation errors:", errors)
+    const messages: string[] = []
+
+    if (errors.clientId) messages.push("Client selection is required")
+    if (errors.projectName) messages.push("Project Name is required")
+    if (errors.paymentTerms) messages.push("Payment Terms are required")
+    if (errors.items) {
+      if (typeof errors.items.message === "string") {
+        messages.push(errors.items.message)
+      } else if (Array.isArray(errors.items)) {
+        messages.push("Please check product items pricing and quantity")
+      }
+    }
+
+    const mainMsg = messages.length > 0
+      ? messages.join(" • ")
+      : "Please fill in all required fields before creating the quotation."
+
+    toast.error(`Validation Error: ${mainMsg}`)
+  }
+
   const onSubmit = async (data: QuotationFormValues, resolvedStatus: "DRAFT" | "SUBMITTED" = "SUBMITTED") => {
     if (submitting) return
     setSubmitting(true)
@@ -2239,7 +2276,14 @@ function NewQuotationForm() {
         }
       })
 
-      const calcDeliveryCharge = (data.additionalCharges || []).reduce((sum: number, c: any) => sum + (c.amount === "" ? 0 : Number(c.amount) || 0), 0)
+      const cleanAdditionalCharges = (data.additionalCharges || [])
+        .filter((c: any) => (c.name && c.name.trim()) || (c.amount !== "" && Number(c.amount) > 0))
+        .map((c: any) => ({
+          name: c.name || "Additional Charge",
+          amount: c.amount === "" ? 0 : Number(c.amount)
+        }))
+
+      const calcDeliveryCharge = cleanAdditionalCharges.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0)
 
       const res = await fetch(url, {
         method: method,
@@ -2250,10 +2294,7 @@ function NewQuotationForm() {
           items: deduplicatedFormattedItems,
           deliveryCharge: calcDeliveryCharge,
           specialDiscountValue: data.specialDiscountValue === "" ? 0 : Number(data.specialDiscountValue),
-          additionalCharges: data.additionalCharges.map((c: any) => ({
-            name: c.name,
-            amount: c.amount === "" ? 0 : Number(c.amount)
-          })),
+          additionalCharges: cleanAdditionalCharges,
           isRevision: sendIsRevision,
           isUpdate: isEdit || !!targetId,
           revisionNotes: revisionNotes,
@@ -2269,14 +2310,14 @@ function NewQuotationForm() {
       const result = await res.json()
       toast.success(
         isRevision
-          ? `Quotation revised successfully to Revision #${result.revisionNumber}! PDF updated on SharePoint.`
+          ? `Quotation revised successfully to Revision #${result.revisionNumber}!`
           : (isEdit || !!targetId)
             ? (resolvedStatus === "DRAFT"
                 ? `Quotation draft updated successfully!`
-                : `Quotation ${result.quotationNumber} updated and compiled successfully! PDF updated on SharePoint.`)
+                : `Quotation ${result.quotationNumber} updated successfully!`)
             : (resolvedStatus === "DRAFT"
                 ? `Quotation draft saved successfully!`
-                : `Quotation ${result.quotationNumber} compiled & uploaded to SharePoint!`)
+                : `Quotation ${result.quotationNumber} created successfully!`)
       )
 
       if (resolvedStatus === "DRAFT" && result.id) {
@@ -2285,7 +2326,20 @@ function NewQuotationForm() {
         setIsEdit(true)
         lastSavedDataRef.current = JSON.stringify(data)
       } else {
-        router.push("/quotations")
+        const grandSub = deduplicatedFormattedItems.reduce((s, i) => s + (i.quantity * i.unitPrice - (i.discount * i.quantity)), 0)
+        setSuccessModalData({
+          isOpen: true,
+          quotation: {
+            id: result.id,
+            quotationNumber: result.quotationNumber,
+            clientName: selectedClient?.companyName || (selectedClient as any)?.name || "",
+            projectName: data.projectName,
+            grandTotal: grandSub + calcDeliveryCharge,
+            isRevision: isRevision,
+            isEdit: isEdit,
+            pdfUrl: `/api/quotations/${result.id}/pdf`,
+          }
+        })
       }
     } catch (error: any) {
       console.error("Error submitting quotation:", error)
@@ -2503,15 +2557,15 @@ function NewQuotationForm() {
             type="button"
             size="sm"
             disabled={submitting}
-            onClick={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"))}
-            className="text-xs h-9 font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+            onClick={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"), onInvalid)}
+            className="text-xs h-9 font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs bg-orange-600 hover:bg-orange-500 text-white"
           >
             {submitting ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Send className="h-3.5 w-3.5" />
             )}
-            <span>{isRevision ? "Save Revision" : "Compile & Create"}</span>
+            <span>{isRevision ? "Save Revision" : isEdit ? "Update Quotation" : "Create Quotation"}</span>
           </Button>
         </div>
       </div>
@@ -3770,7 +3824,9 @@ function NewQuotationForm() {
         submitting={submitting}
         form={form}
         onSubmit={onSubmit}
+        onInvalid={onInvalid}
         isRevision={isRevision}
+        isEdit={isEdit}
       />
 
       {/* Modals & Dialogs */}
@@ -4050,6 +4106,18 @@ function NewQuotationForm() {
           // Automatically close both custom material popup and parent material selection popup
           setIsCreateCustomMaterialOpen(false)
           setIsMaterialPickerOpen(false)
+        }}
+      />
+
+      {/* Quotation Success Popup Modal */}
+      <QuotationSuccessModal
+        isOpen={successModalData.isOpen}
+        onClose={() => setSuccessModalData((prev) => ({ ...prev, isOpen: false }))}
+        quotation={successModalData.quotation}
+        onResetForm={() => {
+          setSuccessModalData({ isOpen: false, quotation: null })
+          router.push("/quotations/new")
+          window.location.reload()
         }}
       />
     </div>
