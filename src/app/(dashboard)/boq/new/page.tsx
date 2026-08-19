@@ -1917,24 +1917,97 @@ function NewBOQForm() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      <div className="flex items-center space-x-4">
-        <Link href="/boq">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <ArrowLeft className="h-5 w-5" />
+    <div className="max-w-[1400px] mx-auto space-y-6 pb-32 px-3 sm:px-6 lg:px-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+        <div className="flex items-center space-x-3 sm:space-x-4">
+          <Link href="/boq">
+            <Button variant="outline" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0 shadow-xs hover:bg-muted">
+              <ArrowLeft className="h-4 w-4 text-foreground" />
+            </Button>
+          </Link>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                {isRevision ? "Revise BOQ" : isEdit ? "Update BOQ" : "Create BOQ"}
+              </h1>
+              {isRevision && existingQuote && (
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs font-semibold py-0.5 px-2">
+                  Rev #{existingQuote.revisionNumber + 1}
+                </Badge>
+              )}
+              {isEdit && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold py-0.5 px-2">
+                  Edit Mode
+                </Badge>
+              )}
+            </div>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              {isRevision
+                ? `Creating Revision #${existingQuote?.revisionNumber + 1} for ${existingQuote?.boqNumber}`
+                : isEdit
+                  ? `Editing BOQ ${existingQuote?.boqNumber}`
+                  : "Select a client, build custom catalog line items, and prepare BOQ with estimator costing."}
+            </p>
+          </div>
+        </div>
+
+        {/* Top Header Desktop Action Bar */}
+        <div className="flex items-center gap-3 self-end md:self-auto shrink-0">
+          <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-lg border border-border/50">
+            {isAutoSaving ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                <span>Auto-saving...</span>
+              </>
+            ) : lastAutoSavedAt ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Saved {lastAutoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </>
+            ) : (
+              <span>Draft ready</span>
+            )}
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting}
+            onClick={() => onSubmit(form.getValues(), "DRAFT")}
+            className="text-xs h-9 font-medium flex items-center gap-1.5 cursor-pointer"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span>Save Draft</span>
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isRevision ? "Revise BOQ" : isEdit ? "Update BOQ" : "Create BOQ"}
-          </h1>
-          <p className="text-muted-foreground">
-            {isRevision
-              ? `Create a new revised version of BOQ ${existingQuote?.boqNumber}`
-              : isEdit
-                ? `Modify and update BOQ ${existingQuote?.boqNumber}`
-                : "Select a client, add catalog products, and prepare BOQ."}
-          </p>
+
+          {!isEstimator && (!existingQuote?.status || existingQuote?.status === "DRAFT" || existingQuote?.status === "NEEDS_REVISION") && (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={() => setIsSendEstimatorOpen(true)}
+              className="bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs h-9 flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>Send to Estimator</span>
+            </Button>
+          )}
+
+          <Button
+            type="button"
+            size="sm"
+            disabled={submitting}
+            onClick={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"))}
+            className="text-xs h-9 font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Check className="h-3.5 w-3.5" />
+            )}
+            <span>{isRevision ? "Save Revision" : "Compile & Create BOQ"}</span>
+          </Button>
         </div>
       </div>
 
