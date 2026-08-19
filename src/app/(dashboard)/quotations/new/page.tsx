@@ -2153,6 +2153,12 @@ function NewQuotationForm() {
     setSubmitting(true)
 
     try {
+      if (!data.clientId) {
+        toast.error("Please select a Client before saving or submitting a quotation.")
+        setSubmitting(false)
+        return
+      }
+
       const selectedClient = clients.find(c => c.id === data.clientId)
       const isSuperAdmin = userRole === "SUPER_ADMIN"
       const targetId = autoSavedQuoteId || (existingQuote?.id ? existingQuote.id : null)
@@ -2313,7 +2319,9 @@ function NewQuotationForm() {
       const result = await res.json()
       toast.success(
         isRevision
-          ? `Quotation revised successfully to Revision #${result.revisionNumber}!`
+          ? (resolvedStatus === "DRAFT"
+              ? `Quotation revision draft saved!`
+              : `Quotation revised successfully to Revision #${result.revisionNumber}!`)
           : (isEdit || !!targetId)
             ? (resolvedStatus === "DRAFT"
                 ? `Quotation draft updated successfully!`
@@ -2355,14 +2363,6 @@ function NewQuotationForm() {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleAutoSave = async () => {
-    // Skip auto-save while user is actively focused or typing in an input field
-    const activeEl = document.activeElement
-    const activeTag = activeEl?.tagName?.toLowerCase()
-    const isUserTyping = activeTag === "input" || activeTag === "textarea" || (activeEl as HTMLElement)?.isContentEditable
-    if (isUserTyping) {
-      return
-    }
-
     const currentData = form.getValues()
     if (!currentData.clientId || currentData.items.length === 0) return
 
@@ -2391,10 +2391,14 @@ function NewQuotationForm() {
         sendIsRevision = false
       }
 
-      let totalAdditionalCost = 0
-      currentData.additionalCharges?.forEach((c: any) => {
-        totalAdditionalCost += parseFloat(c.amount) || 0
-      })
+      const cleanAdditionalCharges = (currentData.additionalCharges || [])
+        .filter((c: any) => (c.name && c.name.trim()) || (c.amount !== "" && Number(c.amount) > 0))
+        .map((c: any) => ({
+          name: c.name || "Additional Charge",
+          amount: c.amount === "" ? 0 : Number(c.amount)
+        }))
+
+      const totalAdditionalCost = cleanAdditionalCharges.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0)
 
       const formattedItems = []
       for (const item of currentData.items) {
@@ -2424,10 +2428,7 @@ function NewQuotationForm() {
           items: formattedItems,
           deliveryCharge: totalAdditionalCost,
           specialDiscountValue: currentData.specialDiscountValue === "" ? 0 : Number(currentData.specialDiscountValue),
-          additionalCharges: currentData.additionalCharges.map((c: any) => ({
-            name: c.name,
-            amount: c.amount === "" ? 0 : Number(c.amount)
-          })),
+          additionalCharges: cleanAdditionalCharges,
           isRevision: sendIsRevision,
           isUpdate: isEdit || !!autoSavedQuoteId,
           revisionNotes: revisionNotes,
@@ -2457,7 +2458,7 @@ function NewQuotationForm() {
       }
       autoSaveTimerRef.current = setTimeout(() => {
         handleAutoSave()
-      }, 30000) // 30 seconds of inactivity delay
+      }, 5000) // 5 seconds of inactivity delay
     })
 
     return () => {
