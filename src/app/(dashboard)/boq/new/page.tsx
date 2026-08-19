@@ -2881,8 +2881,11 @@ function NewBOQForm() {
                                   </div>
                                   
                                   {watchItems[index]?.isCostingRequired && (
-                                    <Badge variant="destructive" className="text-xs px-2 py-0.5 shadow-sm border border-red-500/30 bg-red-500 hover:bg-red-600">
-                                      <AlertCircle className="w-3.5 h-3.5 mr-1" />
+                                    <Badge variant="outline" className="text-[11px] font-semibold px-2.5 py-0.5 bg-amber-500/10 text-amber-800 dark:text-amber-200 border-amber-500/30 flex items-center gap-1.5 shadow-2xs">
+                                      <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                      </span>
                                       Costing Required
                                     </Badge>
                                   )}
@@ -3318,7 +3321,7 @@ function NewBOQForm() {
                               )}
 
 
-                              <div className="flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-end bg-primary/[0.03] p-5 rounded-xl border border-primary/10">
+                              <div className="flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-center bg-primary/[0.03] p-5 rounded-xl border border-primary/10">
                                 <div className="flex flex-col gap-3 w-full xl:w-auto">
                                   <div className="flex justify-between items-center mb-1">
                                     <div className="flex items-center gap-2">
@@ -3464,39 +3467,29 @@ function NewBOQForm() {
                                 </div>
 
                                 {/* Actions */}
-                                <div className="flex flex-col sm:flex-row gap-2 w-full xl:w-auto shrink-0 mt-2 xl:mt-0 pb-1">
+                                <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto shrink-0 mt-2 xl:mt-0">
                                   <Button
                                     type="button"
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
                                     onClick={() => handleDuplicateItem(index)}
-                                    className="text-muted-foreground hover:text-foreground h-9 text-[11px] px-3.5 flex items-center gap-1.5 cursor-pointer"
+                                    className="border-border bg-background hover:bg-muted text-foreground font-medium text-xs h-9 px-3 flex items-center gap-1.5 cursor-pointer shadow-2xs"
                                   >
-                                    <Copy className="h-3.5 w-3.5" />
+                                    <Copy className="h-3.5 w-3.5 text-muted-foreground" />
                                     Duplicate Item
                                   </Button>
                                   {fields.length > 1 && (
                                     <Button
                                       type="button"
-                                      variant="ghost"
+                                      variant="outline"
                                       size="sm"
                                       onClick={() => remove(index)}
-                                      className="text-destructive hover:bg-destructive/10 h-9 text-[11px] px-4"
+                                      className="border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 font-medium text-xs h-9 px-3 flex items-center gap-1.5 cursor-pointer shadow-2xs"
                                     >
-                                      <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                      <Trash2 className="h-3.5 w-3.5" />
                                       Remove Line
                                     </Button>
                                   )}
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-9 text-[11px] px-4 bg-background"
-                                    onClick={() => insert(index + 1, { productId: "", priceSource: "manual", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: watchItems[index]?.batchHeading || "", saveToCatalog: false, isCostingRequired: true, type: "custom", materialCost: 0, laborCost: 0, installationCost: 0, transportCost: 0, overheadCost: 0 })}
-                                  >
-                                    <Plus className="h-3.5 w-3.5 mr-2" />
-                                    Add Custom Item
-                                  </Button>
                                 </div>
                               </div>
                             </div>
