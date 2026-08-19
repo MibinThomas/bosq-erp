@@ -29,6 +29,7 @@ const navItems = [
   { name: "BOQs", href: "/boq", icon: Calculator },
   { name: "Quotations", href: "/quotations", icon: FileText },
   { name: "Reports", href: "/reports", icon: BarChart3 },
+  { name: "User Management", href: "/users", icon: Users },
   { name: "My Profile", href: "/profile", icon: UserIcon },
   { name: "Access Control", href: "/settings/access-control", icon: Shield },
   { name: "Settings", href: "/settings", icon: Settings },
@@ -66,6 +67,7 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
       "BOQs": "BOQS",
       "Quotations": "QUOTATIONS",
       "Reports": "REPORTS",
+      "User Management": "USER_MANAGEMENT",
       "Access Control": "ACCESS_CONTROL",
       "Settings": "SETTINGS",
     }

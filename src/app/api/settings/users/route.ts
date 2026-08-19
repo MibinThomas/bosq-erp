@@ -5,20 +5,25 @@ import { NextResponse } from "next/server"
 import { hashPassword } from "@/lib/auth"
 import { hasPermission } from "@/lib/rbac"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
     const userId = (session.user as any).id
-    const canView = await hasPermission(userId, "USER_MANAGEMENT", "view")
+    const userRole = (session.user as any).role
+    const isSuperAdmin = userRole === "SUPER_ADMIN"
+    const canView = isSuperAdmin || (await hasPermission(userId, "USER_MANAGEMENT", "view"))
     if (!canView) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to view users" }, { status: 403 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const includeDeleted = searchParams.get("includeDeleted") === "true"
+
     const users = await prisma.user.findMany({
-      where: { deletedAt: null },
+      where: includeDeleted ? {} : { deletedAt: null },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -27,8 +32,23 @@ export async function GET() {
         role: true,
         phone: true,
         department: true,
+        designation: true,
+        employeeId: true,
+        status: true,
         isActive: true,
+        image: true,
+        signature: true,
+        deletedAt: true,
         createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            boqs: true,
+            quotations: true,
+            clientAssignments: true,
+            activities: true
+          }
+        }
       }
     })
     return NextResponse.json(users)
@@ -46,14 +66,15 @@ export async function POST(request: Request) {
     }
     const creatorUserId = (session.user as any).id
     const creatorRole = (session.user as any).role
+    const isSuperAdmin = creatorRole === "SUPER_ADMIN"
 
-    const canCreate = await hasPermission(creatorUserId, "USER_MANAGEMENT", "create")
+    const canCreate = isSuperAdmin || (await hasPermission(creatorUserId, "USER_MANAGEMENT", "create"))
     if (!canCreate) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to create users" }, { status: 403 })
     }
 
     const body = await request.json()
-    const { name, email, password, role, phone, department } = body
+    const { name, email, password, role, phone, department, designation, employeeId } = body
 
     if ((role === "SUPER_ADMIN" || role === "ADMIN" || role === "SALES_MANAGER" || role === "MANAGER") && creatorRole !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden: Only Super Admin can assign Super Admin, Admin, or Manager roles" }, { status: 403 })
@@ -61,13 +82,6 @@ export async function POST(request: Request) {
 
     if (!name || !email || !password || !role || !phone) {
       return NextResponse.json({ error: "Name, email, password, role, and contact number are required" }, { status: 400 })
-    }
-
-    const roleRecord = await prisma.role.findUnique({
-      where: { name: role }
-    })
-    if (!roleRecord) {
-      return NextResponse.json({ error: `The assigned role '${role}' does not exist in the database system roles.` }, { status: 400 })
     }
 
     const existingUser = await prisma.user.findUnique({
@@ -85,25 +99,34 @@ export async function POST(request: Request) {
         password: hashedPassword,
         role,
         phone,
-        department
+        department: department || null,
+        designation: designation || null,
+        employeeId: employeeId || null,
+        isActive: true,
+        status: "Active"
       },
       select: {
         id: true,
         name: true,
         email: true,
         role: true,
+        department: true,
+        designation: true,
+        employeeId: true,
+        isActive: true,
+        status: true,
         createdAt: true,
       }
     })
 
-    // Log this activity
+    // Log activity
     await prisma.activityLog.create({
       data: {
-        userId: (session.user as any).id,
+        userId: creatorUserId,
         action: "CREATED_USER",
         entityType: "USER",
         entityId: newUser.id,
-        details: `Created new user ${name} with role ${role}`
+        details: `Created new user ${name} (${email}) with role ${role}`
       }
     })
 
@@ -122,8 +145,9 @@ export async function DELETE(request: Request) {
     }
     const deleterUserId = (session.user as any).id
     const deleterRole = (session.user as any).role
+    const isSuperAdmin = deleterRole === "SUPER_ADMIN"
 
-    const canDelete = await hasPermission(deleterUserId, "USER_MANAGEMENT", "delete")
+    const canDelete = isSuperAdmin || (await hasPermission(deleterUserId, "USER_MANAGEMENT", "delete"))
     if (!canDelete) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to delete users" }, { status: 403 })
     }
@@ -135,11 +159,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 })
     }
 
-    if (id === (session.user as any).id) {
+    if (id === deleterUserId) {
       return NextResponse.json({ error: "You cannot delete your own account" }, { status: 400 })
     }
 
-    // Verify user exists
     const user = await prisma.user.findUnique({
       where: { id }
     })
@@ -153,17 +176,16 @@ export async function DELETE(request: Request) {
 
     await prisma.user.update({
       where: { id },
-      data: { deletedAt: new Date(), isActive: false }
+      data: { deletedAt: new Date(), isActive: false, status: "Inactive" }
     })
 
-    // Log this activity
     await prisma.activityLog.create({
       data: {
-        userId: (session.user as any).id,
+        userId: deleterUserId,
         action: "DELETED_USER",
         entityType: "USER",
         entityId: id,
-        details: `Deleted user ${user.name} (${user.email})`
+        details: `Soft-deleted user ${user.name} (${user.email})`
       }
     })
 
