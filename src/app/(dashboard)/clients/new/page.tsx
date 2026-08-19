@@ -34,6 +34,7 @@ function ClientFormContent() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(!!editId)
   const [formData, setFormData] = useState({
+    clientId: "",
     companyName: "",
     contactPerson: "",
     email: "",
@@ -57,6 +58,7 @@ function ClientFormContent() {
           if (res.ok) {
             const data = await res.json()
             setFormData({
+              clientId: data.clientId || "",
               companyName: data.companyName || "",
               contactPerson: data.contactPerson || "",
               email: data.email || "",
@@ -206,6 +208,37 @@ function ClientFormContent() {
           <h2 className="text-lg font-semibold border-b pb-2">Company Information</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Client ID Field (Editable by Super Admin) */}
+            {editId && (
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Hash className="h-3.5 w-3.5 text-primary" />
+                    Client ID <span className="text-red-500">*</span>
+                  </span>
+                  {userRole !== "SUPER_ADMIN" && (
+                    <span className="text-[11px] text-muted-foreground font-normal">
+                      🔒 Super Admin Permission Required to Edit
+                    </span>
+                  )}
+                </label>
+                <Input
+                  name="clientId"
+                  placeholder="e.g. C-1002"
+                  value={formData.clientId}
+                  onChange={(e) => setFormData(prev => ({ ...prev, clientId: e.target.value }))}
+                  disabled={userRole !== "SUPER_ADMIN"}
+                  className={userRole !== "SUPER_ADMIN" ? "bg-muted/50 font-mono" : "font-mono font-bold text-primary"}
+                  required
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {userRole === "SUPER_ADMIN"
+                    ? "As Super Admin, you can edit the Client ID. Uniqueness validation will be enforced on save."
+                    : "Client ID is read-only. Only Super Admin users can modify Client IDs."}
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                 <Building2 className="h-3.5 w-3.5 text-primary" />

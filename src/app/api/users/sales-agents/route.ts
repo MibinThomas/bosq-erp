@@ -27,19 +27,15 @@ export async function GET() {
     }
 
     // Apply role-based query permissions
-    if (userRole === "SUPER_ADMIN") {
-      // Super Admin can view all active users except themselves
-      whereClause.role = { not: "SUPER_ADMIN" }
-      whereClause.id = { not: dbSessionUser.id }
-    } else if (userRole === "ADMIN") {
-      // Admin can view all active users except Super Admin
-      whereClause.role = { not: "SUPER_ADMIN" }
+    if (userRole === "SUPER_ADMIN" || userRole === "ADMIN") {
+      // Super Admin and Admin can view all active users across the organization
     } else if (["MANAGER", "SALES_MANAGER"].includes(userRole)) {
-      // Managers can view only users within their reporting department/team
-      whereClause.role = { not: "SUPER_ADMIN" }
-      whereClause.department = dbSessionUser.department || "N/A"
+      // Managers can view users within their reporting department or team
+      if (dbSessionUser.department) {
+        whereClause.department = dbSessionUser.department
+      }
     } else {
-      // Interior Design Consultants and other standard users are locked to their own account
+      // Standard users are locked to their own account
       whereClause.id = dbSessionUser.id
     }
 

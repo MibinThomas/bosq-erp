@@ -711,7 +711,7 @@ function NewBOQForm() {
       .then(data => {
         if (Array.isArray(data)) {
           setAllUsersList(data)
-          setUsers(data.filter((u: any) => u.role === "SALES_EXECUTIVE" || u.role === "SALES_MANAGER"))
+          setUsers(data)
         }
       })
       .catch(err => console.error("Failed to load users", err))

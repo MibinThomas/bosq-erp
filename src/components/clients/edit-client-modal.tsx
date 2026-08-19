@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { X, Loader2, Sparkles } from "lucide-react"
+import { X, Loader2, Sparkles, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
+import { useSession } from "next-auth/react"
 
 interface Client {
   id: string
@@ -27,6 +28,11 @@ interface EditClientModalProps {
 }
 
 export function EditClientModal({ client, isOpen, onClose, onSuccess }: EditClientModalProps) {
+  const { data: session } = useSession()
+  const userRole = (session?.user as any)?.role || ""
+  const isSuperAdmin = userRole === "SUPER_ADMIN"
+
+  const [clientIdCode, setClientIdCode] = useState("")
   const [companyName, setCompanyName] = useState("")
   const [contactPerson, setContactPerson] = useState("")
   const [phone, setPhone] = useState("")
@@ -40,6 +46,7 @@ export function EditClientModal({ client, isOpen, onClose, onSuccess }: EditClie
 
   useEffect(() => {
     if (client) {
+      setClientIdCode(client.clientId || "")
       setCompanyName(client.companyName || "")
       setContactPerson(client.contactPerson || "")
       setPhone(client.phone || "")
@@ -66,6 +73,7 @@ export function EditClientModal({ client, isOpen, onClose, onSuccess }: EditClie
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          clientId: clientIdCode,
           companyName,
           contactPerson,
           phone,
@@ -117,6 +125,33 @@ export function EditClientModal({ client, isOpen, onClose, onSuccess }: EditClie
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
           <div className="space-y-4">
             
+            {/* Client ID Field (Editable by Super Admin) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold flex items-center gap-1.5">
+                  Client ID <span className="text-destructive">*</span>
+                </label>
+                {!isSuperAdmin && (
+                  <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Lock className="h-3 w-3 text-muted-foreground" /> Super Admin Only
+                  </span>
+                )}
+              </div>
+              <Input 
+                value={clientIdCode} 
+                onChange={(e) => setClientIdCode(e.target.value)} 
+                disabled={!isSuperAdmin}
+                placeholder="e.g. C-1002"
+                className={!isSuperAdmin ? "bg-muted/50 font-mono" : "font-mono font-bold text-primary"}
+                required 
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {isSuperAdmin 
+                  ? "Super Admin Permission: You can update the Client ID. Uniqueness validation will be checked."
+                  : "Client ID is locked. Only Super Admin users can modify Client IDs."}
+              </p>
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-xs font-bold">Company Name <span className="text-destructive">*</span></label>
               <Input 

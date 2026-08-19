@@ -146,10 +146,51 @@ export async function PUT(
       return NextResponse.json({ error: "Forbidden: You do not have permission to edit clients" }, { status: 403 })
     }
 
-    const { companyName, contactPerson, phone, email, address, trn, clientType, notes, status } = body
+    const { clientId, companyName, contactPerson, phone, email, address, trn, clientType, notes, status } = body
 
     if (!companyName) {
       return NextResponse.json({ error: "Company name is required" }, { status: 400 })
+    }
+
+    const currentClient = await prisma.client.findUnique({ 
+      where: { id },
+      include: { assignments: true }
+    })
+    if (!currentClient) {
+      return NextResponse.json({ error: "Client not found" }, { status: 404 })
+    }
+
+    const userRole = (session.user as any).role || ""
+    let newClientIdToSave: string | undefined = undefined
+
+    // Handle Client ID modification (Super Admin only)
+    if (clientId && clientId.trim() !== currentClient.clientId) {
+      if (userRole !== "SUPER_ADMIN") {
+        return NextResponse.json({ error: "Forbidden: Only Super Admin users are allowed to edit Client IDs" }, { status: 403 })
+      }
+
+      const formattedNewClientId = clientId.trim()
+
+      // Validate Client ID uniqueness
+      const duplicateClientId = await prisma.client.findFirst({
+        where: {
+          clientId: {
+            equals: formattedNewClientId,
+            mode: "insensitive"
+          },
+          id: { not: id },
+          deletedAt: null
+        }
+      })
+
+      if (duplicateClientId) {
+        return NextResponse.json(
+          { error: `Client ID "${formattedNewClientId}" is already assigned to "${duplicateClientId.companyName}". Please enter a unique Client ID.` },
+          { status: 409 }
+        )
+      }
+
+      newClientIdToSave = formattedNewClientId
     }
 
     // Check for duplicate company name
@@ -170,15 +211,6 @@ export async function PUT(
       )
     }
 
-    const currentClient = await prisma.client.findUnique({ 
-      where: { id },
-      include: { assignments: true }
-    })
-    if (!currentClient) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 })
-    }
-
-    const userRole = (session.user as any).role || ""
     const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole)
     if (!isUnrestricted) {
       const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
@@ -215,6 +247,7 @@ export async function PUT(
     const updated = await prisma.client.update({
       where: { id },
       data: { 
+        ...(newClientIdToSave && { clientId: newClientIdToSave }),
         companyName: companyName.trim(), 
         contactPerson, 
         phone, 
