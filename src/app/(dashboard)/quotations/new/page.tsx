@@ -3082,37 +3082,6 @@ function NewQuotationForm() {
                     )}
                   />
 
-                  {/* Interior Design Consultant */}
-                  <FormField
-                    control={form.control}
-                    name="preparedById"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-semibold text-foreground flex items-center justify-between">
-                          <span>Interior Design Consultant</span>
-                          {selectedClientObj?.salespersonId && (
-                            <span className="text-[10px] text-emerald-600 font-medium">Assigned</span>
-                          )}
-                        </FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ""}>
-                          <FormControl>
-                            <SelectTrigger className="h-10 text-xs sm:text-sm bg-background border-border/80">
-                              <SelectValue placeholder="Select Design Consultant..." />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {users.map((u: any) => (
-                              <SelectItem key={u.id} value={u.id} className="text-xs">
-                                {u.name || u.email || u.id} ({u.employeeId || u.role})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   {/* Date Fields */}
                   <FormField
                     control={form.control}
@@ -3185,8 +3154,11 @@ function NewQuotationForm() {
                       const selectedConsultant = users.find(u => u.id === field.value)
                       return (
                         <FormItem className="md:col-span-1">
-                          <FormLabel className="text-xs font-semibold text-foreground">
-                            Interior Design Consultant <span className="text-destructive">*</span>
+                          <FormLabel className="text-xs font-semibold text-foreground flex items-center justify-between">
+                            <span>Interior Design Consultant <span className="text-destructive">*</span></span>
+                            {selectedClientObj?.salespersonId && (
+                              <span className="text-[10px] text-emerald-600 font-medium">Assigned</span>
+                            )}
                           </FormLabel>
                           <Select
                             onValueChange={(val) => field.onChange(val)}
@@ -3195,7 +3167,7 @@ function NewQuotationForm() {
                             <FormControl>
                               <SelectTrigger className="h-10 text-xs sm:text-sm bg-background">
                                 <SelectValue placeholder="Select consultant">
-                                  {selectedConsultant ? `${selectedConsultant.name || selectedConsultant.email}${selectedConsultant.role ? ` (${selectedConsultant.role.replace(/_/g, " ")})` : ''}` : "Select consultant"}
+                                  {selectedConsultant ? `${selectedConsultant.name || selectedConsultant.email}${selectedConsultant.role ? ` (${selectedConsultant.role.replace(/_/g, " ")})` : ''}` : (field.value && users.length === 0 ? "Loading consultant..." : "Select consultant")}
                                 </SelectValue>
                               </SelectTrigger>
                             </FormControl>

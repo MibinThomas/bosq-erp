@@ -395,7 +395,14 @@ function NewBOQForm() {
   const isAssignedEstimator = !!(existingQuote?.estimatorId && existingQuote.estimatorId === (session?.user as any)?.id)
   const isEstimator = isEstimatorRole || isAssignedEstimator
   const isLockedForCreator = !isEstimator && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING")
-  const canEditCostingBreakdown = (isEstimator || isManagerOrAdmin) && existingQuote?.status !== "CONVERTED"
+  const isCreatorOrOwner = existingQuote ? (existingQuote.preparedById === (session?.user as any)?.id || existingQuote.preparedBy?.id === (session?.user as any)?.id) : true
+  const isRestrictedEstimator = isEstimator && !isCreatorOrOwner && !isManagerOrAdmin
+  const activeCostingStatuses = ["SENT_TO_ESTIMATOR", "COSTING_IN_PROGRESS", "PENDING_COSTING", "NEEDS_REVISION"]
+  const isLockedForEstimator = isRestrictedEstimator && (
+    existingQuote?.status === "COSTING_COMPLETED" ||
+    (existingQuote?.status && !activeCostingStatuses.includes(existingQuote.status))
+  )
+  const canEditCostingBreakdown = (isEstimator || isManagerOrAdmin) && existingQuote?.status !== "CONVERTED" && !isLockedForEstimator
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false)
   const [assigningClient, setAssigningClient] = useState<{ id: string, name: string } | null>(null)
@@ -1526,6 +1533,8 @@ function NewBOQForm() {
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleAutoSave = async () => {
+    if (isLockedForEstimator || isLockedForCreator) return
+
     // Skip auto-save while user is actively focused or typing in an input field
     const activeEl = document.activeElement
     const activeTag = activeEl?.tagName?.toLowerCase()
@@ -2096,7 +2105,7 @@ function NewBOQForm() {
                 </Button>
               )}
 
-              {(isEstimator || isManagerOrAdmin) && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING") && (
+              {(isEstimator || isManagerOrAdmin) && (existingQuote?.status === "SENT_TO_ESTIMATOR" || existingQuote?.status === "COSTING_IN_PROGRESS" || existingQuote?.status === "PENDING_COSTING" || existingQuote?.status === "NEEDS_REVISION") && (
                 <Button
                   type="button"
                   variant="default"
@@ -2158,6 +2167,26 @@ function NewBOQForm() {
         </div>
       )}
 
+      {isLockedForEstimator && (
+        <div className="bg-purple-50 dark:bg-purple-950/30 border border-purple-300 dark:border-purple-800 rounded-xl p-4 flex items-center gap-3 text-purple-950 dark:text-purple-200 shadow-2xs">
+          <Lock className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0" />
+          <div className="text-xs font-medium">
+            <span className="font-bold text-sm block mb-0.5">Costing Completed (Read-Only)</span>
+            Costing for this BOQ has been completed and returned to the BOQ Creator. Form fields are read-only unless the BOQ Creator requests a costing revision.
+          </div>
+        </div>
+      )}
+
+      {isEstimator && existingQuote?.status === "NEEDS_REVISION" && (
+        <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-300 dark:border-rose-800 rounded-xl p-4 flex items-center gap-3 text-rose-950 dark:text-rose-200 shadow-2xs">
+          <RefreshCw className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0" />
+          <div className="text-xs font-medium">
+            <span className="font-bold text-sm block mb-0.5">Costing Revision Requested</span>
+            The BOQ Creator has requested a costing revision. Please update the cost breakdown and click "Complete Costing & Return to Creator" when finished.
+          </div>
+        </div>
+      )}
+
       {isRevision && existingQuote && (
         <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 rounded-xl p-4 flex items-start gap-3 text-purple-950 dark:text-purple-300">
           <Info className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5" />
@@ -2191,7 +2220,7 @@ function NewBOQForm() {
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"))}
-            className={cn("space-y-8", isLockedForCreator && "pointer-events-none opacity-80 select-none")}
+            className={cn("space-y-8", (isLockedForCreator || isLockedForEstimator) && "pointer-events-none opacity-80 select-none")}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 const target = e.target as HTMLElement
@@ -4436,7 +4465,17 @@ function NewBOQForm() {
               )}
 
               {/* 3. Primary Compile & Create BOQ Button */}
-              {isEstimator ? (
+              {isLockedForEstimator ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled
+                  className="opacity-75 font-semibold text-xs h-10 px-5 cursor-not-allowed flex items-center gap-2"
+                >
+                  <Lock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span>Costing Completed (Locked)</span>
+                </Button>
+              ) : isEstimator ? (
                 <Button
                   type="button"
                   variant="default"

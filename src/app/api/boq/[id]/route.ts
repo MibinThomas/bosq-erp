@@ -157,10 +157,19 @@ export async function PUT(
     const isEstimator = userRole === "ESTIMATOR" || userRole === "COST_ESTIMATOR" || existingBoq.estimatorId === userId
     const isRestrictedEstimator = isEstimator && !isCreatorOrOwner && !isManagerOrAdmin
 
-    const isLockedStatus = existingBoq.status === "SENT_TO_ESTIMATOR" || existingBoq.status === "COSTING_IN_PROGRESS" || existingBoq.status === "PENDING_COSTING"
+    const activeCostingStatuses = ["SENT_TO_ESTIMATOR", "COSTING_IN_PROGRESS", "PENDING_COSTING", "NEEDS_REVISION"]
+    const isLockedStatus = activeCostingStatuses.includes(existingBoq.status)
     if (!isEstimator && isLockedStatus) {
       return NextResponse.json(
         { error: "This BOQ is currently with the Estimator for costing. You cannot edit it until costing is completed." },
+        { status: 403 }
+      )
+    }
+
+    // Estimators cannot edit BOQ once costing is completed unless a revision is requested by creator
+    if (isRestrictedEstimator && !activeCostingStatuses.includes(existingBoq.status)) {
+      return NextResponse.json(
+        { error: "Costing has been completed for this BOQ. It is no longer editable by the estimator unless a costing revision is requested by the BOQ creator." },
         { status: 403 }
       )
     }

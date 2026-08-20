@@ -25,6 +25,19 @@ export async function POST(
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 })
     }
 
+    const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+    const isCreatorOrOwner = boq.preparedById === userId
+    const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole)
+    const isEstimator = userRole === "ESTIMATOR" || userRole === "COST_ESTIMATOR" || boq.estimatorId === userId
+    const isRestrictedEstimator = isEstimator && !isCreatorOrOwner && !isManagerOrAdmin
+
+    if (isRestrictedEstimator && boq.status === "COSTING_COMPLETED") {
+      return NextResponse.json(
+        { error: "Costing is already marked as completed for this BOQ. A costing revision must be requested by the creator before costing can be updated." },
+        { status: 403 }
+      )
+    }
+
     let totalMaterialCost = 0
     let totalLaborCost = 0
     let totalInstallation = 0
