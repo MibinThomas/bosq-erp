@@ -496,6 +496,71 @@ export async function PUT(
       return NextResponse.json(updatedQuotation)
     }
 
+    // CASE 6: SUPER ADMIN RENAME REVISION
+    if (body.action === "RENAME_REVISION") {
+      if (logUserRole !== "SUPER_ADMIN") {
+        return NextResponse.json({ error: "Forbidden: Only Super Admin can rename revisions" }, { status: 403 })
+      }
+
+      const { newQuotationNumber, newRevisionNotes } = body
+
+      if (!newQuotationNumber || !newQuotationNumber.trim()) {
+        return NextResponse.json({ error: "Quotation number is required" }, { status: 400 })
+      }
+
+      const trimmedNum = newQuotationNumber.trim()
+
+      if (trimmedNum !== existingQuotation.quotationNumber) {
+        const conflict = await prisma.quotation.findFirst({
+          where: {
+            quotationNumber: trimmedNum,
+            id: { not: existingQuotation.id }
+          }
+        })
+        if (conflict) {
+          return NextResponse.json({ error: `Quotation number "${trimmedNum}" is already in use by another record.` }, { status: 400 })
+        }
+      }
+
+      const oldNum = existingQuotation.quotationNumber
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const qUpdated = await tx.quotation.update({
+          where: { id: existingQuotation.id },
+          data: {
+            quotationNumber: trimmedNum,
+          }
+        })
+
+        if (newRevisionNotes !== undefined) {
+          const rootId = existingQuotation.parentId || existingQuotation.id
+          await tx.quotationRevision.updateMany({
+            where: {
+              quotationId: rootId,
+              revisionNumber: existingQuotation.revisionNumber
+            },
+            data: {
+              notes: newRevisionNotes.trim()
+            }
+          })
+        }
+
+        await tx.activityLog.create({
+          data: {
+            userId: logUserId,
+            action: "RENAME_QUOTATION_REVISION",
+            entityType: "QUOTATION",
+            entityId: existingQuotation.id,
+            details: `Super Admin renamed quotation revision from ${oldNum} to ${trimmedNum}.${newRevisionNotes !== undefined ? ` Revision notes updated.` : ""}`,
+          }
+        })
+
+        return qUpdated
+      })
+
+      return NextResponse.json(updated)
+    }
+
     // CASE 5: CONFIRM CLIENT-APPROVED REVISION AS FINAL QUOTATION
     if (body.action === "CONFIRM_FINAL") {
       const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(logUserRole)
@@ -1769,5 +1834,88 @@ export async function PATCH(
       { error: error?.message || "Internal Server Error" },
       { status: 500 }
     )
+  }
+}
+
+// DELETE handler for Super Admin deleting a single revision or entire quotation
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+    const session = await getServerSession(authOptions)
+    if (!session || !session.user?.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userRole = (session.user as any).role || ""
+    if (userRole !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Forbidden: Only Super Admin can delete quotation revisions" },
+        { status: 403 }
+      )
+    }
+
+    const targetQuote = await prisma.quotation.findUnique({
+      where: { id },
+      include: { client: true }
+    })
+
+    if (!targetQuote) {
+      return NextResponse.json({ error: "Quotation revision not found" }, { status: 404 })
+    }
+
+    const rootId = targetQuote.parentId || targetQuote.id
+
+    const seriesQuotes = await prisma.quotation.findMany({
+      where: {
+        OR: [
+          { id: rootId },
+          { parentId: rootId }
+        ]
+      },
+      orderBy: { createdAt: "desc" }
+    })
+
+    await prisma.$transaction(async (tx) => {
+      await tx.quotationItem.deleteMany({ where: { quotationId: targetQuote.id } })
+      await tx.quotationAssignment.deleteMany({ where: { quotationId: targetQuote.id } })
+      
+      await tx.quotationRevision.deleteMany({
+        where: {
+          quotationId: rootId,
+          revisionNumber: targetQuote.revisionNumber
+        }
+      })
+
+      await tx.quotation.delete({ where: { id: targetQuote.id } })
+
+      const remainingSeries = seriesQuotes.filter(q => q.id !== targetQuote.id)
+      if (remainingSeries.length > 0) {
+        const hasActiveOrConfirmed = remainingSeries.some(q => ["CLIENT_CONFIRMED", "CLIENT_APPROVED", "SUBMITTED", "DRAFT"].includes(q.status))
+        if (!hasActiveOrConfirmed) {
+          await tx.quotation.update({
+            where: { id: remainingSeries[0].id },
+            data: { status: "SUBMITTED" }
+          })
+        }
+      }
+
+      await tx.activityLog.create({
+        data: {
+          userId: (session.user as any).id,
+          action: "DELETE_QUOTATION_REVISION",
+          entityType: "QUOTATION",
+          entityId: targetQuote.id,
+          details: `Super Admin deleted revision ${targetQuote.quotationNumber} (Revision #${targetQuote.revisionNumber}) for client ${targetQuote.client.companyName}.`,
+        }
+      })
+    })
+
+    return NextResponse.json({ success: true, message: `Revision ${targetQuote.quotationNumber} deleted successfully.` })
+  } catch (error: any) {
+    console.error("Error deleting quotation revision:", error)
+    return NextResponse.json({ error: error.message || "Failed to delete quotation revision" }, { status: 500 })
   }
 }

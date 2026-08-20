@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Fragment, useCallback } from "react"
 import Link from "next/link"
-import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle, Edit, Map, ChevronDown, ChevronRight, Calendar, User, Copy } from "lucide-react"
+import { Plus, Search, FileDown, Eye, Loader2, FolderOpen, History, RefreshCw, Lock, Check, AlertCircle, Edit, Map, ChevronDown, ChevronRight, Calendar, User, Copy, Trash2, AlertTriangle } from "lucide-react"
 import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { useSession } from "next-auth/react"
 
@@ -107,6 +107,30 @@ export default function QuotationsPage() {
   const [editNameQuote, setEditNameQuote] = useState<{ id: string; quotationNumber: string } | null>(null)
   const [newQuotationNumber, setNewQuotationNumber] = useState("")
   const [isUpdatingName, setIsUpdatingName] = useState(false)
+
+  const [deleteSingleQuote, setDeleteSingleQuote] = useState<Quotation | null>(null)
+  const [isDeletingSingle, setIsDeletingSingle] = useState(false)
+
+  const handleConfirmDeleteSingle = async () => {
+    if (!deleteSingleQuote) return
+    setIsDeletingSingle(true)
+    try {
+      const res = await fetch(`/api/quotations/${deleteSingleQuote.id}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || "Failed to delete quotation")
+      }
+      toast.success(`Quotation revision ${deleteSingleQuote.quotationNumber} deleted successfully!`)
+      setDeleteSingleQuote(null)
+      fetchQuotations()
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete quotation")
+    } finally {
+      setIsDeletingSingle(false)
+    }
+  }
 
   const handleOpenEditName = (quote: Quotation) => {
     setEditNameQuote({ id: quote.id, quotationNumber: quote.quotationNumber })
@@ -709,13 +733,22 @@ export default function QuotationsPage() {
                           </DropdownMenuItem>
 
                           {isSuperAdmin && (
-                            <DropdownMenuItem
-                              onClick={() => handleOpenEditName(quote)}
-                              className="flex items-center text-indigo-600 focus:text-indigo-600 focus:bg-indigo-50 cursor-pointer font-medium"
-                            >
-                              <Edit className="mr-2 h-4 w-4 text-indigo-600" />
-                              Edit Quotation Name...
-                            </DropdownMenuItem>
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => handleOpenEditName(quote)}
+                                className="flex items-center text-indigo-600 focus:text-indigo-600 focus:bg-indigo-50 cursor-pointer font-medium"
+                              >
+                                <Edit className="mr-2 h-4 w-4 text-indigo-600" />
+                                Rename Revision...
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setDeleteSingleQuote(quote)}
+                                className="flex items-center text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer font-medium"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4 text-destructive" />
+                                Delete Revision...
+                              </DropdownMenuItem>
+                            </>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -824,10 +857,10 @@ export default function QuotationsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5 text-primary" />
-              Edit Quotation Name / Number
+              Rename Revision / Edit Identifier
             </DialogTitle>
             <DialogDescription>
-              As Super Admin, you can edit the identifier name or number for this quotation.
+              As Super Admin, you can edit the identifier name or number for this quotation revision.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-3">
@@ -858,6 +891,36 @@ export default function QuotationsPage() {
                 </>
               ) : (
                 "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Revision Confirmation Modal (Super Admin) */}
+      <Dialog open={!!deleteSingleQuote} onOpenChange={(open) => !open && setDeleteSingleQuote(null)}>
+        <DialogContent className="sm:max-w-md border-destructive/30">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive font-bold">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+              Delete Revision (Super Admin)
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground pt-1 leading-relaxed">
+              Are you sure you want to delete quotation revision <span className="font-mono font-bold text-foreground">{deleteSingleQuote?.quotationNumber}</span>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setDeleteSingleQuote(null)} disabled={isDeletingSingle}>
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleConfirmDeleteSingle} disabled={isDeletingSingle} className="font-bold">
+              {isDeletingSingle ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete Revision"
               )}
             </Button>
           </DialogFooter>

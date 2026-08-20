@@ -7,10 +7,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2, FileDown, FolderOpen, ExternalLink, Calendar, User, Clock, Check, FileText, History } from "lucide-react"
+import { Loader2, FileDown, FolderOpen, ExternalLink, Calendar, User, Clock, Check, FileText, History, Edit3, Trash2, AlertTriangle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 
@@ -85,9 +87,20 @@ export function QuotationJourneyModal({
   const [confirmLoading, setConfirmLoading] = useState(false)
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const isSuperAdmin = userRole === "SUPER_ADMIN"
   const canViewWorkflowLogs = isManagerOrAdminRole(userRole)
   const isAuthorizedToConfirm = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole) || 
     (session?.user as any)?.permissionOverrides?.find((o: any) => o.action === "canConfirmQuotation")?.value === true
+
+  // Super Admin Rename Revision State
+  const [renameRevision, setRenameRevision] = useState<Revision | null>(null)
+  const [newQuotationNumber, setNewQuotationNumber] = useState("")
+  const [newRevisionNotes, setNewRevisionNotes] = useState("")
+  const [renameLoading, setRenameLoading] = useState(false)
+
+  // Super Admin Delete Revision State
+  const [deleteRevisionItem, setDeleteRevisionItem] = useState<Revision | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   useEffect(() => {
     if (quotationId && open) {
@@ -141,6 +154,66 @@ export function QuotationJourneyModal({
       toast.error(err.message || "Failed to confirm final quotation")
     } finally {
       setConfirmLoading(false)
+    }
+  }
+
+  const handleExecuteRename = async () => {
+    if (!renameRevision || !newQuotationNumber.trim()) return
+    setRenameLoading(true)
+    try {
+      const res = await fetch(`/api/quotations/${renameRevision.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "RENAME_REVISION",
+          newQuotationNumber: newQuotationNumber.trim(),
+          newRevisionNotes: newRevisionNotes.trim(),
+        })
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || "Failed to rename revision")
+      }
+
+      toast.success("Revision renamed successfully!")
+      setRenameRevision(null)
+      if (quotationId) {
+        const journeyRes = await fetch(`/api/quotations/${quotationId}/journey`)
+        if (journeyRes.ok) setData(await journeyRes.json())
+      }
+      if (onConfirmed) onConfirmed()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to rename revision")
+    } finally {
+      setRenameLoading(false)
+    }
+  }
+
+  const handleExecuteDelete = async () => {
+    if (!deleteRevisionItem) return
+    setDeleteLoading(true)
+    try {
+      const res = await fetch(`/api/quotations/${deleteRevisionItem.id}`, {
+        method: "DELETE",
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || "Failed to delete revision")
+      }
+
+      toast.success("Revision deleted successfully!")
+      setDeleteRevisionItem(null)
+      if (quotationId) {
+        const journeyRes = await fetch(`/api/quotations/${quotationId}/journey`)
+        if (journeyRes.ok) setData(await journeyRes.json())
+      }
+      if (onConfirmed) onConfirmed()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete revision")
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -424,7 +497,7 @@ export function QuotationJourneyModal({
                               </div>
 
                               {/* Action Footer */}
-                              <div className="flex justify-between items-center pt-1 gap-2">
+                              <div className="flex flex-wrap justify-between items-center pt-1 gap-2">
                                 <div>
                                   {item.status !== "CLIENT_CONFIRMED" && (
                                     <Button
@@ -441,14 +514,42 @@ export function QuotationJourneyModal({
                                     </Button>
                                   )}
                                 </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 font-semibold cursor-pointer"
-                                  onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
-                                >
-                                  View Revision
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                  {isSuperAdmin && (
+                                    <>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50 border-amber-300 font-semibold cursor-pointer"
+                                        title="Rename / Edit Revision (Super Admin)"
+                                        onClick={() => {
+                                          setRenameRevision(item)
+                                          setNewQuotationNumber(item.quotationNumber)
+                                          setNewRevisionNotes(revisionNotes === "No revision notes available." ? "" : revisionNotes)
+                                        }}
+                                      >
+                                        <Edit3 className="h-3.5 w-3.5 mr-1 text-amber-600" /> Rename
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30 font-semibold cursor-pointer"
+                                        title="Delete Revision (Super Admin)"
+                                        onClick={() => setDeleteRevisionItem(item)}
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 mr-1 text-destructive" /> Delete
+                                      </Button>
+                                    </>
+                                  )}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 font-semibold cursor-pointer"
+                                    onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
+                                  >
+                                    View Revision
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -535,6 +636,72 @@ export function QuotationJourneyModal({
                   <Loader2 className="h-4 w-4 animate-spin mr-2" /> Confirming...
                 </>
               ) : "Confirm as Final"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Super Admin Rename Revision Dialog */}
+      <Dialog open={!!renameRevision} onOpenChange={(open) => !open && setRenameRevision(null)}>
+        <DialogContent className="max-w-md rounded-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <Edit3 className="h-5 w-5 text-amber-600" />
+              Rename Revision (Super Admin)
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              Modify the quotation number / title or revision notes for this specific revision.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Quotation Number / Revision Label</label>
+              <Input
+                value={newQuotationNumber}
+                onChange={(e) => setNewQuotationNumber(e.target.value)}
+                placeholder="e.g. BOSQ-QT-2026-0042-2"
+                className="text-xs font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground">Revision Notes</label>
+              <Textarea
+                value={newRevisionNotes}
+                onChange={(e) => setNewRevisionNotes(e.target.value)}
+                placeholder="Describe reason or details for this revision..."
+                className="text-xs min-h-[80px]"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setRenameRevision(null)} disabled={renameLoading} className="cursor-pointer">
+              Cancel
+            </Button>
+            <Button variant="default" size="sm" onClick={handleExecuteRename} disabled={renameLoading || !newQuotationNumber.trim()} className="bg-amber-600 hover:bg-amber-700 text-white font-bold cursor-pointer">
+              {renameLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Super Admin Delete Revision Dialog */}
+      <Dialog open={!!deleteRevisionItem} onOpenChange={(open) => !open && setDeleteRevisionItem(null)}>
+        <DialogContent className="max-w-md rounded-xl border-destructive/30">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-destructive">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+              Delete Revision (Super Admin)
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground pt-2 leading-relaxed">
+              Are you sure you want to delete <span className="font-mono font-bold text-foreground">{deleteRevisionItem?.quotationNumber}</span> (Revision #{deleteRevisionItem?.revisionNumber})? This action will permanently remove this revision record from the system.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" size="sm" onClick={() => setDeleteRevisionItem(null)} disabled={deleteLoading} className="cursor-pointer">
+              Cancel
+            </Button>
+            <Button variant="destructive" size="sm" onClick={handleExecuteDelete} disabled={deleteLoading} className="font-bold cursor-pointer">
+              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Delete Revision"}
             </Button>
           </DialogFooter>
         </DialogContent>
