@@ -18,24 +18,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No quotation IDs provided" }, { status: 400 })
     }
 
-    // Delete related items first due to foreign key constraints
+    // Soft-delete quotations so they can be restored by Super Admin
     await prisma.$transaction(async (tx) => {
-      // 1. Delete associated quotation items
-      await tx.quotationItem.deleteMany({
-        where: {
-          quotationId: {
-            in: ids,
-          },
-        },
-      })
-
-      // 2. Delete the quotations
-      await tx.quotation.deleteMany({
+      await tx.quotation.updateMany({
         where: {
           id: {
             in: ids,
           },
         },
+        data: {
+          deletedAt: new Date()
+        }
       })
       
       // 3. Log Activity

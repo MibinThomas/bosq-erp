@@ -385,8 +385,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden: You do not have ownership access to delete this BOQ" }, { status: 403 })
     }
 
-    await prisma.boq.delete({
-      where: { id }
+    await prisma.boq.update({
+      where: { id },
+      data: { deletedAt: new Date() }
     })
     return NextResponse.json({ success: true })
   } catch (error) {

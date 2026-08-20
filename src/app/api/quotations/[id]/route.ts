@@ -1879,17 +1879,10 @@ export async function DELETE(
     })
 
     await prisma.$transaction(async (tx) => {
-      await tx.quotationItem.deleteMany({ where: { quotationId: targetQuote.id } })
-      await tx.quotationAssignment.deleteMany({ where: { quotationId: targetQuote.id } })
-      
-      await tx.quotationRevision.deleteMany({
-        where: {
-          quotationId: rootId,
-          revisionNumber: targetQuote.revisionNumber
-        }
+      await tx.quotation.update({
+        where: { id: targetQuote.id },
+        data: { deletedAt: new Date() }
       })
-
-      await tx.quotation.delete({ where: { id: targetQuote.id } })
 
       const remainingSeries = seriesQuotes.filter(q => q.id !== targetQuote.id)
       if (remainingSeries.length > 0) {

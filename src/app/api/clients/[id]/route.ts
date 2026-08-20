@@ -365,19 +365,14 @@ export async function DELETE(
 
     if (client._count.quotations > 0) {
       if (userRole === "SUPER_ADMIN") {
-        // Cascade delete associated quotations, revisions list, and BOQs first
+        // Soft delete associated quotations and BOQs so they can be restored later
         await prisma.quotation.updateMany({
           where: { clientId: id },
-          data: { parentId: null }
+          data: { deletedAt: new Date() }
         })
-        await prisma.quotation.deleteMany({
-          where: { clientId: id }
-        })
-        await prisma.boq.deleteMany({
-          where: { clientId: id }
-        })
-        await prisma.clientAssignment.deleteMany({
-          where: { clientId: id }
+        await prisma.boq.updateMany({
+          where: { clientId: id },
+          data: { deletedAt: new Date() }
         })
       } else {
         return NextResponse.json(

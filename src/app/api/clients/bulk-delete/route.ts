@@ -63,19 +63,14 @@ export async function POST(request: Request) {
     let undeletableCount = 0
 
     if (role === "SUPER_ADMIN") {
-      // Cascade delete quotations, revisions list, and BOQs first
+      // Soft delete associated quotations and BOQs first
       await prisma.quotation.updateMany({
         where: { clientId: { in: ids } },
-        data: { parentId: null }
+        data: { deletedAt: new Date() }
       })
-      await prisma.quotation.deleteMany({
-        where: { clientId: { in: ids } }
-      })
-      await prisma.boq.deleteMany({
-        where: { clientId: { in: ids } }
-      })
-      await prisma.clientAssignment.deleteMany({
-        where: { clientId: { in: ids } }
+      await prisma.boq.updateMany({
+        where: { clientId: { in: ids } },
+        data: { deletedAt: new Date() }
       })
       deletableIds = ids
     } else {
@@ -92,8 +87,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const { count } = await prisma.client.deleteMany({
+    const { count } = await prisma.client.updateMany({
       where: { id: { in: deletableIds } },
+      data: { deletedAt: new Date() }
     })
 
     // Log Activity
