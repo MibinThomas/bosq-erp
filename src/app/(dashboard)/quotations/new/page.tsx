@@ -1368,6 +1368,57 @@ function NewQuotationForm() {
 
   const watchIncludeMaterialsFinishes = form.watch("includeMaterialsFinishes")
   const watchSelectedMaterials = form.watch("selectedMaterials") || []
+  const watchItems = form.watch("items") || []
+
+  const [isCostingSelectionOpen, setIsCostingSelectionOpen] = useState(false)
+  const [selectedCostingItemIndexes, setSelectedCostingItemIndexes] = useState<number[]>([])
+
+  const pendingCostingCount = useMemo(() => {
+    return watchItems.filter((item: any) => item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS").length
+  }, [watchItems])
+
+  const handleSendToCostingClick = () => {
+    const currentItems = form.getValues("items") || []
+    if (currentItems.length === 0) {
+      toast.error("Please add at least one product item before sending for costing.")
+      return
+    }
+
+    const pendingIndexes = currentItems
+      .map((item: any, idx: number) => (item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS" ? idx : -1))
+      .filter((idx) => idx !== -1)
+
+    if (pendingIndexes.length > 0) {
+      toast.info(`Submitting ${pendingIndexes.length} item(s) to Cost Estimator...`)
+      form.handleSubmit((data) => onSubmit(data, "DRAFT"), onInvalid)()
+    } else {
+      setSelectedCostingItemIndexes(currentItems.map((_, idx) => idx))
+      setIsCostingSelectionOpen(true)
+    }
+  }
+
+  const handleConfirmSendToCosting = (selectedIndexes: number[]) => {
+    if (selectedIndexes.length === 0) {
+      toast.error("Please select at least one product item to send for costing.")
+      return
+    }
+
+    const currentItems = form.getValues("items") || []
+    currentItems.forEach((item: any, idx: number) => {
+      if (selectedIndexes.includes(idx)) {
+        form.setValue(`items.${idx}.costingStatus`, "PENDING_COSTING", { shouldDirty: true })
+      } else if (item.costingStatus === "PENDING_COSTING") {
+        form.setValue(`items.${idx}.costingStatus`, "NOT_REQUIRED", { shouldDirty: true })
+      }
+    })
+
+    setIsCostingSelectionOpen(false)
+    toast.success(`${selectedIndexes.length} product(s) marked for costing. Saving quotation to notify estimator...`)
+    
+    setTimeout(() => {
+      form.handleSubmit((data) => onSubmit(data, "DRAFT"), onInvalid)()
+    }, 100)
+  }
 
   const [isClientPopoverOpen, setIsClientPopoverOpen] = useState(false)
   const [clientSearch, setClientSearch] = useState("")
@@ -2679,6 +2730,25 @@ function NewQuotationForm() {
           >
             <Save className="h-3.5 w-3.5" />
             <span>Save Draft</span>
+          </Button>
+
+          {/* Send to Costing Button - Highlighted Action */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting}
+            onClick={handleSendToCostingClick}
+            className="text-xs h-9 font-semibold flex items-center gap-1.5 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50 cursor-pointer shadow-2xs"
+            title="Submit products to Cost Estimator for pricing"
+          >
+            <Calculator className="h-3.5 w-3.5 text-amber-600" />
+            <span>Send to Costing</span>
+            {pendingCostingCount > 0 && (
+              <Badge variant="secondary" className="ml-1 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-1.5 py-0 text-[10px] font-mono font-bold">
+                {pendingCostingCount}
+              </Badge>
+            )}
           </Button>
 
           <Button
@@ -4241,6 +4311,110 @@ function NewQuotationForm() {
           setIsMaterialPickerOpen(false)
         }}
       />
+
+      {/* Costing Selection Modal */}
+      <Dialog open={isCostingSelectionOpen} onOpenChange={setIsCostingSelectionOpen}>
+        <DialogContent className="max-w-xl rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <Calculator className="h-5 w-5 text-amber-600" />
+              Select Products to Send for Costing
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Choose which line items require custom pricing from the Cost Estimator. Selected products will be assigned to the estimator queue with status <strong>Pending Costing</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 my-2 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="flex items-center justify-between border-b pb-2 text-xs">
+              <span className="font-semibold text-muted-foreground">Quotation Line Items ({watchItems.length})</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (selectedCostingItemIndexes.length === watchItems.length) {
+                    setSelectedCostingItemIndexes([])
+                  } else {
+                    setSelectedCostingItemIndexes(watchItems.map((_: any, idx: number) => idx))
+                  }
+                }}
+                className="text-xs h-6 px-2 text-amber-700 hover:bg-amber-50 font-semibold cursor-pointer"
+              >
+                {selectedCostingItemIndexes.length === watchItems.length ? "Deselect All" : "Select All"}
+              </Button>
+            </div>
+
+            {watchItems.map((item: any, idx: number) => {
+              const isChecked = selectedCostingItemIndexes.includes(idx)
+              return (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    setSelectedCostingItemIndexes((prev) =>
+                      isChecked ? prev.filter((i) => i !== idx) : [...prev, idx]
+                    )
+                  }}
+                  className={`p-3.5 border rounded-xl flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                    isChecked
+                      ? "border-amber-500 bg-amber-50/50 dark:bg-amber-950/30 ring-1 ring-amber-500"
+                      : "border-border bg-card hover:bg-muted/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {}}
+                      className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    />
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-xs font-bold text-muted-foreground">#{idx + 1}</span>
+                        <span className="font-semibold text-xs text-foreground truncate">
+                          {item.description || "Product #" + (idx + 1)}
+                        </span>
+                        {item.categoryName && (
+                          <Badge variant="outline" className="text-[10px] py-0 px-1 font-mono">
+                            {item.categoryName}
+                          </Badge>
+                        )}
+                      </div>
+                      {item.specifications && (
+                        <p className="text-[11px] text-muted-foreground truncate">{item.specifications}</p>
+                      )}
+                      <div className="text-[11px] text-muted-foreground font-mono">
+                        Qty: {item.quantity} | Unit Price: AED {(item.unitPrice || 0).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {isChecked && (
+                    <Badge className="bg-amber-600 text-white text-[10px] py-0.5 px-2 shrink-0 flex items-center gap-1">
+                      <Clock className="h-3 w-3 animate-pulse" /> Send
+                    </Badge>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <DialogFooter className="mt-4 pt-3 border-t flex justify-between items-center">
+            <Button variant="outline" onClick={() => setIsCostingSelectionOpen(false)} className="text-xs h-9 cursor-pointer">
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleConfirmSendToCosting(selectedCostingItemIndexes)}
+              disabled={selectedCostingItemIndexes.length === 0 || submitting}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs h-9 px-5 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <Calculator className="h-4 w-4" />
+              <span>Submit {selectedCostingItemIndexes.length} Product(s) for Costing</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Quotation Success Popup Modal */}
       <QuotationSuccessModal
