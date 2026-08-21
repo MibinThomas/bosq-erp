@@ -592,7 +592,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   preparedByRole,
   preparedBySignatureUrl,
   includeSalesAgent = false,
-  includeCompanySeal = true,
+  includeCompanySeal = false,
   includeMaterialsFinishes = false,
   selectedMaterials = [],
   salesAgentName,

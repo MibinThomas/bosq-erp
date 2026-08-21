@@ -88,7 +88,7 @@ import {
 
 const quotationSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
-  projectName: z.string().min(1, "Project name is required"),
+  projectName: z.string().optional(),
   quotationNumber: z.string().optional(),
   customerSegment: z.enum(["Interior", "Dealer", "Project", "Special"]),
   date: z.string(),
@@ -97,7 +97,7 @@ const quotationSchema = z.object({
   paymentTerms: z.string().optional().default("50% Advance, 50% on Delivery"),
   preparedById: z.string().optional(),
   includeSalesAgent: z.boolean().default(false).optional(),
-  includeCompanySeal: z.boolean().default(true).optional(),
+  includeCompanySeal: z.boolean().default(false).optional(),
   includeMaterialsFinishes: z.boolean().default(false).optional(),
   selectedMaterials: z.array(z.any()).default([]).optional(),
   salesAgentId: z.string().optional(),
@@ -593,12 +593,6 @@ function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid
       return sum + amt
     }, 0)
 
-    const val = watchSpecialDiscountValue === "" ? 0 : Number(watchSpecialDiscountValue) || 0
-    let specDisc = 0
-    if (watchSpecialDiscountType && val > 0) {
-      specDisc = watchSpecialDiscountType === "PERCENTAGE" ? ((sub + addCost) * val) / 100 : val
-    }
-
     const taxable = Math.max(0, sub + addCost - specDisc)
     const vat = watchVatMode === "INCLUDING" ? 0 : taxable * 0.05
     return watchVatMode === "INCLUDING" ? taxable : taxable + vat
@@ -608,45 +602,8 @@ function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid
   const primaryButtonText = isRevision ? "Submit Revision" : isOfficiallyCreated ? "Update Quotation" : "Create Quotation"
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
-      <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground hidden sm:inline">Grand Total:</span>
-          <span className="text-base sm:text-xl font-black font-mono text-primary">
-            AED {grandTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={submitting}
-            onClick={() => onSubmit(form.getValues(), "DRAFT")}
-            className="text-xs h-9 sm:h-10 px-3 sm:px-4 font-medium flex items-center gap-1.5 cursor-pointer bg-background"
-          >
-            <Save className="h-4 w-4" />
-            <span className="hidden sm:inline">Save Draft</span>
-            <span className="sm:hidden">Draft</span>
-          </Button>
-
-          <Button
-            type="button"
-            size="sm"
-            disabled={submitting}
-            onClick={form.handleSubmit((data: any) => onSubmit(data, "SUBMITTED"), onInvalid)}
-            className="text-xs h-9 sm:h-10 px-4 sm:px-6 font-bold flex items-center gap-1.5 cursor-pointer shadow-md bg-orange-600 hover:bg-orange-500 text-white"
-          >
-            {submitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-            <span>{primaryButtonText}</span>
-          </Button>
-        </div>
-      </div>
+    <div className="bg-card p-5 rounded-xl border shadow-2xs space-y-4">
+      {/* QuotationSummaryCard content */}
     </div>
   )
 }
@@ -1309,6 +1266,88 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
     </div>
   )
 })
+function StickyFooterToolbar({
+  grandTotal,
+  submitting,
+  primaryButtonText,
+  onSubmit,
+  onInvalid,
+  form,
+  handleSendToCostingClick,
+  pendingCostingCount
+}: {
+  grandTotal: number
+  submitting: boolean
+  primaryButtonText: string
+  onSubmit: (data: any, status?: any) => void
+  onInvalid: (errors: any) => void
+  form: any
+  handleSendToCostingClick: () => void
+  pendingCostingCount: number
+}) {
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
+      <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground hidden sm:inline">Grand Total:</span>
+          <span className="text-base sm:text-xl font-black font-mono text-primary">
+            AED {grandTotal.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting}
+            onClick={() => onSubmit(form.getValues(), "DRAFT")}
+            className="text-xs h-9 sm:h-10 px-3 sm:px-4 font-medium flex items-center gap-1.5 cursor-pointer bg-background"
+          >
+            <Save className="h-4 w-4" />
+            <span className="hidden sm:inline">Save Draft</span>
+            <span className="sm:hidden">Draft</span>
+          </Button>
+
+          {/* Send to Costing Button in Bottom Toolbar */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting}
+            onClick={handleSendToCostingClick}
+            className="text-xs h-9 sm:h-10 px-3 sm:px-4 font-semibold flex items-center gap-1.5 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50 cursor-pointer shadow-2xs"
+            title="Submit products to Cost Estimator for pricing"
+          >
+            <Calculator className="h-4 w-4 text-amber-600" />
+            <span className="hidden sm:inline">Send to Costing</span>
+            <span className="sm:hidden">Costing</span>
+            {pendingCostingCount > 0 && (
+              <Badge variant="secondary" className="ml-1 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-1.5 py-0 text-[10px] font-mono font-bold">
+                {pendingCostingCount}
+              </Badge>
+            )}
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            disabled={submitting}
+            onClick={form.handleSubmit((data: any) => onSubmit(data, "SUBMITTED"), onInvalid)}
+            className="text-xs h-9 sm:h-10 px-4 sm:px-6 font-bold flex items-center gap-1.5 cursor-pointer shadow-md bg-orange-600 hover:bg-orange-500 text-white"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            <span>{primaryButtonText}</span>
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function NewQuotationForm() {
   const router = useRouter()
@@ -1327,7 +1366,7 @@ function NewQuotationForm() {
       customerSegment: "Project",
       preparedById: (session?.user as any)?.id || "",
       includeSalesAgent: false,
-      includeCompanySeal: true,
+      includeCompanySeal: false,
       includeMaterialsFinishes: false,
       selectedMaterials: [],
       salesAgentId: "",
@@ -1554,6 +1593,37 @@ function NewQuotationForm() {
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  // Smooth auto-scroll during drag-and-drop
+  useEffect(() => {
+    if (draggedIndex === null && draggedBatchId === null) return
+
+    let animationFrameId: number | null = null
+
+    const handleGlobalDragOver = (e: DragEvent) => {
+      const viewportHeight = window.innerHeight
+      const mouseY = e.clientY
+      const threshold = 130 // Sensitivity zone near top/bottom viewport edges
+
+      if (animationFrameId) cancelAnimationFrame(animationFrameId)
+
+      const scrollSpeed = 20
+
+      if (mouseY < threshold) {
+        const intensity = (threshold - mouseY) / threshold
+        window.scrollBy({ top: -scrollSpeed * Math.max(0.4, intensity), behavior: "instant" as ScrollBehavior })
+      } else if (mouseY > viewportHeight - threshold) {
+        const intensity = (threshold - (viewportHeight - mouseY)) / threshold
+        window.scrollBy({ top: scrollSpeed * Math.max(0.4, intensity), behavior: "instant" as ScrollBehavior })
+      }
+    }
+
+    window.addEventListener("dragover", handleGlobalDragOver)
+    return () => {
+      window.removeEventListener("dragover", handleGlobalDragOver)
+      if (animationFrameId) cancelAnimationFrame(animationFrameId)
+    }
+  }, [draggedIndex, draggedBatchId])
 
   const [autoSavedQuoteId, setAutoSavedQuoteId] = useState<string | null>(null)
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<Date | null>(null)
@@ -1969,7 +2039,7 @@ function NewQuotationForm() {
               customerSegment: activeData.customerSegment || "Project",
               preparedById: activeData.preparedById,
               includeSalesAgent: activeData.includeSalesAgent ?? !!(activeData.salesAgentName || activeData.salesAgentContactNumber || activeData.salesAgentEmail),
-              includeCompanySeal: activeData.includeCompanySeal ?? true,
+              includeCompanySeal: activeData.includeCompanySeal ?? false,
               includeMaterialsFinishes: activeData.includeMaterialsFinishes ?? false,
               selectedMaterials: Array.isArray(activeData.selectedMaterials) ? activeData.selectedMaterials : [],
               salesAgentId: activeData.salesAgentId || "",
@@ -2656,7 +2726,37 @@ function NewQuotationForm() {
 
   const isOfficiallyCreated = isEdit && existingQuote && existingQuote.status !== "DRAFT"
   const headerTitle = isRevision ? "Revise Quotation" : isOfficiallyCreated ? "Update Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"
-  const primaryButtonText = isRevision ? "Save Revision" : isOfficiallyCreated ? "Update Quotation" : "Create Quotation"
+  const watchAdditionalCharges = form.watch("additionalCharges") || []
+  const watchSpecialDiscountType = form.watch("specialDiscountType")
+  const watchSpecialDiscountValue = form.watch("specialDiscountValue")
+  const watchVatMode = form.watch("vatMode") || "EXCLUDING"
+
+  const calculatedGrandTotal = useMemo(() => {
+    const sub = watchItems.reduce((sum: number, item: any) => {
+      const qty = item?.quantity === "" ? 0 : Number(item?.quantity) || 0
+      const price = item?.unitPrice === "" ? 0 : Number(item?.unitPrice) || 0
+      const discVal = item?.discount === "" ? 0 : Number(item?.discount) || 0
+      const discType = item?.discountType || "PERCENTAGE"
+      const discPerUnit = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
+      const netPrice = Math.max(0, price - discPerUnit)
+      return sum + qty * netPrice
+    }, 0)
+
+    const addCost = watchAdditionalCharges.reduce((sum: number, c: any) => {
+      const amt = c?.amount === "" ? 0 : Number(c?.amount) || 0
+      return sum + amt
+    }, 0)
+
+    const val = watchSpecialDiscountValue === "" ? 0 : Number(watchSpecialDiscountValue) || 0
+    let specDisc = 0
+    if (watchSpecialDiscountType && val > 0) {
+      specDisc = watchSpecialDiscountType === "PERCENTAGE" ? ((sub + addCost) * val) / 100 : val
+    }
+
+    const taxable = Math.max(0, sub + addCost - specDisc)
+    const vat = watchVatMode === "INCLUDING" ? 0 : taxable * 0.05
+    return watchVatMode === "INCLUDING" ? taxable : taxable + vat
+  }, [watchItems, watchAdditionalCharges, watchSpecialDiscountType, watchSpecialDiscountValue, watchVatMode])
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6 pb-32 px-3 sm:px-6 lg:px-8">
@@ -2730,25 +2830,6 @@ function NewQuotationForm() {
           >
             <Save className="h-3.5 w-3.5" />
             <span>Save Draft</span>
-          </Button>
-
-          {/* Send to Costing Button - Highlighted Action */}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={submitting}
-            onClick={handleSendToCostingClick}
-            className="text-xs h-9 font-semibold flex items-center gap-1.5 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50 cursor-pointer shadow-2xs"
-            title="Submit products to Cost Estimator for pricing"
-          >
-            <Calculator className="h-3.5 w-3.5 text-amber-600" />
-            <span>Send to Costing</span>
-            {pendingCostingCount > 0 && (
-              <Badge variant="secondary" className="ml-1 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-1.5 py-0 text-[10px] font-mono font-bold">
-                {pendingCostingCount}
-              </Badge>
-            )}
           </Button>
 
           <Button
@@ -4021,15 +4102,15 @@ function NewQuotationForm() {
       )}
 
       {/* STICKY FLOATING ACTION DOCK (MOBILE & DESKTOP) */}
-      <StickyDockSummaryPanel
-        control={form.control}
+      <StickyFooterToolbar
+        grandTotal={calculatedGrandTotal}
         submitting={submitting}
-        form={form}
+        primaryButtonText={primaryButtonText}
         onSubmit={onSubmit}
         onInvalid={onInvalid}
-        isRevision={isRevision}
-        isEdit={isEdit}
-        existingQuote={existingQuote}
+        form={form}
+        handleSendToCostingClick={handleSendToCostingClick}
+        pendingCostingCount={pendingCostingCount}
       />
 
       {/* Modals & Dialogs */}
