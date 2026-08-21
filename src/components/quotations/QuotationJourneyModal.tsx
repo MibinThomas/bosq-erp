@@ -433,12 +433,21 @@ export function QuotationJourneyModal({
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-3">
                                 <div className="flex items-center gap-2.5">
                                   <span className="text-sm font-bold font-mono text-foreground">
-                                    {item.revisionNumber === 0 ? "Original Quote" : `Revision #${item.revisionNumber}`}
+                                    {item.quotationNumber.toLowerCase().includes("copy")
+                                      ? "Copied Version"
+                                      : item.revisionNumber === 0 || item.quotationNumber === data?.quotation?.quotationNumber
+                                        ? "Original Quote"
+                                        : `Revision #${item.revisionNumber}`}
                                   </span>
-                                  <span className="text-xs text-muted-foreground">({item.quotationNumber})</span>
+                                  <span className="text-xs text-muted-foreground font-mono">({item.quotationNumber})</span>
                                   {isActive && (
                                     <Badge className="bg-primary/10 text-primary hover:bg-primary/15 text-[10px] px-2 py-0.5 rounded-md border-transparent font-bold">
                                       Active Version
+                                    </Badge>
+                                  )}
+                                  {item.quotationNumber.toLowerCase().includes("copy") && (
+                                    <Badge variant="outline" className="bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-400 border-teal-200 text-[10px] px-2 py-0.5 font-semibold">
+                                      Copy
                                     </Badge>
                                   )}
                                 </div>

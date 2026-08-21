@@ -76,11 +76,13 @@ export async function POST(
 
     const nextCopyNum = maxCopyNum + 1
     const newQuotationNumber = `${sourceNumber} Copy ${nextCopyNum}`
+    const rootId = sourceQuotation.parentId || sourceQuotation.id
 
     // Create copy quotation and items in database
     const newQuotation = await prisma.quotation.create({
       data: {
         quotationNumber: newQuotationNumber,
+        parentId: rootId,
         customerSegment: sourceQuotation.customerSegment,
         clientId: sourceQuotation.clientId,
         projectId: sourceQuotation.projectId,

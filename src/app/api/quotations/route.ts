@@ -63,7 +63,7 @@ export async function GET(request: Request) {
     const isExcludedFromOwnershipLimit = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(dbSessionUser.role)
 
     let whereClause: any = {
-      status: { not: "REVISED" },
+      parentId: null,
       deletedAt: null
     }
 
@@ -124,13 +124,19 @@ export async function GET(request: Request) {
         OR: [
           { quotationNumber: { contains: search, mode: "insensitive" } },
           { projectName: { contains: search, mode: "insensitive" } },
-          { client: { companyName: { contains: search, mode: "insensitive" } } }
+          { client: { companyName: { contains: search, mode: "insensitive" } } },
+          { revisionsList: { some: { quotationNumber: { contains: search, mode: "insensitive" }, deletedAt: null } } }
         ]
       })
     }
 
     if (filterStatus) {
-      andConditions.push({ status: filterStatus })
+      andConditions.push({
+        OR: [
+          { status: filterStatus },
+          { revisionsList: { some: { status: filterStatus, deletedAt: null } } }
+        ]
+      })
     }
 
     if (filterSegment) {
@@ -138,7 +144,12 @@ export async function GET(request: Request) {
     }
 
     if (filterPoStatus) {
-      andConditions.push({ poStatus: filterPoStatus })
+      andConditions.push({
+        OR: [
+          { poStatus: filterPoStatus },
+          { revisionsList: { some: { poStatus: filterPoStatus, deletedAt: null } } }
+        ]
+      })
     }
 
     const finalWhere = {
@@ -170,14 +181,37 @@ export async function GET(request: Request) {
 
     const quotationsWithRevisions = await Promise.all(
       quotations.map(async (quote) => {
-        const rootId = quote.parentId || quote.id
+        const rootId = quote.id
         const revisions = await prisma.quotationRevision.findMany({
           where: { quotationId: rootId },
           orderBy: { revisionNumber: "desc" }
         })
+
+        const seriesQuotations = await prisma.quotation.findMany({
+          where: {
+            OR: [
+              { id: rootId },
+              { parentId: rootId }
+            ],
+            deletedAt: null
+          },
+          orderBy: { revisionNumber: "asc" },
+          include: {
+            preparedBy: { select: { name: true } }
+          }
+        })
+
+        const confirmedQuotation = seriesQuotations.find(s => s.status === "CLIENT_CONFIRMED")
+        const activeQuotation = confirmedQuotation || seriesQuotations[seriesQuotations.length - 1] || quote
+
         return {
           ...quote,
-          revisions
+          grandTotal: activeQuotation.grandTotal,
+          status: activeQuotation.status,
+          poStatus: activeQuotation.poStatus || quote.poStatus,
+          activeQuotationId: activeQuotation.id,
+          revisions,
+          seriesQuotations
         }
       })
     )

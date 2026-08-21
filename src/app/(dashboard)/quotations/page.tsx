@@ -613,7 +613,7 @@ export default function QuotationsPage() {
                             className="h-8 w-8 hover:bg-muted"
                             title={quote.status === "PENDING_APPROVAL" && !canEdit ? "Pending Approval (Locked)" : "Download PDF"}
                             disabled={quote.status === "PENDING_APPROVAL" && !canEdit}
-                            onClick={() => window.open(`/api/quotations/${quote.id}/pdf`, "_blank")}
+                            onClick={() => window.open(`/api/quotations/${(quote as any).activeQuotationId || quote.id}/pdf`, "_blank")}
                           >
                             {quote.status === "PENDING_APPROVAL" && !canEdit ? (
                               <Lock className="h-4 w-4 text-muted-foreground/60" />
@@ -640,97 +640,97 @@ export default function QuotationsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                        className="h-8 w-8 hover:bg-muted text-blue-600 hover:text-blue-700"
-                        title="Preview Quotation"
-                        onClick={() => window.open(`/quotations/${quote.id}/preview`, "_blank")}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-
-                      {/* Update or Revise button based on status */}
-                      {quote.status === "PENDING_APPROVAL" ? (
-                        <Link href={`/quotations/new?editId=${quote.id}`}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-muted text-amber-600 hover:text-amber-700"
-                            title="Update Quotation"
+                            className="h-8 w-8 hover:bg-muted text-blue-600 hover:text-blue-700"
+                            title="Preview Quotation"
+                            onClick={() => window.open(`/quotations/${(quote as any).activeQuotationId || quote.id}/preview`, "_blank")}
                           >
-                            <Edit className="h-4 w-4" />
+                            <Eye className="h-4 w-4" />
                           </Button>
-                        </Link>
-                      ) : (
-                        <Link href={`/quotations/new?reviseId=${quote.id}`}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-muted text-purple-600 hover:text-purple-700"
-                            title="Revise Quotation"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      )}
 
-                      {/* Options Dropdown */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
-                          <DropdownMenuLabel>View Options</DropdownMenuLabel>
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setJourneyQuoteId(quote.id)
-                              setIsJourneyOpen(true)
-                            }}
-                            className="flex items-center cursor-pointer font-medium"
-                          >
-                            <Map className="mr-2 h-4 w-4 text-blue-600" />
-                            Quotation Journey
-                          </DropdownMenuItem>
-                          
-                          <DropdownMenuSeparator />
-                          <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              setTargetStatusQuote({
-                                id: quote.id,
-                                quotationNumber: quote.quotationNumber,
-                                status: quote.status
-                              })
-                              setStatusModalOpen(true)
-                            }}
-                            className="flex items-center cursor-pointer font-medium"
-                          >
-                            <RefreshCw className="mr-2 h-4 w-4 text-emerald-600" />
-                            Change Status...
-                          </DropdownMenuItem>
-                          
-                          <DropdownMenuSeparator />
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          {quote.status === "DRAFT" ? (
-                            <Link href={`/quotations/new?editId=${quote.id}`}>
-                              <DropdownMenuItem className="flex items-center text-amber-600 focus:text-amber-600 focus:bg-amber-50 cursor-pointer">
-                                <Edit className="mr-2 h-4 w-4 text-amber-600" />
-                                Update Quotation
-                              </DropdownMenuItem>
+                          {/* Update or Revise button based on status */}
+                          {quote.status === "PENDING_APPROVAL" ? (
+                            <Link href={`/quotations/new?editId=${(quote as any).activeQuotationId || quote.id}`}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-muted text-amber-600 hover:text-amber-700"
+                                title="Update Quotation"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
                             </Link>
                           ) : (
-                            <Link href={`/quotations/new?reviseId=${quote.id}`}>
-                              <DropdownMenuItem className="flex items-center text-purple-600 focus:text-purple-600 focus:bg-purple-50 cursor-pointer">
-                                <RefreshCw className="mr-2 h-4 w-4 text-purple-600" />
-                                Revise Quotation
-                              </DropdownMenuItem>
+                            <Link href={`/quotations/new?reviseId=${(quote as any).activeQuotationId || quote.id}`}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-muted text-purple-600 hover:text-purple-700"
+                                title="Revise Quotation"
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
                             </Link>
                           )}
-                          <DropdownMenuItem
-                            onClick={() => handleCopyQuote(quote.id)}
-                            className="flex items-center text-teal-600 focus:text-teal-600 focus:bg-teal-50 cursor-pointer font-medium"
-                          >
-                            <Copy className="mr-2 h-4 w-4 text-teal-600" />
-                            Copy Quotation...
-                          </DropdownMenuItem>
+
+                          {/* Options Dropdown */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52">
+                              <DropdownMenuLabel>View Options</DropdownMenuLabel>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setJourneyQuoteId(quote.id)
+                                  setIsJourneyOpen(true)
+                                }}
+                                className="flex items-center cursor-pointer font-medium"
+                              >
+                                <Map className="mr-2 h-4 w-4 text-blue-600" />
+                                Quotation Journey
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                              <DropdownMenuItem 
+                                onClick={() => {
+                                  setTargetStatusQuote({
+                                    id: (quote as any).activeQuotationId || quote.id,
+                                    quotationNumber: quote.quotationNumber,
+                                    status: quote.status
+                                  })
+                                  setStatusModalOpen(true)
+                                }}
+                                className="flex items-center cursor-pointer font-medium"
+                              >
+                                <RefreshCw className="mr-2 h-4 w-4 text-emerald-600" />
+                                Change Status...
+                              </DropdownMenuItem>
+                              
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              {quote.status === "DRAFT" ? (
+                                <Link href={`/quotations/new?editId=${(quote as any).activeQuotationId || quote.id}`}>
+                                  <DropdownMenuItem className="flex items-center text-amber-600 focus:text-amber-600 focus:bg-amber-50 cursor-pointer">
+                                    <Edit className="mr-2 h-4 w-4 text-amber-600" />
+                                    Update Quotation
+                                  </DropdownMenuItem>
+                                </Link>
+                              ) : (
+                                <Link href={`/quotations/new?reviseId=${(quote as any).activeQuotationId || quote.id}`}>
+                                  <DropdownMenuItem className="flex items-center text-purple-600 focus:text-purple-600 focus:bg-purple-50 cursor-pointer">
+                                    <RefreshCw className="mr-2 h-4 w-4 text-purple-600" />
+                                    Revise Quotation
+                                  </DropdownMenuItem>
+                                </Link>
+                              )}
+                              <DropdownMenuItem
+                                onClick={() => handleCopyQuote((quote as any).activeQuotationId || quote.id)}
+                                className="flex items-center text-teal-600 focus:text-teal-600 focus:bg-teal-50 cursor-pointer font-medium"
+                              >
+                                <Copy className="mr-2 h-4 w-4 text-teal-600" />
+                                Copy Quotation...
+                              </DropdownMenuItem>
 
                           {isSuperAdmin && (
                             <>

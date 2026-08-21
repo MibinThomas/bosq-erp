@@ -18,13 +18,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No quotation IDs provided" }, { status: 400 })
     }
 
-    // Soft-delete quotations so they can be restored by Super Admin
+    // Soft-delete quotations (and any child revisions/copies) so they can be restored by Super Admin
     await prisma.$transaction(async (tx) => {
       await tx.quotation.updateMany({
         where: {
-          id: {
-            in: ids,
-          },
+          OR: [
+            { id: { in: ids } },
+            { parentId: { in: ids } }
+          ]
         },
         data: {
           deletedAt: new Date()

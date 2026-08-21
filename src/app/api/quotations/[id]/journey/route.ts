@@ -56,7 +56,8 @@ export async function GET(
         OR: [
           { id: rootId },
           { parentId: rootId }
-        ]
+        ],
+        deletedAt: null
       },
       select: { id: true, quotationNumber: true }
     })
@@ -114,9 +115,13 @@ export async function GET(
         OR: [
           { id: rootId },
           { parentId: rootId }
-        ]
+        ],
+        deletedAt: null
       },
-      orderBy: { revisionNumber: "asc" },
+      orderBy: [
+        { revisionNumber: "asc" },
+        { createdAt: "asc" }
+      ],
       include: {
         preparedBy: {
           select: { name: true }

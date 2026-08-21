@@ -1879,19 +1879,33 @@ export async function DELETE(
     })
 
     await prisma.$transaction(async (tx) => {
-      await tx.quotation.update({
-        where: { id: targetQuote.id },
-        data: { deletedAt: new Date() }
-      })
+      if (!targetQuote.parentId) {
+        // Root quotation is deleted: soft-delete the root quote and all child revisions/copies
+        await tx.quotation.updateMany({
+          where: {
+            OR: [
+              { id: targetQuote.id },
+              { parentId: targetQuote.id }
+            ]
+          },
+          data: { deletedAt: new Date() }
+        })
+      } else {
+        // Single child revision/copy is deleted
+        await tx.quotation.update({
+          where: { id: targetQuote.id },
+          data: { deletedAt: new Date() }
+        })
 
-      const remainingSeries = seriesQuotes.filter(q => q.id !== targetQuote.id)
-      if (remainingSeries.length > 0) {
-        const hasActiveOrConfirmed = remainingSeries.some(q => ["CLIENT_CONFIRMED", "CLIENT_APPROVED", "SUBMITTED", "DRAFT"].includes(q.status))
-        if (!hasActiveOrConfirmed) {
-          await tx.quotation.update({
-            where: { id: remainingSeries[0].id },
-            data: { status: "SUBMITTED" }
-          })
+        const remainingSeries = seriesQuotes.filter(q => q.id !== targetQuote.id)
+        if (remainingSeries.length > 0) {
+          const hasActiveOrConfirmed = remainingSeries.some(q => ["CLIENT_CONFIRMED", "CLIENT_APPROVED", "SUBMITTED", "DRAFT"].includes(q.status))
+          if (!hasActiveOrConfirmed) {
+            await tx.quotation.update({
+              where: { id: remainingSeries[0].id },
+              data: { status: "SUBMITTED" }
+            })
+          }
         }
       }
 
