@@ -1372,7 +1372,12 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
                 return processedCharges.map((charge: any, idx: number) => (
                   <View key={`charge-${idx}`} style={styles.financialRow}>
-                    <Text style={styles.financialLabel}>{charge.name}</Text>
+                    <View style={{ flex: 1, paddingRight: 4 }}>
+                      <Text style={styles.financialLabel}>{charge.name}</Text>
+                      {charge.notes ? (
+                        <Text style={{ fontSize: 7, color: colors.lightText, marginTop: 1 }}>{charge.notes}</Text>
+                      ) : null}
+                    </View>
                     <Text style={styles.financialValue}>AED {formatCurrency(Number(charge.amount))}</Text>
                   </View>
                 ));

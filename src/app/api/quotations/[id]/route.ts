@@ -832,10 +832,6 @@ export async function PUT(
 
       // Validate Additional Costs
       const parsedAdditionalCharges = Array.isArray(additionalCharges) ? additionalCharges : []
-      const hasCustomCharges = parsedAdditionalCharges.some(c => (parseFloat(c.amount) || 0) > 0)
-      if (hasCustomCharges && !allowedCanAddCustomCharges) {
-        return NextResponse.json({ error: "Forbidden: You do not have permission to add additional costs" }, { status: 403 })
-      }
 
       if (!items || items.length === 0) {
         return NextResponse.json(
@@ -1332,10 +1328,6 @@ export async function PUT(
 
       // Validate Additional Costs
       const parsedAdditionalCharges = Array.isArray(additionalCharges) ? additionalCharges : []
-      const hasCustomCharges = parsedAdditionalCharges.some(c => (parseFloat(c.amount) || 0) > 0)
-      if (hasCustomCharges && !allowedCanAddCustomCharges) {
-        return NextResponse.json({ error: "Forbidden: You do not have permission to add additional costs" }, { status: 403 })
-      }
 
       if (!items || items.length === 0) {
         return NextResponse.json(

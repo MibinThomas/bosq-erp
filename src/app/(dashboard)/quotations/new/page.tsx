@@ -140,6 +140,7 @@ const quotationSchema = z.object({
     z.object({
       name: z.string().optional().default(""),
       amount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Amount must be at least 0"),
+      notes: z.string().optional().default(""),
     })
   ).optional().default([]),
   termsConditions: z.array(z.string()).optional(),
@@ -519,11 +520,22 @@ function CalculationSummaryPanel({ control }: { control: any }) {
           <span className="font-semibold font-mono text-foreground">AED {formatCurrency(subtotal)}</span>
         </div>
 
-        {/* Additional Costs */}
-        {totalAdditionalCost > 0 && (
-          <div className="flex justify-between items-center text-emerald-600 font-medium">
-            <span className="text-muted-foreground">Additional Charges</span>
-            <span className="font-mono font-semibold">+ AED {formatCurrency(totalAdditionalCost)}</span>
+        {/* Additional Costs Itemized Breakdown */}
+        {watchAdditionalCharges.length > 0 && watchAdditionalCharges.some((c: any) => (parseFloat(c?.amount) || 0) > 0) && (
+          <div className="space-y-1.5 pt-1 border-t border-dashed border-border/50">
+            {watchAdditionalCharges.map((c: any, idx: number) => {
+              const amt = c?.amount === "" ? 0 : Number(c?.amount) || 0
+              if (amt <= 0 && (!c?.name || !c.name.trim())) return null
+              return (
+                <div key={idx} className="flex justify-between items-center text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                  <span className="text-muted-foreground flex flex-col">
+                    <span className="font-semibold text-foreground">{c.name || `Additional Charge #${idx + 1}`}</span>
+                    {c.notes && <span className="text-[10px] text-muted-foreground/80 italic">{c.notes}</span>}
+                  </span>
+                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">+ AED {formatCurrency(amt)}</span>
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -1377,25 +1389,23 @@ function NewQuotationForm() {
       selectedMaterials: [],
       salesAgentId: "",
       salesAgentName: "",
+      salesAgentTitle: "",
       salesAgentContactNumber: "",
       salesAgentEmail: "",
+      deliveryCharge: 0,
+      notes: "",
+      disclaimerTitle: "Disclaimers",
+      disclaimer: "",
+      vatMode: "EXCLUDING",
+      specialDiscountType: null,
+      specialDiscountValue: 0,
+      specialDiscountReason: "",
+      additionalCharges: [{ name: "", amount: "", notes: "" }],
       date: new Date().toISOString().split("T")[0],
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
       items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, discountType: "PERCENTAGE", margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: "", saveToCatalog: false }],
-      deliveryCharge: 0,
-      notes: "",
-      vatMode: "EXCLUDING",
-      specialDiscountType: null,
-      specialDiscountValue: 0,
-      specialDiscountReason: "",
-      additionalCharges: [{ name: "", amount: "" }],
-      termsConditions: [
-        "Validity: This quotation is valid for 30 days from date of issue.",
-        "Delivery: Delivery within 4-6 weeks of order approval.",
-        "Warranty: All structural elements carry a 5-year warranty."
-      ],
     },
   })
 
@@ -2117,7 +2127,9 @@ function NewQuotationForm() {
               specialDiscountType: activeData.specialDiscountType || null,
               specialDiscountValue: activeData.specialDiscountValue || 0,
               specialDiscountReason: activeData.specialDiscountReason || "",
-              additionalCharges: activeData.additionalCharges || [{ name: "", amount: "" }],
+              additionalCharges: Array.isArray(activeData.additionalCharges) && activeData.additionalCharges.length > 0
+                ? activeData.additionalCharges
+                : [{ name: "", amount: "", notes: "" }],
             })
           }
         } else {
@@ -2533,10 +2545,11 @@ function NewQuotationForm() {
       })
 
       const cleanAdditionalCharges = (data.additionalCharges || [])
-        .filter((c: any) => (c.name && c.name.trim()) || (c.amount !== "" && Number(c.amount) > 0))
+        .filter((c: any) => (c.name && c.name.trim()) || (c.amount !== "" && Number(c.amount) > 0) || (c.notes && c.notes.trim()))
         .map((c: any) => ({
-          name: c.name || "Additional Charge",
-          amount: c.amount === "" ? 0 : Number(c.amount)
+          name: c.name ? c.name.trim() : "Additional Charge",
+          amount: c.amount === "" ? 0 : Number(c.amount),
+          notes: c.notes ? c.notes.trim() : "",
         }))
 
       const calcDeliveryCharge = cleanAdditionalCharges.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0)
@@ -2639,10 +2652,11 @@ function NewQuotationForm() {
       }
 
       const cleanAdditionalCharges = (currentData.additionalCharges || [])
-        .filter((c: any) => (c.name && c.name.trim()) || (c.amount !== "" && Number(c.amount) > 0))
+        .filter((c: any) => (c.name && c.name.trim()) || (c.amount !== "" && Number(c.amount) > 0) || (c.notes && c.notes.trim()))
         .map((c: any) => ({
-          name: c.name || "Additional Charge",
-          amount: c.amount === "" ? 0 : Number(c.amount)
+          name: c.name ? c.name.trim() : "Additional Charge",
+          amount: c.amount === "" ? 0 : Number(c.amount),
+          notes: c.notes ? c.notes.trim() : "",
         }))
 
       const totalAdditionalCost = cleanAdditionalCharges.reduce((sum: number, c: any) => sum + Number(c.amount || 0), 0)
@@ -3987,108 +4001,104 @@ function NewQuotationForm() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full">
                   {/* Left Column: Additional Costs Repeater */}
                   <div className="lg:col-span-7 space-y-4">
-                    <h4 className="text-xs font-semibold text-foreground uppercase border-b pb-2 flex items-center gap-2">
-                      Additional Costs & Custom Fees
-                      {(() => {
-                        const isSuperAdmin = userRole === "SUPER_ADMIN"
-                        const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
-                        const isNewQuote = !existingQuote
-                        const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
-                        return !allowedAddCustomCharges && <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
-                      })()}
+                    <h4 className="text-xs font-semibold text-foreground uppercase border-b pb-2 flex items-center justify-between">
+                      <span>Additional Costs &amp; Custom Fees</span>
+                      <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
+                        {additionalFields.length} Fee(s)
+                      </Badge>
                     </h4>
                     
                     <div className="space-y-3 p-4 rounded-xl border bg-card shadow-2xs">
                       {additionalFields.map((field, index) => {
-                        const isSuperAdmin = userRole === "SUPER_ADMIN"
-                        const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
-                        const isNewQuote = !existingQuote
-                        const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
-                        
                         return (
-                          <div key={field.id} className="flex items-center gap-3">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              disabled={additionalFields.length === 1 || !allowedAddCustomCharges}
-                              onClick={() => removeAdditional(index)}
-                              className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer disabled:opacity-40"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div key={field.id} className="p-3 bg-muted/20 border rounded-xl space-y-2">
+                            <div className="flex items-center gap-3">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeAdditional(index)}
+                                className="h-9 w-9 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
+                                title="Remove cost item"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
 
-                            <div className="flex-1">
+                              <div className="flex-1">
+                                <FormField
+                                  control={form.control}
+                                  name={`additionalCharges.${index}.name`}
+                                  render={({ field }) => (
+                                    <FormControl>
+                                      <Input
+                                        placeholder="Cost Name (e.g. Delivery & Unloading, Installation Fee, Freight)"
+                                        className="h-9 bg-background text-xs font-semibold"
+                                        {...field}
+                                      />
+                                    </FormControl>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="w-36 sm:w-44">
+                                <FormField
+                                  control={form.control}
+                                  name={`additionalCharges.${index}.amount`}
+                                  render={({ field }) => {
+                                    const val = field.value === 0 ? "" : field.value
+                                    return (
+                                      <FormControl>
+                                        <div className="relative flex items-center">
+                                          <span className="absolute left-3 text-[10px] font-bold text-muted-foreground font-mono">AED</span>
+                                          <Input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            className="h-9 pl-10 pr-3 font-mono text-right text-xs font-bold bg-background w-full"
+                                            value={val}
+                                            onChange={(e) => {
+                                              const rawVal = e.target.value
+                                              const numVal = rawVal === "" ? "" : parseFloat(rawVal) || 0
+                                              field.onChange(numVal)
+                                            }}
+                                          />
+                                        </div>
+                                      </FormControl>
+                                    )
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Optional Notes Sub-field */}
+                            <div className="pl-12">
                               <FormField
                                 control={form.control}
-                                name={`additionalCharges.${index}.name`}
+                                name={`additionalCharges.${index}.notes`}
                                 render={({ field }) => (
                                   <FormControl>
                                     <Input
-                                      placeholder="e.g. Delivery & Unloading, Assembly Fee"
-                                      className="h-9 bg-background text-xs"
-                                      disabled={!allowedAddCustomCharges}
+                                      placeholder="Optional Notes (e.g., Heavy crane unloading, weekend site access fee...)"
+                                      className="h-7 bg-background text-[11px] text-muted-foreground italic border-dashed"
                                       {...field}
                                     />
                                   </FormControl>
                                 )}
                               />
                             </div>
-
-                            <div className="w-36">
-                              <FormField
-                                control={form.control}
-                                name={`additionalCharges.${index}.amount`}
-                                render={({ field }) => {
-                                  const val = field.value === 0 ? "" : field.value
-                                  return (
-                                    <FormControl>
-                                      <div className="relative flex items-center">
-                                        <span className="absolute left-3 text-[10px] font-bold text-muted-foreground font-mono">AED</span>
-                                        <Input
-                                          type="number"
-                                          step="0.01"
-                                          placeholder="0.00"
-                                          className="h-9 pl-10 pr-3 font-mono text-right text-xs bg-background w-full"
-                                          disabled={!allowedAddCustomCharges}
-                                          value={val}
-                                          onChange={(e) => {
-                                            const rawVal = e.target.value
-                                            const numVal = rawVal === "" ? "" : parseFloat(rawVal) || 0
-                                            field.onChange(numVal)
-                                          }}
-                                        />
-                                      </div>
-                                    </FormControl>
-                                  )
-                                }}
-                              />
-                            </div>
                           </div>
                         )
                       })}
 
-                      {(() => {
-                        const isSuperAdmin = userRole === "SUPER_ADMIN"
-                        const isCreator = existingQuote?.preparedById === (session?.user as any)?.id
-                        const isNewQuote = !existingQuote
-                        const allowedAddCustomCharges = isSuperAdmin || isCreator || isRevision || isNewQuote ? true : (userPermissions?.canAddCustomCharges ?? false)
-                        
-                        if (allowedAddCustomCharges) {
-                          return (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => appendAdditional({ name: "", amount: "" })}
-                              className="mt-3 text-xs flex items-center gap-1.5 cursor-pointer bg-background"
-                            >
-                              <Plus className="h-3.5 w-3.5" /> Add Cost Item
-                            </Button>
-                          )
-                        }
-                        return null
-                      })()}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => appendAdditional({ name: "", amount: "", notes: "" })}
+                        className="mt-2 text-xs font-semibold flex items-center gap-1.5 cursor-pointer bg-background"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add Cost Item
+                      </Button>
                     </div>
                   </div>
 

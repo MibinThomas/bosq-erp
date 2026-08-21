@@ -386,10 +386,6 @@ export async function POST(request: Request) {
 
     // Validate Additional Costs
     const parsedAdditionalCharges = Array.isArray(additionalCharges) ? additionalCharges : []
-    const hasCustomCharges = parsedAdditionalCharges.some(c => (parseFloat(c.amount) || 0) > 0)
-    if (hasCustomCharges && !allowedCanAddCustomCharges) {
-      return NextResponse.json({ error: "Forbidden: You do not have permission to add additional costs" }, { status: 403 })
-    }
 
     let creatorUser = { id: "", name: "Sales Rep", email: null as string | null, role: "SALES_EXECUTIVE", designation: null as string | null, phone: null as string | null, signature: null as string | null }
 
