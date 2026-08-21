@@ -116,6 +116,7 @@ interface Quotation {
   deliveryDate: string | null
   paymentTerms: string | null
   status: string
+  costingStatus?: string | null
   revisionNumber: number
   subtotal: number
   deliveryCharge: number
@@ -565,6 +566,30 @@ export default function QuotationHtmlPreviewPage() {
                 <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1 shrink-0">
                   <Check className="h-3 w-3" />
                   Client Approved
+                </Badge>
+              )}
+              {quotation.costingStatus === "PENDING_COSTING" && (
+                <Badge className="bg-amber-500 text-white font-semibold flex items-center gap-1 shrink-0">
+                  <Clock className="h-3 w-3" />
+                  Pending Costing
+                </Badge>
+              )}
+              {quotation.costingStatus === "COSTING_IN_PROGRESS" && (
+                <Badge className="bg-blue-600 text-white font-semibold flex items-center gap-1 shrink-0">
+                  <Calculator className="h-3 w-3" />
+                  In Costing
+                </Badge>
+              )}
+              {quotation.costingStatus === "PARTIALLY_COSTED" && (
+                <Badge className="bg-purple-600 text-white font-semibold flex items-center gap-1 shrink-0">
+                  <Calculator className="h-3 w-3" />
+                  Partially Costed
+                </Badge>
+              )}
+              {quotation.costingStatus === "COSTING_COMPLETED" && (
+                <Badge className="bg-emerald-600 text-white font-semibold flex items-center gap-1 shrink-0">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Costing Completed
                 </Badge>
               )}
             </div>
