@@ -593,6 +593,12 @@ function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid
       return sum + amt
     }, 0)
 
+    const val = watchSpecialDiscountValue === "" ? 0 : Number(watchSpecialDiscountValue) || 0
+    let specDisc = 0
+    if (watchSpecialDiscountType && val > 0) {
+      specDisc = watchSpecialDiscountType === "PERCENTAGE" ? ((sub + addCost) * val) / 100 : val
+    }
+
     const taxable = Math.max(0, sub + addCost - specDisc)
     const vat = watchVatMode === "INCLUDING" ? 0 : taxable * 0.05
     return watchVatMode === "INCLUDING" ? taxable : taxable + vat
@@ -2726,10 +2732,7 @@ function NewQuotationForm() {
 
   const isOfficiallyCreated = isEdit && existingQuote && existingQuote.status !== "DRAFT"
   const headerTitle = isRevision ? "Revise Quotation" : isOfficiallyCreated ? "Update Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"
-  const watchAdditionalCharges = form.watch("additionalCharges") || []
-  const watchSpecialDiscountType = form.watch("specialDiscountType")
-  const watchSpecialDiscountValue = form.watch("specialDiscountValue")
-  const watchVatMode = form.watch("vatMode") || "EXCLUDING"
+  const primaryButtonText = isRevision ? "Save Revision" : isOfficiallyCreated ? "Update Quotation" : "Create Quotation"
 
   const calculatedGrandTotal = useMemo(() => {
     const sub = watchItems.reduce((sum: number, item: any) => {
