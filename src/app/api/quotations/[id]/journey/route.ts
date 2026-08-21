@@ -38,8 +38,26 @@ export async function GET(
     }
 
     // Authorization checks
-    if (logUserRole === "SALES_EXECUTIVE") {
-      const hasAccess = quotation.preparedById === logUserId || quotation.salesAgentId === logUserId
+    if (["SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(logUserRole)) {
+      const rootId = quotation.parentId || quotation.id
+      const rootQuotation = quotation.parentId
+        ? await prisma.quotation.findUnique({ where: { id: rootId } })
+        : quotation
+
+      const isOwnerOrCreator = 
+        quotation.preparedById === logUserId ||
+        quotation.salesAgentId === logUserId ||
+        rootQuotation?.preparedById === logUserId ||
+        rootQuotation?.salesAgentId === logUserId
+
+      const assignmentCount = await prisma.clientAssignment.count({
+        where: { clientId: quotation.clientId, userId: logUserId }
+      })
+      const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+        where: { clientId: quotation.clientId, userId: logUserId, status: "Approved" }
+      })
+
+      const hasAccess = isOwnerOrCreator || assignmentCount > 0 || !!hasApprovedRequest
       if (!hasAccess) {
         return NextResponse.json(
           { error: "Forbidden: You do not have access to view this quotation" },

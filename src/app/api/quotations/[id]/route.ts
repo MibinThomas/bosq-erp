@@ -253,6 +253,37 @@ export async function PUT(
       include: { permissionOverrides: { where: { module: "QUOTATIONS" } } }
     })
 
+    // Helper function to verify quote ownership or assignment
+    const canManageQuotationSeries = async () => {
+      if (!["SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(logUserRole)) {
+        return true
+      }
+      const rootId = existingQuotation.parentId || existingQuotation.id
+      const rootQuotation = existingQuotation.parentId
+        ? await prisma.quotation.findUnique({ where: { id: rootId } })
+        : existingQuotation
+
+      const isOwnerOrCreator = 
+        existingQuotation.preparedById === logUserId ||
+        existingQuotation.salesAgentId === logUserId ||
+        rootQuotation?.preparedById === logUserId ||
+        rootQuotation?.salesAgentId === logUserId
+
+      if (isOwnerOrCreator) return true
+
+      const targetClientId = existingQuotation.clientId
+      const clientObj = await prisma.client.findUnique({ where: { id: targetClientId } })
+      const isClientSalesperson = clientObj?.salespersonId === logUserId
+      const assignmentCount = await prisma.clientAssignment.count({
+        where: { clientId: targetClientId, userId: logUserId }
+      })
+      const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+        where: { clientId: targetClientId, userId: logUserId, status: "Approved" }
+      })
+
+      return isClientSalesperson || assignmentCount > 0 || !!hasApprovedRequest
+    }
+
     const isEditingOrCreate = body.isRevision === true || body.isUpdate === true
     if (isEditingOrCreate) {
       const targetClientId = body.clientId || existingQuotation.clientId
@@ -719,8 +750,8 @@ export async function PUT(
 
     // CASE 1: FULL REVISION REQUEST
     if (body.isRevision === true) {
-      if (logUserRole === "SALES_EXECUTIVE" && existingQuotation.preparedById !== logUserId) {
-        return NextResponse.json({ error: "Unauthorized: You can only revise your own quotations" }, { status: 403 })
+      if (!(await canManageQuotationSeries())) {
+        return NextResponse.json({ error: "Unauthorized: You can only revise your own or assigned quotations" }, { status: 403 })
       }
 
       const rootId = existingQuotation.parentId || existingQuotation.id
@@ -1238,8 +1269,8 @@ export async function PUT(
 
     // CASE 3: DIRECT UPDATE OF CURRENT DRAFT
     if (body.isUpdate === true) {
-      if (logUserRole === "SALES_EXECUTIVE" && existingQuotation.preparedById !== logUserId) {
-        return NextResponse.json({ error: "Unauthorized: You can only update your own quotations" }, { status: 403 })
+      if (!(await canManageQuotationSeries())) {
+        return NextResponse.json({ error: "Unauthorized: You can only update your own or assigned quotations" }, { status: 403 })
       }
 
       const {
@@ -1681,8 +1712,8 @@ export async function PUT(
 
     // CASE 2: NORMAL STATUS/NOTES UPDATE (PO RECEIVED, STATUS CHANGES, etc.)
     const { status, poStatus, paymentStatus, notes } = body
-    if (logUserRole === "SALES_EXECUTIVE" && existingQuotation.preparedById !== logUserId) {
-      return NextResponse.json({ error: "Unauthorized: You can only update your own quotations" }, { status: 403 })
+    if (!(await canManageQuotationSeries())) {
+      return NextResponse.json({ error: "Unauthorized: You can only update your own or assigned quotations" }, { status: 403 })
     }
 
     // Block forward transition to PO/Production if not client approved

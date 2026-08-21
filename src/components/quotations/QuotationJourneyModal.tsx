@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import {
   Dialog,
   DialogContent,
@@ -7,13 +8,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2, FileDown, FolderOpen, ExternalLink, Calendar, User, Clock, Check, FileText, History, Edit3, Trash2, AlertTriangle } from "lucide-react"
+import { Loader2, FileDown, FolderOpen, ExternalLink, Calendar, User, Clock, Check, FileText, History, Edit, Edit3, RefreshCw, Copy, Eye, Trash2, AlertTriangle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useSession } from "next-auth/react"
+import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { toast } from "sonner"
 
 interface Log {
@@ -78,6 +80,10 @@ export function QuotationJourneyModal({
   onConfirmed?: () => void
 }) {
   const { data: session } = useSession()
+  const { hasPermission } = usePermissions()
+  const canCreate = hasPermission("QUOTATIONS", "create")
+  const canEdit = hasPermission("QUOTATIONS", "edit")
+
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<JourneyData | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -85,6 +91,7 @@ export function QuotationJourneyModal({
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
   const [confirmLoading, setConfirmLoading] = useState(false)
+  const [copyLoadingId, setCopyLoadingId] = useState<string | null>(null)
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isSuperAdmin = userRole === "SUPER_ADMIN"
@@ -214,6 +221,31 @@ export function QuotationJourneyModal({
       toast.error(err.message || "Failed to delete revision")
     } finally {
       setDeleteLoading(false)
+    }
+  }
+
+  const handleCopyTimelineItem = async (targetId: string) => {
+    setCopyLoadingId(targetId)
+    try {
+      const res = await fetch(`/api/quotations/${targetId}/copy`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Failed to copy quotation")
+      }
+      const newQuote = await res.json()
+      toast.success(`Created copy "${newQuote.quotationNumber}"!`)
+
+      if (quotationId) {
+        const journeyRes = await fetch(`/api/quotations/${quotationId}/journey`)
+        if (journeyRes.ok) setData(await journeyRes.json())
+      }
+      if (onConfirmed) onConfirmed()
+    } catch (err: any) {
+      toast.error(err.message || "Failed to copy quotation")
+    } finally {
+      setCopyLoadingId(null)
     }
   }
 
@@ -506,7 +538,7 @@ export function QuotationJourneyModal({
                               </div>
 
                               {/* Action Footer */}
-                              <div className="flex flex-wrap justify-between items-center pt-1 gap-2">
+                              <div className="flex flex-wrap justify-between items-center pt-2 border-t border-border/40 gap-2">
                                 <div>
                                   {item.status !== "CLIENT_CONFIRMED" && (
                                     <Button
@@ -519,11 +551,69 @@ export function QuotationJourneyModal({
                                         setIsConfirmModalOpen(true)
                                       }}
                                     >
-                                      Confirm as Final
+                                      <Check className="h-3.5 w-3.5 mr-1" /> Confirm as Final
                                     </Button>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {/* Edit Action */}
+                                  {canEdit && (
+                                    <Link href={`/quotations/new?editId=${item.id}`}>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200 font-semibold cursor-pointer"
+                                        title="Edit this version"
+                                      >
+                                        <Edit className="h-3.5 w-3.5 mr-1" /> Edit
+                                      </Button>
+                                    </Link>
+                                  )}
+
+                                  {/* Revise Action */}
+                                  {canCreate && (
+                                    <Link href={`/quotations/new?reviseId=${item.id}`}>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-200 font-semibold cursor-pointer"
+                                        title="Create a revision from this version"
+                                      >
+                                        <RefreshCw className="h-3.5 w-3.5 mr-1" /> Revise
+                                      </Button>
+                                    </Link>
+                                  )}
+
+                                  {/* Copy Action */}
+                                  {canCreate && (
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-50 border-teal-200 font-semibold cursor-pointer"
+                                      title="Create a copy of this version"
+                                      disabled={copyLoadingId === item.id}
+                                      onClick={() => handleCopyTimelineItem(item.id)}
+                                    >
+                                      {copyLoadingId === item.id ? (
+                                        <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                      ) : (
+                                        <Copy className="h-3.5 w-3.5 mr-1" />
+                                      )}
+                                      Copy
+                                    </Button>
+                                  )}
+
+                                  {/* View / Preview Action */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 font-semibold cursor-pointer"
+                                    onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
+                                  >
+                                    <Eye className="h-3.5 w-3.5 mr-1" /> View
+                                  </Button>
+
+                                  {/* Super Admin Rename & Delete */}
                                   {isSuperAdmin && (
                                     <>
                                       <Button
@@ -550,14 +640,6 @@ export function QuotationJourneyModal({
                                       </Button>
                                     </>
                                   )}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 font-semibold cursor-pointer"
-                                    onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
-                                  >
-                                    View Revision
-                                  </Button>
                                 </div>
                               </div>
                             </div>

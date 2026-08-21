@@ -39,12 +39,34 @@ export async function POST(
       return NextResponse.json({ error: "Source quotation not found" }, { status: 404 })
     }
 
-    // Check ownership / consultant access for SALES_EXECUTIVE
-    if (userRole === "SALES_EXECUTIVE" && sourceQuotation.preparedById !== userId) {
-      return NextResponse.json(
-        { error: "Unauthorized: You can only copy your own quotations" },
-        { status: 403 }
-      )
+    // Check ownership / consultant access for SALES_EXECUTIVE & INTERIOR_DESIGN_CONSULTANT
+    if (["SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole)) {
+      const rootId = sourceQuotation.parentId || sourceQuotation.id
+      const rootQuotation = sourceQuotation.parentId
+        ? await prisma.quotation.findUnique({ where: { id: rootId } })
+        : sourceQuotation
+
+      const isOwnerOrCreator = 
+        sourceQuotation.preparedById === userId ||
+        sourceQuotation.salesAgentId === userId ||
+        rootQuotation?.preparedById === userId ||
+        rootQuotation?.salesAgentId === userId
+
+      const isClientSalesperson = sourceQuotation.client?.salespersonId === userId
+      const assignmentCount = await prisma.clientAssignment.count({
+        where: { clientId: sourceQuotation.clientId, userId }
+      })
+      const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+        where: { clientId: sourceQuotation.clientId, userId, status: "Approved" }
+      })
+
+      const canCopy = isOwnerOrCreator || isClientSalesperson || assignmentCount > 0 || !!hasApprovedRequest
+      if (!canCopy) {
+        return NextResponse.json(
+          { error: "Unauthorized: You can only copy your own or assigned quotations" },
+          { status: 403 }
+        )
+      }
     }
 
     const sourceNumber = sourceQuotation.quotationNumber.replace(/\s+Copy.*$/gi, "").trim()
