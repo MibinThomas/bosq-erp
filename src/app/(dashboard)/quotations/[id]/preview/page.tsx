@@ -255,6 +255,7 @@ export default function QuotationHtmlPreviewPage() {
   }, [quotation])
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const isIDC = userRole === "INTERIOR_DESIGN_CONSULTANT"
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
   const isSuperAdmin = userRole === "SUPER_ADMIN"
 
@@ -281,14 +282,16 @@ export default function QuotationHtmlPreviewPage() {
   const isAuthorizedToConfirm = isSuperAdmin || isManagerOrAdmin || (userPermissions?.canConfirmQuotation === true)
   const canSaveToCatalog = isManagerOrAdminRole(userRole)
 
-  // Auto set active view mode based on authorization
+  // Auto set active view mode based on authorization & role
   useEffect(() => {
     if (isAuthorizedForCosting) {
       setActiveViewMode("costing")
+    } else if (isIDC) {
+      setActiveViewMode("pdf")
     } else {
       setActiveViewMode("html")
     }
-  }, [isAuthorizedForCosting])
+  }, [isAuthorizedForCosting, isIDC])
 
   const handleSaveItemToCatalog = async (item: QuotationItem) => {
     if (!quotation) return
@@ -571,7 +574,7 @@ export default function QuotationHtmlPreviewPage() {
         <div className="flex items-center space-x-2">
           {/* View Mode Navigation Bar - Removed 'Customer Document' for Managerial Users */}
           <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 p-0.5 rounded-lg border border-border mr-2">
-            {!isAuthorizedForCosting && (
+            {!isAuthorizedForCosting && !isIDC && (
               <Button
                 type="button"
                 variant={activeViewMode === "html" ? "default" : "ghost"}
@@ -616,28 +619,30 @@ export default function QuotationHtmlPreviewPage() {
             <Edit className="mr-1.5 h-4 w-4 text-slate-600" /> Edit
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              try {
-                const res = await fetch(`/api/quotations/${quotation.id}/copy`, { method: "POST" })
-                if (!res.ok) {
-                  const err = await res.json()
-                  throw new Error(err.error || "Failed to copy quotation")
+          {!isIDC && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/quotations/${quotation.id}/copy`, { method: "POST" })
+                  if (!res.ok) {
+                    const err = await res.json()
+                    throw new Error(err.error || "Failed to copy quotation")
+                  }
+                  const newQuote = await res.json()
+                  toast.success(`Created copy "${newQuote.quotationNumber}"!`)
+                  router.push(`/quotations/${newQuote.id}/preview`)
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to copy quotation.")
                 }
-                const newQuote = await res.json()
-                toast.success(`Created copy "${newQuote.quotationNumber}"!`)
-                router.push(`/quotations/${newQuote.id}/preview`)
-              } catch (err: any) {
-                toast.error(err.message || "Failed to copy quotation.")
-              }
-            }}
-            title="Make a Copy"
-            className="border-teal-600/50 text-teal-700 hover:bg-teal-50 dark:text-teal-300 font-semibold cursor-pointer"
-          >
-            <Copy className="mr-1.5 h-4 w-4 text-teal-600" /> Copy Quotation
-          </Button>
+              }}
+              title="Make a Copy"
+              className="border-teal-600/50 text-teal-700 hover:bg-teal-50 dark:text-teal-300 font-semibold cursor-pointer"
+            >
+              <Copy className="mr-1.5 h-4 w-4 text-teal-600" /> Copy Quotation
+            </Button>
+          )}
 
           {canSaveToCatalog && (
             <Button
