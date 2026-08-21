@@ -1398,6 +1398,7 @@ export async function PUT(
           dimensions: matchedProd?.dimensions || null,
           warranty: matchedProd?.warranty || null,
           batchHeading: item.batchHeading || null,
+          costingStatus: item.costingStatus || "NOT_REQUIRED",
         }
       }))
 

@@ -127,6 +127,19 @@ export async function PUT(
       })
     }
 
+    // Send Notification to Quotation Creator that costing has been completed and items are ready for review
+    if (quotation.preparedById) {
+      await prisma.notification.create({
+        data: {
+          userId: quotation.preparedById,
+          title: "Costing Completed",
+          message: `Costing for quotation ${quotation.quotationNumber} has been completed and the items are ready for your review.`,
+          type: "COSTING_COMPLETED",
+          link: `/quotations/${quotation.id}/preview`
+        }
+      })
+    }
+
     const updatedQuotation = await prisma.quotation.findUnique({
       where: { id: quotation.id },
       include: {

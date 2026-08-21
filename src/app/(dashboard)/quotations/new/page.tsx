@@ -36,6 +36,7 @@ import {
   Clock,
   RotateCcw,
   Palette,
+  Calculator,
   X
 } from "lucide-react"
 import Link from "next/link"
@@ -128,6 +129,7 @@ const quotationSchema = z.object({
       chairType: z.string().optional(),
       batchHeading: z.string().optional(),
       saveToCatalog: z.boolean().optional(),
+      costingStatus: z.enum(["NOT_REQUIRED", "PENDING_COSTING", "COSTING_IN_PROGRESS", "COSTING_COMPLETED", "REVISION_REQUESTED"]).default("NOT_REQUIRED").optional(),
     })
   ).min(1, "At least one product item is required"),
   vatMode: z.enum(["EXCLUDING", "INCLUDING"]).default("EXCLUDING"),
@@ -833,6 +835,43 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {/* Send for Costing Action & Status Badges */}
+          {currentItemVal.costingStatus === "PENDING_COSTING" ? (
+            <Badge 
+              variant="outline"
+              className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300 text-[11px] font-semibold py-0.5 px-2 flex items-center gap-1 cursor-pointer"
+              onClick={() => {
+                form.setValue(`items.${index}.costingStatus`, "NOT_REQUIRED", { shouldDirty: true })
+                toast.info(`Item #${index + 1} marked as standard pricing.`)
+              }}
+              title="Click to cancel costing request"
+            >
+              <Clock className="h-3 w-3 animate-pulse text-amber-600" /> Pending Costing
+            </Badge>
+          ) : currentItemVal.costingStatus === "COSTING_IN_PROGRESS" ? (
+            <Badge className="bg-blue-600 text-white font-semibold text-[11px] py-0.5 px-2 flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> Costing In Progress
+            </Badge>
+          ) : currentItemVal.costingStatus === "COSTING_COMPLETED" ? (
+            <Badge className="bg-emerald-600 text-white font-semibold text-[11px] py-0.5 px-2 flex items-center gap-1">
+              <Check className="h-3 w-3" /> Costing Completed
+            </Badge>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                form.setValue(`items.${index}.costingStatus`, "PENDING_COSTING", { shouldDirty: true })
+                toast.success(`Item #${index + 1} marked for costing! Save quotation to submit to Cost Estimator.`)
+              }}
+              className="text-[11px] h-7 px-2.5 flex items-center gap-1.5 border-amber-300/80 bg-amber-50/60 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 font-semibold cursor-pointer shadow-2xs"
+              title="Submit this item to Cost Estimator for pricing"
+            >
+              <Calculator className="h-3.5 w-3.5 text-amber-600" /> Send for Costing
+            </Button>
+          )}
+
           <Button
             type="button"
             variant="ghost"
