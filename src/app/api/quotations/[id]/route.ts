@@ -177,8 +177,22 @@ export async function GET(
     const aynMuskLogoBase64 = await getAynMuskLogoBase64()
     const barcodeBase64 = generateCode128DataUri(quotation.quotationNumber)
 
+    const sanitizedItems = userRole === "INTERIOR_DESIGN_CONSULTANT"
+      ? quotation.items.map(item => ({
+          ...item,
+          materialCost: 0,
+          laborCost: 0,
+          overheadCost: 0,
+          transportCost: 0,
+          installationCost: 0,
+          unitCost: 0,
+          marginPercentage: 0
+        }))
+      : quotation.items
+
     return NextResponse.json({
       ...quotation,
+      items: sanitizedItems,
       revisions,
       seriesQuotations,
       supportingDocuments,

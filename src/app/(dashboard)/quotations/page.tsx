@@ -65,6 +65,7 @@ interface Quotation {
   status: string
   poStatus: string | null
   paymentStatus: string | null
+  costingStatus?: string | null
   subtotal: number
   grandTotal: number
   sharepointUrl: string | null
@@ -528,6 +529,7 @@ export default function QuotationsPage() {
                     <TableHead>Interior Design Consultant (IDC)</TableHead>
                     <TableHead className="text-right">Total Amount (AED)</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Costing Status</TableHead>
                     <TableHead>PO Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -568,6 +570,19 @@ export default function QuotationsPage() {
                         })}
                       </TableCell>
                       <TableCell>{getStatusBadge(quote.status, quote.revisionNumber)}</TableCell>
+                      <TableCell>
+                        {quote.costingStatus === "PENDING_COSTING" ? (
+                          <Badge className="bg-amber-500 text-white font-semibold">Pending Costing</Badge>
+                        ) : quote.costingStatus === "COSTING_IN_PROGRESS" ? (
+                          <Badge className="bg-blue-600 text-white font-semibold">In Progress</Badge>
+                        ) : quote.costingStatus === "PARTIALLY_COSTED" ? (
+                          <Badge className="bg-purple-600 text-white font-semibold">Partially Costed</Badge>
+                        ) : quote.costingStatus === "COSTING_COMPLETED" ? (
+                          <Badge className="bg-emerald-600 text-white font-semibold">Costing Completed</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Standard</span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {quote.poStatus === "RECEIVED" ? (
                           <Badge variant="outline" className="border-green-600 text-green-600 font-medium">

@@ -209,6 +209,7 @@ export async function GET(request: Request) {
           grandTotal: activeQuotation.grandTotal,
           status: activeQuotation.status,
           poStatus: activeQuotation.poStatus || quote.poStatus,
+          costingStatus: activeQuotation.costingStatus || quote.costingStatus || "NONE",
           activeQuotationId: activeQuotation.id,
           revisions,
           seriesQuotations

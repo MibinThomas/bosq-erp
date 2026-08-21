@@ -46,6 +46,7 @@ import { Badge } from "@/components/ui/badge"
 import { useSession } from "next-auth/react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { CostingBreakdownModal } from "@/components/costing/CostingBreakdownModal"
+import { CostingUpdateModal } from "@/components/costing/CostingUpdateModal"
 import { ExecutiveCostSummaryCard } from "@/components/costing/ExecutiveCostSummaryCard"
 import { Calculator } from "lucide-react"
 
@@ -181,6 +182,8 @@ export default function QuotationHtmlPreviewPage() {
   const { data: session } = useSession()
   const [quotation, setQuotation] = useState<Quotation | null>(null)
   const [costingModalItem, setCostingModalItem] = useState<any>(null)
+  const [editingCostItem, setEditingCostItem] = useState<any>(null)
+  const [isCostModalOpen, setIsCostModalOpen] = useState(false)
   const [activeViewMode, setActiveViewMode] = useState<"html" | "pdf" | "costing">("costing")
   const [loading, setLoading] = useState(true)
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
@@ -912,11 +915,14 @@ export default function QuotationHtmlPreviewPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={() => setCostingModalItem(item)}
-                              className="h-7 text-[11px] px-2.5 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-1 cursor-pointer font-bold"
+                              onClick={() => {
+                                setEditingCostItem(item)
+                                setIsCostModalOpen(true)
+                              }}
+                              className="h-7 text-[11px] px-2.5 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-1 cursor-pointer font-bold"
                             >
-                              <Eye className="h-3.5 w-3.5" />
-                              Inspect
+                              <Calculator className="h-3.5 w-3.5" />
+                              Cost Item
                             </Button>
                           </td>
                         </tr>
@@ -1280,6 +1286,20 @@ export default function QuotationHtmlPreviewPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {quotation && editingCostItem && (
+        <CostingUpdateModal
+          quotationId={quotation.id}
+          item={editingCostItem}
+          open={isCostModalOpen}
+          onOpenChange={setIsCostModalOpen}
+          onSuccess={() => {
+            fetch(`/api/quotations/${quotation.id}`)
+              .then((res) => res.json())
+              .then((data) => setQuotation(data))
+          }}
+        />
       )}
     </div>
   )

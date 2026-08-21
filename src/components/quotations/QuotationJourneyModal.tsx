@@ -663,6 +663,10 @@ export function QuotationJourneyModal({
                           <span className={`absolute -left-[41px] top-5 h-4 w-4 rounded-full ring-4 ring-background shrink-0 ${
                             log.action === "CLIENT_CONFIRMED_QUOTATION" || log.details?.includes("Confirmed quotation")
                               ? "bg-emerald-500"
+                              : log.action === "COSTING_REQUESTED"
+                              ? "bg-amber-500"
+                              : log.action === "COSTING_COMPLETED"
+                              ? "bg-teal-500"
                               : "bg-zinc-400"
                           }`} />
                           
@@ -684,7 +688,9 @@ export function QuotationJourneyModal({
                             
                             {log.details && (
                               <p className="text-sm text-foreground leading-relaxed font-normal">
-                                {log.details}
+                                {userRole === "INTERIOR_DESIGN_CONSULTANT" && log.action === "COSTING_COMPLETED"
+                                  ? log.details.replace(/\. New Grand Total: AED .*$/, ". Costing completed & approved.")
+                                  : log.details}
                               </p>
                             )}
 

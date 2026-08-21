@@ -41,6 +41,8 @@ model User {
   clientAssignments    ClientAssignment[]         @relation("ClientAssignments")
   quotationAssignments QuotationAssignment[]      @relation("QuotationAssignments")
   accessRequests       ClientAccessRequest[]
+  assignedEstimatorQuotations Quotation[]        @relation("AssignedEstimatorQuotations")
+  assignedQuotationItems     QuotationItem[]    @relation("EstimatorQuotationItems")
 }
 
 model Notification {
@@ -189,6 +191,10 @@ model Quotation {
   salesAgentTitle          String?
   salesAgentEmail          String?
 
+  costingStatus            String    @default("NONE") // NONE, PENDING_COSTING, COSTING_IN_PROGRESS, PARTIALLY_COSTED, COSTING_COMPLETED
+  assignedEstimatorId      String?
+  assignedEstimator        User?     @relation("AssignedEstimatorQuotations", fields: [assignedEstimatorId], references: [id])
+
   deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -248,6 +254,21 @@ model QuotationItem {
   margin          Float     @default(0.0)
   amount          Float     @default(0.0) // (unitPrice - discount) * quantity
   sortOrder       Int       @default(0)
+
+  costingStatus        String    @default("NOT_REQUIRED") // NOT_REQUIRED, PENDING_COSTING, COSTING_IN_PROGRESS, COSTING_COMPLETED, REVISION_REQUESTED
+  unitCost             Float     @default(0.0)
+  materialCost         Float     @default(0.0)
+  laborCost            Float     @default(0.0)
+  overheadCost         Float     @default(0.0)
+  transportCost        Float     @default(0.0)
+  installationCost     Float     @default(0.0)
+  marginPercentage     Float     @default(0.0)
+  estimatorId          String?
+  estimator            User?     @relation("EstimatorQuotationItems", fields: [estimatorId], references: [id])
+  estimatorNotes       String?
+  costingRequestedAt   DateTime?
+  costingCompletedAt   DateTime?
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
