@@ -27,6 +27,7 @@ const navItems = [
   { name: "Clients", href: "/clients", icon: Users },
   { name: "Products", href: "/products", icon: Package },
   { name: "Quotations", href: "/quotations", icon: FileText },
+  { name: "Costing Requests", href: "/costing", icon: Calculator },
   { name: "Reports", href: "/reports", icon: BarChart3 },
   { name: "User Management", href: "/users", icon: Users },
   { name: "My Profile", href: "/profile", icon: UserIcon },

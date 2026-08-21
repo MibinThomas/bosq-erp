@@ -111,7 +111,7 @@ export async function POST(
         projectName: sourceQuotation.projectName,
         date: new Date(),
         validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        preparedById: userId,
+        preparedById: sourceQuotation.preparedById || userId,
         deliveryDate: sourceQuotation.deliveryDate,
         paymentTerms: sourceQuotation.paymentTerms,
         status: "DRAFT",

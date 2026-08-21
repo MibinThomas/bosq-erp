@@ -1379,6 +1379,10 @@ function NewQuotationForm() {
 
   const watchSegment = form.watch("customerSegment") || "Project"
 
+  const [isRevision, setIsRevision] = useState(false)
+  const [isEdit, setIsEdit] = useState(false)
+  const [isCopy, setIsCopy] = useState(false)
+
   useEffect(() => {
     if (!selectedClientObj) return
     let resolvedSegment: "Interior" | "Dealer" | "Project" | "Special" = "Project"
@@ -1390,15 +1394,14 @@ function NewQuotationForm() {
 
     form.setValue("customerSegment", resolvedSegment)
 
-    const assignedConsultantId = selectedClientObj.salespersonId || selectedClientObj.assignments?.find((a: any) => a.isPrimary)?.userId || selectedClientObj.assignments?.[0]?.userId
-    if (assignedConsultantId) {
-      form.setValue("preparedById", assignedConsultantId, { shouldDirty: true, shouldValidate: true })
+    // Only set preparedById from client default if creating a brand new quotation from scratch
+    if (!isRevision && !isEdit && !isCopy) {
+      const assignedConsultantId = selectedClientObj.salespersonId || selectedClientObj.assignments?.find((a: any) => a.isPrimary)?.userId || selectedClientObj.assignments?.[0]?.userId
+      if (assignedConsultantId) {
+        form.setValue("preparedById", assignedConsultantId, { shouldDirty: true, shouldValidate: true })
+      }
     }
-  }, [selectedClientObj])
-
-  const [isRevision, setIsRevision] = useState(false)
-  const [isEdit, setIsEdit] = useState(false)
-  const [isCopy, setIsCopy] = useState(false)
+  }, [selectedClientObj, isRevision, isEdit, isCopy])
   const [existingQuote, setExistingQuote] = useState<any>(null)
   const [isConfiguratorEnabled, setIsConfiguratorEnabled] = useState<boolean>(false)
   const [revisionNotes, setRevisionNotes] = useState("")
@@ -1773,7 +1776,7 @@ function NewQuotationForm() {
         if (Array.isArray(data)) {
           setUsers(data)
           const sessionUserId = (session?.user as any)?.id
-          if (sessionUserId && !form.getValues("preparedById")) {
+          if (sessionUserId && !form.getValues("preparedById") && !isRevision && !isEdit && !isCopy) {
             form.setValue("preparedById", sessionUserId)
           }
         }
