@@ -257,6 +257,8 @@ export async function GET(
       specialDiscountReason: quotation.specialDiscountReason || null,
       discount: quotation.discount || 0,
       additionalCharges: (quotation.additionalCharges as any) || [],
+      commonRemark: quotation.commonRemark || null,
+      commonRemarkHighlight: !!quotation.commonRemarkHighlight,
       status: quotation.status,
     }
 

@@ -131,6 +131,8 @@ export async function POST(
         notes: sourceQuotation.notes ? `[Copied from ${sourceNumber}] ${sourceQuotation.notes}` : `Copied from ${sourceNumber}`,
         disclaimerTitle: sourceQuotation.disclaimerTitle,
         disclaimer: sourceQuotation.disclaimer,
+        commonRemark: sourceQuotation.commonRemark,
+        commonRemarkHighlight: sourceQuotation.commonRemarkHighlight,
         termsConditions: sourceQuotation.termsConditions,
         salesAgentId: sourceQuotation.salesAgentId,
         salesAgentName: sourceQuotation.salesAgentName,

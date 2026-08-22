@@ -494,6 +494,8 @@ export interface QuotationPdfProps {
   specialDiscountReason?: string | null
   discount?: number | null
   additionalCharges?: AdditionalCharge[] | null
+  commonRemark?: string | null
+  commonRemarkHighlight?: boolean | null
   status?: string | null
 }
 
@@ -617,6 +619,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   specialDiscountReason = null,
   discount = 0,
   additionalCharges = [],
+  commonRemark = null,
+  commonRemarkHighlight = false,
   status = null,
 }) => {
   const formatCurrency = (val: number) => {
@@ -1331,6 +1335,33 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             </View>
           </View>
         )}
+
+        {/* Common Remark / Special Note Section */}
+        {commonRemark && commonRemark.trim() ? (
+          <View style={{
+            marginTop: 8,
+            marginBottom: 4,
+            padding: 8,
+            borderRadius: 5,
+            backgroundColor: commonRemarkHighlight ? "#fffbebf5" : "#f8fafc",
+            borderWidth: 1,
+            borderColor: commonRemarkHighlight ? "#f59e0b" : "#e2e8f0",
+          }} wrap={false}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+              <Text style={{ fontSize: 8.5, fontWeight: "bold", color: commonRemarkHighlight ? "#b45309" : "#334155", textTransform: "uppercase" }}>
+                Special Note / Common Remark
+              </Text>
+              {commonRemarkHighlight ? (
+                <Text style={{ fontSize: 6.5, fontWeight: "bold", color: "#d97706", backgroundColor: "#fef3c7", paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 3 }}>
+                  Highlighted Remark
+                </Text>
+              ) : null}
+            </View>
+            <Text style={{ fontSize: 8, color: commonRemarkHighlight ? "#78350f" : "#475569", lineHeight: 1.45 }}>
+              {commonRemark}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Financial Summary Box & Company Bank Details */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "stretch", marginTop: 6 }} wrap={false}>

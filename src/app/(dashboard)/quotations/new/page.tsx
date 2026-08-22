@@ -37,6 +37,8 @@ import {
   RotateCcw,
   Palette,
   Calculator,
+  MessageSquare,
+  Highlighter,
   X
 } from "lucide-react"
 import Link from "next/link"
@@ -143,6 +145,8 @@ const quotationSchema = z.object({
       notes: z.string().optional().default(""),
     })
   ).optional().default([]),
+  commonRemark: z.string().optional().default(""),
+  commonRemarkHighlight: z.boolean().optional().default(false),
   termsConditions: z.array(z.string()).optional(),
 })
 
@@ -1396,6 +1400,8 @@ function NewQuotationForm() {
       notes: "",
       disclaimerTitle: "Disclaimers",
       disclaimer: "",
+      commonRemark: "",
+      commonRemarkHighlight: false,
       vatMode: "EXCLUDING",
       specialDiscountType: null,
       specialDiscountValue: 0,
@@ -2146,6 +2152,8 @@ function NewQuotationForm() {
               notes: activeData.notes || "",
               disclaimerTitle: activeData.disclaimerTitle || sysDisclaimerTitle,
               disclaimer: activeData.disclaimer || sysDisclaimer,
+              commonRemark: activeData.commonRemark || "",
+              commonRemarkHighlight: activeData.commonRemarkHighlight ?? false,
               vatMode: activeData.vatMode || "EXCLUDING",
               specialDiscountType: activeData.specialDiscountType || null,
               specialDiscountValue: activeData.specialDiscountValue || 0,
@@ -2587,6 +2595,8 @@ function NewQuotationForm() {
           deliveryCharge: calcDeliveryCharge,
           specialDiscountValue: data.specialDiscountValue === "" ? 0 : Number(data.specialDiscountValue),
           additionalCharges: cleanAdditionalCharges,
+          commonRemark: data.commonRemark || "",
+          commonRemarkHighlight: !!data.commonRemarkHighlight,
           isRevision: sendIsRevision,
           isUpdate: isEdit || !!targetId,
           revisionNotes: revisionNotes,
@@ -2713,6 +2723,8 @@ function NewQuotationForm() {
           deliveryCharge: totalAdditionalCost,
           specialDiscountValue: currentData.specialDiscountValue === "" ? 0 : Number(currentData.specialDiscountValue),
           additionalCharges: cleanAdditionalCharges,
+          commonRemark: currentData.commonRemark || "",
+          commonRemarkHighlight: !!currentData.commonRemarkHighlight,
           isRevision: sendIsRevision,
           isUpdate: isEdit || !!autoSavedQuoteId,
           revisionNotes: revisionNotes,
@@ -3824,6 +3836,79 @@ function NewQuotationForm() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* CARD 2.5: Common Remark / Special Note */}
+            {(() => {
+              const watchCommonRemarkHighlight = form.watch("commonRemarkHighlight")
+              return (
+                <Card className={cn(
+                  "shadow-xs border-border/80 rounded-xl overflow-hidden transition-all duration-200",
+                  watchCommonRemarkHighlight && "border-amber-500/50 bg-amber-500/5 dark:bg-amber-950/20 ring-1 ring-amber-500/30"
+                )}>
+                  <CardHeader className={cn(
+                    "border-b py-3 px-4 sm:px-6 flex flex-row items-center justify-between gap-4 flex-wrap",
+                    watchCommonRemarkHighlight ? "bg-amber-500/10 dark:bg-amber-950/40 border-amber-500/30" : "bg-muted/30"
+                  )}>
+                    <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                      <MessageSquare className={cn("h-4 w-4", watchCommonRemarkHighlight ? "text-amber-600 dark:text-amber-400" : "text-primary")} />
+                      <span>Common Remark / Special Note</span>
+                      <span className="text-[10px] normal-case text-muted-foreground font-normal hidden sm:inline">(Optional remark displayed below products)</span>
+                    </CardTitle>
+
+                    {/* Highlight Toggle Switch */}
+                    <FormField
+                      control={form.control}
+                      name="commonRemarkHighlight"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center space-x-2 space-y-0 cursor-pointer">
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              className="data-[state=checked]:bg-amber-500"
+                            />
+                          </FormControl>
+                          <FormLabel className="text-xs font-semibold cursor-pointer flex items-center gap-1.5 text-foreground select-none">
+                            <Highlighter className={cn("h-3.5 w-3.5", field.value ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")} />
+                            <span>Highlight Remark</span>
+                            {field.value && (
+                              <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold border-amber-300">
+                                Highlighted
+                              </Badge>
+                            )}
+                          </FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  </CardHeader>
+
+                  <CardContent className="p-4 sm:p-6 space-y-3">
+                    <FormField
+                      control={form.control}
+                      name="commonRemark"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Enter any common remarks, overall product notes, or special instructions to be displayed below the product list..."
+                              rows={3}
+                              className={cn(
+                                "text-xs bg-background transition-colors resize-y font-sans",
+                                watchCommonRemarkHighlight && "border-amber-400/60 focus-visible:ring-amber-500 bg-amber-50/50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100 font-medium"
+                              )}
+                              {...field}
+                            />
+                          </FormControl>
+                          <p className="text-[11px] text-muted-foreground">
+                            This remark will appear directly below the product list on the quotation preview and exported PDF document.
+                          </p>
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              )
+            })()}
 
             {/* CARD 3: Disclaimers & Terms & Conditions Manager */}
             <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">

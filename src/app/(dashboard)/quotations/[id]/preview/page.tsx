@@ -28,6 +28,8 @@ import {
   Mail,
   ZoomIn,
   FolderGit2,
+  MessageSquare,
+  Highlighter,
   FileCode,
   User,
   ShieldAlert,
@@ -40,7 +42,7 @@ import {
   ChevronRight
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { isManagerOrAdminRole } from "@/lib/utils"
+import { isManagerOrAdminRole, cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { useSession } from "next-auth/react"
@@ -133,6 +135,8 @@ interface Quotation {
   specialDiscountReason?: string | null
   discount?: number | null
   additionalCharges?: any
+  commonRemark?: string | null
+  commonRemarkHighlight?: boolean | null
   client: {
     companyName: string
     contactPerson: string | null
@@ -957,6 +961,31 @@ export default function QuotationHtmlPreviewPage() {
                 </table>
               </div>
             </div>
+
+            {/* Common Remark / Special Note Callout Section */}
+            {quotation.commonRemark && quotation.commonRemark.trim() && (
+              <div className={cn(
+                "p-5 rounded-2xl border transition-all shadow-xs space-y-3",
+                quotation.commonRemarkHighlight
+                  ? "bg-amber-500/10 border-amber-500/50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100 ring-1 ring-amber-500/30"
+                  : "bg-card border-border/80 text-foreground"
+              )}>
+                <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                  <span className="font-bold text-xs uppercase tracking-wider flex items-center gap-2">
+                    <MessageSquare className={cn("h-4 w-4", quotation.commonRemarkHighlight ? "text-amber-600 dark:text-amber-400" : "text-primary")} />
+                    Common Remark / Special Note
+                  </span>
+                  {quotation.commonRemarkHighlight && (
+                    <Badge variant="secondary" className="text-[10px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-200 border-amber-400 flex items-center gap-1">
+                      <Highlighter className="h-3 w-3 text-amber-600 dark:text-amber-400" /> Highlighted Remark
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">
+                  {quotation.commonRemark}
+                </p>
+              </div>
+            )}
 
             {/* Supporting Documents & Revisions History Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -180,6 +180,8 @@ model Quotation {
   specialDiscountReason String?
   vatMode               String    @default("EXCLUDING") // "EXCLUDING" | "INCLUDING"
   additionalCharges     Json?     // array of { name: string, amount: number }
+  commonRemark          String?
+  commonRemarkHighlight Boolean   @default(false)
   
   includeSalesAgent        Boolean   @default(false)
   includeCompanySeal       Boolean   @default(true)

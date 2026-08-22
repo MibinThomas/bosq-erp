@@ -799,6 +799,8 @@ export async function POST(request: Request) {
         notes: notes || null,
         disclaimerTitle: disclaimerTitle || null,
         disclaimer: disclaimer || null,
+        commonRemark: body.commonRemark || null,
+        commonRemarkHighlight: !!body.commonRemarkHighlight,
         termsConditions: storedTermsConditions,
         includeSalesAgent: !!includeSalesAgent,
         includeCompanySeal: includeCompanySeal ?? false,
