@@ -755,8 +755,8 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
       onDragOver={(e) => handleDragOver(e, index)}
       onDrop={(e) => handleDrop(e, index, batchName)}
       className={cn(
-        "p-4 sm:p-5 rounded-xl border bg-card shadow-2xs space-y-4 transition-all hover:border-primary/40",
-        dragOverIndex === index && "border-primary border-dashed bg-primary/10 shadow-md",
+        "p-4 sm:p-5 rounded-xl border bg-card shadow-2xs space-y-4 transition-colors duration-150 hover:border-primary/40",
+        dragOverIndex === index && "border-primary border-dashed bg-primary/10 shadow-md ring-2 ring-primary/30",
         draggedIndex === index && "opacity-40 border-primary border-dashed"
       )}
     >
@@ -1610,33 +1610,56 @@ function NewQuotationForm() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
-  // Smooth auto-scroll during drag-and-drop
+  // Smooth, continuous 60FPS drag-and-drop auto-scroll engine
   useEffect(() => {
     if (draggedIndex === null && draggedBatchId === null) return
 
     let animationFrameId: number | null = null
+    let lastTime = performance.now()
+    let currentY = -1
 
     const handleGlobalDragOver = (e: DragEvent) => {
-      const viewportHeight = window.innerHeight
-      const mouseY = e.clientY
-      const threshold = 130 // Sensitivity zone near top/bottom viewport edges
-
-      if (animationFrameId) cancelAnimationFrame(animationFrameId)
-
-      const scrollSpeed = 20
-
-      if (mouseY < threshold) {
-        const intensity = (threshold - mouseY) / threshold
-        window.scrollBy({ top: -scrollSpeed * Math.max(0.4, intensity), behavior: "instant" as ScrollBehavior })
-      } else if (mouseY > viewportHeight - threshold) {
-        const intensity = (threshold - (viewportHeight - mouseY)) / threshold
-        window.scrollBy({ top: scrollSpeed * Math.max(0.4, intensity), behavior: "instant" as ScrollBehavior })
-      }
+      e.preventDefault()
+      currentY = e.clientY
     }
 
-    window.addEventListener("dragover", handleGlobalDragOver)
+    const scrollLoop = (now: number) => {
+      const deltaTime = Math.min((now - lastTime) / 1000, 0.1)
+      lastTime = now
+
+      if (currentY >= 0) {
+        const viewportHeight = window.innerHeight
+        const topThreshold = 140
+        const bottomThreshold = viewportHeight - 140
+
+        let scrollVelocity = 0
+
+        if (currentY < topThreshold) {
+          const intensity = Math.pow((topThreshold - Math.max(0, currentY)) / topThreshold, 1.2)
+          scrollVelocity = -950 * intensity
+        } else if (currentY > bottomThreshold) {
+          const distance = Math.max(0, currentY - bottomThreshold)
+          const maxDistance = viewportHeight - bottomThreshold
+          const intensity = Math.pow(Math.min(1, distance / maxDistance), 1.2)
+          scrollVelocity = 950 * intensity
+        }
+
+        if (scrollVelocity !== 0) {
+          window.scrollBy({
+            top: scrollVelocity * deltaTime,
+            behavior: "instant" as ScrollBehavior
+          })
+        }
+      }
+
+      animationFrameId = requestAnimationFrame(scrollLoop)
+    }
+
+    window.addEventListener("dragover", handleGlobalDragOver, { capture: true })
+    animationFrameId = requestAnimationFrame(scrollLoop)
+
     return () => {
-      window.removeEventListener("dragover", handleGlobalDragOver)
+      window.removeEventListener("dragover", handleGlobalDragOver, { capture: true })
       if (animationFrameId) cancelAnimationFrame(animationFrameId)
     }
   }, [draggedIndex, draggedBatchId])
@@ -1668,7 +1691,7 @@ function NewQuotationForm() {
     e.preventDefault()
     e.stopPropagation()
     e.dataTransfer.dropEffect = 'move'
-    if (draggedIndex !== null && draggedIndex !== index) {
+    if (draggedIndex !== null && draggedIndex !== index && dragOverIndex !== index) {
       setDragOverIndex(index)
     }
   }
