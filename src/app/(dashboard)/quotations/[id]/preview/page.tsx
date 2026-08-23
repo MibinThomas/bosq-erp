@@ -991,6 +991,11 @@ export default function QuotationHtmlPreviewPage() {
                         box: "bg-rose-500/10 border-rose-500/50 dark:bg-rose-950/30 text-rose-950 dark:text-rose-100 ring-1 ring-rose-500/30",
                         icon: "text-rose-600 dark:text-rose-400",
                       }
+                    case "NONE":
+                      return {
+                        box: "bg-slate-100/60 dark:bg-slate-900/60 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 ring-1 ring-slate-400/30",
+                        icon: "text-slate-600 dark:text-slate-400",
+                      }
                     default:
                       return {
                         box: "bg-card border-border/80 text-foreground",

@@ -1354,6 +1354,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                   return { bg: "#ecfdf5", border: "#10b981", header: "#047857", body: "#064e3b" }
                 case "ROSE":
                   return { bg: "#fff1f2", border: "#f43f5e", header: "#be123c", body: "#881337" }
+                case "NONE":
+                  return { bg: "#f8fafc", border: "#cbd5e1", header: "#334155", body: "#475569" }
                 default:
                   return { bg: "#f8fafc", border: "#e2e8f0", header: "#334155", body: "#475569" }
               }

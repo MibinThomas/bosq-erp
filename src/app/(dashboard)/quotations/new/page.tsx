@@ -4019,6 +4019,13 @@ function NewQuotationForm() {
                       icon: "text-rose-600 dark:text-rose-400",
                       textarea: "border-rose-400/60 focus-visible:ring-rose-500 bg-rose-50/50 dark:bg-rose-950/30 text-rose-950 dark:text-rose-100 font-medium",
                     }
+                  case "NONE":
+                    return {
+                      card: "border-slate-300 dark:border-slate-700 bg-slate-100/60 dark:bg-slate-900/60 ring-1 ring-slate-400/30",
+                      header: "bg-slate-200/50 dark:bg-slate-800/50 border-slate-300 dark:border-slate-700",
+                      icon: "text-slate-600 dark:text-slate-400",
+                      textarea: "border-slate-300 dark:border-slate-700 focus-visible:ring-slate-500 bg-slate-50/80 dark:bg-slate-900/80 text-foreground font-medium",
+                    }
                   default:
                     return {
                       card: "border-border/80",
@@ -4081,6 +4088,7 @@ function NewQuotationForm() {
                             { id: "BLUE", label: "Blue / Info", color: "bg-blue-400 border-blue-500", ring: "ring-blue-400" },
                             { id: "EMERALD", label: "Green / Success", color: "bg-emerald-400 border-emerald-500", ring: "ring-emerald-400" },
                             { id: "ROSE", label: "Red / Urgent", color: "bg-rose-400 border-rose-500", ring: "ring-rose-400" },
+                            { id: "NONE", label: "Without Color / Standard Slate", color: "bg-slate-200 dark:bg-slate-700 border-slate-400 text-slate-700 dark:text-slate-200", ring: "ring-slate-400" },
                           ].map((marker) => {
                             const isSelected = watchCommonRemarkStyle === marker.id
                             return (
