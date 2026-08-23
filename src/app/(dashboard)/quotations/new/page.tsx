@@ -2821,17 +2821,16 @@ function NewQuotationForm() {
     }, 50)
   }
 
-  // In-Page Preview Opener
+  // In-Page PDF Preview Opener
   const handleOpenInPagePreview = async () => {
     setLoadingPreview(true)
     setIsInPagePreviewOpen(true)
     try {
       let targetQuoteId = existingQuote?.id || autoSavedQuoteId || searchParams.get("editId") || searchParams.get("reviseId")
       
-      if (!targetQuoteId) {
-        await handleAutoSave()
-        targetQuoteId = autoSavedQuoteId || (form.getValues() as any)?.id
-      }
+      // Save current draft state so PDF renders exact up-to-date inputs
+      await handleAutoSave()
+      targetQuoteId = autoSavedQuoteId || (form.getValues() as any)?.id || targetQuoteId
 
       if (targetQuoteId) {
         const res = await fetch(`/api/quotations/${targetQuoteId}`)
@@ -2841,7 +2840,7 @@ function NewQuotationForm() {
         }
       }
     } catch (err) {
-      console.error("Failed to load in-page preview:", err)
+      console.error("Failed to load PDF preview:", err)
     } finally {
       setLoadingPreview(false)
     }
@@ -4498,14 +4497,14 @@ function NewQuotationForm() {
         onCrop={handleCropSave}
       />
 
-      {/* In-Page Draft Quotation Preview Modal */}
+      {/* In-Page Draft Quotation PDF Preview Modal */}
       <InPageQuotationPreviewModal
         open={isInPagePreviewOpen}
         onOpenChange={setIsInPagePreviewOpen}
-        quotationData={previewQuoteData}
+        quoteId={previewQuoteData?.id || existingQuote?.id || autoSavedQuoteId || searchParams.get("editId") || searchParams.get("reviseId")}
+        quotationNumber={previewQuoteData?.quotationNumber || existingQuote?.quotationNumber}
+        clientName={previewQuoteData?.client?.companyName}
         loading={loadingPreview}
-        formData={form.getValues()}
-        calculatedGrandTotal={calculatedGrandTotal}
       />
 
       {/* Request Access Note Dialog */}
