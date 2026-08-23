@@ -77,6 +77,7 @@ import { WorkstationConfigurator } from "@/components/products/workstation-confi
 import { ImageCropper } from "@/components/ui/image-cropper"
 import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
 import { QuotationSuccessModal } from "@/components/quotations/QuotationSuccessModal"
+import { InPageQuotationPreviewModal } from "@/components/quotations/InPageQuotationPreviewModal"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Image as ImageIcon, UploadCloud } from "lucide-react"
@@ -1916,6 +1917,16 @@ function NewQuotationForm() {
   const [requestNotes, setRequestNotes] = useState("")
   const [requestingAccess, setRequestingAccess] = useState(false)
 
+  // Undo & Redo History Stack
+  const historyStackRef = useRef<any[]>([])
+  const redoStackRef = useRef<any[]>([])
+  const isHistoryActionRef = useRef<boolean>(false)
+
+  // In-Page Preview Dialog State
+  const [isInPagePreviewOpen, setIsInPagePreviewOpen] = useState(false)
+  const [previewQuoteData, setPreviewQuoteData] = useState<any>(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
+
   const handleRequestAccess = async (clientId: string, clientName: string, notes?: string) => {
     try {
       const res = await fetch("/api/clients/access-requests", {
@@ -2753,6 +2764,137 @@ function NewQuotationForm() {
     }
   }
 
+  // Track Form Changes for Undo History Stack
+  useEffect(() => {
+    const subscription = form.watch((value) => {
+      if (isHistoryActionRef.current) return
+      
+      const snapshot = JSON.parse(JSON.stringify(value))
+      const lastSnapshot = historyStackRef.current[historyStackRef.current.length - 1]
+      
+      if (!lastSnapshot || JSON.stringify(snapshot) !== JSON.stringify(lastSnapshot)) {
+        historyStackRef.current.push(snapshot)
+        if (historyStackRef.current.length > 35) {
+          historyStackRef.current.shift()
+        }
+        redoStackRef.current = []
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [form])
+
+  // Undo / Redo Handlers
+  const performUndo = () => {
+    if (historyStackRef.current.length <= 1) {
+      toast.info("Nothing to undo")
+      return
+    }
+    isHistoryActionRef.current = true
+    const current = historyStackRef.current.pop()
+    if (current) {
+      redoStackRef.current.push(current)
+    }
+    const previous = historyStackRef.current[historyStackRef.current.length - 1]
+    if (previous) {
+      form.reset(previous)
+      toast.info("Undid previous change", { duration: 1500 })
+    }
+    setTimeout(() => {
+      isHistoryActionRef.current = false
+    }, 50)
+  }
+
+  const performRedo = () => {
+    if (redoStackRef.current.length === 0) {
+      toast.info("Nothing to redo")
+      return
+    }
+    isHistoryActionRef.current = true
+    const nextState = redoStackRef.current.pop()
+    if (nextState) {
+      historyStackRef.current.push(nextState)
+      form.reset(nextState)
+      toast.info("Redid change", { duration: 1500 })
+    }
+    setTimeout(() => {
+      isHistoryActionRef.current = false
+    }, 50)
+  }
+
+  // In-Page Preview Opener
+  const handleOpenInPagePreview = async () => {
+    setLoadingPreview(true)
+    setIsInPagePreviewOpen(true)
+    try {
+      let targetQuoteId = existingQuote?.id || autoSavedQuoteId || searchParams.get("editId") || searchParams.get("reviseId")
+      
+      if (!targetQuoteId) {
+        await handleAutoSave()
+        targetQuoteId = autoSavedQuoteId || (form.getValues() as any)?.id
+      }
+
+      if (targetQuoteId) {
+        const res = await fetch(`/api/quotations/${targetQuoteId}`)
+        if (res.ok) {
+          const data = await res.json()
+          setPreviewQuoteData(data)
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load in-page preview:", err)
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  // Keyboard Navigation Shortcuts Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isInputOrTextarea = ["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName)
+
+      // Ctrl + Z (Undo)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        if (e.shiftKey) {
+          e.preventDefault()
+          performRedo()
+        } else if (!isInputOrTextarea) {
+          e.preventDefault()
+          performUndo()
+        }
+      }
+      // Ctrl + Y (Redo)
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        e.preventDefault()
+        performRedo()
+      }
+      // Ctrl + S (Save Draft)
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault()
+        onSubmit(form.getValues(), "DRAFT")
+      }
+      // Ctrl + P (In-Page Preview)
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
+        e.preventDefault()
+        handleOpenInPagePreview()
+      }
+      // Shift + ArrowDown (Scroll Down)
+      else if (e.shiftKey && e.key === "ArrowDown") {
+        e.preventDefault()
+        const mainElem = document.querySelector("main.overflow-y-auto") || window
+        mainElem.scrollBy({ top: 380, behavior: "smooth" })
+      }
+      // Shift + ArrowUp (Scroll Up)
+      else if (e.shiftKey && e.key === "ArrowUp") {
+        e.preventDefault()
+        const mainElem = document.querySelector("main.overflow-y-auto") || window
+        mainElem.scrollBy({ top: -380, behavior: "smooth" })
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [form, existingQuote, autoSavedQuoteId])
+
   useEffect(() => {
     const subscription = form.watch(() => {
       if (autoSaveTimerRef.current) {
@@ -2817,7 +2959,7 @@ function NewQuotationForm() {
   }, [watchItems, watchAdditionalCharges, watchSpecialDiscountType, watchSpecialDiscountValue, watchVatMode])
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6 pb-32 px-3 sm:px-6 lg:px-8">
+    <div className="max-w-[1400px] mx-auto space-y-6 pb-20 px-3 sm:px-6 lg:px-8">
       {/* 1. Header Navigation & Dynamic Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center space-x-3 sm:space-x-4">
@@ -2895,22 +3037,9 @@ function NewQuotationForm() {
             variant="outline"
             size="sm"
             disabled={submitting}
-            onClick={async () => {
-              const targetQuoteId = existingQuote?.id || autoSavedQuoteId || searchParams.get("editId") || searchParams.get("reviseId")
-              if (targetQuoteId) {
-                window.open(`/quotations/${targetQuoteId}/preview`, "_blank")
-              } else {
-                toast.info("Saving draft preview...")
-                await handleAutoSave()
-                const currentSavedId = autoSavedQuoteId || (form.getValues() as any)?.id
-                if (currentSavedId) {
-                  window.open(`/quotations/${currentSavedId}/preview`, "_blank")
-                } else {
-                  toast.error("Please fill in client and product details to preview.")
-                }
-              }
-            }}
+            onClick={handleOpenInPagePreview}
             className="text-xs h-9 font-semibold flex items-center gap-1.5 cursor-pointer border-primary/50 text-primary hover:bg-primary/10 bg-background"
+            title="Preview quotation in-page (Ctrl + P)"
           >
             <Eye className="h-3.5 w-3.5" />
             <span>Preview</span>
@@ -4367,6 +4496,16 @@ function NewQuotationForm() {
         onClose={() => setIsCropperOpen(false)}
         imageSrc={rawImageSrc || ""}
         onCrop={handleCropSave}
+      />
+
+      {/* In-Page Draft Quotation Preview Modal */}
+      <InPageQuotationPreviewModal
+        open={isInPagePreviewOpen}
+        onOpenChange={setIsInPagePreviewOpen}
+        quotationData={previewQuoteData}
+        loading={loadingPreview}
+        formData={form.getValues()}
+        calculatedGrandTotal={calculatedGrandTotal}
       />
 
       {/* Request Access Note Dialog */}
