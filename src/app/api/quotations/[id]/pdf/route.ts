@@ -259,6 +259,7 @@ export async function GET(
       additionalCharges: (quotation.additionalCharges as any) || [],
       commonRemark: quotation.commonRemark || null,
       commonRemarkHighlight: !!quotation.commonRemarkHighlight,
+      commonRemarkStyle: quotation.commonRemarkStyle || "AMBER",
       status: quotation.status,
     }
 

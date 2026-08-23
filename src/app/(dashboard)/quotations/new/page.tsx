@@ -147,6 +147,7 @@ const quotationSchema = z.object({
   ).optional().default([]),
   commonRemark: z.string().optional().default(""),
   commonRemarkHighlight: z.boolean().optional().default(false),
+  commonRemarkStyle: z.string().optional().default("AMBER"),
   termsConditions: z.array(z.string()).optional(),
 })
 
@@ -1402,6 +1403,7 @@ function NewQuotationForm() {
       disclaimer: "",
       commonRemark: "",
       commonRemarkHighlight: false,
+      commonRemarkStyle: "AMBER",
       vatMode: "EXCLUDING",
       specialDiscountType: null,
       specialDiscountValue: 0,
@@ -2154,6 +2156,7 @@ function NewQuotationForm() {
               disclaimer: activeData.disclaimer || sysDisclaimer,
               commonRemark: activeData.commonRemark || "",
               commonRemarkHighlight: activeData.commonRemarkHighlight ?? false,
+              commonRemarkStyle: activeData.commonRemarkStyle || "AMBER",
               vatMode: activeData.vatMode || "EXCLUDING",
               specialDiscountType: activeData.specialDiscountType || null,
               specialDiscountValue: activeData.specialDiscountValue || 0,
@@ -2597,6 +2600,7 @@ function NewQuotationForm() {
           additionalCharges: cleanAdditionalCharges,
           commonRemark: data.commonRemark || "",
           commonRemarkHighlight: !!data.commonRemarkHighlight,
+          commonRemarkStyle: data.commonRemarkStyle || "AMBER",
           isRevision: sendIsRevision,
           isUpdate: isEdit || !!targetId,
           revisionNotes: revisionNotes,
@@ -2725,6 +2729,7 @@ function NewQuotationForm() {
           additionalCharges: cleanAdditionalCharges,
           commonRemark: currentData.commonRemark || "",
           commonRemarkHighlight: !!currentData.commonRemarkHighlight,
+          commonRemarkStyle: currentData.commonRemarkStyle || "AMBER",
           isRevision: sendIsRevision,
           isUpdate: isEdit || !!autoSavedQuoteId,
           revisionNotes: revisionNotes,
@@ -3837,49 +3842,125 @@ function NewQuotationForm() {
               </CardContent>
             </Card>
 
-            {/* CARD 2.5: Common Remark / Special Note */}
+            {/* CARD 2.5: REMARKS */}
             {(() => {
               const watchCommonRemarkHighlight = form.watch("commonRemarkHighlight")
+              const watchCommonRemarkStyle = form.watch("commonRemarkStyle") || "AMBER"
+              const currentStyle = watchCommonRemarkHighlight ? watchCommonRemarkStyle : "NONE"
+
+              const getStyleClasses = (style: string) => {
+                switch (style) {
+                  case "AMBER":
+                    return {
+                      card: "border-amber-500/50 bg-amber-500/5 dark:bg-amber-950/20 ring-1 ring-amber-500/30",
+                      header: "bg-amber-500/10 dark:bg-amber-950/40 border-amber-500/30",
+                      icon: "text-amber-600 dark:text-amber-400",
+                      textarea: "border-amber-400/60 focus-visible:ring-amber-500 bg-amber-50/50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100 font-medium",
+                    }
+                  case "BLUE":
+                    return {
+                      card: "border-blue-500/50 bg-blue-500/5 dark:bg-blue-950/20 ring-1 ring-blue-500/30",
+                      header: "bg-blue-500/10 dark:bg-blue-950/40 border-blue-500/30",
+                      icon: "text-blue-600 dark:text-blue-400",
+                      textarea: "border-blue-400/60 focus-visible:ring-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-950 dark:text-blue-100 font-medium",
+                    }
+                  case "EMERALD":
+                    return {
+                      card: "border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-950/20 ring-1 ring-emerald-500/30",
+                      header: "bg-emerald-500/10 dark:bg-emerald-950/40 border-emerald-500/30",
+                      icon: "text-emerald-600 dark:text-emerald-400",
+                      textarea: "border-emerald-400/60 focus-visible:ring-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-100 font-medium",
+                    }
+                  case "ROSE":
+                    return {
+                      card: "border-rose-500/50 bg-rose-500/5 dark:bg-rose-950/20 ring-1 ring-rose-500/30",
+                      header: "bg-rose-500/10 dark:bg-rose-950/40 border-rose-500/30",
+                      icon: "text-rose-600 dark:text-rose-400",
+                      textarea: "border-rose-400/60 focus-visible:ring-rose-500 bg-rose-50/50 dark:bg-rose-950/30 text-rose-950 dark:text-rose-100 font-medium",
+                    }
+                  default:
+                    return {
+                      card: "border-border/80",
+                      header: "bg-muted/30",
+                      icon: "text-primary",
+                      textarea: "bg-background",
+                    }
+                }
+              }
+
+              const styleClasses = getStyleClasses(currentStyle)
+
               return (
                 <Card className={cn(
                   "shadow-xs border-border/80 rounded-xl overflow-hidden transition-all duration-200",
-                  watchCommonRemarkHighlight && "border-amber-500/50 bg-amber-500/5 dark:bg-amber-950/20 ring-1 ring-amber-500/30"
+                  styleClasses.card
                 )}>
                   <CardHeader className={cn(
                     "border-b py-3 px-4 sm:px-6 flex flex-row items-center justify-between gap-4 flex-wrap",
-                    watchCommonRemarkHighlight ? "bg-amber-500/10 dark:bg-amber-950/40 border-amber-500/30" : "bg-muted/30"
+                    styleClasses.header
                   )}>
                     <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
-                      <MessageSquare className={cn("h-4 w-4", watchCommonRemarkHighlight ? "text-amber-600 dark:text-amber-400" : "text-primary")} />
-                      <span>Common Remark / Special Note</span>
+                      <MessageSquare className={cn("h-4 w-4", styleClasses.icon)} />
+                      <span>REMARKS</span>
                       <span className="text-[10px] normal-case text-muted-foreground font-normal hidden sm:inline">(Optional remark displayed below products)</span>
                     </CardTitle>
 
-                    {/* Highlight Toggle Switch */}
-                    <FormField
-                      control={form.control}
-                      name="commonRemarkHighlight"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center space-x-2 space-y-0 cursor-pointer">
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              className="data-[state=checked]:bg-amber-500"
-                            />
-                          </FormControl>
-                          <FormLabel className="text-xs font-semibold cursor-pointer flex items-center gap-1.5 text-foreground select-none">
-                            <Highlighter className={cn("h-3.5 w-3.5", field.value ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground")} />
-                            <span>Highlight Remark</span>
-                            {field.value && (
-                              <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold border-amber-300">
-                                Highlighted
-                              </Badge>
-                            )}
-                          </FormLabel>
-                        </FormItem>
+                    {/* Highlight Switch & Marker Style Configurator Controls */}
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <FormField
+                        control={form.control}
+                        name="commonRemarkHighlight"
+                        render={({ field }) => (
+                          <FormItem className="flex items-center space-x-2 space-y-0 cursor-pointer">
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={(val) => {
+                                  field.onChange(val)
+                                  if (val && !form.getValues("commonRemarkStyle")) {
+                                    form.setValue("commonRemarkStyle", "AMBER")
+                                  }
+                                }}
+                                className="data-[state=checked]:bg-primary"
+                              />
+                            </FormControl>
+                            <FormLabel className="text-xs font-semibold cursor-pointer flex items-center gap-1.5 text-foreground select-none">
+                              <Highlighter className={cn("h-3.5 w-3.5", field.value ? styleClasses.icon : "text-muted-foreground")} />
+                              <span>Highlight Remark</span>
+                            </FormLabel>
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Configurable Highlight Marker Style Options */}
+                      {watchCommonRemarkHighlight && (
+                        <div className="flex items-center gap-1.5 bg-background/90 p-1 rounded-lg border shadow-2xs">
+                          {[
+                            { id: "AMBER", label: "Yellow / Amber", color: "bg-amber-400 border-amber-500", ring: "ring-amber-400" },
+                            { id: "BLUE", label: "Blue / Info", color: "bg-blue-400 border-blue-500", ring: "ring-blue-400" },
+                            { id: "EMERALD", label: "Green / Success", color: "bg-emerald-400 border-emerald-500", ring: "ring-emerald-400" },
+                            { id: "ROSE", label: "Red / Urgent", color: "bg-rose-400 border-rose-500", ring: "ring-rose-400" },
+                          ].map((marker) => {
+                            const isSelected = watchCommonRemarkStyle === marker.id
+                            return (
+                              <button
+                                key={marker.id}
+                                type="button"
+                                onClick={() => form.setValue("commonRemarkStyle", marker.id, { shouldDirty: true })}
+                                title={`Marker style: ${marker.label}`}
+                                className={cn(
+                                  "w-6 h-6 rounded-full border-2 transition-all cursor-pointer flex items-center justify-center shrink-0",
+                                  marker.color,
+                                  isSelected ? `scale-110 ring-2 ${marker.ring} ring-offset-1` : "opacity-60 hover:opacity-100"
+                                )}
+                              >
+                                {isSelected && <Check className="h-3 w-3 text-slate-950 font-bold" />}
+                              </button>
+                            )
+                          })}
+                        </div>
                       )}
-                    />
+                    </div>
                   </CardHeader>
 
                   <CardContent className="p-4 sm:p-6 space-y-3">
@@ -3890,17 +3971,17 @@ function NewQuotationForm() {
                         <FormItem>
                           <FormControl>
                             <Textarea
-                              placeholder="Enter any common remarks, overall product notes, or special instructions to be displayed below the product list..."
+                              placeholder="Enter any remarks, overall product notes, or special instructions to be displayed below the product list..."
                               rows={3}
                               className={cn(
                                 "text-xs bg-background transition-colors resize-y font-sans",
-                                watchCommonRemarkHighlight && "border-amber-400/60 focus-visible:ring-amber-500 bg-amber-50/50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100 font-medium"
+                                styleClasses.textarea
                               )}
                               {...field}
                             />
                           </FormControl>
                           <p className="text-[11px] text-muted-foreground">
-                            This remark will appear directly below the product list on the quotation preview and exported PDF document.
+                            This remark section will appear directly below the product list on the quotation preview and exported PDF document under the heading "REMARKS".
                           </p>
                         </FormItem>
                       )}

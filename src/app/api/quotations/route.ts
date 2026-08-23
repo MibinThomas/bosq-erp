@@ -801,6 +801,7 @@ export async function POST(request: Request) {
         disclaimer: disclaimer || null,
         commonRemark: body.commonRemark || null,
         commonRemarkHighlight: !!body.commonRemarkHighlight,
+        commonRemarkStyle: body.commonRemarkStyle || "AMBER",
         termsConditions: storedTermsConditions,
         includeSalesAgent: !!includeSalesAgent,
         includeCompanySeal: includeCompanySeal ?? false,

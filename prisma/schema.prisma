@@ -182,6 +182,7 @@ model Quotation {
   additionalCharges     Json?     // array of { name: string, amount: number }
   commonRemark          String?
   commonRemarkHighlight Boolean   @default(false)
+  commonRemarkStyle     String?   @default("AMBER") // AMBER, BLUE, EMERALD, ROSE, NONE
   
   includeSalesAgent        Boolean   @default(false)
   includeCompanySeal       Boolean   @default(true)

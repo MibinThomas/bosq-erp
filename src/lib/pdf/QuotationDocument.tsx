@@ -496,6 +496,7 @@ export interface QuotationPdfProps {
   additionalCharges?: AdditionalCharge[] | null
   commonRemark?: string | null
   commonRemarkHighlight?: boolean | null
+  commonRemarkStyle?: string | null
   status?: string | null
 }
 
@@ -621,6 +622,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   additionalCharges = [],
   commonRemark = null,
   commonRemarkHighlight = false,
+  commonRemarkStyle = "AMBER",
   status = null,
 }) => {
   const formatCurrency = (val: number) => {
@@ -1336,31 +1338,50 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           </View>
         )}
 
-        {/* Common Remark / Special Note Section */}
+        {/* REMARKS Section */}
         {commonRemark && commonRemark.trim() ? (
-          <View style={{
-            marginTop: 8,
-            marginBottom: 4,
-            padding: 8,
-            borderRadius: 5,
-            backgroundColor: commonRemarkHighlight ? "#fffbebf5" : "#f8fafc",
-            borderWidth: 1,
-            borderColor: commonRemarkHighlight ? "#f59e0b" : "#e2e8f0",
-          }} wrap={false}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
-              <Text style={{ fontSize: 8.5, fontWeight: "bold", color: commonRemarkHighlight ? "#b45309" : "#334155", textTransform: "uppercase" }}>
-                Special Note / Common Remark
-              </Text>
-              {commonRemarkHighlight ? (
-                <Text style={{ fontSize: 6.5, fontWeight: "bold", color: "#d97706", backgroundColor: "#fef3c7", paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 3 }}>
-                  Highlighted Remark
+          {...(() => {
+            const isHighlight = !!commonRemarkHighlight
+            const style = isHighlight ? (commonRemarkStyle || "AMBER") : "NONE"
+
+            const getPdfTheme = (s: string) => {
+              switch (s) {
+                case "AMBER":
+                  return { bg: "#fffbebf5", border: "#f59e0b", header: "#b45309", body: "#78350f" }
+                case "BLUE":
+                  return { bg: "#eff6ff", border: "#3b82f6", header: "#1d4ed8", body: "#1e3a8a" }
+                case "EMERALD":
+                  return { bg: "#ecfdf5", border: "#10b981", header: "#047857", body: "#064e3b" }
+                case "ROSE":
+                  return { bg: "#fff1f2", border: "#f43f5e", header: "#be123c", body: "#881337" }
+                default:
+                  return { bg: "#f8fafc", border: "#e2e8f0", header: "#334155", body: "#475569" }
+              }
+            }
+
+            const pdfTheme = getPdfTheme(style)
+
+            return (
+              <View style={{
+                marginTop: 8,
+                marginBottom: 4,
+                padding: 8,
+                borderRadius: 5,
+                backgroundColor: pdfTheme.bg,
+                borderWidth: 1,
+                borderColor: pdfTheme.border,
+              }} wrap={false}>
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 3 }}>
+                  <Text style={{ fontSize: 8.5, fontWeight: "bold", color: pdfTheme.header, textTransform: "uppercase" }}>
+                    REMARKS
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 8, color: pdfTheme.body, lineHeight: 1.45 }}>
+                  {commonRemark}
                 </Text>
-              ) : null}
-            </View>
-            <Text style={{ fontSize: 8, color: commonRemarkHighlight ? "#78350f" : "#475569", lineHeight: 1.45 }}>
-              {commonRemark}
-            </Text>
-          </View>
+              </View>
+            )
+          })()}
         ) : null}
 
         {/* Financial Summary Box & Company Bank Details */}

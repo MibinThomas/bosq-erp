@@ -133,6 +133,7 @@ export async function POST(
         disclaimer: sourceQuotation.disclaimer,
         commonRemark: sourceQuotation.commonRemark,
         commonRemarkHighlight: sourceQuotation.commonRemarkHighlight,
+        commonRemarkStyle: sourceQuotation.commonRemarkStyle,
         termsConditions: sourceQuotation.termsConditions,
         salesAgentId: sourceQuotation.salesAgentId,
         salesAgentName: sourceQuotation.salesAgentName,
