@@ -39,6 +39,7 @@ import {
   Calculator,
   MessageSquare,
   Highlighter,
+  Eye,
   X
 } from "lucide-react"
 import Link from "next/link"
@@ -2883,7 +2884,7 @@ function NewQuotationForm() {
             size="sm"
             disabled={submitting}
             onClick={() => onSubmit(form.getValues(), "DRAFT")}
-            className="text-xs h-9 font-medium flex items-center gap-1.5 cursor-pointer"
+            className="text-xs h-9 font-medium flex items-center gap-1.5 cursor-pointer bg-background"
           >
             <Save className="h-3.5 w-3.5" />
             <span>Save Draft</span>
@@ -2891,17 +2892,28 @@ function NewQuotationForm() {
 
           <Button
             type="button"
+            variant="outline"
             size="sm"
             disabled={submitting}
-            onClick={form.handleSubmit((data) => onSubmit(data, "SUBMITTED"), onInvalid)}
-            className="text-xs h-9 font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs bg-orange-600 hover:bg-orange-500 text-white"
+            onClick={async () => {
+              const targetQuoteId = existingQuote?.id || autoSavedQuoteId || searchParams.get("editId") || searchParams.get("reviseId")
+              if (targetQuoteId) {
+                window.open(`/quotations/${targetQuoteId}/preview`, "_blank")
+              } else {
+                toast.info("Saving draft preview...")
+                await handleAutoSave()
+                const currentSavedId = autoSavedQuoteId || (form.getValues() as any)?.id
+                if (currentSavedId) {
+                  window.open(`/quotations/${currentSavedId}/preview`, "_blank")
+                } else {
+                  toast.error("Please fill in client and product details to preview.")
+                }
+              }
+            }}
+            className="text-xs h-9 font-semibold flex items-center gap-1.5 cursor-pointer border-primary/50 text-primary hover:bg-primary/10 bg-background"
           >
-            {submitting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Send className="h-3.5 w-3.5" />
-            )}
-            <span>{primaryButtonText}</span>
+            <Eye className="h-3.5 w-3.5" />
+            <span>Preview</span>
           </Button>
         </div>
       </div>
