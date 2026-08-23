@@ -43,7 +43,7 @@ export function InPageQuotationPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl w-[95vw] h-[92vh] max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden border-border shadow-2xl rounded-2xl bg-slate-900">
+      <DialogContent className="max-w-[96vw] sm:max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] flex flex-col p-0 gap-0 overflow-hidden border-slate-800 shadow-2xl rounded-2xl bg-slate-950">
         {/* Modal Header */}
         <DialogHeader className="p-3.5 sm:p-4 border-b border-slate-800 bg-slate-950 flex flex-row items-center justify-between gap-4 shrink-0 text-slate-100">
           <div className="flex items-center space-x-3">
@@ -68,7 +68,7 @@ export function InPageQuotationPreviewModal({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pr-6 sm:pr-8">
+          <div className="flex items-center gap-2 pr-10 sm:pr-12">
             {quoteId && (
               <>
                 <Button
@@ -116,7 +116,7 @@ export function InPageQuotationPreviewModal({
           ) : (
             <iframe
               key={iframeKey}
-              src={`${pdfUrl}#toolbar=1&navpanes=0`}
+              src={`${pdfUrl}#toolbar=1&navpanes=0&view=FitH`}
               className="w-full h-full border-none rounded-b-2xl bg-white"
               title="Quotation PDF Preview"
             />
