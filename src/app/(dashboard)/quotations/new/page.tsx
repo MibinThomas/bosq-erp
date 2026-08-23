@@ -1311,7 +1311,7 @@ function StickyFooterToolbar({
   pendingCostingCount: number
 }) {
   return (
-    <div className="sticky bottom-0 -mx-3 sm:-mx-6 lg:-mx-8 -mb-4 sm:-mb-6 lg:-mb-8 mt-6 z-30 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8 transition-all">
+    <div className="fixed bottom-0 left-0 md:left-64 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
       <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground hidden sm:inline">Grand Total:</span>
@@ -1655,7 +1655,8 @@ function NewQuotationForm() {
         }
 
         if (scrollVelocity !== 0) {
-          window.scrollBy({
+          const scrollTarget = document.querySelector("main.overflow-y-auto") || window
+          scrollTarget.scrollBy({
             top: scrollVelocity * deltaTime,
             behavior: "instant" as ScrollBehavior
           })
@@ -2958,7 +2959,7 @@ function NewQuotationForm() {
   }, [watchItems, watchAdditionalCharges, watchSpecialDiscountType, watchSpecialDiscountValue, watchVatMode])
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-6 pb-2 px-3 sm:px-6 lg:px-8">
+    <div className="max-w-[1400px] mx-auto space-y-6 pb-28 px-3 sm:px-6 lg:px-8">
       {/* 1. Header Navigation & Dynamic Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div className="flex items-center space-x-3 sm:space-x-4">
