@@ -1381,9 +1381,10 @@ export default function QuotationHtmlPreviewPage() {
         </Dialog>
       )}
 
-      {quotation && editingCostItem && (
+      {quotation && (
         <CostingUpdateModal
           quotationId={quotation.id}
+          quotationData={quotation}
           item={editingCostItem}
           open={isCostModalOpen}
           onOpenChange={setIsCostModalOpen}
