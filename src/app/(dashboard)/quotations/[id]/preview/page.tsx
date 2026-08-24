@@ -63,6 +63,15 @@ interface QuotationItem {
   discount: number
   margin: number
   amount: number
+  materialCost?: number
+  laborCost?: number
+  overheadCost?: number
+  transportCost?: number
+  installationCost?: number
+  unitCost?: number
+  marginPercentage?: number
+  costingStatus?: string
+  estimatorNotes?: string | null
   customImageUrl: string | null
   productNotes?: string | null
   productDescription?: string | null
@@ -202,26 +211,26 @@ export default function QuotationHtmlPreviewPage() {
     return quotation.items.map((qItem, idx) => {
       const matchedBoqItem = boqItems.find((b: any) => b.itemNo === qItem.itemNo || b.id === qItem.id) || boqItems[idx]
       
-      const matCost = Number(matchedBoqItem?.materialCost || 0)
-      const factoryCost = Number(matchedBoqItem?.factoryCost || 0)
-      const accessoriesCost = Number(matchedBoqItem?.accessoriesCost || 0)
-      const labCost = Number(matchedBoqItem?.laborCost || 0)
-      const instCost = Number(matchedBoqItem?.installationCost || 0)
-      const transCost = Number(matchedBoqItem?.transportCost || 0)
-      const overCost = Number(matchedBoqItem?.overheadCost || 0)
+      // Read directly from QuotationItem saved fields, falling back to legacy BOQ
+      const matCost = Number(qItem.materialCost ?? matchedBoqItem?.materialCost ?? matchedBoqItem?.factoryCost ?? 0)
+      const labCost = Number(qItem.laborCost ?? matchedBoqItem?.laborCost ?? matchedBoqItem?.accessoriesCost ?? 0)
+      const instCost = Number(qItem.installationCost ?? matchedBoqItem?.installationCost ?? 0)
+      const transCost = Number(qItem.transportCost ?? matchedBoqItem?.transportCost ?? 0)
+      const overCost = Number(qItem.overheadCost ?? matchedBoqItem?.overheadCost ?? 0)
 
-      const legacyUnitCost = matCost + labCost + instCost + transCost + overCost
-      const unitCost = Number(matchedBoqItem?.unitCost) > 0 
-        ? Number(matchedBoqItem?.unitCost) 
-        : (factoryCost > 0 || accessoriesCost > 0 ? factoryCost + accessoriesCost : legacyUnitCost)
+      const computedUnitCost = matCost + labCost + instCost + transCost + overCost
+      const unitCost = Number(qItem.unitCost) > 0 
+        ? Number(qItem.unitCost) 
+        : (computedUnitCost > 0 ? computedUnitCost : Number(matchedBoqItem?.unitCost || 0))
 
-      const unitSellingPrice = Number(matchedBoqItem?.unitSellingPrice ?? qItem.unitPrice ?? 0)
+      const unitSellingPrice = Number(qItem.unitPrice ?? matchedBoqItem?.unitSellingPrice ?? 0)
       const qty = Math.max(1, qItem.quantity || 1)
       const totalCost = unitCost * qty
       const totalSellingPrice = (unitSellingPrice - (unitSellingPrice * ((qItem.discount || 0) / 100))) * qty
       const netProfitUnit = unitSellingPrice - unitCost
       const netProfitTotal = totalSellingPrice - totalCost
-      const marginPct = Number(matchedBoqItem?.marginPercentage ?? qItem.margin ?? 0)
+      const marginPct = Number(qItem.marginPercentage ?? matchedBoqItem?.marginPercentage ?? qItem.margin ?? 0)
+      const negotiationPct = Number((qItem as any).negotiationPct ?? 0)
 
       const imageUrl = qItem.customImageUrl || qItem.product?.imageUrl || null
 
@@ -229,8 +238,8 @@ export default function QuotationHtmlPreviewPage() {
         ...qItem,
         itemNo: qItem.itemNo || idx + 1,
         imageUrl,
-        factoryCost,
-        accessoriesCost,
+        factoryCost: matCost,
+        accessoriesCost: labCost,
         materialCost: matCost,
         laborCost: labCost,
         installationCost: instCost,
@@ -241,6 +250,7 @@ export default function QuotationHtmlPreviewPage() {
         unitSellingPrice,
         totalSellingPrice,
         marginPercentage: marginPct,
+        negotiationPct,
         netProfitUnit,
         netProfitTotal,
         netMarginPct: totalSellingPrice > 0 ? (netProfitTotal / totalSellingPrice) * 100 : 0
@@ -330,8 +340,40 @@ export default function QuotationHtmlPreviewPage() {
         totalSellingPrice: quotation.grandTotal || quotation.boq.totalSellingPrice || 0
       }
     }
+    if (costingItemsList && costingItemsList.length > 0) {
+      let totalMaterialCost = 0
+      let totalLaborCost = 0
+      let totalInstallation = 0
+      let totalTransport = 0
+      let totalOverhead = 0
+      let totalCost = 0
+      let totalSellingPrice = 0
+
+      costingItemsList.forEach((item) => {
+        const qty = item.quantity || 1
+        totalMaterialCost += (item.materialCost || 0) * qty
+        totalLaborCost += (item.laborCost || 0) * qty
+        totalInstallation += (item.installationCost || 0) * qty
+        totalTransport += (item.transportCost || 0) * qty
+        totalOverhead += (item.overheadCost || 0) * qty
+        totalCost += (item.unitCost || 0) * qty
+        totalSellingPrice += (item.unitSellingPrice || 0) * qty
+      })
+
+      return {
+        totalMaterialCost,
+        totalLaborCost,
+        totalInstallation,
+        totalTransport,
+        totalOverhead,
+        totalCost,
+        marginAmount: totalSellingPrice - totalCost,
+        totalSellingPrice: totalSellingPrice || quotation.grandTotal || 0,
+        itemCount: costingItemsList.length
+      }
+    }
     return null
-  }, [quotation])
+  }, [quotation, costingItemsList])
 
   const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
   const isIDC = userRole === "INTERIOR_DESIGN_CONSULTANT"
