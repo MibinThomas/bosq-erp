@@ -8,6 +8,8 @@ interface RichTextEditorProps {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  disabled?: boolean
+  readOnly?: boolean
 }
 
 const ReactQuill = dynamic(() => import("react-quill-new"), { ssr: false })
@@ -33,16 +35,18 @@ const formats = [
   "list",
 ]
 
-const RichTextEditor = ({ value, onChange, placeholder }: RichTextEditorProps) => {
+const RichTextEditor = ({ value, onChange, placeholder, disabled, readOnly }: RichTextEditorProps) => {
+  const isReadOnly = disabled || readOnly
   return (
-    <div className="bg-white rounded-md">
+    <div className={`bg-white rounded-md ${isReadOnly ? "opacity-60 pointer-events-none" : ""}`}>
       <ReactQuill
         theme="snow"
         value={value}
         onChange={onChange}
-        modules={modules}
+        modules={isReadOnly ? { toolbar: false } : modules}
         formats={formats}
         placeholder={placeholder}
+        readOnly={isReadOnly}
         className="min-h-[150px]"
       />
     </div>

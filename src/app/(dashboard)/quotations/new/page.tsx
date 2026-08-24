@@ -212,6 +212,7 @@ interface ProductSearchSelectProps {
   onProductSelect: (productId: string) => void
   onCustomProductClick: () => void
   onOpenConfigurator?: () => void
+  disabled?: boolean
 }
 
 const ProductSearchSelect = React.memo(({
@@ -221,6 +222,7 @@ const ProductSearchSelect = React.memo(({
   onProductSelect,
   onCustomProductClick,
   onOpenConfigurator,
+  disabled,
 }: ProductSearchSelectProps) => {
   const [open, setOpen] = useState(false)
   const selectedProd = products.find(p => p.id === productId)
@@ -235,16 +237,18 @@ const ProductSearchSelect = React.memo(({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={disabled ? () => {} : setOpen}>
       <PopoverTrigger
         render={
           <Button
             variant="outline"
             role="combobox"
+            disabled={disabled}
             title={label || "Search catalog product by name or code..."}
             className={cn(
               "w-full justify-between font-normal bg-background h-10 border-border/80 hover:border-primary/50 text-xs sm:text-sm overflow-hidden",
-              !productId && "text-muted-foreground"
+              !productId && "text-muted-foreground",
+              disabled && "opacity-60 cursor-not-allowed"
             )}
           >
             <span className="block truncate flex-1 text-left min-w-0 font-medium">
@@ -722,6 +726,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   const [selectionMode, setSelectionMode] = useState<"search" | "configurator">("search")
   const canUseConfigurator = userRole === "SUPER_ADMIN" || !!isConfiguratorEnabled
   const currentItemVal = useWatch({ control, name: `items.${index}` }) || {}
+  const isItemLocked = currentItemVal.costingStatus === "PENDING_COSTING" || currentItemVal.costingStatus === "COSTING_IN_PROGRESS"
   const itemBatch = currentItemVal.batchHeading || ""
   const belongsToBatch = batchName === "General Items" ? (!itemBatch || itemBatch === "General Items") : itemBatch === batchName
   if (!belongsToBatch) return null
@@ -760,23 +765,27 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
 
   return (
     <div
-      onDragOver={(e) => handleDragOver(e, index)}
-      onDrop={(e) => handleDrop(e, index, batchName)}
+      onDragOver={(e) => !isItemLocked && handleDragOver(e, index)}
+      onDrop={(e) => !isItemLocked && handleDrop(e, index, batchName)}
       className={cn(
         "p-4 sm:p-5 rounded-xl border bg-card shadow-2xs space-y-4 transition-colors duration-150 hover:border-primary/40",
         dragOverIndex === index && "border-primary border-dashed bg-primary/10 shadow-md ring-2 ring-primary/30",
-        draggedIndex === index && "opacity-40 border-primary border-dashed"
+        draggedIndex === index && "opacity-40 border-primary border-dashed",
+        isItemLocked && "border-amber-400/60 bg-amber-500/5 dark:bg-amber-950/20"
       )}
     >
       {/* Item Header Row */}
       <div className="flex items-center justify-between border-b pb-3 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <span
-            draggable
-            onDragStart={(e) => handleDragStart(e, index)}
+            draggable={!isItemLocked}
+            onDragStart={(e) => !isItemLocked && handleDragStart(e, index)}
             onDragEnd={handleDragEnd}
-            className="drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
-            title="Drag item to reorder or move across sections"
+            className={cn(
+              "drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted",
+              isItemLocked && "opacity-40 cursor-not-allowed"
+            )}
+            title={isItemLocked ? "Product is locked during costing" : "Drag item to reorder or move across sections"}
           >
             <GripVertical className="h-4 w-4" />
           </span>
@@ -790,10 +799,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               type="button"
               variant="ghost"
               size="icon"
-              disabled={isFirstInSection}
+              disabled={isFirstInSection || isItemLocked}
               onClick={() => handleMoveItem(index, -1, batchName)}
               className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-              title={isFirstInSection ? "First item in section" : "Move product up"}
+              title={isFirstInSection ? "First item in section" : isItemLocked ? "Locked for costing" : "Move product up"}
             >
               <ChevronUp className="h-3.5 w-3.5" />
             </Button>
@@ -801,10 +810,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               type="button"
               variant="ghost"
               size="icon"
-              disabled={isLastInSection}
+              disabled={isLastInSection || isItemLocked}
               onClick={() => handleMoveItem(index, 1, batchName)}
               className="h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-              title={isLastInSection ? "Last item in section" : "Move product down"}
+              title={isLastInSection ? "Last item in section" : isItemLocked ? "Locked for costing" : "Move product down"}
             >
               <ChevronDown className="h-3.5 w-3.5" />
             </Button>
@@ -817,19 +826,19 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          {/* Send for Costing Action & Status Badges */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Add for Costing Action & Status Badges */}
           {currentItemVal.costingStatus === "PENDING_COSTING" ? (
             <Badge 
               variant="outline"
               className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300 text-[11px] font-semibold py-0.5 px-2 flex items-center gap-1 cursor-pointer"
               onClick={() => {
                 form.setValue(`items.${index}.costingStatus`, "NOT_REQUIRED", { shouldDirty: true })
-                toast.info(`Item #${index + 1} marked as standard pricing.`)
+                toast.info(`Item #${index + 1} removed from costing queue.`)
               }}
-              title="Click to cancel costing request"
+              title="Click to remove from costing queue"
             >
-              <Clock className="h-3 w-3 animate-pulse text-amber-600" /> Pending Costing
+              <Clock className="h-3 w-3 text-amber-600" /> Added for Costing
             </Badge>
           ) : currentItemVal.costingStatus === "COSTING_IN_PROGRESS" ? (
             <Badge className="bg-blue-600 text-white font-semibold text-[11px] py-0.5 px-2 flex items-center gap-1">
@@ -846,21 +855,28 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               size="sm"
               onClick={() => {
                 form.setValue(`items.${index}.costingStatus`, "PENDING_COSTING", { shouldDirty: true })
-                toast.success(`Item #${index + 1} marked for costing! Save quotation to submit to Cost Estimator.`)
+                toast.success(`Item #${index + 1} added for costing! Save draft or Send to Estimator to submit.`)
               }}
               className="text-[11px] h-7 px-2.5 flex items-center gap-1.5 border-amber-300/80 bg-amber-50/60 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 font-semibold cursor-pointer shadow-2xs"
-              title="Submit this item to Cost Estimator for pricing"
+              title="Add this product for Estimator custom pricing"
             >
-              <Calculator className="h-3.5 w-3.5 text-amber-600" /> Send for Costing
+              <Calculator className="h-3.5 w-3.5 text-amber-600" /> Add for Costing
             </Button>
+          )}
+
+          {isItemLocked && (
+            <Badge variant="outline" className="bg-slate-100 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 text-[11px] font-semibold py-0.5 px-2 flex items-center gap-1 shrink-0">
+              <Lock className="h-3 w-3 text-slate-500" /> Locked for Costing
+            </Badge>
           )}
 
           <Button
             type="button"
             variant="ghost"
             size="sm"
+            disabled={isItemLocked}
             onClick={() => handleDuplicateItem(index)}
-            className="text-[11px] h-7 flex items-center gap-1 text-muted-foreground hover:text-foreground cursor-pointer"
+            className="text-[11px] h-7 flex items-center gap-1 text-muted-foreground hover:text-foreground cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Copy className="h-3 w-3" /> Duplicate
           </Button>
@@ -870,9 +886,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               type="button"
               variant="ghost"
               size="icon"
+              disabled={isItemLocked}
               onClick={() => remove(index)}
-              className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer"
-              title="Remove item"
+              className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              title={isItemLocked ? "Item is locked during costing" : "Remove item"}
             >
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
@@ -909,6 +926,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 form.setValue(`items.${index}.priceSource`, "manual")
               }}
               onOpenConfigurator={canUseConfigurator ? () => setSelectionMode("configurator") : undefined}
+              disabled={isItemLocked}
             />
           </>
         ) : (
@@ -967,7 +985,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormItem>
                     <FormLabel className="text-xs font-semibold text-foreground">Product Title / Heading</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter product title..." className="h-9 text-xs bg-background" {...field} />
+                      <Input placeholder="Enter product title..." disabled={isItemLocked} className="h-9 text-xs bg-background" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -984,9 +1002,9 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-[11px] font-medium text-muted-foreground">Category</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || "Chairs"}>
+                  <Select onValueChange={field.onChange} value={field.value || "Chairs"} disabled={isItemLocked}>
                     <FormControl>
-                      <SelectTrigger className="h-8 text-xs bg-background">
+                      <SelectTrigger className="h-8 text-xs bg-background" disabled={isItemLocked}>
                         <SelectValue placeholder="Category" />
                       </SelectTrigger>
                     </FormControl>
@@ -1007,9 +1025,9 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-[11px] font-medium text-muted-foreground">Chair Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                    <Select onValueChange={field.onChange} value={field.value || ""} disabled={isItemLocked}>
                       <FormControl>
-                        <SelectTrigger className="h-8 text-xs bg-background">
+                        <SelectTrigger className="h-8 text-xs bg-background" disabled={isItemLocked}>
                           <SelectValue placeholder="Type" />
                         </SelectTrigger>
                       </FormControl>
@@ -1041,6 +1059,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   </div>
                   <FormControl>
                     <Switch
+                      disabled={isItemLocked}
                       checked={field.value || false}
                       onCheckedChange={field.onChange}
                     />
@@ -1062,6 +1081,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 </div>
                 <FormControl>
                   <Textarea
+                    disabled={isItemLocked}
                     placeholder="Enter detailed product description (e.g. materials, mechanism, finish, fabric, warranty...)"
                     className="min-h-[75px] text-xs bg-background leading-relaxed"
                     {...field}
@@ -1082,6 +1102,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 <FormLabel className="text-xs font-semibold text-foreground">Special Notes</FormLabel>
                 <FormControl>
                   <Textarea
+                    disabled={isItemLocked}
                     placeholder="Enter special notes or instructions..."
                     className="min-h-[55px] text-xs bg-background leading-relaxed"
                     {...field}
@@ -1106,6 +1127,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 type="button"
                 variant={currentPriceSource === "standard" ? "default" : "outline"}
                 size="sm"
+                disabled={isItemLocked}
                 onClick={() => {
                   form.setValue(`items.${index}.priceSource`, "standard")
                   if (currentProductId) handleProductSelect(index, currentProductId)
@@ -1118,6 +1140,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 type="button"
                 variant={currentPriceSource === "manual" ? "default" : "outline"}
                 size="sm"
+                disabled={isItemLocked}
                 onClick={() => form.setValue(`items.${index}.priceSource`, "manual")}
                 className="h-6 text-[10px] px-2 cursor-pointer"
               >
@@ -1138,6 +1161,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormControl>
                     <NumericInput
                       type="number"
+                      disabled={isItemLocked}
                       className="h-8 text-xs font-mono text-center bg-background"
                       value={field.value}
                       onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
@@ -1156,7 +1180,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormLabel className="text-[11px] font-semibold text-muted-foreground">Base AED</FormLabel>
                   <FormControl>
                     <NumericInput
-                      disabled={currentPriceSource === "standard"}
+                      disabled={isItemLocked || currentPriceSource === "standard"}
                       className="h-8 text-xs font-mono bg-background"
                       value={field.value}
                       onChange={(val) => {
@@ -1181,6 +1205,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin %</FormLabel>
                   <FormControl>
                     <NumericInput
+                      disabled={isItemLocked}
                       className="h-8 text-xs font-mono text-center bg-background"
                       value={field.value}
                       onChange={(val) => {
@@ -1206,6 +1231,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormLabel className="text-[11px] font-semibold text-muted-foreground">Unit AED</FormLabel>
                   <FormControl>
                     <NumericInput
+                      disabled={isItemLocked}
                       className="h-8 text-xs font-mono bg-background font-bold text-primary"
                       value={field.value}
                       onChange={(val) => {
@@ -1234,11 +1260,12 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                     <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount</FormLabel>
                     <button
                       type="button"
+                      disabled={isItemLocked}
                       onClick={() => {
                         const nextType = currentDiscountType === "PERCENTAGE" ? "AMOUNT" : "PERCENTAGE"
                         form.setValue(`items.${index}.discountType`, nextType)
                       }}
-                      className="text-[10px] text-primary hover:underline font-bold"
+                      className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Toggle between % and AED discount"
                     >
                       {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
@@ -1247,6 +1274,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormControl>
                     <div className="relative">
                       <NumericInput
+                        disabled={isItemLocked}
                         className="h-8 text-xs font-mono bg-background pr-6"
                         value={field.value}
                         onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
@@ -1281,6 +1309,8 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               <FormLabel className="text-[11px] font-semibold text-muted-foreground">Product Specifications (Formatted text on PDF)</FormLabel>
               <FormControl>
                 <RichTextEditor
+                  disabled={isItemLocked}
+                  readOnly={isItemLocked}
                   value={field.value || ""}
                   onChange={field.onChange}
                 />
@@ -1300,7 +1330,8 @@ function StickyFooterToolbar({
   onInvalid,
   form,
   handleSendToCostingClick,
-  pendingCostingCount
+  pendingCostingCount,
+  hasPendingCostingItems,
 }: {
   grandTotal: number
   submitting: boolean
@@ -1310,6 +1341,7 @@ function StickyFooterToolbar({
   form: any
   handleSendToCostingClick: () => void
   pendingCostingCount: number
+  hasPendingCostingItems: boolean
 }) {
   return (
     <div className="fixed bottom-0 left-0 md:left-64 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
@@ -1335,7 +1367,7 @@ function StickyFooterToolbar({
             <span className="sm:hidden">Draft</span>
           </Button>
 
-          {/* Send to Costing Button in Bottom Toolbar */}
+          {/* Send to Estimator Button in Bottom Toolbar */}
           <Button
             type="button"
             variant="outline"
@@ -1346,8 +1378,8 @@ function StickyFooterToolbar({
             title="Submit products to Cost Estimator for pricing"
           >
             <Calculator className="h-4 w-4 text-amber-600" />
-            <span className="hidden sm:inline">Send to Costing</span>
-            <span className="sm:hidden">Costing</span>
+            <span className="hidden sm:inline">Send to Estimator</span>
+            <span className="sm:hidden">Estimator</span>
             {pendingCostingCount > 0 && (
               <Badge variant="secondary" className="ml-1 bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100 px-1.5 py-0 text-[10px] font-mono font-bold">
                 {pendingCostingCount}
@@ -1355,15 +1387,33 @@ function StickyFooterToolbar({
             )}
           </Button>
 
+          {hasPendingCostingItems && (
+            <span className="hidden md:flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 shrink-0 bg-amber-500/10 border border-amber-300/60 px-2 py-1 rounded-lg">
+              <Lock className="h-3.5 w-3.5" /> Awaiting Estimator
+            </span>
+          )}
+
           <Button
             type="button"
             size="sm"
-            disabled={submitting}
-            onClick={form.handleSubmit((data: any) => onSubmit(data, "SUBMITTED"), onInvalid)}
-            className="text-xs h-9 sm:h-10 px-4 sm:px-6 font-bold flex items-center gap-1.5 cursor-pointer shadow-md bg-orange-600 hover:bg-orange-500 text-white"
+            disabled={submitting || hasPendingCostingItems}
+            onClick={() => {
+              if (hasPendingCostingItems) {
+                toast.error("Quotation creation is locked while products are awaiting Estimator completion.")
+                return
+              }
+              form.handleSubmit((data: any) => onSubmit(data, "SUBMITTED"), onInvalid)()
+            }}
+            className={cn(
+              "text-xs h-9 sm:h-10 px-4 sm:px-6 font-bold flex items-center gap-1.5 cursor-pointer shadow-md bg-orange-600 hover:bg-orange-500 text-white",
+              (hasPendingCostingItems || submitting) && "opacity-60 cursor-not-allowed"
+            )}
+            title={hasPendingCostingItems ? "Quotation creation is locked while products are awaiting Estimator completion." : undefined}
           >
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
+            ) : hasPendingCostingItems ? (
+              <Lock className="h-4 w-4" />
             ) : (
               <Send className="h-4 w-4" />
             )}
@@ -1444,6 +1494,10 @@ function NewQuotationForm() {
     return watchItems.filter((item: any) => item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS").length
   }, [watchItems])
 
+  const hasPendingCostingItems = useMemo(() => {
+    return watchItems.some((item: any) => item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS")
+  }, [watchItems])
+
   const handleSendToCostingClick = () => {
     const currentItems = form.getValues("items") || []
     if (currentItems.length === 0) {
@@ -1466,7 +1520,7 @@ function NewQuotationForm() {
 
   const handleConfirmSendToCosting = (selectedIndexes: number[]) => {
     if (selectedIndexes.length === 0) {
-      toast.error("Please select at least one product item to send for costing.")
+      toast.error("Please select at least one product item to add for costing.")
       return
     }
 
@@ -1480,7 +1534,7 @@ function NewQuotationForm() {
     })
 
     setIsCostingSelectionOpen(false)
-    toast.success(`${selectedIndexes.length} product(s) marked for costing. Saving quotation to notify estimator...`)
+    toast.success(`${selectedIndexes.length} product(s) added for costing. Save draft or Send to Estimator to submit...`)
     
     setTimeout(() => {
       form.handleSubmit((data) => onSubmit(data, "DRAFT"), onInvalid)()
@@ -4488,6 +4542,7 @@ function NewQuotationForm() {
         form={form}
         handleSendToCostingClick={handleSendToCostingClick}
         pendingCostingCount={pendingCostingCount}
+        hasPendingCostingItems={hasPendingCostingItems}
       />
 
       {/* Modals & Dialogs */}
@@ -4786,10 +4841,10 @@ function NewQuotationForm() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-bold">
               <Calculator className="h-5 w-5 text-amber-600" />
-              Select Products to Send for Costing
+              Select Products to Add for Costing
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Choose which line items require custom pricing from the Cost Estimator. Selected products will be assigned to the estimator queue with status <strong>Pending Costing</strong>.
+              Choose which line items require custom pricing from the Cost Estimator. Selected products will be marked as <strong>Added for Costing</strong> and locked during estimation.
             </DialogDescription>
           </DialogHeader>
 
@@ -4859,7 +4914,7 @@ function NewQuotationForm() {
 
                   {isChecked && (
                     <Badge className="bg-amber-600 text-white text-[10px] py-0.5 px-2 shrink-0 flex items-center gap-1">
-                      <Clock className="h-3 w-3 animate-pulse" /> Send
+                      <Clock className="h-3 w-3" /> Added
                     </Badge>
                   )}
                 </div>
@@ -4878,7 +4933,7 @@ function NewQuotationForm() {
               className="bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs h-9 px-5 flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <Calculator className="h-4 w-4" />
-              <span>Submit {selectedCostingItemIndexes.length} Product(s) for Costing</span>
+              <span>Add {selectedCostingItemIndexes.length} Product(s) for Costing</span>
             </Button>
           </DialogFooter>
         </DialogContent>
