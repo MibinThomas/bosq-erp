@@ -207,6 +207,7 @@ export default function AccessControlPage() {
     setSavingMatrix(true)
     try {
       const payload = {
+        type: "update_role",
         roleId: selectedRole.id,
         permissions: Object.values(editingPermissions)
       }

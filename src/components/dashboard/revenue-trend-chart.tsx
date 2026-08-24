@@ -39,7 +39,7 @@ export function DashboardRevenueTrendChart({ data, loading }: RevenueTrendChartP
               No revenue recorded for the selected period
             </div>
           ) : (
-            <ResponsiveContainer width="99%" height="100%">
+            <ResponsiveContainer width="99%" height="100%" minWidth={0}>
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
                 <defs>
                   <linearGradient id="colorConverted" x1="0" y1="0" x2="0" y2="1">

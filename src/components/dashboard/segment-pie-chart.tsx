@@ -38,7 +38,7 @@ export function DashboardSegmentChart({ data, loading }: SegmentPieChartProps) {
               No data available
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
                   data={data}

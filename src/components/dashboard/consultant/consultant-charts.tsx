@@ -18,7 +18,7 @@ export function ConsultantCharts({ chartData }: { chartData: any }) {
         </CardHeader>
         <CardContent className="h-[200px]">
           {monthlyValue?.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart data={monthlyValue} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#64748b" }} />
@@ -39,7 +39,7 @@ export function ConsultantCharts({ chartData }: { chartData: any }) {
         </CardHeader>
         <CardContent className="h-[200px]">
           {statusBreakdown?.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie data={statusBreakdown} innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value" nameKey="name">
                   {statusBreakdown.map((entry: any, index: number) => (
@@ -62,7 +62,7 @@ export function ConsultantCharts({ chartData }: { chartData: any }) {
         </CardHeader>
         <CardContent className="h-[200px]">
           {segmentBreakdown?.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie data={segmentBreakdown} innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value" nameKey="name">
                   {segmentBreakdown.map((entry: any, index: number) => (

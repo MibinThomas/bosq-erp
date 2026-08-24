@@ -90,7 +90,7 @@ export function DashboardStatusChart({ data = [], loading }: StatusChartProps) {
               No quotations recorded for the selected period
             </div>
           ) : (
-            <ResponsiveContainer width="99%" height="100%">
+            <ResponsiveContainer width="99%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
                   data={chartData}
