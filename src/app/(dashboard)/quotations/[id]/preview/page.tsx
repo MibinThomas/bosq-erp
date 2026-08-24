@@ -49,8 +49,9 @@ import { useSession } from "next-auth/react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { CostingBreakdownModal } from "@/components/costing/CostingBreakdownModal"
 import { CostingUpdateModal } from "@/components/costing/CostingUpdateModal"
+import { calculateProductPrice } from "@/components/costing/QuotationCostingWorkspaceModal"
 import { ExecutiveCostSummaryCard } from "@/components/costing/ExecutiveCostSummaryCard"
-import { Calculator } from "lucide-react"
+import { Calculator, Sparkles, RefreshCw } from "lucide-react"
 
 interface QuotationItem {
   id: string
@@ -246,6 +247,74 @@ export default function QuotationHtmlPreviewPage() {
       }
     })
   }, [quotation])
+
+  const quotationCostSummary = React.useMemo(() => {
+    if (!costingItemsList || costingItemsList.length === 0) return null
+
+    let grandFactoryCost = 0
+    let grandAccessoriesCost = 0
+    let grandTotalCost = 0
+    let grandBaseSellingPrice = 0
+    let grandFinalSellingPrice = 0
+
+    costingItemsList.forEach((item) => {
+      const facCost = item.materialCost || 0
+      const accCost = item.laborCost || 0
+      const marginPct = item.marginPercentage ?? 0
+      const negotiationPct = (item as any).negotiationPct ?? 0
+
+      const calc = calculateProductPrice(facCost, accCost, marginPct, negotiationPct, item.unitPrice)
+      const qty = item.quantity || 1
+
+      grandFactoryCost += facCost * qty
+      grandAccessoriesCost += accCost * qty
+      grandTotalCost += calc.totalCost * qty
+      grandBaseSellingPrice += calc.baseSellingPrice * qty
+      grandFinalSellingPrice += calc.finalSellingPrice * qty
+    })
+
+    const grandTotalProfit = grandFinalSellingPrice - grandTotalCost
+    const overallMarginPct = grandFinalSellingPrice > 0 ? (grandTotalProfit / grandFinalSellingPrice) * 100 : 0
+
+    return {
+      grandFactoryCost,
+      grandAccessoriesCost,
+      grandTotalCost,
+      grandBaseSellingPrice,
+      grandFinalSellingPrice,
+      grandTotalProfit,
+      overallMarginPct
+    }
+  }, [costingItemsList])
+
+  const renderCostingStatusBadge = (status: string) => {
+    switch (status) {
+      case "PENDING_COSTING":
+        return (
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300 font-semibold text-[10px] py-0.5 px-2">
+            Pending Costing
+          </Badge>
+        )
+      case "COSTING_IN_PROGRESS":
+        return (
+          <Badge className="bg-blue-600 text-white font-semibold text-[10px] py-0.5 px-2">
+            In Progress
+          </Badge>
+        )
+      case "COSTING_COMPLETED":
+        return (
+          <Badge className="bg-emerald-600 text-white font-semibold text-[10px] py-0.5 px-2">
+            Costing Completed
+          </Badge>
+        )
+      default:
+        return (
+          <Badge variant="secondary" className="text-[10px]">
+            {status || "Not Required"}
+          </Badge>
+        )
+    }
+  }
 
   const quotationMetrics = React.useMemo(() => {
     if (!quotation) return null
@@ -856,6 +925,74 @@ export default function QuotationHtmlPreviewPage() {
               </div>
             </div>
 
+            {/* Quotation-Level Financial Summary Bar */}
+            {quotationCostSummary && (
+              <div className="p-5 bg-slate-900 text-white rounded-2xl space-y-4 font-sans shadow-lg border border-slate-800">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-400" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                      Quotation Financial Audit Summary ({quotation.quotationNumber})
+                    </span>
+                  </div>
+                  <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono text-xs px-3 py-0.5">
+                    {quotationCostSummary.overallMarginPct.toFixed(1)}% Overall Gross Margin
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center">
+                  <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase block">Total Factory Cost</span>
+                    <span className="font-mono font-bold text-xs sm:text-sm text-slate-200 mt-0.5 block">
+                      AED {formatCurrency(quotationCostSummary.grandFactoryCost)}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase block">Total Accessories Cost</span>
+                    <span className="font-mono font-bold text-xs sm:text-sm text-slate-200 mt-0.5 block">
+                      AED {formatCurrency(quotationCostSummary.grandAccessoriesCost)}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase block">Total Cost</span>
+                    <span className="font-mono font-extrabold text-xs sm:text-sm text-amber-300 mt-0.5 block">
+                      AED {formatCurrency(quotationCostSummary.grandTotalCost)}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase block">Overall Margin</span>
+                    <span className="font-mono font-extrabold text-xs sm:text-sm text-teal-300 mt-0.5 block">
+                      {quotationCostSummary.overallMarginPct.toFixed(1)}%
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase block">Total Selling Price</span>
+                    <span className="font-mono font-bold text-xs sm:text-sm text-emerald-300 mt-0.5 block">
+                      AED {formatCurrency(quotationCostSummary.grandBaseSellingPrice)}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase block">Total Revenue</span>
+                    <span className="font-mono font-extrabold text-xs sm:text-sm text-emerald-400 mt-0.5 block">
+                      AED {formatCurrency(quotationCostSummary.grandFinalSellingPrice)}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50 col-span-2 sm:col-span-1">
+                    <span className="text-[10px] text-slate-400 font-semibold uppercase block">Total Expected Profit</span>
+                    <span className={`font-mono font-extrabold text-xs sm:text-sm mt-0.5 block ${quotationCostSummary.grandTotalProfit >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                      AED {formatCurrency(quotationCostSummary.grandTotalProfit)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* High-Readability Line-Item Costing Breakdown & Product Images Table */}
             <div className="bg-card border rounded-2xl p-5 shadow-xs space-y-4">
               <div className="flex items-center justify-between border-b pb-3">
@@ -865,7 +1002,7 @@ export default function QuotationHtmlPreviewPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-base text-foreground tracking-tight">Line-Item Costing Breakdown &amp; Product Images Audit</h3>
-                    <p className="text-xs text-muted-foreground">Itemized factory costs, labor allocations, quoted rates, margin %, and net profit per product.</p>
+                    <p className="text-xs text-muted-foreground">Itemized factory costs, accessories, margin %, negotiation %, unit prices, and line profitability.</p>
                   </div>
                 </div>
                 <Badge variant="outline" className="text-xs font-mono font-bold bg-muted/30">
@@ -877,29 +1014,43 @@ export default function QuotationHtmlPreviewPage() {
                 <table className="w-full text-left text-xs border-collapse font-sans">
                   <thead>
                     <tr className="border-b bg-muted/60 text-muted-foreground font-bold uppercase text-[10px]">
-                      <th className="p-3">#</th>
+                      <th className="p-3 font-mono">#</th>
                       <th className="p-3 min-w-[70px]">Image</th>
-                      <th className="p-3 min-w-[240px]">Product &amp; Specifications</th>
-                      <th className="p-3 text-center">Qty</th>
-                      <th className="p-3 text-right">Material Cost</th>
-                      <th className="p-3 text-right">Labor / Overhead</th>
-                      <th className="p-3 text-right">Unit Factory Cost</th>
-                      <th className="p-3 text-right">Quoted Rate</th>
-                      <th className="p-3 text-right">Margin %</th>
-                      <th className="p-3 text-right">Net Profit</th>
-                      <th className="p-3 text-center">Action</th>
+                      <th className="p-3 min-w-[220px]">Product &amp; Specifications</th>
+                      <th className="p-3 text-center font-mono">Qty</th>
+                      <th className="p-3 text-right font-mono min-w-[100px]">Factory Cost</th>
+                      <th className="p-3 text-right font-mono min-w-[110px]">Accessories Cost</th>
+                      <th className="p-3 text-right font-mono min-w-[110px]">Total Cost (Unit)</th>
+                      <th className="p-3 text-right font-mono min-w-[80px]">Margin %</th>
+                      <th className="p-3 text-right font-mono min-w-[95px]">Negotiation %</th>
+                      <th className="p-3 text-right font-mono min-w-[140px]">Final Selling Price (Unit)</th>
+                      <th className="p-3 text-right font-mono min-w-[130px]">Line Total Revenue</th>
+                      <th className="p-3 text-right font-mono min-w-[120px]">Expected Profit</th>
+                      <th className="p-3 text-center min-w-[110px]">Status</th>
+                      <th className="p-3 text-center min-w-[110px]">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y border-b">
                     {costingItemsList.map((item, idx) => {
-                      const isProfitable = item.netProfitTotal >= 0
+                      const facCost = item.materialCost || 0
+                      const accCost = item.laborCost || 0
+                      const marginPct = item.marginPercentage ?? 0
+                      const negotiationPct = (item as any).negotiationPct ?? 0
+
+                      const calc = calculateProductPrice(facCost, accCost, marginPct, negotiationPct, item.unitPrice)
+                      const qty = item.quantity || 1
+                      const lineTotalRevenue = calc.finalSellingPrice * qty
+                      const totalCostLine = calc.totalCost * qty
+                      const expectedProfit = lineTotalRevenue - totalCostLine
+                      const isProfitable = expectedProfit >= 0
+
                       return (
                         <tr key={item.id || idx} className="hover:bg-muted/30 transition-colors">
-                          <td className="p-3 font-mono text-muted-foreground align-top font-bold text-xs">{item.itemNo}</td>
+                          <td className="p-3 font-mono text-muted-foreground align-top font-bold text-xs">{item.itemNo || idx + 1}</td>
                           <td className="p-3 align-top">
                             {item.imageUrl ? (
                               <div 
-                                className="relative group w-16 h-16 rounded-xl overflow-hidden border border-border bg-white shadow-2xs shrink-0 cursor-pointer"
+                                className="relative group w-14 h-14 rounded-xl overflow-hidden border border-border bg-white shadow-2xs shrink-0 cursor-pointer"
                                 onClick={() => setPreviewImageUrl(item.imageUrl)}
                                 title="Click to view high-res product image"
                               >
@@ -909,12 +1060,12 @@ export default function QuotationHtmlPreviewPage() {
                                 </div>
                               </div>
                             ) : (
-                              <div className="w-16 h-16 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/30 flex items-center justify-center text-[10px] text-muted-foreground text-center font-medium">
+                              <div className="w-14 h-14 rounded-xl border border-dashed border-muted-foreground/30 bg-muted/30 flex items-center justify-center text-[10px] text-muted-foreground text-center font-medium">
                                 No Image
                               </div>
                             )}
                           </td>
-                          <td className="p-3 align-top space-y-1.5">
+                          <td className="p-3 align-top space-y-1.5 min-w-[200px]">
                             <div className="font-bold text-foreground text-xs leading-tight">{item.description}</div>
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {quotation.includeCategoryName !== false && item.categoryName && (
@@ -930,16 +1081,19 @@ export default function QuotationHtmlPreviewPage() {
                             </div>
                             {renderSpecificationsHtml(item.specifications, item.productNotes)}
                           </td>
-                          <td className="p-3 text-center font-extrabold align-top text-xs text-foreground">{item.quantity}</td>
-                          <td className="p-3 text-right font-mono align-top text-xs font-semibold text-slate-700 dark:text-slate-300">AED {formatCurrency(item.materialCost)}</td>
-                          <td className="p-3 text-right font-mono align-top text-xs font-semibold text-slate-700 dark:text-slate-300">AED {formatCurrency(item.laborCost + item.overheadCost)}</td>
-                          <td className="p-3 text-right font-mono font-bold text-foreground align-top text-xs">AED {formatCurrency(item.unitCost)}</td>
-                          <td className="p-3 text-right font-mono font-extrabold text-primary align-top text-xs">AED {formatCurrency(item.unitSellingPrice)}</td>
-                          <td className="p-3 text-right font-mono font-extrabold text-blue-600 dark:text-blue-400 align-top text-xs">
-                            {item.marginPercentage.toFixed(1)}%
-                          </td>
+                          <td className="p-3 text-center font-extrabold align-top text-xs text-foreground">{qty}</td>
+                          <td className="p-3 text-right font-mono align-top text-xs font-semibold text-slate-700 dark:text-slate-300">AED {formatCurrency(facCost)}</td>
+                          <td className="p-3 text-right font-mono align-top text-xs font-semibold text-slate-700 dark:text-slate-300">AED {formatCurrency(accCost)}</td>
+                          <td className="p-3 text-right font-mono font-extrabold text-slate-900 dark:text-slate-100 align-top text-xs">AED {formatCurrency(calc.totalCost)}</td>
+                          <td className="p-3 text-right font-mono font-bold text-teal-600 dark:text-teal-400 align-top text-xs">{marginPct.toFixed(1)}%</td>
+                          <td className="p-3 text-right font-mono font-bold text-purple-600 dark:text-purple-400 align-top text-xs">{negotiationPct.toFixed(1)}%</td>
+                          <td className="p-3 text-right font-mono font-extrabold text-emerald-600 dark:text-emerald-400 align-top text-xs">AED {formatCurrency(calc.finalSellingPrice)}</td>
+                          <td className="p-3 text-right font-mono font-extrabold text-emerald-700 dark:text-emerald-300 align-top text-xs">AED {formatCurrency(lineTotalRevenue)}</td>
                           <td className={`p-3 text-right font-mono font-extrabold align-top text-xs ${isProfitable ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                            AED {formatCurrency(item.netProfitTotal)}
+                            AED {formatCurrency(expectedProfit)}
+                          </td>
+                          <td className="p-3 text-center align-top">
+                            {renderCostingStatusBadge((item as any).costingStatus)}
                           </td>
                           <td className="p-3 text-center align-top">
                             <Button
@@ -950,7 +1104,7 @@ export default function QuotationHtmlPreviewPage() {
                                 setEditingCostItem(item)
                                 setIsCostModalOpen(true)
                               }}
-                              className="h-7 text-[11px] px-2.5 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-1 cursor-pointer font-bold"
+                              className="h-7 text-[11px] px-2.5 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-1 cursor-pointer font-bold rounded-lg"
                             >
                               <Calculator className="h-3.5 w-3.5" />
                               Cost Item
