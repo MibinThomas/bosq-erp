@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { 
   Loader2, 
@@ -27,13 +26,8 @@ import {
   Clock,
   Layers,
   Save,
-  CheckCircle2,
-  AlertCircle,
   Tag,
   Maximize2,
-  HelpCircle,
-  TrendingUp,
-  SlidersHorizontal,
   Info
 } from "lucide-react"
 import { toast } from "sonner"
@@ -133,6 +127,53 @@ interface EditableItemState {
   costingStatus: string
 }
 
+/**
+ * Formula Calculation Engine:
+ * 1. Total Cost (Unit) = Factory Cost + Accessories Cost
+ * 2. Scenario 1 (Margin % only): Final Selling Price = Total Cost / (1 - Margin %)
+ * 3. Scenario 2 (Margin % + Negotiation %): Final Selling Price = {Total Cost / (1 - Margin %)} / (1 - Negotiation %)
+ * 4. Scenario 3 (Negotiation % only): Final Selling Price = Total Cost / (1 - Negotiation %)
+ * 5. Scenario 4 (Neither): Final Selling Price = Total Cost
+ */
+export function calculateProductPrice(
+  factoryCost: number,
+  accessoriesCost: number,
+  marginPct: number,
+  negotiationPct: number,
+  manualUnitPrice?: number
+) {
+  const totalCost = (factoryCost || 0) + (accessoriesCost || 0)
+  const M = Math.min(Math.max(marginPct || 0, 0), 99.9) / 100
+  const N = Math.min(Math.max(negotiationPct || 0, 0), 99.9) / 100
+
+  // Base selling price with Margin % only: Total Cost / (1 - M)
+  const baseSellingPrice = M > 0 && M < 1
+    ? Math.round((totalCost / (1 - M)) * 100) / 100
+    : totalCost
+
+  let computedFinalPrice = totalCost
+  if (M > 0 && N > 0) {
+    computedFinalPrice = Math.round(((totalCost / (1 - M)) / (1 - N)) * 100) / 100
+  } else if (M > 0) {
+    computedFinalPrice = Math.round((totalCost / (1 - M)) * 100) / 100
+  } else if (N > 0) {
+    computedFinalPrice = Math.round((totalCost / (1 - N)) * 100) / 100
+  }
+
+  const finalSellingPrice = (manualUnitPrice && manualUnitPrice > 0) ? manualUnitPrice : computedFinalPrice
+
+  const marginValue = baseSellingPrice - totalCost
+  const negotiationValue = finalSellingPrice - baseSellingPrice
+
+  return {
+    totalCost,
+    baseSellingPrice,
+    marginValue,
+    negotiationValue,
+    finalSellingPrice
+  }
+}
+
 export function QuotationCostingWorkspaceModal({
   quotationGroup,
   open,
@@ -152,7 +193,7 @@ export function QuotationCostingWorkspaceModal({
           id: item.id,
           factoryCost: item.materialCost || 0,
           accessoriesCost: item.laborCost || 0,
-          marginPercentage: item.marginPercentage || 25,
+          marginPercentage: item.marginPercentage ?? 0,
           negotiationPct: 0,
           unitPrice: item.unitPrice || 0,
           estimatorNotes: item.estimatorNotes || "",
@@ -174,7 +215,7 @@ export function QuotationCostingWorkspaceModal({
         id: itemId,
         factoryCost: 0,
         accessoriesCost: 0,
-        marginPercentage: 25,
+        marginPercentage: 0,
         negotiationPct: 0,
         unitPrice: 0,
         estimatorNotes: "",
@@ -190,7 +231,7 @@ export function QuotationCostingWorkspaceModal({
     })
   }
 
-  // Calculate quotation-level totals dynamically
+  // Calculate quotation-level totals dynamically using corrected formulas
   const quotationTotals = useMemo(() => {
     let grandFactoryCost = 0
     let grandAccessoriesCost = 0
@@ -204,26 +245,16 @@ export function QuotationCostingWorkspaceModal({
       
       const facCost = state?.factoryCost || 0
       const accCost = state?.accessoriesCost || 0
-      const totalUnitCost = facCost + accCost
+      const marginPct = state?.marginPercentage ?? 0
+      const negotiationPct = state?.negotiationPct ?? 0
 
-      const marginPct = state?.marginPercentage || 25
-      const negotiationPct = state?.negotiationPct || 0
-
-      // Unit Selling Price before negotiation
-      const baseSellingPrice = totalUnitCost > 0 && marginPct > 0 && marginPct < 100
-        ? Math.round((totalUnitCost / (1 - marginPct / 100)) * 100) / 100
-        : totalUnitCost
-
-      // Final Selling Price after negotiation discount
-      const finalSellingPrice = (state?.unitPrice && state.unitPrice > 0)
-        ? state.unitPrice
-        : Math.max(0, Math.round((baseSellingPrice * (1 - negotiationPct / 100)) * 100) / 100)
+      const calc = calculateProductPrice(facCost, accCost, marginPct, negotiationPct, state?.unitPrice)
 
       grandFactoryCost += facCost * qty
       grandAccessoriesCost += accCost * qty
-      grandTotalCost += totalUnitCost * qty
-      grandBaseSellingPrice += baseSellingPrice * qty
-      grandFinalSellingPrice += finalSellingPrice * qty
+      grandTotalCost += calc.totalCost * qty
+      grandBaseSellingPrice += calc.baseSellingPrice * qty
+      grandFinalSellingPrice += calc.finalSellingPrice * qty
     })
 
     const grandTotalProfit = grandFinalSellingPrice - grandTotalCost
@@ -248,17 +279,10 @@ export function QuotationCostingWorkspaceModal({
         const state = itemStates[item.id] || {}
         const facCost = state.factoryCost || 0
         const accCost = state.accessoriesCost || 0
-        const totalUnitCost = facCost + accCost
-        const marginPct = state.marginPercentage || 25
-        const negotiationPct = state.negotiationPct || 0
+        const marginPct = state.marginPercentage ?? 0
+        const negotiationPct = state.negotiationPct ?? 0
 
-        const baseSellingPrice = totalUnitCost > 0 && marginPct > 0 && marginPct < 100
-          ? Math.round((totalUnitCost / (1 - marginPct / 100)) * 100) / 100
-          : totalUnitCost
-
-        const finalSellingPrice = (state.unitPrice && state.unitPrice > 0)
-          ? state.unitPrice
-          : Math.max(0, Math.round((baseSellingPrice * (1 - negotiationPct / 100)) * 100) / 100)
+        const calc = calculateProductPrice(facCost, accCost, marginPct, negotiationPct, state.unitPrice)
 
         return {
           id: item.id,
@@ -268,7 +292,7 @@ export function QuotationCostingWorkspaceModal({
           transportCost: 0,
           installationCost: 0,
           marginPercentage: marginPct,
-          unitPrice: finalSellingPrice,
+          unitPrice: calc.finalSellingPrice,
           estimatorNotes: state.estimatorNotes || "",
           costingStatus: isComplete ? "COSTING_COMPLETED" : (state.costingStatus || "COSTING_IN_PROGRESS")
         }
@@ -416,7 +440,7 @@ export function QuotationCostingWorkspaceModal({
                 id: item.id,
                 factoryCost: item.materialCost || 0,
                 accessoriesCost: item.laborCost || 0,
-                marginPercentage: item.marginPercentage || 25,
+                marginPercentage: item.marginPercentage ?? 0,
                 negotiationPct: 0,
                 unitPrice: item.unitPrice || 0,
                 estimatorNotes: item.estimatorNotes || "",
@@ -429,28 +453,17 @@ export function QuotationCostingWorkspaceModal({
               const productImg = item.imageUrl || item.customImageUrl || item.product?.imageUrl
               const modelCode = item.product?.sku || item.description
 
-              // Calculations
-              const facCost = state.factoryCost || 0
-              const accCost = state.accessoriesCost || 0
-              const totalUnitCost = facCost + accCost
+              // Calculations via Engine
+              const calc = calculateProductPrice(
+                state.factoryCost || 0,
+                state.accessoriesCost || 0,
+                state.marginPercentage ?? 0,
+                state.negotiationPct ?? 0,
+                state.unitPrice
+              )
 
-              const marginPct = state.marginPercentage || 25
-              const negotiationPct = state.negotiationPct || 0
-
-              // Base unit selling price before negotiation
-              const baseUnitPrice = totalUnitCost > 0 && marginPct > 0 && marginPct < 100
-                ? Math.round((totalUnitCost / (1 - marginPct / 100)) * 100) / 100
-                : totalUnitCost
-
-              const marginValueUnit = baseUnitPrice - totalUnitCost
-              const negotiationValueUnit = Math.round((baseUnitPrice * (negotiationPct / 100)) * 100) / 100
-
-              const finalUnitPrice = (state.unitPrice && state.unitPrice > 0)
-                ? state.unitPrice
-                : Math.max(0, baseUnitPrice - negotiationValueUnit)
-
-              const lineTotalRevenue = finalUnitPrice * qty
-              const lineTotalCost = totalUnitCost * qty
+              const lineTotalRevenue = calc.finalSellingPrice * qty
+              const lineTotalCost = calc.totalCost * qty
               const lineNetProfit = lineTotalRevenue - lineTotalCost
               const lineProfitPct = lineTotalRevenue > 0 ? (lineNetProfit / lineTotalRevenue) * 100 : 0
 
@@ -622,12 +635,13 @@ export function QuotationCostingWorkspaceModal({
                               min="0"
                               max="99"
                               step="0.1"
-                              value={state.marginPercentage || ""}
+                              value={state.marginPercentage ?? 0}
                               onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0
-                                updateItemField(item.id, "marginPercentage", val)
+                                const raw = e.target.value
+                                const val = raw === "" ? 0 : parseFloat(raw)
+                                updateItemField(item.id, "marginPercentage", isNaN(val) ? 0 : val)
                               }}
-                              placeholder="25%"
+                              placeholder="0%"
                               className="font-mono font-bold h-9 text-xs pr-7 bg-background"
                             />
                             <span className="absolute right-2.5 top-2.5 text-xs font-bold text-muted-foreground pointer-events-none">%</span>
@@ -646,10 +660,11 @@ export function QuotationCostingWorkspaceModal({
                               min="0"
                               max="50"
                               step="0.1"
-                              value={state.negotiationPct || ""}
+                              value={state.negotiationPct ?? 0}
                               onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0
-                                updateItemField(item.id, "negotiationPct", val)
+                                const raw = e.target.value
+                                const val = raw === "" ? 0 : parseFloat(raw)
+                                updateItemField(item.id, "negotiationPct", isNaN(val) ? 0 : val)
                               }}
                               placeholder="0%"
                               className="font-mono font-bold h-9 text-xs pr-7 bg-background"
@@ -689,28 +704,28 @@ export function QuotationCostingWorkspaceModal({
                           <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
                             <span className="text-[9px] text-slate-400 font-semibold block uppercase">Total Cost (Unit)</span>
                             <span className="font-mono font-bold text-xs text-slate-200 mt-0.5 block">
-                              AED {totalUnitCost.toFixed(2)}
+                              AED {calc.totalCost.toFixed(2)}
                             </span>
                           </div>
 
                           <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
                             <span className="text-[9px] text-slate-400 font-semibold block uppercase">Margin Value (Unit)</span>
                             <span className="font-mono font-bold text-xs text-teal-300 mt-0.5 block">
-                              AED {marginValueUnit.toFixed(2)}
+                              AED {calc.marginValue.toFixed(2)}
                             </span>
                           </div>
 
                           <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
                             <span className="text-[9px] text-slate-400 font-semibold block uppercase">Negotiation Buffer</span>
                             <span className="font-mono font-bold text-xs text-purple-300 mt-0.5 block">
-                              AED {negotiationValueUnit.toFixed(2)}
+                              AED {calc.negotiationValue.toFixed(2)}
                             </span>
                           </div>
 
                           <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
                             <span className="text-[9px] text-slate-400 font-semibold block uppercase">Final Selling Price</span>
                             <span className="font-mono font-bold text-xs text-emerald-400 mt-0.5 block">
-                              AED {finalUnitPrice.toFixed(2)}
+                              AED {calc.finalSellingPrice.toFixed(2)}
                             </span>
                           </div>
 

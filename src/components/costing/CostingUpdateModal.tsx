@@ -69,7 +69,7 @@ export function CostingUpdateModal({
   const [overheadCost, setOverheadCost] = useState<number>(0)
   const [transportCost, setTransportCost] = useState<number>(0)
   const [installationCost, setInstallationCost] = useState<number>(0)
-  const [marginPercentage, setMarginPercentage] = useState<number>(25)
+  const [marginPercentage, setMarginPercentage] = useState<number>(0)
   const [unitPrice, setUnitPrice] = useState<number>(0)
   const [estimatorNotes, setEstimatorNotes] = useState<string>("")
 
@@ -80,7 +80,7 @@ export function CostingUpdateModal({
       setOverheadCost(item.overheadCost || 0)
       setTransportCost(item.transportCost || 0)
       setInstallationCost(item.installationCost || 0)
-      setMarginPercentage(item.marginPercentage || 25)
+      setMarginPercentage(item.marginPercentage ?? 0)
       setUnitPrice(item.unitPrice || 0)
       setEstimatorNotes(item.estimatorNotes || "")
     }
