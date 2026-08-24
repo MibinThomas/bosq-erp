@@ -726,6 +726,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   const [selectionMode, setSelectionMode] = useState<"search" | "configurator">("search")
   const canUseConfigurator = userRole === "SUPER_ADMIN" || !!isConfiguratorEnabled
   const currentItemVal = useWatch({ control, name: `items.${index}` }) || {}
+  const includeCategoryName = useWatch({ control, name: "includeCategoryName" }) ?? true
   const isItemLocked = currentItemVal.costingStatus === "PENDING_COSTING" || currentItemVal.costingStatus === "COSTING_IN_PROGRESS"
   const itemBatch = currentItemVal.batchHeading || ""
   const belongsToBatch = batchName === "General Items" ? (!itemBatch || itemBatch === "General Items") : itemBatch === batchName
@@ -819,7 +820,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             </Button>
           </div>
 
-          {currentItemVal.categoryName && (
+          {includeCategoryName && currentItemVal.categoryName && (
             <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
               {currentItemVal.categoryName}
             </Badge>
@@ -999,54 +1000,56 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           </div>
 
           {/* Additional Category / Chair Type Selects */}
-          <div className="grid grid-cols-2 gap-3">
-            <FormField
-              control={control}
-              name={`items.${index}.categoryName`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[11px] font-medium text-muted-foreground">Category</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || "Chairs"} disabled={isItemLocked}>
-                    <FormControl>
-                      <SelectTrigger className="h-8 text-xs bg-background" disabled={isItemLocked}>
-                        <SelectValue placeholder="Category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {dbCategories.map(cat => (
-                        <SelectItem key={cat.id} value={cat.name} className="text-xs">{cat.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormItem>
-              )}
-            />
-
-            {currentItemVal.categoryName === "Chairs" && (
+          {includeCategoryName && (
+            <div className="grid grid-cols-2 gap-3">
               <FormField
                 control={control}
-                name={`items.${index}.chairType`}
+                name={`items.${index}.categoryName`}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-[11px] font-medium text-muted-foreground">Chair Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ""} disabled={isItemLocked}>
+                    <FormLabel className="text-[11px] font-medium text-muted-foreground">Category</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || "Chairs"} disabled={isItemLocked}>
                       <FormControl>
                         <SelectTrigger className="h-8 text-xs bg-background" disabled={isItemLocked}>
-                          <SelectValue placeholder="Type" />
+                          <SelectValue placeholder="Category" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Executive Chair" className="text-xs">Executive Chair</SelectItem>
-                        <SelectItem value="Workstation Chair" className="text-xs">Workstation Chair</SelectItem>
-                        <SelectItem value="Meeting Chair" className="text-xs">Meeting Chair</SelectItem>
-                        <SelectItem value="Lounge Chair" className="text-xs">Lounge Chair</SelectItem>
+                        {dbCategories.map(cat => (
+                          <SelectItem key={cat.id} value={cat.name} className="text-xs">{cat.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </FormItem>
                 )}
               />
-            )}
-          </div>
+
+              {currentItemVal.categoryName === "Chairs" && (
+                <FormField
+                  control={control}
+                  name={`items.${index}.chairType`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-[11px] font-medium text-muted-foreground">Chair Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ""} disabled={isItemLocked}>
+                        <FormControl>
+                          <SelectTrigger className="h-8 text-xs bg-background" disabled={isItemLocked}>
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Executive Chair" className="text-xs">Executive Chair</SelectItem>
+                          <SelectItem value="Workstation Chair" className="text-xs">Workstation Chair</SelectItem>
+                          <SelectItem value="Meeting Chair" className="text-xs">Meeting Chair</SelectItem>
+                          <SelectItem value="Lounge Chair" className="text-xs">Lounge Chair</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+          )}
 
           {/* Save to Catalog Switch for Managerial & Super Admin roles */}
           {isManagerOrAdminRole(userRole) && (
@@ -4908,7 +4911,7 @@ function NewQuotationForm() {
                         <span className="font-semibold text-xs text-foreground truncate">
                           {item.description || "Product #" + (idx + 1)}
                         </span>
-                        {item.categoryName && (
+                        {form.watch("includeCategoryName") !== false && item.categoryName && (
                           <Badge variant="outline" className="text-[10px] py-0 px-1 font-mono">
                             {item.categoryName}
                           </Badge>
