@@ -195,7 +195,7 @@ export function QuotationCostingWorkspaceModal({
           accessoriesCost: item.laborCost || 0,
           marginPercentage: item.marginPercentage ?? 0,
           negotiationPct: 0,
-          unitPrice: item.unitPrice || 0,
+          unitPrice: 0,
           estimatorNotes: item.estimatorNotes || "",
           costingStatus: item.costingStatus || "PENDING_COSTING"
         }
@@ -221,12 +221,16 @@ export function QuotationCostingWorkspaceModal({
         estimatorNotes: "",
         costingStatus: "PENDING_COSTING"
       }
+      const updated = {
+        ...curr,
+        [field]: value
+      }
+      if (field === "factoryCost" || field === "accessoriesCost" || field === "marginPercentage" || field === "negotiationPct") {
+        updated.unitPrice = 0
+      }
       return {
         ...prev,
-        [itemId]: {
-          ...curr,
-          [field]: value
-        }
+        [itemId]: updated
       }
     })
   }
