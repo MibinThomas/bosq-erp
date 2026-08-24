@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Calculator, Check, AlertCircle, Coins, Percent } from "lucide-react"
+import { Loader2, Calculator, Check, Coins, Percent, FileText, Package, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 
 interface QuotationItemForCosting {
@@ -40,6 +40,20 @@ interface CostingUpdateModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
+}
+
+function cleanHtmlText(htmlStr?: string | null): string {
+  if (!htmlStr) return ""
+  return htmlStr
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 export function CostingUpdateModal({
@@ -75,6 +89,7 @@ export function CostingUpdateModal({
   if (!item) return null
 
   const quantity = item.quantity || 1
+  const cleanedSpecs = cleanHtmlText(item.specifications)
   const totalUnitCost = materialCost + laborCost + overheadCost + transportCost + installationCost
   
   // Compute suggested selling price from margin % if unit price not manually overridden
@@ -129,190 +144,260 @@ export function CostingUpdateModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl sm:rounded-2xl p-6">
-        <DialogHeader className="border-b pb-4">
-          <div className="flex items-center space-x-2.5">
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+      <DialogContent className="max-w-3xl lg:max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden rounded-2xl border shadow-2xl bg-card">
+        {/* Header */}
+        <DialogHeader className="p-5 sm:p-6 border-b bg-muted/20 shrink-0">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
               <Calculator className="h-5 w-5" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-bold">
-                Line Item Costing &amp; Estimation (Item #{item.itemNo})
+              <DialogTitle className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
+                Line Item Costing &amp; Estimation
+                <Badge variant="outline" className="font-mono text-xs bg-background border-amber-300 text-amber-900 dark:text-amber-300">
+                  Item #{item.itemNo}
+                </Badge>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                Set factory unit costs, material/labor allocations, and approved margin percentage.
+                Enter factory unit costs, material/labor breakdown, and target gross margin percentage.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
-          {/* Item Overview Banner */}
-          <div className="p-3.5 bg-muted/40 border rounded-xl flex items-start justify-between gap-3 text-xs">
-            <div className="space-y-1">
-              <p className="font-bold text-foreground leading-snug">{item.description}</p>
-              {item.specifications && (
-                <p className="text-muted-foreground text-[11px] line-clamp-2">{item.specifications}</p>
-              )}
-            </div>
-            <Badge variant="outline" className="font-mono text-xs px-2.5 py-1 font-bold shrink-0">
-              Qty: {quantity}
-            </Badge>
-          </div>
-
-          {/* Cost Allocation Inputs Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="space-y-1.5">
-              <label className="font-bold text-foreground flex items-center justify-between">
-                <span>Material Cost (AED/unit)</span>
-                <Coins className="h-3.5 w-3.5 text-blue-600" />
-              </label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={materialCost || ""}
-                onChange={(e) => setMaterialCost(parseFloat(e.target.value) || 0)}
-                placeholder="0.00"
-                className="font-mono font-semibold"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-bold text-foreground flex items-center justify-between">
-                <span>Labor &amp; Production (AED/unit)</span>
-                <Coins className="h-3.5 w-3.5 text-emerald-600" />
-              </label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={laborCost || ""}
-                onChange={(e) => setLaborCost(parseFloat(e.target.value) || 0)}
-                placeholder="0.00"
-                className="font-mono font-semibold"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-bold text-foreground flex items-center justify-between">
-                <span>Factory Overhead (AED/unit)</span>
-                <Coins className="h-3.5 w-3.5 text-amber-600" />
-              </label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={overheadCost || ""}
-                onChange={(e) => setOverheadCost(parseFloat(e.target.value) || 0)}
-                placeholder="0.00"
-                className="font-mono font-semibold"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-bold text-foreground flex items-center justify-between">
-                <span>Transport &amp; Site Installation (AED/unit)</span>
-                <Coins className="h-3.5 w-3.5 text-purple-600" />
-              </label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={transportCost || ""}
-                onChange={(e) => setTransportCost(parseFloat(e.target.value) || 0)}
-                placeholder="0.00"
-                className="font-mono font-semibold"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-bold text-foreground flex items-center justify-between">
-                <span>Desired Gross Margin %</span>
-                <Percent className="h-3.5 w-3.5 text-teal-600" />
-              </label>
-              <Input
-                type="number"
-                min="0"
-                max="99"
-                step="0.1"
-                value={marginPercentage || ""}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 0
-                  setMarginPercentage(val)
-                  if (totalUnitCost > 0 && val > 0 && val < 100) {
-                    setUnitPrice(Math.round((totalUnitCost / (1 - val / 100)) * 100) / 100)
-                  }
-                }}
-                placeholder="25%"
-                className="font-mono font-semibold"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="font-bold text-foreground flex items-center justify-between">
-                <span>Quoted Selling Price (AED/unit)</span>
-                <Coins className="h-3.5 w-3.5 text-emerald-600" />
-              </label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={unitPrice || ""}
-                onChange={(e) => setUnitPrice(parseFloat(e.target.value) || 0)}
-                placeholder={suggestedUnitPrice.toString()}
-                className="font-mono font-bold text-emerald-700 dark:text-emerald-400"
-              />
-            </div>
-          </div>
-
-          {/* Computed Financial Audit Summary Card */}
-          <div className="p-4 bg-slate-900 text-white rounded-xl space-y-3 font-sans shadow-inner">
-            <div className="flex items-center justify-between text-xs font-semibold border-b border-slate-800 pb-2">
-              <span className="text-slate-400 uppercase tracking-wider text-[10px]">Cost &amp; Profit Summary</span>
-              <Badge className="bg-emerald-500/20 text-emerald-300 border-0 font-mono text-[10px]">
-                {computedMarginPct.toFixed(1)}% Margin
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
+          {/* Section 1: Item Overview Banner */}
+          <div className="p-4 bg-muted/40 border border-border/80 rounded-xl space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Package className="h-4 w-4 text-primary shrink-0" />
+                <h4 className="font-bold text-xs sm:text-sm text-foreground truncate">{item.description}</h4>
+              </div>
+              <Badge className="bg-primary text-primary-foreground font-mono text-xs font-bold px-3 py-0.5 shrink-0">
+                Quantity: {quantity}
               </Badge>
             </div>
-            
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div>
-                <span className="text-[10px] text-slate-400 block">Unit Factory Cost</span>
-                <span className="font-mono font-bold text-sm text-slate-200">AED {totalUnitCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+
+            {cleanedSpecs && (
+              <div className="pt-2 border-t border-border/60 flex items-start gap-2">
+                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">
+                  {cleanedSpecs}
+                </p>
               </div>
-              <div>
-                <span className="text-[10px] text-slate-400 block">Unit Selling Price</span>
-                <span className="font-mono font-extrabold text-sm text-emerald-400">AED {effectiveUnitPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            )}
+          </div>
+
+          {/* Section 2: Cost Breakdown Inputs Grid */}
+          <div className="space-y-3">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Coins className="h-3.5 w-3.5 text-amber-600" />
+              1. Direct Unit Costs &amp; Expense Breakdown (AED/Unit)
+            </h5>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 p-3.5 rounded-xl border bg-card/60">
+                <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Material Cost</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Raw Materials / Veneer</span>
+                </label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={materialCost || ""}
+                    onChange={(e) => setMaterialCost(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="font-mono font-semibold h-9 text-xs pl-8 bg-background"
+                  />
+                  <span className="absolute left-2.5 top-2.5 text-xs font-bold text-muted-foreground pointer-events-none">AED</span>
+                </div>
               </div>
-              <div>
-                <span className="text-[10px] text-slate-400 block">Line Net Profit ({quantity}x)</span>
-                <span className={`font-mono font-extrabold text-sm ${lineNetProfit >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                  AED {lineNetProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+
+              <div className="space-y-1.5 p-3.5 rounded-xl border bg-card/60">
+                <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Labor &amp; Production</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Carpentry &amp; Assembly</span>
+                </label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={laborCost || ""}
+                    onChange={(e) => setLaborCost(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="font-mono font-semibold h-9 text-xs pl-8 bg-background"
+                  />
+                  <span className="absolute left-2.5 top-2.5 text-xs font-bold text-muted-foreground pointer-events-none">AED</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 p-3.5 rounded-xl border bg-card/60">
+                <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Factory Overhead</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Machinery &amp; Power</span>
+                </label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={overheadCost || ""}
+                    onChange={(e) => setOverheadCost(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="font-mono font-semibold h-9 text-xs pl-8 bg-background"
+                  />
+                  <span className="absolute left-2.5 top-2.5 text-xs font-bold text-muted-foreground pointer-events-none">AED</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 p-3.5 rounded-xl border bg-card/60">
+                <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Transport &amp; Logistics</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Delivery &amp; Installation</span>
+                </label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={transportCost || ""}
+                    onChange={(e) => setTransportCost(parseFloat(e.target.value) || 0)}
+                    placeholder="0.00"
+                    className="font-mono font-semibold h-9 text-xs pl-8 bg-background"
+                  />
+                  <span className="absolute left-2.5 top-2.5 text-xs font-bold text-muted-foreground pointer-events-none">AED</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Target Margin & Selling Price */}
+          <div className="space-y-3 pt-2 border-t">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Percent className="h-3.5 w-3.5 text-teal-600" />
+              2. Margin Target &amp; Quoted Selling Price
+            </h5>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 p-3.5 rounded-xl border bg-teal-500/5 border-teal-500/20">
+                <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Target Gross Margin %</span>
+                  <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold">Auto-calculates Price</span>
+                </label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="99"
+                    step="0.1"
+                    value={marginPercentage || ""}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0
+                      setMarginPercentage(val)
+                      if (totalUnitCost > 0 && val > 0 && val < 100) {
+                        setUnitPrice(Math.round((totalUnitCost / (1 - val / 100)) * 100) / 100)
+                      }
+                    }}
+                    placeholder="25%"
+                    className="font-mono font-bold h-9 text-xs pr-7 bg-background"
+                  />
+                  <span className="absolute right-2.5 top-2.5 text-xs font-bold text-muted-foreground pointer-events-none">%</span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 p-3.5 rounded-xl border bg-emerald-500/5 border-emerald-500/20">
+                <label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>Quoted Selling Price (AED/unit)</span>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Final Customer Price</span>
+                </label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={unitPrice || ""}
+                    onChange={(e) => setUnitPrice(parseFloat(e.target.value) || 0)}
+                    placeholder={suggestedUnitPrice.toString()}
+                    className="font-mono font-extrabold h-9 text-xs pl-8 bg-background text-emerald-700 dark:text-emerald-400 border-emerald-400"
+                  />
+                  <span className="absolute left-2.5 top-2.5 text-xs font-bold text-emerald-700 dark:text-emerald-400 pointer-events-none">AED</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4: Financial Summary Card */}
+          <div className="p-5 bg-slate-900 text-white rounded-2xl space-y-4 font-sans shadow-xl border border-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-emerald-400" />
+                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">Financial Audit &amp; Profit Summary</span>
+              </div>
+              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono text-xs px-2.5 py-0.5">
+                {computedMarginPct.toFixed(1)}% Gross Margin
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+              <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                <span className="text-[10px] text-slate-400 font-semibold block uppercase">Unit Factory Cost</span>
+                <span className="font-mono font-bold text-sm text-slate-200 mt-0.5 block">
+                  AED {totalUnitCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                <span className="text-[10px] text-slate-400 font-semibold block uppercase">Unit Selling Price</span>
+                <span className="font-mono font-bold text-sm text-emerald-400 mt-0.5 block">
+                  AED {effectiveUnitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                <span className="text-[10px] text-slate-400 font-semibold block uppercase">Line Total Revenue</span>
+                <span className="font-mono font-extrabold text-sm text-amber-300 mt-0.5 block">
+                  AED {lineTotalSelling.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                <span className="text-[10px] text-slate-400 font-semibold block uppercase">Line Net Profit</span>
+                <span className={`font-mono font-extrabold text-sm mt-0.5 block ${lineNetProfit >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  AED {lineNetProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Estimator Notes / Remarks */}
-          <div className="space-y-1.5 text-xs">
-            <label className="font-bold text-foreground">Estimator Notes / Material Specifications</label>
+          {/* Section 5: Estimator Notes / Remarks */}
+          <div className="space-y-1.5 pt-1">
+            <label className="text-xs font-bold text-foreground flex items-center justify-between">
+              <span>Estimator Technical Notes &amp; Specifications</span>
+              <span className="text-[10px] font-normal text-muted-foreground">Internal reference for pricing team</span>
+            </label>
             <Textarea
-              rows={2}
+              rows={3}
               value={estimatorNotes}
               onChange={(e) => setEstimatorNotes(e.target.value)}
-              placeholder="Add technical notes on materials, veneer specs, or supplier cost references..."
-              className="text-xs"
+              placeholder="Add technical notes on materials, veneer specs, factory machinery time, or supplier cost references..."
+              className="text-xs leading-relaxed bg-background"
             />
           </div>
         </div>
 
-        <DialogFooter className="border-t pt-4 gap-2">
+        {/* Footer Actions */}
+        <DialogFooter className="p-4 bg-muted/30 border-t flex flex-row items-center justify-between gap-3 shrink-0">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => onOpenChange(false)}
             disabled={loading}
+            className="text-xs h-9 px-4 cursor-pointer"
           >
             Cancel
           </Button>
@@ -321,15 +406,15 @@ export function CostingUpdateModal({
             size="sm"
             onClick={handleSaveCosting}
             disabled={loading}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 px-6 flex items-center gap-1.5 cursor-pointer shadow-md"
           >
             {loading ? (
               <>
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Saving Costing...
+                <Loader2 className="h-4 w-4 animate-spin" /> Saving Costing...
               </>
             ) : (
               <>
-                <Check className="mr-1.5 h-4 w-4" /> Approve &amp; Save Costing
+                <Check className="h-4 w-4" /> Approve &amp; Save Costing
               </>
             )}
           </Button>
