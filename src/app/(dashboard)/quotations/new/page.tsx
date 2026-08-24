@@ -102,6 +102,7 @@ const quotationSchema = z.object({
   preparedById: z.string().optional(),
   includeSalesAgent: z.boolean().default(false).optional(),
   includeCompanySeal: z.boolean().default(false).optional(),
+  includeCategoryName: z.boolean().default(true).optional(),
   includeMaterialsFinishes: z.boolean().default(false).optional(),
   selectedMaterials: z.array(z.any()).default([]).optional(),
   salesAgentId: z.string().optional(),
@@ -1392,6 +1393,7 @@ function NewQuotationForm() {
       preparedById: (session?.user as any)?.id || "",
       includeSalesAgent: false,
       includeCompanySeal: false,
+      includeCategoryName: true,
       includeMaterialsFinishes: false,
       selectedMaterials: [],
       salesAgentId: "",
@@ -2100,6 +2102,7 @@ function NewQuotationForm() {
               preparedById: activeData.preparedById,
               includeSalesAgent: activeData.includeSalesAgent ?? !!(activeData.salesAgentName || activeData.salesAgentContactNumber || activeData.salesAgentEmail),
               includeCompanySeal: activeData.includeCompanySeal ?? false,
+              includeCategoryName: activeData.includeCategoryName ?? true,
               includeMaterialsFinishes: activeData.includeMaterialsFinishes ?? false,
               selectedMaterials: Array.isArray(activeData.selectedMaterials) ? activeData.selectedMaterials : [],
               salesAgentId: activeData.salesAgentId || "",
@@ -3695,18 +3698,41 @@ function NewQuotationForm() {
                 </div>
 
                 {/* Company Seal Toggle Section */}
-                <div className="space-y-4 pt-4 border-t">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
                   <FormField
                     control={form.control}
                     name="includeCompanySeal"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
-                        <div className="space-y-0.5">
+                        <div className="space-y-0.5 pr-2">
                           <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground">
                             Include Company Seal on Quotation
                           </FormLabel>
                           <p className="text-[11px] text-muted-foreground">
                             Toggle to show or hide the company seal in the quotation preview and exported PDF.
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value ?? false}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="includeCategoryName"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
+                        <div className="space-y-0.5 pr-2">
+                          <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground">
+                            Show Product Category on Quotation
+                          </FormLabel>
+                          <p className="text-[11px] text-muted-foreground">
+                            Toggle to show or hide product category badges (e.g. PREMIUM CHAIRS) on preview and PDF.
                           </p>
                         </div>
                         <FormControl>

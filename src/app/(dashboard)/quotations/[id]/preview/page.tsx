@@ -138,6 +138,7 @@ interface Quotation {
   commonRemark?: string | null
   commonRemarkHighlight?: boolean | null
   commonRemarkStyle?: string | null
+  includeCategoryName?: boolean
   client: {
     companyName: string
     contactPerson: string | null
@@ -916,7 +917,7 @@ export default function QuotationHtmlPreviewPage() {
                           <td className="p-3 align-top space-y-1.5">
                             <div className="font-bold text-foreground text-xs leading-tight">{item.description}</div>
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              {item.categoryName && (
+                              {quotation.includeCategoryName !== false && item.categoryName && (
                                 <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono font-medium">
                                   {item.categoryName}
                                 </Badge>
@@ -1332,7 +1333,7 @@ export default function QuotationHtmlPreviewPage() {
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-xs text-foreground">{item.description}</span>
-                        {item.categoryName && (
+                        {quotation.includeCategoryName !== false && item.categoryName && (
                           <Badge variant="outline" className="text-[10px] py-0 font-medium">
                             {item.categoryName}
                           </Badge>

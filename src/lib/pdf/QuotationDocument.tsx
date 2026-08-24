@@ -497,6 +497,7 @@ export interface QuotationPdfProps {
   commonRemark?: string | null
   commonRemarkHighlight?: boolean | null
   commonRemarkStyle?: string | null
+  includeCategoryName?: boolean
   status?: string | null
 }
 
@@ -623,6 +624,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   commonRemark = null,
   commonRemarkHighlight = false,
   commonRemarkStyle = "AMBER",
+  includeCategoryName = true,
   status = null,
 }) => {
   const formatCurrency = (val: number) => {
@@ -1086,7 +1088,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                               <Text style={styles.itemTitle}>{item.description}</Text>
                               
                               {/* 2. Product Type / Category */}
-                              {item.categoryName && (
+                              {includeCategoryName !== false && item.categoryName && (
                                 <Text style={styles.itemCategory}>{item.categoryName}</Text>
                               )}
 
@@ -1149,7 +1151,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                             <Text style={styles.itemTitle}>{item.description}</Text>
                             
                             {/* 2. Product Type / Category */}
-                            {item.categoryName && (
+                            {includeCategoryName !== false && item.categoryName && (
                               <Text style={styles.itemCategory}>{item.categoryName}</Text>
                             )}
 
@@ -1212,7 +1214,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                           <Text style={styles.itemTitle}>{item.description}</Text>
                           
                           {/* 2. Product Type / Category */}
-                          {item.categoryName && (
+                          {includeCategoryName !== false && item.categoryName && (
                             <Text style={styles.itemCategory}>{item.categoryName}</Text>
                           )}
 

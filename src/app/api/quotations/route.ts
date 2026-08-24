@@ -805,6 +805,7 @@ export async function POST(request: Request) {
         termsConditions: storedTermsConditions,
         includeSalesAgent: !!includeSalesAgent,
         includeCompanySeal: includeCompanySeal ?? false,
+        includeCategoryName: body.includeCategoryName ?? true,
         includeMaterialsFinishes: !!includeMaterialsFinishes,
         selectedMaterials: Array.isArray(selectedMaterials) ? (selectedMaterials as any) : [],
         salesAgentId: includeSalesAgent ? (salesAgentId || null) : null,

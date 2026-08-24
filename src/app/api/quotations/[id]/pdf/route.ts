@@ -260,6 +260,7 @@ export async function GET(
       commonRemark: quotation.commonRemark || null,
       commonRemarkHighlight: !!quotation.commonRemarkHighlight,
       commonRemarkStyle: quotation.commonRemarkStyle || "AMBER",
+      includeCategoryName: (quotation as any).includeCategoryName ?? true,
       status: quotation.status,
     }
 
