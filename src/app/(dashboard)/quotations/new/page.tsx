@@ -828,7 +828,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
 
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* Add for Costing Action & Status Badges */}
-          {currentItemVal.costingStatus === "PENDING_COSTING" ? (
+          {currentItemVal.costingStatus === "ADDED_FOR_COSTING" ? (
             <Badge 
               variant="outline"
               className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300 text-[11px] font-semibold py-0.5 px-2 flex items-center gap-1 cursor-pointer"
@@ -839,6 +839,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               title="Click to remove from costing queue"
             >
               <Clock className="h-3 w-3 text-amber-600" /> Added for Costing
+            </Badge>
+          ) : currentItemVal.costingStatus === "PENDING_COSTING" ? (
+            <Badge className="bg-amber-500 text-white font-semibold text-[11px] py-0.5 px-2 flex items-center gap-1">
+              <Clock className="h-3 w-3 animate-pulse" /> Pending Costing
             </Badge>
           ) : currentItemVal.costingStatus === "COSTING_IN_PROGRESS" ? (
             <Badge className="bg-blue-600 text-white font-semibold text-[11px] py-0.5 px-2 flex items-center gap-1">
@@ -854,8 +858,8 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               variant="outline"
               size="sm"
               onClick={() => {
-                form.setValue(`items.${index}.costingStatus`, "PENDING_COSTING", { shouldDirty: true })
-                toast.success(`Item #${index + 1} added for costing! Save draft or Send to Estimator to submit.`)
+                form.setValue(`items.${index}.costingStatus`, "ADDED_FOR_COSTING", { shouldDirty: true })
+                toast.success(`Item #${index + 1} added for costing. Item remains editable until you click 'Send to Estimator'.`)
               }}
               className="text-[11px] h-7 px-2.5 flex items-center gap-1.5 border-amber-300/80 bg-amber-50/60 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 font-semibold cursor-pointer shadow-2xs"
               title="Add this product for Estimator custom pricing"
@@ -1491,26 +1495,33 @@ function NewQuotationForm() {
   const [selectedCostingItemIndexes, setSelectedCostingItemIndexes] = useState<number[]>([])
 
   const pendingCostingCount = useMemo(() => {
-    return watchItems.filter((item: any) => item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS").length
+    return watchItems.filter((item: any) => item.costingStatus === "ADDED_FOR_COSTING" || item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS").length
   }, [watchItems])
 
   const hasPendingCostingItems = useMemo(() => {
-    return watchItems.some((item: any) => item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS")
+    return watchItems.some((item: any) => item.costingStatus === "ADDED_FOR_COSTING" || item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS")
   }, [watchItems])
 
   const handleSendToCostingClick = () => {
     const currentItems = form.getValues("items") || []
     if (currentItems.length === 0) {
-      toast.error("Please add at least one product item before sending for costing.")
+      toast.error("Please add at least one product item before sending to Estimator.")
       return
     }
 
-    const pendingIndexes = currentItems
-      .map((item: any, idx: number) => (item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS" ? idx : -1))
+    const addedIndexes = currentItems
+      .map((item: any, idx: number) => (item.costingStatus === "ADDED_FOR_COSTING" || item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS" ? idx : -1))
       .filter((idx) => idx !== -1)
 
-    if (pendingIndexes.length > 0) {
-      toast.info(`Submitting ${pendingIndexes.length} item(s) to Cost Estimator...`)
+    if (addedIndexes.length > 0) {
+      // Automatically lock all ADDED_FOR_COSTING items into PENDING_COSTING
+      currentItems.forEach((item: any, idx: number) => {
+        if (item.costingStatus === "ADDED_FOR_COSTING") {
+          form.setValue(`items.${idx}.costingStatus`, "PENDING_COSTING", { shouldDirty: true })
+        }
+      })
+
+      toast.success(`Sent ${addedIndexes.length} product(s) to Cost Estimator. Products are now locked for costing.`)
       form.handleSubmit((data) => onSubmit(data, "DRAFT"), onInvalid)()
     } else {
       setSelectedCostingItemIndexes(currentItems.map((_, idx) => idx))
@@ -1520,7 +1531,7 @@ function NewQuotationForm() {
 
   const handleConfirmSendToCosting = (selectedIndexes: number[]) => {
     if (selectedIndexes.length === 0) {
-      toast.error("Please select at least one product item to add for costing.")
+      toast.error("Please select at least one product item to send to Estimator.")
       return
     }
 
@@ -1528,13 +1539,13 @@ function NewQuotationForm() {
     currentItems.forEach((item: any, idx: number) => {
       if (selectedIndexes.includes(idx)) {
         form.setValue(`items.${idx}.costingStatus`, "PENDING_COSTING", { shouldDirty: true })
-      } else if (item.costingStatus === "PENDING_COSTING") {
+      } else if (item.costingStatus === "ADDED_FOR_COSTING" || item.costingStatus === "PENDING_COSTING") {
         form.setValue(`items.${idx}.costingStatus`, "NOT_REQUIRED", { shouldDirty: true })
       }
     })
 
     setIsCostingSelectionOpen(false)
-    toast.success(`${selectedIndexes.length} product(s) added for costing. Save draft or Send to Estimator to submit...`)
+    toast.success(`Sent ${selectedIndexes.length} product(s) to Cost Estimator. Products are now locked for costing.`)
     
     setTimeout(() => {
       form.handleSubmit((data) => onSubmit(data, "DRAFT"), onInvalid)()
