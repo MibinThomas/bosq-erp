@@ -390,14 +390,14 @@ export function CostingUpdateModal({
         </div>
 
         {/* Footer Actions */}
-        <DialogFooter className="p-4 bg-muted/30 border-t flex flex-row items-center justify-between gap-3 shrink-0">
+        <DialogFooter className="p-4 sm:p-5 bg-muted/30 border-t flex flex-row items-center justify-end gap-3 shrink-0">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => onOpenChange(false)}
             disabled={loading}
-            className="text-xs h-9 px-4 cursor-pointer"
+            className="text-xs h-10 px-4 font-semibold cursor-pointer rounded-xl"
           >
             Cancel
           </Button>
@@ -406,15 +406,15 @@ export function CostingUpdateModal({
             size="sm"
             onClick={handleSaveCosting}
             disabled={loading}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 px-6 flex items-center gap-1.5 cursor-pointer shadow-md"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 px-6 flex items-center gap-2 cursor-pointer shadow-md rounded-xl transition-colors"
           >
             {loading ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Saving Costing...
+                <Loader2 className="h-4 w-4 animate-spin" /> Saving &amp; Completing...
               </>
             ) : (
               <>
-                <Check className="h-4 w-4" /> Approve &amp; Save Costing
+                <Check className="h-4 w-4 stroke-[3]" /> Costing Completed
               </>
             )}
           </Button>
