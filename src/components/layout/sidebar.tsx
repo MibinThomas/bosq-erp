@@ -62,10 +62,12 @@ export function Sidebar({ className, onNavClick }: { className?: string, onNavCl
     // Map nav item name to system module name
     const permMap: Record<string, string> = {
       "Dashboard": "DASHBOARD",
+      "Approvals": "APPROVALS",
       "Clients": "CLIENTS",
       "Products": "PRODUCTS",
       "BOQs": "BOQS",
       "Quotations": "QUOTATIONS",
+      "Costing Requests": "COSTING_REQUESTS",
       "Reports": "REPORTS",
       "User Management": "USER_MANAGEMENT",
       "Access Control": "ACCESS_CONTROL",

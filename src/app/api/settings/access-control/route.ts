@@ -43,6 +43,44 @@ async function ensureDbSchema() {
       ADD COLUMN IF NOT EXISTS "canApproveClientAccess" BOOLEAN DEFAULT false;
     `)
 
+    // 4. Ensure APPROVALS and COSTING_REQUESTS permissions exist for all system roles
+    const allRoles = await prisma.role.findMany()
+    const targetModules = ["APPROVALS", "COSTING_REQUESTS"]
+    for (const r of allRoles) {
+      for (const mod of targetModules) {
+        const existing = await prisma.rolePermission.findFirst({
+          where: { roleId: r.id, module: mod }
+        })
+        if (!existing) {
+          const isManager = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(r.name)
+          const isIDC = ["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(r.name)
+          const isEstimator = r.name === "ESTIMATOR"
+
+          let defaultView = isManager || isIDC
+          if (mod === "COSTING_REQUESTS" && isEstimator) defaultView = true
+
+          await prisma.rolePermission.create({
+            data: {
+              roleId: r.id,
+              module: mod,
+              view: defaultView,
+              create: isManager || (isIDC && mod === "COSTING_REQUESTS"),
+              edit: isManager || isEstimator,
+              delete: isManager,
+              approve: isManager,
+              reject: isManager,
+              export: isManager || isEstimator,
+              downloadPdf: true,
+              uploadFiles: true,
+              share: true,
+              manage: isManager,
+              ownership: isManager ? "ALL" : "ASSIGNED"
+            }
+          })
+        }
+      }
+    }
+
     isMigrated = true
     console.log("Access control database migrations executed successfully.")
   } catch (error) {
@@ -264,7 +302,7 @@ export async function POST(request: Request) {
       const allModules = [
         "DASHBOARD", "CLIENTS", "PRODUCTS", "QUOTATIONS", "BOQS", "PURCHASE_ORDERS",
         "REPORTS", "USER_MANAGEMENT", "SETTINGS", "PRICING_MARKUP", "ACCESS_CONTROL",
-        "NOTIFICATIONS", "SHAREPOINT", "SYSTEM_CONFIGURATION"
+        "NOTIFICATIONS", "SHAREPOINT", "SYSTEM_CONFIGURATION", "APPROVALS", "COSTING_REQUESTS"
       ]
 
       let sourcePermissions: any[] = []

@@ -54,6 +54,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 
 const modules = [
   { id: "QUOTATIONS", name: "Quotations & Revisions", category: "Sales & Pricing", icon: FileSpreadsheet },
+  { id: "APPROVALS", name: "Executive Approvals & Workflow", category: "Sales & Pricing", icon: Shield },
+  { id: "COSTING_REQUESTS", name: "Costing Requests & Estimations", category: "Costing & BOQ", icon: Calculator },
   { id: "BOQS", name: "BOQs & Costing", category: "Costing & BOQ", icon: Calculator },
   { id: "CLIENTS", name: "Clients & CRM", category: "Sales & Pricing", icon: Building },
   { id: "PRODUCTS", name: "Products & Master Catalog", category: "Catalog & Inventory", icon: PackagePlus },

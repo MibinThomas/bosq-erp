@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
+import { hasPermission } from "@/lib/rbac"
 
 export async function GET(request: Request) {
   try {
@@ -16,6 +17,11 @@ export async function GET(request: Request) {
 
     const userRole = (session.user as any).role || ""
     const userId = (session.user as any).id || ""
+
+    const canViewCosting = await hasPermission(userId, "COSTING_REQUESTS", "view")
+    if (!canViewCosting && userRole !== "SUPER_ADMIN" && !["ADMIN", "SALES_MANAGER", "MANAGER", "ESTIMATOR"].includes(userRole)) {
+      return NextResponse.json({ error: "Forbidden: Access denied to Costing Requests module" }, { status: 403 })
+    }
 
     // Build Prisma query condition
     const whereCondition: any = {

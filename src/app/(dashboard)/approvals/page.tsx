@@ -24,9 +24,15 @@ import {
   RefreshCw
 } from "lucide-react"
 
+import { usePermissions } from "@/components/providers/PermissionsProvider"
+
 export default function ApprovalsPage() {
   const router = useRouter()
   const { data: session } = useSession()
+  const { hasPermission, loading: loadingPerms } = usePermissions()
+  const userRole = (session?.user as any)?.role || ""
+  const canViewApprovals = hasPermission("APPROVALS", "view")
+
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<any>({
     clientAccessRequests: [],
@@ -106,7 +112,19 @@ export default function ApprovalsPage() {
         </Button>
       </div>
 
-      {loading ? (
+      {!loadingPerms && !canViewApprovals && userRole !== "SUPER_ADMIN" ? (
+        <div className="flex flex-col items-center justify-center p-16 space-y-4 border rounded-2xl bg-card text-center">
+          <div className="p-3 rounded-full bg-rose-500/10 text-rose-600">
+            <ShieldAlert className="h-8 w-8" />
+          </div>
+          <div className="space-y-1 max-w-md">
+            <h3 className="text-base font-bold text-foreground">Access Restricted</h3>
+            <p className="text-xs text-muted-foreground">
+              You do not have permission to access the Executive Approval Center. Please contact your Super Administrator if you require access to this module.
+            </p>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="flex flex-col items-center justify-center p-16 space-y-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-xs text-muted-foreground font-medium">Loading approval requests...</p>

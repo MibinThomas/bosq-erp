@@ -14,7 +14,8 @@ export async function GET(request: Request) {
     const userRole = ((session.user as any).role || "").toUpperCase()
     const isManagerOrAdmin = ["ADMIN", "SUPER_ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
 
-    if (!isManagerOrAdmin) {
+    const canViewApprovals = await hasPermission(userId, "APPROVALS", "view")
+    if (!canViewApprovals && !isManagerOrAdmin) {
       const canApprove = await hasPermission(userId, "QUOTATIONS", "approve")
       if (!canApprove) {
         return NextResponse.json({ error: "Forbidden: Management approval rights required" }, { status: 403 })

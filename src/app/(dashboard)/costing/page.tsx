@@ -97,10 +97,14 @@ interface KPIStats {
   avgMarginPercentage: number
 }
 
+import { usePermissions } from "@/components/providers/PermissionsProvider"
+
 export default function CostingRequestsPage() {
   const { data: session } = useSession()
+  const { hasPermission, loading: loadingPerms } = usePermissions()
   const userRole = (session?.user as any)?.role || ""
   const isIDC = userRole === "INTERIOR_DESIGN_CONSULTANT"
+  const canViewCosting = hasPermission("COSTING_REQUESTS", "view")
 
   const [items, setItems] = useState<CostingItem[]>([])
   const [kpis, setKpis] = useState<KPIStats>({
@@ -217,8 +221,22 @@ export default function CostingRequestsPage() {
         </div>
       </div>
 
-      {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {!loadingPerms && !canViewCosting && userRole !== "SUPER_ADMIN" ? (
+        <div className="flex flex-col items-center justify-center p-16 space-y-4 border rounded-2xl bg-card text-center">
+          <div className="p-3 rounded-full bg-rose-500/10 text-rose-600">
+            <AlertCircle className="h-8 w-8" />
+          </div>
+          <div className="space-y-1 max-w-md">
+            <h3 className="text-base font-bold text-foreground">Access Restricted</h3>
+            <p className="text-xs text-muted-foreground">
+              You do not have permission to view Costing Requests &amp; Estimator Queue. Please contact your Super Administrator if you require access to this module.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Summary KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div 
           onClick={() => setActiveTab("PENDING_COSTING")}
           className={`p-4 border rounded-2xl bg-card transition-all cursor-pointer hover:border-amber-400 ${activeTab === "PENDING_COSTING" ? "ring-2 ring-amber-500/40 border-amber-500" : ""}`}
@@ -478,6 +496,8 @@ export default function CostingRequestsPage() {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {/* Costing Update Modal for Estimator */}
       {selectedCostItem && (
