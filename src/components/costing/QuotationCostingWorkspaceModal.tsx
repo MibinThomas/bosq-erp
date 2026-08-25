@@ -732,13 +732,6 @@ export function QuotationCostingWorkspaceModal({
                           </div>
 
                           <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
-                            <span className="text-[9px] text-slate-400 font-semibold block uppercase">Line Total Revenue ({qty}x)</span>
-                            <span className="font-mono font-extrabold text-xs text-emerald-300 mt-0.5 block">
-                              AED {lineTotalRevenue.toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
                             <span className="text-[9px] text-slate-400 font-semibold block uppercase">Expected Line Profit</span>
                             <span className={`font-mono font-extrabold text-xs mt-0.5 block ${lineNetProfit >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                               AED {lineNetProfit.toFixed(2)}
