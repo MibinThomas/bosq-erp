@@ -375,7 +375,7 @@ export default function QuotationHtmlPreviewPage() {
     return null
   }, [quotation, costingItemsList])
 
-  const userRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const userRole = (session?.user as any)?.role || ""
   const isIDC = userRole === "INTERIOR_DESIGN_CONSULTANT"
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
   const isSuperAdmin = userRole === "SUPER_ADMIN"
@@ -717,9 +717,9 @@ export default function QuotationHtmlPreviewPage() {
         </div>
 
         <div className="flex items-center space-x-2">
-          {/* View Mode Navigation Bar - Removed 'Customer Document' for Managerial Users */}
+          {/* View Mode Navigation Bar */}
           <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 p-0.5 rounded-lg border border-border mr-2">
-            {!isAuthorizedForCosting && !isIDC && (
+            {!isIDC && (
               <Button
                 type="button"
                 variant={activeViewMode === "html" ? "default" : "ghost"}
@@ -1328,7 +1328,7 @@ export default function QuotationHtmlPreviewPage() {
             </div>
 
           </div>
-        ) : activeViewMode === "pdf" ? (
+        ) : (activeViewMode === "pdf" || isIDC) ? (
           <div className="w-full flex-1 flex flex-col space-y-3">
             <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-xs flex items-center justify-between text-blue-800 dark:text-blue-200 shrink-0">
               <span>Streaming PDF document preview directly from server. If your browser blocks embedded PDF viewers:</span>
