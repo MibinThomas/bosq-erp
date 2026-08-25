@@ -898,11 +898,12 @@ export default function QuotationHtmlPreviewPage() {
                 const qty = item.quantity || 1
                 const lineCostUnit = item.unitCost || (item.materialCost + item.laborCost) || 0
                 const isEstimatorCosted = item.costingStatus === "COSTING_COMPLETED" || !!item.costingCompletedAt || (lineCostUnit > 0 && ((item.materialCost || 0) > 0 || (item.laborCost || 0) > 0))
+                const isCatalogPrice = !!(item.productId || item.product)
 
                 const idcName = quotation.preparedBy?.name || quotation.preparedBy?.email || quotation.salesAgentName || "Interior Design Consultant"
                 const estimatorName = item.estimator?.name || (quotation as any).assignedEstimator?.name || "Cost Estimator"
 
-                let statusText = `Provided by ${idcName}`
+                let statusText = isCatalogPrice ? "Price from Catalog" : `Provided by ${idcName}`
                 if (isEstimatorCosted) {
                   statusText = `Costing Completed by ${estimatorName}`
                 } else if (item.costingStatus === "COSTING_IN_PROGRESS") {

@@ -194,6 +194,8 @@ export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
                     <span className={`text-[11px] ${
                       item.costingStatusText.startsWith("Costing Completed") || item.costingDone
                         ? "text-emerald-700 font-bold"
+                        : item.costingStatusText.startsWith("Price from Catalog")
+                        ? "text-teal-700 font-extrabold"
                         : item.costingStatusText.startsWith("Provided by")
                         ? "text-blue-800 font-semibold"
                         : item.costingStatusText.startsWith("In Costing")
