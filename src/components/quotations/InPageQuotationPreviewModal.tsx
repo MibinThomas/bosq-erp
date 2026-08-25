@@ -111,7 +111,7 @@ export function InPageQuotationPreviewModal({
             <div className="py-20 flex flex-col items-center justify-center space-y-3 text-slate-300">
               <Loader2 className="h-9 w-9 animate-spin text-orange-500" />
               <p className="text-xs font-semibold text-slate-300">Compiling official quotation PDF layout...</p>
-              <p className="text-[11px] text-slate-500">Preparing customer document, line items, and styling</p>
+              <p className="text-[11px] text-slate-500">Preparing quotation preview, line items, and styling</p>
             </div>
           ) : (
             <iframe
