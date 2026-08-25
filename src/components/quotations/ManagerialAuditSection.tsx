@@ -190,17 +190,17 @@ export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
                   </td>
 
                   {/* Costing Done / Not */}
-                  <td className="py-3 px-2 text-center font-medium border-r border-slate-300 align-middle">
+                  <td className="py-3 px-2 text-center font-medium border-r border-slate-300 align-middle min-w-[160px]">
                     <span className={`text-[11px] ${
-                      item.costingDone || item.costingStatusText === "Costing Done"
+                      item.costingStatusText.startsWith("Costing Completed") || item.costingDone
                         ? "text-emerald-700 font-bold"
-                        : item.costingStatusText === "In Costing"
-                        ? "text-blue-700 font-bold"
-                        : item.costingStatusText === "Partially Costed"
-                        ? "text-purple-700 font-bold"
-                        : item.costingStatusText === "Pending Costing"
+                        : item.costingStatusText.startsWith("Provided by")
+                        ? "text-blue-800 font-semibold"
+                        : item.costingStatusText.startsWith("In Costing")
+                        ? "text-indigo-700 font-bold"
+                        : item.costingStatusText.startsWith("Pending")
                         ? "text-amber-700 font-bold"
-                        : "text-slate-500 font-medium"
+                        : "text-slate-700 font-medium"
                     }`}>
                       {item.costingStatusText}
                     </span>

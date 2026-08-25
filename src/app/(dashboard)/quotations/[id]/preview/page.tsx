@@ -897,22 +897,18 @@ export default function QuotationHtmlPreviewPage() {
                 const discPct = estPrice > 0 ? Math.round((discAmt / estPrice) * 100) : (item.discount || 0)
                 const qty = item.quantity || 1
                 const lineCostUnit = item.unitCost || (item.materialCost + item.laborCost) || 0
-                const isCosted = item.costingStatus === "COSTING_COMPLETED"
-                let statusText = "Not Costed"
-                if (isCosted) {
-                  statusText = "Costing Done"
+                const isEstimatorCosted = item.costingStatus === "COSTING_COMPLETED" || !!item.costingCompletedAt || (lineCostUnit > 0 && ((item.materialCost || 0) > 0 || (item.laborCost || 0) > 0))
+
+                const idcName = quotation.preparedBy?.name || quotation.preparedBy?.email || quotation.salesAgentName || "Interior Design Consultant"
+                const estimatorName = item.estimator?.name || (quotation as any).assignedEstimator?.name || "Cost Estimator"
+
+                let statusText = `Provided by ${idcName}`
+                if (isEstimatorCosted) {
+                  statusText = `Costing Completed by ${estimatorName}`
                 } else if (item.costingStatus === "COSTING_IN_PROGRESS") {
-                  statusText = "In Costing"
-                } else if (item.costingStatus === "PARTIALLY_COSTED") {
-                  statusText = "Partially Costed"
+                  statusText = `In Costing by ${estimatorName}`
                 } else if (item.costingStatus === "PENDING_COSTING") {
-                  statusText = "Pending Costing"
-                } else if (quotation.costingStatus === "COSTING_COMPLETED") {
-                  statusText = "Costing Done"
-                } else if (quotation.costingStatus === "PARTIALLY_COSTED") {
-                  statusText = "Partially Costed"
-                } else if (quotation.status && quotation.status !== "DRAFT") {
-                  statusText = "Not Costed"
+                  statusText = `Pending Costing`
                 }
 
                 return {
@@ -934,7 +930,7 @@ export default function QuotationHtmlPreviewPage() {
                   marginPct: item.marginPercentage || 0,
                   negotiationPct: 0,
                   estimatorPriceUnit: estPrice,
-                  costingDone: isCosted || statusText === "Costing Done",
+                  costingDone: isEstimatorCosted,
                   costingStatusText: statusText,
                   discountByIDC: discPct > 0 ? `${discPct}%` : "0%",
                   finalPriceUnit: consPrice,

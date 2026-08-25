@@ -60,10 +60,16 @@ export async function GET(
           include: { 
             product: {
               include: { category: true }
+            },
+            estimator: {
+              select: { id: true, name: true, email: true, role: true }
             }
           }
         },
         preparedBy: {
+          select: { id: true, name: true, email: true, designation: true, role: true, phone: true }
+        },
+        assignedEstimator: {
           select: { id: true, name: true, email: true, designation: true, role: true, phone: true }
         },
       },
