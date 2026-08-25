@@ -18,6 +18,64 @@ function cleanHtmlText(text?: string | null): string {
     .trim()
 }
 
+function parseSpecifications(rawText?: string | null): { key?: string; value: string }[] {
+  if (!rawText) return []
+  const text = cleanHtmlText(rawText)
+    .replace(/^product\s+specifications\s*/i, "")
+    .trim()
+  if (!text) return []
+
+  const parsedSpecs: { key?: string; value: string }[] = []
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean)
+
+  lines.forEach(line => {
+    if (/^product\s+specifications$/i.test(line)) return
+
+    if (line.includes(",") && line.includes(":")) {
+      const parts = line.split(",")
+      let currentSpec: { key?: string; value: string } | null = null
+
+      parts.forEach(part => {
+        const trimmed = part.trim()
+        if (trimmed.includes(":")) {
+          const colonIndex = trimmed.indexOf(":")
+          const key = trimmed.substring(0, colonIndex).trim()
+          const value = trimmed.substring(colonIndex + 1).trim()
+
+          if (currentSpec) {
+            parsedSpecs.push(currentSpec)
+          }
+          currentSpec = { key, value }
+        } else {
+          if (currentSpec) {
+            currentSpec.value += ", " + trimmed
+          } else {
+            parsedSpecs.push({ value: trimmed })
+          }
+        }
+      })
+      if (currentSpec) {
+        parsedSpecs.push(currentSpec)
+      }
+    } else if (line.includes(":")) {
+      const colonIndex = line.indexOf(":")
+      const key = line.substring(0, colonIndex).trim()
+      const value = line.substring(colonIndex + 1).trim()
+      parsedSpecs.push({ key, value })
+    } else {
+      parsedSpecs.push({ value: line })
+    }
+  })
+
+  return parsedSpecs.filter(spec => {
+    const val = spec.value.trim().toLowerCase()
+    if (!val || val === "-" || val === "not specified" || val === "none") {
+      return false
+    }
+    return true
+  })
+}
+
 export interface AuditItemMetric {
   id: string
   itemNo: number
@@ -90,7 +148,7 @@ export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
           </thead>
           <tbody className="divide-y divide-slate-300 text-slate-800 bg-white">
             {items.map((item) => {
-              const cleanSpecs = cleanHtmlText(item.specifications)
+              const parsedSpecs = parseSpecifications(item.specifications)
 
               return (
                 <tr key={item.id} className="border-b border-slate-300 hover:bg-slate-50/80 transition-colors">
@@ -118,40 +176,53 @@ export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
                   </td>
 
                   {/* Product Specifications */}
-                  <td className="py-3.5 px-3.5 border-r border-slate-300 align-top text-xs leading-relaxed space-y-1.5 min-w-[320px] max-w-[500px]">
+                  <td className="py-3.5 px-3.5 border-r border-slate-300 align-top text-xs leading-relaxed space-y-1 min-w-[320px] max-w-[500px]">
                     <p className="font-bold text-slate-900 text-xs">
                       Model Code: <span className="font-semibold text-slate-800">{item.modelCode || item.description}</span>
                     </p>
-                    {item.productType && (
+                    {item.productType && !parsedSpecs.some(s => s.key?.toLowerCase() === "product type") && (
                       <p className="text-slate-800 text-[11px]">
                         <strong className="font-semibold text-slate-900">Product Type:</strong> {item.productType}
                       </p>
                     )}
-                    {item.upholsteryMaterial && (
+                    {item.upholsteryMaterial && !parsedSpecs.some(s => s.key?.toLowerCase() === "upholstery material") && (
                       <p className="text-slate-800 text-[11px]">
                         <strong className="font-semibold text-slate-900">Upholstery Material:</strong> {item.upholsteryMaterial}
                       </p>
                     )}
-                    {item.baseType && (
+                    {item.baseType && !parsedSpecs.some(s => s.key?.toLowerCase() === "base type") && (
                       <p className="text-slate-800 text-[11px]">
                         <strong className="font-semibold text-slate-900">Base Type:</strong> {item.baseType}
                       </p>
                     )}
-                    {item.finishColor && (
+                    {item.finishColor && !parsedSpecs.some(s => s.key?.toLowerCase() === "finish/color" || s.key?.toLowerCase() === "finish & color") && (
                       <p className="text-slate-800 text-[11px]">
                         <strong className="font-semibold text-slate-900">Finish/Color:</strong> {item.finishColor}
                       </p>
                     )}
-                    {item.recommendedUsage && (
+                    {item.recommendedUsage && !parsedSpecs.some(s => s.key?.toLowerCase() === "recommended usage") && (
                       <p className="text-slate-800 text-[11px]">
                         <strong className="font-semibold text-slate-900">Recommended Usage:</strong> {item.recommendedUsage}
                       </p>
                     )}
-                    {cleanSpecs && (
-                      <div className="text-[11px] text-slate-700 leading-normal pt-1 whitespace-pre-wrap font-sans">
-                        {cleanSpecs}
-                      </div>
-                    )}
+
+                    {/* Render line-by-line specifications with bold labels */}
+                    {parsedSpecs.map((spec, sIdx) => {
+                      const kLower = spec.key?.toLowerCase() || ""
+                      if (kLower === "model code" || kLower === "model") return null
+
+                      return (
+                        <p key={sIdx} className="text-slate-800 text-[11px] leading-snug">
+                          {spec.key ? (
+                            <>
+                              <strong className="font-semibold text-slate-900">{spec.key}:</strong> {spec.value}
+                            </>
+                          ) : (
+                            <span>{spec.value}</span>
+                          )}
+                        </p>
+                      )
+                    })}
                   </td>
 
                   {/* QTY */}
