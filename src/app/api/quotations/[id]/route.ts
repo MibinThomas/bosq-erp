@@ -911,6 +911,18 @@ export async function PUT(
           dimensions: matchedProd?.dimensions || null,
           warranty: matchedProd?.warranty || null,
           batchHeading: item.batchHeading || null,
+          costingStatus: item.costingStatus || "NOT_REQUIRED",
+          unitCost: parseFloat(item.unitCost) || 0,
+          materialCost: parseFloat(item.materialCost) || 0,
+          laborCost: parseFloat(item.laborCost) || 0,
+          overheadCost: parseFloat(item.overheadCost) || 0,
+          transportCost: parseFloat(item.transportCost) || 0,
+          installationCost: parseFloat(item.installationCost) || 0,
+          marginPercentage: parseFloat(item.marginPercentage) || 0,
+          estimatorNotes: item.estimatorNotes || null,
+          estimatorId: item.estimatorId || null,
+          estimatorUnitPrice: parseFloat(item.estimatorUnitPrice) || 0,
+          costingCompletedAt: item.costingCompletedAt ? new Date(item.costingCompletedAt) : null,
         }
       }))
 
