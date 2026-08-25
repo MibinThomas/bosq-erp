@@ -233,6 +233,8 @@ export async function GET(
       preparedBySignatureUrl: quotation.preparedBy?.signature || null,
       includeSalesAgent: (quotation as any).includeSalesAgent ?? false,
       includeCompanySeal: (quotation as any).includeCompanySeal ?? true,
+      includeCategoryName: (quotation as any).includeCategoryName ?? true,
+      includeSectionHeadings: (quotation as any).includeSectionHeadings ?? true,
       includeMaterialsFinishes: !!((quotation as any).includeMaterialsFinishes),
       selectedMaterials: docSelectedMaterials,
       salesAgentName: (quotation as any).includeSalesAgent ? (quotation.salesAgentName || null) : null,
@@ -260,7 +262,6 @@ export async function GET(
       commonRemark: quotation.commonRemark || null,
       commonRemarkHighlight: !!quotation.commonRemarkHighlight,
       commonRemarkStyle: quotation.commonRemarkStyle || "AMBER",
-      includeCategoryName: (quotation as any).includeCategoryName ?? true,
       status: quotation.status,
     }
 

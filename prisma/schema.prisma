@@ -187,6 +187,7 @@ model Quotation {
   includeSalesAgent        Boolean   @default(false)
   includeCompanySeal       Boolean   @default(true)
   includeCategoryName      Boolean   @default(true)
+  includeSectionHeadings   Boolean   @default(true)
   includeMaterialsFinishes Boolean   @default(false)
   selectedMaterials        Json?     // array of { id, name, code, category, description, swatchUrl, brand }
   salesAgentId             String?

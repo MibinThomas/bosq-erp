@@ -109,6 +109,7 @@ export async function POST(
         clientId: sourceQuotation.clientId,
         includeCompanySeal: sourceQuotation.includeCompanySeal,
         includeCategoryName: sourceQuotation.includeCategoryName,
+        includeSectionHeadings: sourceQuotation.includeSectionHeadings,
         includeMaterialsFinishes: sourceQuotation.includeMaterialsFinishes,
         projectId: sourceQuotation.projectId,
         projectName: sourceQuotation.projectName,

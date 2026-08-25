@@ -498,6 +498,7 @@ export interface QuotationPdfProps {
   commonRemarkHighlight?: boolean | null
   commonRemarkStyle?: string | null
   includeCategoryName?: boolean
+  includeSectionHeadings?: boolean
   status?: string | null
 }
 
@@ -625,6 +626,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   commonRemarkHighlight = false,
   commonRemarkStyle = "AMBER",
   includeCategoryName = true,
+  includeSectionHeadings = true,
   status = null,
 }) => {
   const formatCurrency = (val: number) => {
@@ -1064,7 +1066,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             const sectionSubtotal = group.items.reduce((acc, item) => acc + item.amount, 0);
             return (
               <View key={`group-${gIdx}`} style={{ marginTop: gIdx > 0 ? 8 : 4 }}>
-                {group.heading ? (
+                {group.heading && includeSectionHeadings !== false ? (
                   <>
                     {/* Keep the section heading and the first product row together on the same page */}
                     <View wrap={false}>

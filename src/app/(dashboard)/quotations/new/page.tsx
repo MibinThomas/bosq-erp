@@ -103,6 +103,7 @@ const quotationSchema = z.object({
   includeSalesAgent: z.boolean().default(false).optional(),
   includeCompanySeal: z.boolean().default(false).optional(),
   includeCategoryName: z.boolean().default(true).optional(),
+  includeSectionHeadings: z.boolean().default(true).optional(),
   includeMaterialsFinishes: z.boolean().default(false).optional(),
   selectedMaterials: z.array(z.any()).default([]).optional(),
   salesAgentId: z.string().optional(),
@@ -1479,6 +1480,7 @@ function NewQuotationForm() {
       includeSalesAgent: false,
       includeCompanySeal: false,
       includeCategoryName: true,
+      includeSectionHeadings: true,
       includeMaterialsFinishes: false,
       selectedMaterials: [],
       salesAgentId: "",
@@ -2204,6 +2206,7 @@ function NewQuotationForm() {
               includeSalesAgent: activeData.includeSalesAgent ?? !!(activeData.salesAgentName || activeData.salesAgentContactNumber || activeData.salesAgentEmail),
               includeCompanySeal: activeData.includeCompanySeal ?? false,
               includeCategoryName: activeData.includeCategoryName ?? true,
+              includeSectionHeadings: activeData.includeSectionHeadings ?? true,
               includeMaterialsFinishes: activeData.includeMaterialsFinishes ?? false,
               selectedMaterials: Array.isArray(activeData.selectedMaterials) ? activeData.selectedMaterials : [],
               salesAgentId: activeData.salesAgentId || "",
@@ -3039,6 +3042,7 @@ function NewQuotationForm() {
   const isOfficiallyCreated = isEdit && existingQuote && existingQuote.status !== "DRAFT"
   const headerTitle = isRevision ? "Revise Quotation" : isOfficiallyCreated ? "Update Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"
   const primaryButtonText = isRevision ? "Save Revision" : isOfficiallyCreated ? "Update Quotation" : "Create Quotation"
+  const watchIncludeSectionHeadings = useWatch({ control: form.control, name: "includeSectionHeadings" }) ?? true
 
   const calculatedGrandTotal = useMemo(() => {
     const sub = watchItems.reduce((sum: number, item: any) => {
@@ -3850,6 +3854,30 @@ function NewQuotationForm() {
                       </FormItem>
                     )}
                   />
+
+                  <FormField
+                    control={form.control}
+                    name="includeSectionHeadings"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
+                        <div className="space-y-0.5 pr-2">
+                          <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground flex items-center gap-2">
+                            <Layers className="h-4 w-4 text-primary" />
+                            Enable Section Headings on Quotation
+                          </FormLabel>
+                          <p className="text-[11px] text-muted-foreground">
+                            Toggle to enable or disable grouping products into section headings (e.g. Section 1, Section 2) in the editor, preview, and PDF.
+                          </p>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value ?? true}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </div>
 
                 {/* Materials & Finishes Toggle & Selector Section */}
@@ -3957,15 +3985,17 @@ function NewQuotationForm() {
                   </CardTitle>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleAddBatch()}
-                    className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Add Section
-                  </Button>
+                  {watchIncludeSectionHeadings && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddBatch()}
+                      className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add Section
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="default"
@@ -3989,12 +4019,14 @@ function NewQuotationForm() {
                       onDragOver={(e) => handleBatchDragOver(e, batch.id)}
                       onDrop={(e) => handleBatchDrop(e, batch.id, batch.name)}
                       className={cn(
-                        "space-y-4 rounded-xl border p-4 bg-muted/10 transition-all",
+                        "space-y-4 transition-all",
+                        watchIncludeSectionHeadings && "rounded-xl border p-4 bg-muted/10",
                         dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5 shadow-md"
                       )}
                     >
                       {/* Section Header */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                      {watchIncludeSectionHeadings && (
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <span
                             draggable
@@ -4051,6 +4083,7 @@ function NewQuotationForm() {
                           )}
                         </div>
                       </div>
+                    )}
 
                       {/* Line Item Cards in Section */}
                       <div className="space-y-4">

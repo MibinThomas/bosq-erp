@@ -122,9 +122,10 @@ interface ManagerialAuditSectionProps {
   summary?: ManagerialAuditSummary
   items: AuditItemMetric[]
   userRole?: string
+  includeSectionHeadings?: boolean
 }
 
-export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
+export function ManagerialAuditSection({ items, includeSectionHeadings = true }: ManagerialAuditSectionProps) {
   return (
     <div className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg shadow-md overflow-hidden font-sans my-4">
       {/* 13-Column Reference Audit Table */}
@@ -152,7 +153,7 @@ export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
               const parsedSpecs = parseSpecifications(item.specifications)
               const currentBatch = item.batchHeading ? item.batchHeading.trim() : ""
               const prevBatch = index > 0 && items[index - 1].batchHeading ? items[index - 1].batchHeading!.trim() : ""
-              const showSectionHeader = currentBatch && currentBatch !== prevBatch && currentBatch !== "General Items"
+              const showSectionHeader = includeSectionHeadings !== false && currentBatch && currentBatch !== prevBatch && currentBatch !== "General Items"
 
               return (
                 <React.Fragment key={item.id}>

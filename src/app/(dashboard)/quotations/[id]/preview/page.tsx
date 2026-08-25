@@ -944,6 +944,7 @@ export default function QuotationHtmlPreviewPage() {
                   summary={summaryMetrics}
                   items={auditItems}
                   userRole={userRole}
+                  includeSectionHeadings={(quotation as any).includeSectionHeadings ?? true}
                 />
               )
             })()}
