@@ -926,28 +926,8 @@ export async function PUT(
         }
       }))
 
-      // Deduplicate / merge identical item entries
-      const quotationItemsToCreate: typeof rawRevisionItems = []
-      rawRevisionItems.forEach((item) => {
-        const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.productId || item.description || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}|${(item.productDescription || "").trim().toLowerCase()}`
-        const existingIdx = quotationItemsToCreate.findIndex((d) => {
-          const dKey = `${(d.batchHeading || "").trim().toLowerCase()}|${(d.productId || d.description || "").trim().toLowerCase()}|${d.unitPrice}|${(d.specifications || "").trim()}|${(d.productDescription || "").trim().toLowerCase()}`
-          return dKey === itemKey
-        })
-
-        if (existingIdx > -1) {
-          const existing = quotationItemsToCreate[existingIdx]
-          const mergedQty = existing.quantity + item.quantity
-          const mergedAmt = (existing.unitPrice - existing.discount) * mergedQty
-          quotationItemsToCreate[existingIdx] = {
-            ...existing,
-            quantity: mergedQty,
-            amount: mergedAmt,
-          }
-        } else {
-          quotationItemsToCreate.push({ ...item })
-        }
-      })
+      // Preserve all items without collapsing duplicates
+      const quotationItemsToCreate = rawRevisionItems
 
       // Re-index item numbers and calculate accurate subtotal
       let subtotal = 0
@@ -1439,28 +1419,8 @@ export async function PUT(
         }
       }))
 
-      // Deduplicate / merge identical item entries
-      const quotationItemsToCreate: typeof rawUpdateItems = []
-      rawUpdateItems.forEach((item) => {
-        const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.productId || item.description || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}|${(item.productDescription || "").trim().toLowerCase()}`
-        const existingIdx = quotationItemsToCreate.findIndex((d) => {
-          const dKey = `${(d.batchHeading || "").trim().toLowerCase()}|${(d.productId || d.description || "").trim().toLowerCase()}|${d.unitPrice}|${(d.specifications || "").trim()}|${(d.productDescription || "").trim().toLowerCase()}`
-          return dKey === itemKey
-        })
-
-        if (existingIdx > -1) {
-          const existing = quotationItemsToCreate[existingIdx]
-          const mergedQty = existing.quantity + item.quantity
-          const mergedAmt = (existing.unitPrice - existing.discount) * mergedQty
-          quotationItemsToCreate[existingIdx] = {
-            ...existing,
-            quantity: mergedQty,
-            amount: mergedAmt,
-          }
-        } else {
-          quotationItemsToCreate.push({ ...item })
-        }
-      })
+      // Preserve all items without collapsing duplicates
+      const quotationItemsToCreate = rawUpdateItems
 
       // Re-index item numbers and calculate accurate subtotal
       let subtotal = 0

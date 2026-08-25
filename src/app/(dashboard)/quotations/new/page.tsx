@@ -680,6 +680,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   control,
   form,
   batchName,
+  batches,
   products,
   watchSegment,
   dbCategories,
@@ -704,6 +705,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   control: any
   form: any
   batchName: string
+  batches?: any[]
   products: any[]
   watchSegment: string
   dbCategories: any[]
@@ -731,8 +733,16 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   const isIDC = !userRole || userRole === "INTERIOR_DESIGN_CONSULTANT" || userRole === "SALES_EXECUTIVE"
   const isCostedByEstimator = currentItemVal.costingStatus === "COSTING_COMPLETED" || !!currentItemVal.costingCompletedAt
   const isCostingLockedForIDC = isIDC && isCostedByEstimator
-  const itemBatch = currentItemVal.batchHeading || ""
-  const belongsToBatch = batchName === "General Items" ? (!itemBatch || itemBatch === "General Items") : itemBatch === batchName
+  const itemBatch = (currentItemVal.batchHeading || "").trim()
+  const isGeneral = !itemBatch || itemBatch === "General Items"
+  const batchExists = (batches || []).some(b => b.name === itemBatch || (isGeneral && b.name === "General Items"))
+
+  let belongsToBatch = false
+  if (batchExists) {
+    belongsToBatch = itemBatch === batchName || (isGeneral && batchName === "General Items")
+  } else {
+    belongsToBatch = batchName === (batches && batches[0]?.name) || batchName === "General Items"
+  }
   if (!belongsToBatch) return null
 
   const currentProductId = currentItemVal.productId
@@ -2155,14 +2165,21 @@ function NewQuotationForm() {
             const emailList = rawEmails ? rawEmails.split(/[,;\/]+/).map((s: string) => s.trim()).filter(Boolean) : []
             setAgentEmails(emailList.length > 0 ? emailList : [""])
 
-            const headings = Array.from(
-              new Set((activeData.items || []).map((item: any) => item.batchHeading || "").filter(Boolean))
-            ) as string[]
-            if (headings.length > 0) {
-              setBatches(headings.map(h => ({ id: Math.random().toString(), name: h })))
+            const rawHeadings = (activeData.items || []).map((item: any) => (item?.batchHeading || "").trim())
+            const hasUnsectioned = rawHeadings.some((h: string) => !h || h === "General Items")
+            const explicitHeadings = Array.from(new Set(rawHeadings.filter((h: string) => h && h !== "General Items"))) as string[]
+
+            const finalBatchNames: string[] = []
+            if (explicitHeadings.length > 0) {
+              finalBatchNames.push(...explicitHeadings)
+              if (hasUnsectioned) {
+                finalBatchNames.push("General Items")
+              }
             } else {
-              setBatches([{ id: "default", name: "General Items" }])
+              finalBatchNames.push("General Items")
             }
+
+            setBatches(finalBatchNames.map(name => ({ id: Math.random().toString(), name })))
 
             let activeTerms: string[] = []
             if (Array.isArray(activeData.termsConditions) && activeData.termsConditions.length > 0) {
@@ -4042,6 +4059,7 @@ function NewQuotationForm() {
                             control={form.control}
                             form={form}
                             batchName={batch.name}
+                            batches={batches}
                             products={products}
                             watchSegment={watchCustomerSegment}
                             dbCategories={dbCategories}
