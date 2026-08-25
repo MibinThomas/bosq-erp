@@ -73,84 +73,19 @@ export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
         <table className="w-full text-left border-collapse text-xs font-sans border-slate-300">
           <thead>
             <tr className="bg-black text-white font-bold uppercase text-[11px] tracking-wide border-b border-black">
-              <th className="py-3 px-2 text-center border-r border-slate-700 w-12 shrink-0">
-                <div className="flex items-center justify-center gap-1">
-                  <span>Sl No</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center border-r border-slate-700 w-36 shrink-0">
-                <div className="flex items-center justify-center gap-1">
-                  <span>Product Image</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-left border-r border-slate-700 min-w-[220px]">
-                <div className="flex items-center justify-between gap-1">
-                  <span>Product Specification's</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center border-r border-slate-700 w-14 shrink-0">
-                <div className="flex items-center justify-center gap-1">
-                  <span>QTY</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">
-                <div className="flex items-center justify-center gap-1">
-                  <span>Factory Cost</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">
-                <div className="flex items-center justify-center gap-1">
-                  <span>Accessories Cost</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">
-                <div className="flex items-center justify-center gap-1">
-                  <span>Total Unit Cost</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center border-r border-slate-700 w-20">
-                <div className="flex items-center justify-center gap-1">
-                  <span>Margin %</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">
-                <div className="flex items-center justify-center gap-1">
-                  <span>Negotiation %</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center border-r border-slate-700 w-28">
-                <div className="flex items-center justify-center gap-1">
-                  <span>Final Estimated Price (Unit)</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center border-r border-slate-700 w-28">
-                <div className="flex items-center justify-center gap-1">
-                  <span>Costing Done/ Not</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center border-r border-emerald-500 border-2 bg-slate-950 min-w-[200px]">
-                <div className="flex items-center justify-center gap-1 text-emerald-400 font-extrabold">
-                  <span>Discount added By Interior Design Consultant</span>
-                  <ChevronDown className="h-3 w-3 text-emerald-400" />
-                </div>
-              </th>
-              <th className="py-3 px-2 text-center w-28">
-                <div className="flex items-center justify-center gap-1">
-                  <span>Final Price</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </div>
-              </th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-12 shrink-0">Sl No</th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-36 shrink-0">Product Image</th>
+              <th className="py-3 px-2 text-left border-r border-slate-700 min-w-[220px]">Product Specification's</th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-14 shrink-0">QTY</th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">Factory Cost</th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">Accessories Cost</th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">Total Unit Cost</th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-20">Margin %</th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">Negotiation %</th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-28">Final Estimated Price (Unit)</th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-28">Costing Done/ Not</th>
+              <th className="py-3 px-2 text-center border-r border-emerald-500 border-2 bg-slate-950 text-emerald-400 font-extrabold min-w-[200px]">Discount added By Interior Design Consultant</th>
+              <th className="py-3 px-2 text-center w-28">Final Price</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-300 text-slate-800 bg-white">
