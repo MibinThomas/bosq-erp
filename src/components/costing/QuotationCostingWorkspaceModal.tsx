@@ -118,13 +118,19 @@ function cleanHtmlText(htmlStr?: string | null): string {
 
 interface EditableItemState {
   id: string
-  factoryCost: number       // Stored in materialCost
-  accessoriesCost: number   // Stored in laborCost
-  marginPercentage: number
-  negotiationPct: number    // Buffer / discount % for negotiation
+  factoryCost: number | string       // Stored in materialCost
+  accessoriesCost: number | string   // Stored in laborCost
+  marginPercentage: number | string
+  negotiationPct: number | string    // Buffer / discount % for negotiation
   unitPrice: number
   estimatorNotes: string
   costingStatus: string
+}
+
+const parseNum = (val: any): number => {
+  if (val === undefined || val === null || val === "") return 0
+  const n = parseFloat(val)
+  return isNaN(n) ? 0 : n
 }
 
 /**
@@ -191,10 +197,10 @@ export function QuotationCostingWorkspaceModal({
       quotationGroup.items.forEach((item) => {
         initial[item.id] = {
           id: item.id,
-          factoryCost: item.materialCost || 0,
-          accessoriesCost: item.laborCost || 0,
-          marginPercentage: item.marginPercentage ?? 0,
-          negotiationPct: 0,
+          factoryCost: item.materialCost ? item.materialCost : "",
+          accessoriesCost: item.laborCost ? item.laborCost : "",
+          marginPercentage: item.marginPercentage ? item.marginPercentage : "",
+          negotiationPct: "",
           unitPrice: 0,
           estimatorNotes: item.estimatorNotes || "",
           costingStatus: item.costingStatus || "PENDING_COSTING"
@@ -213,10 +219,10 @@ export function QuotationCostingWorkspaceModal({
     setItemStates((prev) => {
       const curr = prev[itemId] || {
         id: itemId,
-        factoryCost: 0,
-        accessoriesCost: 0,
-        marginPercentage: 0,
-        negotiationPct: 0,
+        factoryCost: "",
+        accessoriesCost: "",
+        marginPercentage: "",
+        negotiationPct: "",
         unitPrice: 0,
         estimatorNotes: "",
         costingStatus: "PENDING_COSTING"
@@ -247,10 +253,10 @@ export function QuotationCostingWorkspaceModal({
       const state = itemStates[item.id]
       const qty = item.quantity || 1
       
-      const facCost = state?.factoryCost || 0
-      const accCost = state?.accessoriesCost || 0
-      const marginPct = state?.marginPercentage ?? 0
-      const negotiationPct = state?.negotiationPct ?? 0
+      const facCost = parseNum(state?.factoryCost)
+      const accCost = parseNum(state?.accessoriesCost)
+      const marginPct = parseNum(state?.marginPercentage)
+      const negotiationPct = parseNum(state?.negotiationPct)
 
       const calc = calculateProductPrice(facCost, accCost, marginPct, negotiationPct, state?.unitPrice)
 
@@ -280,11 +286,11 @@ export function QuotationCostingWorkspaceModal({
     setLoading(true)
     try {
       const payloadItems = items.map((item) => {
-        const state = itemStates[item.id] || {}
-        const facCost = state.factoryCost || 0
-        const accCost = state.accessoriesCost || 0
-        const marginPct = state.marginPercentage ?? 0
-        const negotiationPct = state.negotiationPct ?? 0
+        const state = itemStates[item.id] || ({} as EditableItemState)
+        const facCost = parseNum(state.factoryCost)
+        const accCost = parseNum(state.accessoriesCost)
+        const marginPct = parseNum(state.marginPercentage)
+        const negotiationPct = parseNum(state.negotiationPct)
 
         const calc = calculateProductPrice(facCost, accCost, marginPct, negotiationPct, state.unitPrice)
 
@@ -459,10 +465,10 @@ export function QuotationCostingWorkspaceModal({
 
               // Calculations via Engine
               const calc = calculateProductPrice(
-                state.factoryCost || 0,
-                state.accessoriesCost || 0,
-                state.marginPercentage ?? 0,
-                state.negotiationPct ?? 0,
+                parseNum(state.factoryCost),
+                parseNum(state.accessoriesCost),
+                parseNum(state.marginPercentage),
+                parseNum(state.negotiationPct),
                 state.unitPrice
               )
 
@@ -598,8 +604,8 @@ export function QuotationCostingWorkspaceModal({
                               type="number"
                               min="0"
                               step="0.01"
-                              value={state.factoryCost || ""}
-                              onChange={(e) => updateItemField(item.id, "factoryCost", parseFloat(e.target.value) || 0)}
+                              value={state.factoryCost ?? ""}
+                              onChange={(e) => updateItemField(item.id, "factoryCost", e.target.value)}
                               placeholder="0.00"
                               className="font-mono font-bold h-9 text-xs pl-8 bg-background"
                             />
@@ -618,8 +624,8 @@ export function QuotationCostingWorkspaceModal({
                               type="number"
                               min="0"
                               step="0.01"
-                              value={state.accessoriesCost || ""}
-                              onChange={(e) => updateItemField(item.id, "accessoriesCost", parseFloat(e.target.value) || 0)}
+                              value={state.accessoriesCost ?? ""}
+                              onChange={(e) => updateItemField(item.id, "accessoriesCost", e.target.value)}
                               placeholder="0.00"
                               className="font-mono font-bold h-9 text-xs pl-8 bg-background"
                             />
@@ -639,12 +645,8 @@ export function QuotationCostingWorkspaceModal({
                               min="0"
                               max="99"
                               step="0.1"
-                              value={state.marginPercentage ?? 0}
-                              onChange={(e) => {
-                                const raw = e.target.value
-                                const val = raw === "" ? 0 : parseFloat(raw)
-                                updateItemField(item.id, "marginPercentage", isNaN(val) ? 0 : val)
-                              }}
+                              value={state.marginPercentage ?? ""}
+                              onChange={(e) => updateItemField(item.id, "marginPercentage", e.target.value)}
                               placeholder="0%"
                               className="font-mono font-bold h-9 text-xs pr-7 bg-background"
                             />
@@ -664,12 +666,8 @@ export function QuotationCostingWorkspaceModal({
                               min="0"
                               max="50"
                               step="0.1"
-                              value={state.negotiationPct ?? 0}
-                              onChange={(e) => {
-                                const raw = e.target.value
-                                const val = raw === "" ? 0 : parseFloat(raw)
-                                updateItemField(item.id, "negotiationPct", isNaN(val) ? 0 : val)
-                              }}
+                              value={state.negotiationPct ?? ""}
+                              onChange={(e) => updateItemField(item.id, "negotiationPct", e.target.value)}
                               placeholder="0%"
                               className="font-mono font-bold h-9 text-xs pr-7 bg-background"
                             />
