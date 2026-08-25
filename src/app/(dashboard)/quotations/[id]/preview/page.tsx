@@ -915,6 +915,7 @@ export default function QuotationHtmlPreviewPage() {
                 return {
                   id: item.id,
                   itemNo: idx + 1,
+                  batchHeading: item.batchHeading,
                   imageUrl: item.imageUrl || item.customImageUrl || item.product?.imageUrl || null,
                   description: item.description,
                   specifications: item.specifications || item.productDescription || item.productNotes,

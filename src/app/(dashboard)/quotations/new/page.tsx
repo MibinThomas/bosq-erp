@@ -2165,21 +2165,19 @@ function NewQuotationForm() {
             const emailList = rawEmails ? rawEmails.split(/[,;\/]+/).map((s: string) => s.trim()).filter(Boolean) : []
             setAgentEmails(emailList.length > 0 ? emailList : [""])
 
-            const rawHeadings = (activeData.items || []).map((item: any) => (item?.batchHeading || "").trim())
-            const hasUnsectioned = rawHeadings.some((h: string) => !h || h === "General Items")
-            const explicitHeadings = Array.from(new Set(rawHeadings.filter((h: string) => h && h !== "General Items"))) as string[]
-
-            const finalBatchNames: string[] = []
-            if (explicitHeadings.length > 0) {
-              finalBatchNames.push(...explicitHeadings)
-              if (hasUnsectioned) {
-                finalBatchNames.push("General Items")
+            const orderedBatchNames: string[] = []
+            ;(activeData.items || []).forEach((item: any) => {
+              const b = (item.batchHeading || "").trim()
+              const name = !b || b === "General Items" ? "General Items" : b
+              if (!orderedBatchNames.includes(name)) {
+                orderedBatchNames.push(name)
               }
-            } else {
-              finalBatchNames.push("General Items")
+            })
+            if (orderedBatchNames.length === 0) {
+              orderedBatchNames.push("General Items")
             }
 
-            setBatches(finalBatchNames.map(name => ({ id: Math.random().toString(), name })))
+            setBatches(orderedBatchNames.map(name => ({ id: Math.random().toString(), name })))
 
             let activeTerms: string[] = []
             if (Array.isArray(activeData.termsConditions) && activeData.termsConditions.length > 0) {
@@ -2310,14 +2308,19 @@ function NewQuotationForm() {
         const data = JSON.parse(cachedCart)
         localStorage.removeItem("quoteCartItems")
 
-        const headings = Array.from(
-          new Set((data.items || []).map((item: any) => item.batchHeading || "").filter(Boolean))
-        ) as string[]
-        if (headings.length > 0) {
-          setBatches(headings.map(h => ({ id: Math.random().toString(), name: h })))
-        } else {
-          setBatches([{ id: "default", name: "General Items" }])
+        const orderedCartBatches: string[] = []
+        ;(data.items || []).forEach((item: any) => {
+          const b = (item.batchHeading || "").trim()
+          const name = !b || b === "General Items" ? "General Items" : b
+          if (!orderedCartBatches.includes(name)) {
+            orderedCartBatches.push(name)
+          }
+        })
+        if (orderedCartBatches.length === 0) {
+          orderedCartBatches.push("General Items")
         }
+
+        setBatches(orderedCartBatches.map(name => ({ id: Math.random().toString(), name })))
 
         form.reset({
           clientId: data.clientId,

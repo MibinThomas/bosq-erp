@@ -79,6 +79,7 @@ function parseSpecifications(rawText?: string | null): { key?: string; value: st
 export interface AuditItemMetric {
   id: string
   itemNo: number
+  batchHeading?: string | null
   imageUrl?: string | null
   description: string
   specifications?: string | null
@@ -147,11 +148,22 @@ export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-300 text-slate-800 bg-white">
-            {items.map((item) => {
+            {items.map((item, index) => {
               const parsedSpecs = parseSpecifications(item.specifications)
+              const currentBatch = item.batchHeading ? item.batchHeading.trim() : ""
+              const prevBatch = index > 0 && items[index - 1].batchHeading ? items[index - 1].batchHeading!.trim() : ""
+              const showSectionHeader = currentBatch && currentBatch !== prevBatch && currentBatch !== "General Items"
 
               return (
-                <tr key={item.id} className="border-b border-slate-300 hover:bg-slate-50/80 transition-colors">
+                <React.Fragment key={item.id}>
+                  {showSectionHeader && (
+                    <tr className="bg-slate-900 text-slate-100 font-bold text-xs">
+                      <td colSpan={11} className="py-2 px-3 text-left uppercase tracking-wider bg-slate-900 text-slate-100 font-bold text-xs border-b border-slate-700">
+                        📁 Section: {currentBatch}
+                      </td>
+                    </tr>
+                  )}
+                  <tr className="border-b border-slate-300 hover:bg-slate-50/80 transition-colors">
                   {/* Sl No */}
                   <td className="py-3 px-2 text-center font-mono font-medium border-r border-slate-300 align-middle">
                     {item.itemNo}
@@ -289,8 +301,9 @@ export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
                     {item.finalPriceUnit > 0 ? Math.round(item.finalPriceUnit) : "0"}
                   </td>
                 </tr>
-              )
-            })}
+              </React.Fragment>
+            )
+          })}
           </tbody>
         </table>
       </div>
