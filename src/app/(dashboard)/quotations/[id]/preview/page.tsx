@@ -847,17 +847,6 @@ export default function QuotationHtmlPreviewPage() {
       <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-950 p-4 sm:p-6 md:p-8 flex flex-col print:hidden overflow-y-auto">
         {activeViewMode === "costing" && isAuthorizedForCosting ? (
           <div className="w-full max-w-none space-y-4">
-            {/* Approval Routing & Decision Banner */}
-            <ApprovalMatrixBanner
-              quotationId={quotation.id}
-              approvalStatus={(quotation as any).approvalStatus || "AUTO_APPROVED"}
-              overallDiscountPct={(quotation as any).overallDiscountPercentage || 0}
-              maxDiscountPct={(quotation as any).maxDiscountPercentage || 0}
-              overallGrossMarginPct={(quotationMetrics as any)?.overallMargin || 0}
-              userRole={userRole}
-              onApprovalUpdate={() => router.refresh()}
-            />
-
             {/* 13-Column Reference Audit Table Only (Full Width) */}
             {(() => {
               const qAny = quotation as any
