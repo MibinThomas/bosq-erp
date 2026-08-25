@@ -879,23 +879,27 @@ export default function QuotationHtmlPreviewPage() {
                 estimatorName: (quotation as any).assignedEstimator?.name || "Cost Estimator",
               }
 
-              const auditItems: AuditItemMetric[] = costingItemsList.map((item, idx) => {
+              const auditItems: AuditItemMetric[] = costingItemsList.map((item: any, idx: number) => {
                 const estPrice = item.estimatorUnitPrice || item.unitPrice || 0
                 const consPrice = item.unitPrice || 0
                 const discAmt = Math.max(0, estPrice - consPrice)
-                const discPct = estPrice > 0 ? (discAmt / estPrice) * 100 : 0
+                const discPct = estPrice > 0 ? Math.round((discAmt / estPrice) * 100) : (item.discount || 0)
                 const qty = item.quantity || 1
                 const lineCostUnit = item.unitCost || (item.materialCost + item.laborCost) || 0
-                const lineRev = consPrice * qty
-                const lineCost = lineCostUnit * qty
-                const lineProfit = lineRev - lineCost
-                const lineMargin = lineRev > 0 ? (lineProfit / lineRev) * 100 : 0
+                const isCosted = item.costingStatus === "COSTING_COMPLETED"
 
                 return {
                   id: item.id,
                   itemNo: idx + 1,
+                  imageUrl: item.imageUrl || item.customImageUrl || item.product?.imageUrl || null,
                   description: item.description,
-                  specifications: item.specifications,
+                  specifications: item.specifications || item.productDescription || item.productNotes,
+                  modelCode: item.product?.sku || item.product?.modelCode || item.description,
+                  productType: item.categoryName || item.chairType || item.product?.categoryName || null,
+                  upholsteryMaterial: item.product?.upholsteryMaterial || null,
+                  baseType: item.product?.baseType || null,
+                  finishColor: item.product?.finishColor || null,
+                  recommendedUsage: item.product?.recommendedUsage || null,
                   quantity: qty,
                   factoryCost: item.materialCost || 0,
                   accessoriesCost: item.laborCost || 0,
@@ -903,13 +907,10 @@ export default function QuotationHtmlPreviewPage() {
                   marginPct: item.marginPercentage || 0,
                   negotiationPct: 0,
                   estimatorPriceUnit: estPrice,
-                  consultantPriceUnit: consPrice,
-                  discountAmountUnit: discAmt,
-                  discountPct: discPct,
-                  lineTotalRevenue: lineRev,
-                  lineTotalCost: lineCost,
-                  lineExpectedProfit: lineProfit,
-                  lineMarginPct: lineMargin,
+                  costingDone: isCosted,
+                  costingStatusText: isCosted ? "Costing Done" : "Not Costed",
+                  discountByIDC: discPct > 0 ? `${discPct}%` : "0%",
+                  finalPriceUnit: consPrice,
                 }
               })
 

@@ -1,27 +1,8 @@
 "use client"
 
-import React, { useState } from "react"
+import React from "react"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import {
-  ShieldCheck,
-  TrendingDown,
-  TrendingUp,
-  AlertTriangle,
-  DollarSign,
-  PieChart,
-  Calculator,
-  Tag,
-  CheckCircle2,
-  AlertCircle,
-  XCircle,
-  User,
-  ChevronDown,
-  ChevronUp,
-  Table as TableIcon,
-  Sparkles,
-} from "lucide-react"
+import { Package, ChevronDown } from "lucide-react"
 
 function cleanHtmlText(text?: string | null): string {
   if (!text) return ""
@@ -40,8 +21,15 @@ function cleanHtmlText(text?: string | null): string {
 export interface AuditItemMetric {
   id: string
   itemNo: number
+  imageUrl?: string | null
   description: string
   specifications?: string | null
+  modelCode?: string | null
+  productType?: string | null
+  upholsteryMaterial?: string | null
+  baseType?: string | null
+  finishColor?: string | null
+  recommendedUsage?: string | null
   quantity: number
   factoryCost: number
   accessoriesCost: number
@@ -49,283 +37,245 @@ export interface AuditItemMetric {
   marginPct: number
   negotiationPct: number
   estimatorPriceUnit: number
-  consultantPriceUnit: number
-  discountAmountUnit: number
-  discountPct: number
-  lineTotalRevenue: number
-  lineTotalCost: number
-  lineExpectedProfit: number
-  lineMarginPct: number
+  costingDone: boolean
+  costingStatusText: string
+  discountByIDC: string | number
+  finalPriceUnit: number
 }
 
 export interface ManagerialAuditSummary {
-  grandFactoryCost: number
-  grandAccessoriesCost: number
-  grandTotalCost: number
-  grandEstimatorRevenue: number
-  grandConsultantRevenue: number
-  grandTotalDiscountAmount: number
-  overallDiscountPct: number
-  grandExpectedProfit: number
-  overallGrossMarginPct: number
-  maxItemDiscountPct: number
-  approvalStatus: string
+  grandFactoryCost?: number
+  grandAccessoriesCost?: number
+  grandTotalCost?: number
+  grandEstimatorRevenue?: number
+  grandConsultantRevenue?: number
+  grandTotalDiscountAmount?: number
+  overallDiscountPct?: number
+  grandExpectedProfit?: number
+  overallGrossMarginPct?: number
+  maxItemDiscountPct?: number
+  approvalStatus?: string
   preparedByName?: string
   estimatorName?: string
 }
 
 interface ManagerialAuditSectionProps {
-  summary: ManagerialAuditSummary
+  summary?: ManagerialAuditSummary
   items: AuditItemMetric[]
   userRole?: string
 }
 
-export function ManagerialAuditSection({ summary, items }: ManagerialAuditSectionProps) {
-  const [showDetailedBreakdown, setShowDetailedBreakdown] = useState(false)
-
-  // Determine Overall Financial Health
-  const getHealthBadge = () => {
-    const margin = summary.overallGrossMarginPct
-    const discount = summary.overallDiscountPct
-
-    if (margin < 10 || discount > 20 || summary.grandExpectedProfit < 0) {
-      return {
-        label: "Loss-Making / High Risk",
-        color: "bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
-        icon: XCircle,
-        dot: "bg-rose-500"
-      }
-    }
-    if (margin < 25 || discount > 10) {
-      return {
-        label: "Low Margin / Medium Discount",
-        color: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
-        icon: AlertCircle,
-        dot: "bg-amber-500"
-      }
-    }
-    return {
-      label: "Healthy Profitability & Pricing",
-      color: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
-      icon: CheckCircle2,
-      dot: "bg-emerald-500"
-    }
-  }
-
-  const health = getHealthBadge()
-  const HealthIcon = health.icon
-
-  const preparedBy = summary.preparedByName || "Sales Consultant"
-  const estimatorBy = summary.estimatorName || "Cost Estimator"
-
+export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
   return (
-    <Card className="border border-border/80 bg-card text-card-foreground shadow-md rounded-2xl overflow-hidden my-6">
-      {/* Header */}
-      <CardHeader className="p-4 sm:p-5 border-b border-border/70 bg-muted/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center space-x-3">
-          <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary">
-            <ShieldCheck className="h-6 w-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <CardTitle className="text-base sm:text-lg font-black tracking-tight text-foreground">
-                MANAGERIAL FINANCIAL &amp; DISCOUNT AUDIT
-              </CardTitle>
-              <Badge variant="outline" className={`px-2.5 py-0.5 text-xs font-bold border flex items-center gap-1.5 ${health.color}`}>
-                <span className={`h-2 w-2 rounded-full ${health.dot} animate-pulse`} />
-                <HealthIcon className="h-3.5 w-3.5" />
-                <span>{health.label}</span>
-              </Badge>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground font-medium mt-1 flex-wrap">
-              <span className="flex items-center gap-1 text-foreground">
-                <User className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                Discount Offered By: <strong className="text-foreground">{preparedBy}</strong>
-              </span>
-              <span>•</span>
-              <span className="flex items-center gap-1">
-                Estimator: <strong className="text-foreground">{estimatorBy}</strong>
-              </span>
-            </div>
-          </div>
-        </div>
+    <div className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg shadow-md overflow-hidden font-sans my-4">
+      {/* 13-Column Reference Audit Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse text-xs font-sans border-slate-300">
+          <thead>
+            <tr className="bg-black text-white font-bold uppercase text-[11px] tracking-wide border-b border-black">
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-12 shrink-0">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Sl No</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-36 shrink-0">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Product Image</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-left border-r border-slate-700 min-w-[220px]">
+                <div className="flex items-center justify-between gap-1">
+                  <span>Product Specification's</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-14 shrink-0">
+                <div className="flex items-center justify-center gap-1">
+                  <span>QTY</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Factory Cost</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Accessories Cost</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Total Unit Cost</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-20">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Margin %</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-24">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Negotiation %</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-28">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Final Estimated Price (Unit)</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center border-r border-slate-700 w-28">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Costing Done/ Not</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center border-r border-emerald-500 border-2 bg-slate-950 min-w-[200px]">
+                <div className="flex items-center justify-center gap-1 text-emerald-400 font-extrabold">
+                  <span>Discount added By Interior Design Consultant</span>
+                  <ChevronDown className="h-3 w-3 text-emerald-400" />
+                </div>
+              </th>
+              <th className="py-3 px-2 text-center w-28">
+                <div className="flex items-center justify-center gap-1">
+                  <span>Final Price</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-300 text-slate-800 bg-white">
+            {items.map((item) => {
+              const cleanSpecs = cleanHtmlText(item.specifications)
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowDetailedBreakdown(!showDetailedBreakdown)}
-          className="h-8 text-xs font-bold border-border bg-background hover:bg-muted text-foreground cursor-pointer shadow-2xs shrink-0"
-        >
-          <TableIcon className="h-3.5 w-3.5 mr-1.5 text-primary" />
-          {showDetailedBreakdown ? "Hide Product Details" : "View Itemized Costing"}
-          {showDetailedBreakdown ? <ChevronUp className="h-3.5 w-3.5 ml-1" /> : <ChevronDown className="h-3.5 w-3.5 ml-1" />}
-        </Button>
-      </CardHeader>
+              return (
+                <tr key={item.id} className="border-b border-slate-300 hover:bg-slate-50/80 transition-colors">
+                  {/* Sl No */}
+                  <td className="py-3 px-2 text-center font-mono font-medium border-r border-slate-300 align-middle">
+                    {item.itemNo}
+                  </td>
 
-      <CardContent className="p-4 sm:p-6 space-y-6">
-        {/* Executive Summary Metrics Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-          {/* Total Cost */}
-          <div className="p-4 rounded-xl bg-background border border-border/80 space-y-1 shadow-2xs">
-            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider flex items-center gap-1">
-              <Calculator className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" /> Total Cost
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono text-foreground">
-              AED {summary.grandTotalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <p className="text-[10px] text-muted-foreground font-medium">Factory + Accessories</p>
-          </div>
+                  {/* Product Image */}
+                  <td className="py-3 px-2 text-center border-r border-slate-300 align-middle">
+                    <div className="flex items-center justify-center">
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.description}
+                          className="w-28 h-28 object-cover rounded-md border border-slate-300 shadow-2xs bg-white"
+                        />
+                      ) : (
+                        <div className="w-28 h-28 rounded-md border border-dashed border-slate-300 bg-slate-100 flex flex-col items-center justify-center text-[10px] text-slate-400">
+                          <Package className="h-6 w-6 text-slate-300 mb-1" />
+                          No Image
+                        </div>
+                      )}
+                    </div>
+                  </td>
 
-          {/* Estimator Baseline Price */}
-          <div className="p-4 rounded-xl bg-cyan-500/5 border border-cyan-500/20 space-y-1 shadow-2xs">
-            <span className="text-[10px] uppercase font-bold text-cyan-700 dark:text-cyan-400 tracking-wider flex items-center gap-1">
-              <Tag className="h-3.5 w-3.5 text-cyan-600" /> Estimator Baseline
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono text-cyan-900 dark:text-cyan-200">
-              AED {summary.grandEstimatorRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <p className="text-[10px] text-cyan-800 dark:text-cyan-300 font-medium">Cost + Margin Target</p>
-          </div>
+                  {/* Product Specifications */}
+                  <td className="py-3 px-2 border-r border-slate-300 align-top text-[11px] leading-snug space-y-1">
+                    <p className="font-semibold text-slate-900">
+                      Model Code: <span className="font-normal">{item.modelCode || item.description}</span>
+                    </p>
+                    {item.productType && (
+                      <p className="text-slate-800">
+                        Product Type: <span className="font-normal">{item.productType}</span>
+                      </p>
+                    )}
+                    {item.upholsteryMaterial && (
+                      <p className="text-slate-800">
+                        Upholstery Material: <span className="font-normal">{item.upholsteryMaterial}</span>
+                      </p>
+                    )}
+                    {item.baseType && (
+                      <p className="text-slate-800">
+                        Base Type: <span className="font-normal">{item.baseType}</span>
+                      </p>
+                    )}
+                    {item.finishColor && (
+                      <p className="text-slate-800">
+                        Finish/Color: <span className="font-normal">{item.finishColor}</span>
+                      </p>
+                    )}
+                    {item.recommendedUsage && (
+                      <p className="text-slate-800">
+                        Recommended Usage: <span className="font-normal">{item.recommendedUsage}</span>
+                      </p>
+                    )}
+                    {cleanSpecs && (
+                      <p className="text-[10px] text-slate-600 italic pt-0.5 line-clamp-2">
+                        {cleanSpecs}
+                      </p>
+                    )}
+                  </td>
 
-          {/* Client Revenue (Consultant Price) */}
-          <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-1 shadow-2xs">
-            <span className="text-[10px] uppercase font-bold text-emerald-700 dark:text-emerald-400 tracking-wider flex items-center gap-1">
-              <DollarSign className="h-3.5 w-3.5 text-emerald-600" /> Client Revenue
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono text-emerald-900 dark:text-emerald-200">
-              AED {summary.grandConsultantRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <p className="text-[10px] text-emerald-800 dark:text-emerald-300 font-medium">Consultant Final Price</p>
-          </div>
+                  {/* QTY */}
+                  <td className="py-3 px-2 text-center font-mono font-medium border-r border-slate-300 align-middle">
+                    {item.quantity}
+                  </td>
 
-          {/* Consultant Discount Given & By Whom */}
-          <div className={`p-4 rounded-xl border space-y-1 shadow-2xs ${summary.grandTotalDiscountAmount > 0 ? "bg-amber-500/10 border-amber-500/30" : "bg-background border-border/80"}`}>
-            <span className="text-[10px] uppercase font-bold text-amber-800 dark:text-amber-300 tracking-wider flex items-center justify-between">
-              <span className="flex items-center gap-1"><TrendingDown className="h-3.5 w-3.5 text-amber-600" /> Discount Given</span>
-            </span>
-            <div className="text-base sm:text-lg font-black font-mono text-amber-900 dark:text-amber-200">
-              {summary.grandTotalDiscountAmount > 0 ? (
-                <>
-                  AED {summary.grandTotalDiscountAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  <span className="text-xs ml-1 font-bold text-amber-700 dark:text-amber-300">({summary.overallDiscountPct.toFixed(1)}%)</span>
-                </>
-              ) : (
-                <span className="text-muted-foreground">0.00 (0%)</span>
-              )}
-            </div>
-            <p className="text-[10px] text-amber-800 dark:text-amber-300 font-medium truncate" title={`Discount Given By: ${preparedBy}`}>
-              By: <strong>{preparedBy}</strong>
-            </p>
-          </div>
+                  {/* Factory Cost */}
+                  <td className="py-3 px-2 text-center font-mono border-r border-slate-300 align-middle">
+                    {item.factoryCost > 0 ? Math.round(item.factoryCost) : "0"}
+                  </td>
 
-          {/* Gross Profit & Margin % */}
-          <div className={`p-4 rounded-xl border space-y-1 shadow-2xs col-span-2 lg:col-span-1 ${summary.grandExpectedProfit < 0 ? "bg-rose-500/10 border-rose-500/30" : "bg-emerald-500/10 border-emerald-500/30"}`}>
-            <span className="text-[10px] uppercase font-bold text-foreground tracking-wider flex items-center gap-1">
-              <PieChart className="h-3.5 w-3.5 text-primary" /> Expected Profit
-            </span>
-            <div className={`text-base sm:text-lg font-black font-mono ${summary.grandExpectedProfit < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
-              AED {summary.grandExpectedProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              <span className="text-xs ml-1 font-bold">({summary.overallGrossMarginPct.toFixed(1)}%)</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground font-medium">Overall Gross Margin</p>
-          </div>
-        </div>
+                  {/* Accessories Cost */}
+                  <td className="py-3 px-2 text-center font-mono border-r border-slate-300 align-middle">
+                    {item.accessoriesCost > 0 ? Math.round(item.accessoriesCost) : "0"}
+                  </td>
 
-        {/* Collapsible Product-Level Detailed Audit Table */}
-        {showDetailedBreakdown && (
-          <div className="space-y-3 pt-2 border-t border-border/60 animate-in fade-in-50 duration-200">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-500" />
-                <span>Product-Level Pricing &amp; Discount Audit ({items.length} items)</span>
-              </h4>
-              <Badge variant="outline" className="font-mono text-[10px]">
-                Detailed Breakdown
-              </Badge>
-            </div>
+                  {/* Total Unit Cost */}
+                  <td className="py-3 px-2 text-center font-mono font-semibold border-r border-slate-300 align-middle">
+                    {item.totalCostUnit > 0 ? Math.round(item.totalCostUnit) : "0"}
+                  </td>
 
-            <div className="overflow-x-auto rounded-xl border border-border/80 bg-background shadow-2xs">
-              <table className="w-full text-left text-xs border-collapse font-sans">
-                <thead>
-                  <tr className="border-b border-border/80 bg-muted/60 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">
-                    <th className="py-3 px-3 text-center w-10">#</th>
-                    <th className="py-3 px-3 min-w-[200px]">Product &amp; Specifications</th>
-                    <th className="py-3 px-3 text-center">Qty</th>
-                    <th className="py-3 px-3 text-right">Factory Cost</th>
-                    <th className="py-3 px-3 text-right">Accessories Cost</th>
-                    <th className="py-3 px-3 text-right">Total Cost (Unit)</th>
-                    <th className="py-3 px-3 text-right text-cyan-700 dark:text-cyan-300">Estimator Price</th>
-                    <th className="py-3 px-3 text-right text-emerald-700 dark:text-emerald-400">Consultant Price</th>
-                    <th className="py-3 px-3 text-right text-amber-700 dark:text-amber-400">Discount Given</th>
-                    <th className="py-3 px-3 text-right text-emerald-700 dark:text-emerald-400">Line Profit</th>
-                    <th className="py-3 px-3 text-center">Margin %</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60 text-foreground">
-                  {items.map((item) => {
-                    const isDiscounted = item.discountAmountUnit > 0
-                    const isLowMargin = item.lineMarginPct < 15
-                    const cleanSpecs = cleanHtmlText(item.specifications)
+                  {/* Margin % */}
+                  <td className="py-3 px-2 text-center font-mono border-r border-slate-300 align-middle">
+                    {item.marginPct > 0 ? `${item.marginPct}%` : "0%"}
+                  </td>
 
-                    return (
-                      <tr key={item.id} className="hover:bg-muted/40 transition-colors">
-                        <td className="py-3 px-3 text-center font-mono font-bold text-muted-foreground">{item.itemNo}</td>
-                        <td className="py-3 px-3">
-                          <div className="font-extrabold text-foreground">{item.description}</div>
-                          {cleanSpecs && (
-                            <p className="text-[10px] text-muted-foreground line-clamp-1 italic mt-0.5">{cleanSpecs}</p>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-center font-mono font-bold">{item.quantity}</td>
-                        <td className="py-3 px-3 text-right font-mono text-muted-foreground">
-                          {item.factoryCost > 0 ? `AED ${item.factoryCost.toFixed(2)}` : "—"}
-                        </td>
-                        <td className="py-3 px-3 text-right font-mono text-muted-foreground">
-                          {item.accessoriesCost > 0 ? `AED ${item.accessoriesCost.toFixed(2)}` : "—"}
-                        </td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-foreground">
-                          AED {item.totalCostUnit.toFixed(2)}
-                        </td>
-                        <td className="py-3 px-3 text-right font-mono font-bold text-cyan-700 dark:text-cyan-300">
-                          AED {item.estimatorPriceUnit.toFixed(2)}
-                        </td>
-                        <td className="py-3 px-3 text-right font-mono font-extrabold text-emerald-700 dark:text-emerald-400">
-                          AED {item.consultantPriceUnit.toFixed(2)}
-                        </td>
-                        <td className="py-3 px-3 text-right font-mono font-bold">
-                          {isDiscounted ? (
-                            <div className="text-amber-700 dark:text-amber-300">
-                              -AED {item.discountAmountUnit.toFixed(2)}
-                              <span className="text-[10px] block font-normal text-muted-foreground">({item.discountPct.toFixed(1)}%)</span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">0.00 (0%)</span>
-                          )}
-                        </td>
-                        <td className={`py-3 px-3 text-right font-mono font-bold ${item.lineExpectedProfit < 0 ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
-                          AED {item.lineExpectedProfit.toFixed(2)}
-                        </td>
-                        <td className="py-3 px-3 text-center font-mono">
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] font-bold ${
-                              isLowMargin
-                                ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30"
-                                : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
-                            }`}
-                          >
-                            {item.lineMarginPct.toFixed(1)}%
-                          </Badge>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                  {/* Negotiation % */}
+                  <td className="py-3 px-2 text-center font-mono border-r border-slate-300 align-middle">
+                    {item.negotiationPct > 0 ? `${item.negotiationPct}%` : "0%"}
+                  </td>
+
+                  {/* Final Estimated Price (Unit) */}
+                  <td className="py-3 px-2 text-center font-mono font-semibold text-slate-900 border-r border-slate-300 align-middle">
+                    {item.estimatorPriceUnit > 0 ? item.estimatorPriceUnit.toFixed(2) : "0"}
+                  </td>
+
+                  {/* Costing Done / Not */}
+                  <td className="py-3 px-2 text-center font-medium border-r border-slate-300 align-middle">
+                    <span className={`text-[11px] ${item.costingDone ? "text-slate-900 font-semibold" : "text-slate-500"}`}>
+                      {item.costingStatusText}
+                    </span>
+                  </td>
+
+                  {/* Discount added By Interior Design Consultant (Highlighted Cell) */}
+                  <td className="py-3 px-2 text-center font-mono font-bold text-emerald-800 border-2 border-emerald-500 bg-emerald-50/30 align-middle">
+                    {item.discountByIDC || "0%"}
+                  </td>
+
+                  {/* Final Price */}
+                  <td className="py-3 px-2 text-center font-mono font-extrabold text-slate-900 align-middle">
+                    {item.finalPriceUnit > 0 ? Math.round(item.finalPriceUnit) : "0"}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }
