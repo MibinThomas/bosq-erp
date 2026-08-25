@@ -686,36 +686,62 @@ export default function QuotationHtmlPreviewPage() {
               <h1 className="text-lg font-bold tracking-tight text-foreground">
                 Quotation Preview ({(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()})
               </h1>
-              {["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(quotation.status) && (
-                <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1 shrink-0">
-                  <Check className="h-3 w-3" />
-                  Client Approved
-                </Badge>
-              )}
-              {quotation.costingStatus === "PENDING_COSTING" && (
-                <Badge className="bg-amber-500 text-white font-semibold flex items-center gap-1 shrink-0">
-                  <Clock className="h-3 w-3" />
-                  Pending Costing
-                </Badge>
-              )}
-              {quotation.costingStatus === "COSTING_IN_PROGRESS" && (
-                <Badge className="bg-blue-600 text-white font-semibold flex items-center gap-1 shrink-0">
-                  <Calculator className="h-3 w-3" />
-                  In Costing
-                </Badge>
-              )}
-              {quotation.costingStatus === "PARTIALLY_COSTED" && (
-                <Badge className="bg-purple-600 text-white font-semibold flex items-center gap-1 shrink-0">
-                  <Calculator className="h-3 w-3" />
-                  Partially Costed
-                </Badge>
-              )}
-              {quotation.costingStatus === "COSTING_COMPLETED" && (
-                <Badge className="bg-emerald-600 text-white font-semibold flex items-center gap-1 shrink-0">
-                  <CheckCircle2 className="h-3 w-3" />
-                  Costing Completed
-                </Badge>
-              )}
+              {(() => {
+                if (["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(quotation.status)) {
+                  return (
+                    <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1 shrink-0">
+                      <Check className="h-3 w-3" />
+                      Client Approved
+                    </Badge>
+                  )
+                }
+                if (quotation.costingStatus === "COSTING_COMPLETED") {
+                  return (
+                    <Badge className="bg-emerald-600 text-white font-semibold flex items-center gap-1 shrink-0">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Costing Completed
+                    </Badge>
+                  )
+                }
+                if (quotation.costingStatus === "PARTIALLY_COSTED") {
+                  return (
+                    <Badge className="bg-purple-600 text-white font-semibold flex items-center gap-1 shrink-0">
+                      <Calculator className="h-3 w-3" />
+                      Partially Costed
+                    </Badge>
+                  )
+                }
+                if (quotation.costingStatus === "COSTING_IN_PROGRESS") {
+                  return (
+                    <Badge className="bg-blue-600 text-white font-semibold flex items-center gap-1 shrink-0">
+                      <Calculator className="h-3 w-3" />
+                      In Costing
+                    </Badge>
+                  )
+                }
+                if (quotation.costingStatus === "PENDING_COSTING") {
+                  return (
+                    <Badge className="bg-amber-500 text-white font-semibold flex items-center gap-1 shrink-0">
+                      <Clock className="h-3 w-3" />
+                      Pending Costing
+                    </Badge>
+                  )
+                }
+                if (quotation.status && quotation.status !== "DRAFT") {
+                  return (
+                    <Badge className="bg-blue-600 text-white font-semibold flex items-center gap-1 shrink-0">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Active Quotation
+                    </Badge>
+                  )
+                }
+                return (
+                  <Badge variant="outline" className="text-muted-foreground font-semibold flex items-center gap-1 shrink-0">
+                    <Clock className="h-3 w-3" />
+                    Draft
+                  </Badge>
+                )
+              })()}
             </div>
             <p className="text-xs text-muted-foreground">
               Client: <span className="font-semibold text-foreground">{quotation.client?.companyName}</span> | Date: {formattedDate} | Total: <span className="font-bold text-primary">AED {formatCurrency(quotation.grandTotal)}</span>
@@ -864,6 +890,22 @@ export default function QuotationHtmlPreviewPage() {
                 const qty = item.quantity || 1
                 const lineCostUnit = item.unitCost || (item.materialCost + item.laborCost) || 0
                 const isCosted = item.costingStatus === "COSTING_COMPLETED"
+                let statusText = "Not Costed"
+                if (isCosted) {
+                  statusText = "Costing Done"
+                } else if (item.costingStatus === "COSTING_IN_PROGRESS") {
+                  statusText = "In Costing"
+                } else if (item.costingStatus === "PARTIALLY_COSTED") {
+                  statusText = "Partially Costed"
+                } else if (item.costingStatus === "PENDING_COSTING") {
+                  statusText = "Pending Costing"
+                } else if (quotation.costingStatus === "COSTING_COMPLETED") {
+                  statusText = "Costing Done"
+                } else if (quotation.costingStatus === "PARTIALLY_COSTED") {
+                  statusText = "Partially Costed"
+                } else if (quotation.status && quotation.status !== "DRAFT") {
+                  statusText = "Not Costed"
+                }
 
                 return {
                   id: item.id,
@@ -884,8 +926,8 @@ export default function QuotationHtmlPreviewPage() {
                   marginPct: item.marginPercentage || 0,
                   negotiationPct: 0,
                   estimatorPriceUnit: estPrice,
-                  costingDone: isCosted,
-                  costingStatusText: isCosted ? "Costing Done" : "Not Costed",
+                  costingDone: isCosted || statusText === "Costing Done",
+                  costingStatusText: statusText,
                   discountByIDC: discPct > 0 ? `${discPct}%` : "0%",
                   finalPriceUnit: consPrice,
                 }
