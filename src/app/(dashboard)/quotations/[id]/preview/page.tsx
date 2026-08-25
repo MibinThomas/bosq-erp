@@ -376,7 +376,7 @@ export default function QuotationHtmlPreviewPage() {
   }, [quotation, costingItemsList])
 
   const userRole = (session?.user as any)?.role || ""
-  const isIDC = userRole === "INTERIOR_DESIGN_CONSULTANT"
+  const isIDC = userRole === "INTERIOR_DESIGN_CONSULTANT" || userRole === "SALES_EXECUTIVE"
   const isManagerOrAdmin = userRole === "ADMIN" || userRole === "SALES_MANAGER" || userRole === "SUPER_ADMIN" || userRole === "MANAGER"
   const isSuperAdmin = userRole === "SUPER_ADMIN"
 
@@ -405,12 +405,14 @@ export default function QuotationHtmlPreviewPage() {
 
   // Auto set active view mode based on authorization & role
   useEffect(() => {
-    if (isAuthorizedForCosting) {
+    if (isIDC) {
+      if (isAuthorizedForCosting) {
+        setActiveViewMode("costing")
+      } else {
+        setActiveViewMode("pdf")
+      }
+    } else if (isAuthorizedForCosting) {
       setActiveViewMode("costing")
-    } else if (isIDC) {
-      setActiveViewMode("pdf")
-    } else {
-      setActiveViewMode("html")
     }
   }, [isAuthorizedForCosting, isIDC])
 
