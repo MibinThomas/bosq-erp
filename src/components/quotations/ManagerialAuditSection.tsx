@@ -75,7 +75,7 @@ export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
             <tr className="bg-black text-white font-bold uppercase text-[11px] tracking-wide border-b border-black">
               <th className="py-3 px-2 text-center border-r border-slate-700 w-12 shrink-0">Sl No</th>
               <th className="py-3 px-2 text-center border-r border-slate-700 w-36 shrink-0">Product Image</th>
-              <th className="py-3 px-2 text-left border-r border-slate-700 min-w-[220px]">Product Specification's</th>
+              <th className="py-3 px-3 text-left border-r border-slate-700 min-w-[320px]">Product Specification's</th>
               <th className="py-3 px-2 text-center border-r border-slate-700 w-14 shrink-0">QTY</th>
               <th className="py-3 px-2 text-center border-r border-slate-700 w-24">Factory Cost</th>
               <th className="py-3 px-2 text-center border-r border-slate-700 w-24">Accessories Cost</th>
@@ -118,39 +118,39 @@ export function ManagerialAuditSection({ items }: ManagerialAuditSectionProps) {
                   </td>
 
                   {/* Product Specifications */}
-                  <td className="py-3 px-2 border-r border-slate-300 align-top text-[11px] leading-snug space-y-1">
-                    <p className="font-semibold text-slate-900">
-                      Model Code: <span className="font-normal">{item.modelCode || item.description}</span>
+                  <td className="py-3.5 px-3.5 border-r border-slate-300 align-top text-xs leading-relaxed space-y-1.5 min-w-[320px] max-w-[500px]">
+                    <p className="font-bold text-slate-900 text-xs">
+                      Model Code: <span className="font-semibold text-slate-800">{item.modelCode || item.description}</span>
                     </p>
                     {item.productType && (
-                      <p className="text-slate-800">
-                        Product Type: <span className="font-normal">{item.productType}</span>
+                      <p className="text-slate-800 text-[11px]">
+                        <strong className="font-semibold text-slate-900">Product Type:</strong> {item.productType}
                       </p>
                     )}
                     {item.upholsteryMaterial && (
-                      <p className="text-slate-800">
-                        Upholstery Material: <span className="font-normal">{item.upholsteryMaterial}</span>
+                      <p className="text-slate-800 text-[11px]">
+                        <strong className="font-semibold text-slate-900">Upholstery Material:</strong> {item.upholsteryMaterial}
                       </p>
                     )}
                     {item.baseType && (
-                      <p className="text-slate-800">
-                        Base Type: <span className="font-normal">{item.baseType}</span>
+                      <p className="text-slate-800 text-[11px]">
+                        <strong className="font-semibold text-slate-900">Base Type:</strong> {item.baseType}
                       </p>
                     )}
                     {item.finishColor && (
-                      <p className="text-slate-800">
-                        Finish/Color: <span className="font-normal">{item.finishColor}</span>
+                      <p className="text-slate-800 text-[11px]">
+                        <strong className="font-semibold text-slate-900">Finish/Color:</strong> {item.finishColor}
                       </p>
                     )}
                     {item.recommendedUsage && (
-                      <p className="text-slate-800">
-                        Recommended Usage: <span className="font-normal">{item.recommendedUsage}</span>
+                      <p className="text-slate-800 text-[11px]">
+                        <strong className="font-semibold text-slate-900">Recommended Usage:</strong> {item.recommendedUsage}
                       </p>
                     )}
                     {cleanSpecs && (
-                      <p className="text-[10px] text-slate-600 italic pt-0.5 line-clamp-2">
+                      <div className="text-[11px] text-slate-700 leading-normal pt-1 whitespace-pre-wrap font-sans">
                         {cleanSpecs}
-                      </p>
+                      </div>
                     )}
                   </td>
 
