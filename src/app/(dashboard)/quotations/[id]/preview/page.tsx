@@ -875,6 +875,8 @@ export default function QuotationHtmlPreviewPage() {
                 overallGrossMarginPct: qMetricsAny?.overallMargin || 0,
                 maxItemDiscountPct: qAny.maxDiscountPercentage || 0,
                 approvalStatus: qAny.approvalStatus || "AUTO_APPROVED",
+                preparedByName: quotation.preparedBy?.name || quotation.preparedBy?.email || quotation.salesAgentName || "Sales Consultant",
+                estimatorName: (quotation as any).assignedEstimator?.name || "Cost Estimator",
               }
 
               const auditItems: AuditItemMetric[] = costingItemsList.map((item, idx) => {
