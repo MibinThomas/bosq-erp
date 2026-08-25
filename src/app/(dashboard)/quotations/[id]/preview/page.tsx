@@ -12,6 +12,7 @@ import {
   X, 
   Edit, 
   Copy, 
+  Package,
   PackagePlus, 
   CheckCircle2, 
   FileText, 
@@ -45,6 +46,7 @@ import { Button } from "@/components/ui/button"
 import { isManagerOrAdminRole, cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { useSession } from "next-auth/react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { CostingBreakdownModal } from "@/components/costing/CostingBreakdownModal"
@@ -392,6 +394,7 @@ export default function QuotationHtmlPreviewPage() {
   const [isCatalogDialogOpen, setIsCatalogDialogOpen] = useState(false)
   const [savedItemIds, setSavedItemIds] = useState<Set<string>>(new Set())
   const [savingItemId, setSavingItemId] = useState<string | null>(null)
+  const [itemStockMap, setItemStockMap] = useState<Record<string, number>>({})
 
   useEffect(() => {
     fetch("/api/users/me/permissions")
@@ -421,10 +424,14 @@ export default function QuotationHtmlPreviewPage() {
     }
   }, [isAuthorizedForCosting, isIDC])
 
-  const handleSaveItemToCatalog = async (item: QuotationItem) => {
+  const handleSaveItemToCatalog = async (item: QuotationItem, customStock?: number) => {
     if (!quotation) return
     setSavingItemId(item.id)
     try {
+      const targetStock = customStock !== undefined 
+        ? customStock 
+        : (itemStockMap[item.id] !== undefined ? itemStockMap[item.id] : (item.quantity || 10))
+
       const res = await fetch(`/api/quotations/${quotation.id}/save-item-to-catalog`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -435,8 +442,9 @@ export default function QuotationHtmlPreviewPage() {
           unitPrice: item.unitPrice,
           description: item.productDescription || item.description,
           specifications: item.specifications || "",
-          imageUrl: item.customImageUrl || null,
+          imageUrl: item.customImageUrl || (item as any).product?.imageUrl || null,
           chairType: item.chairType || null,
+          stock: targetStock,
         })
       })
 
@@ -446,7 +454,7 @@ export default function QuotationHtmlPreviewPage() {
       }
 
       setSavedItemIds((prev) => new Set(prev).add(item.id))
-      toast.success(`Saved "${item.description}" to product master catalog!`)
+      toast.success(`Saved "${item.description}" to product master catalog with stock ${targetStock}!`)
     } catch (err: any) {
       console.error(err)
       toast.error(err.message || "Failed to save product to catalog")
@@ -1013,65 +1021,122 @@ export default function QuotationHtmlPreviewPage() {
       {/* Save Products to Catalog Modal */}
       {quotation && (
         <Dialog open={isCatalogDialogOpen} onOpenChange={setIsCatalogDialogOpen}>
-          <DialogContent className="max-w-2xl rounded-xl">
+          <DialogContent className="max-w-4xl sm:max-w-5xl w-full rounded-2xl p-6">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-lg font-bold">
-                <PackagePlus className="h-5 w-5 text-indigo-600" />
-                Save Products to Catalog
+              <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-900 dark:text-slate-100">
+                <PackagePlus className="h-6 w-6 text-indigo-600" />
+                Save Products to Catalog &amp; Manage Inventory Stock
               </DialogTitle>
-              <DialogDescription className="text-xs">
-                Save custom items from quotation <strong>{(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()}</strong> (prepared by {quotation.preparedBy?.name || quotation.preparedBy?.email || "User"}) directly to the product catalog.
+              <DialogDescription className="text-xs text-slate-600 dark:text-slate-400">
+                Save custom items from quotation <strong>{(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()}</strong> (prepared by {quotation.preparedBy?.name || quotation.preparedBy?.email || "User"}) directly to the product catalog and manage inventory stock levels.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-3 my-2 max-h-[60vh] overflow-y-auto pr-1">
+
+            <div className="space-y-3.5 my-3 max-h-[65vh] overflow-y-auto pr-1">
               {quotation.items.map((item) => {
                 const isSaved = !!item.product || savedItemIds.has(item.id)
                 const isSaving = savingItemId === item.id
+                const itemImg = item.customImageUrl || (item as any).product?.imageUrl || null
+                const currentStock = itemStockMap[item.id] !== undefined ? itemStockMap[item.id] : ((item as any).product?.stock ?? item.quantity ?? 10)
+
                 return (
-                  <div key={item.id} className="p-3.5 border rounded-xl bg-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-                    <div className="space-y-1 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-xs text-foreground">{item.description}</span>
-                        {quotation.includeCategoryName !== false && item.categoryName && (
-                          <Badge variant="outline" className="text-[10px] py-0 font-medium">
-                            {item.categoryName}
-                          </Badge>
-                        )}
-                        {isSaved && (
-                          <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-200 py-0 flex items-center gap-1 font-semibold">
-                            <CheckCircle2 className="h-3 w-3" /> Saved in Catalog
-                          </Badge>
+                  <div key={item.id} className="p-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-card flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs hover:border-slate-300 transition-all">
+                    
+                    {/* Left: Product Image & Metadata */}
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                      {/* Product Thumbnail */}
+                      <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shrink-0 flex items-center justify-center relative">
+                        {itemImg ? (
+                          <img src={itemImg} alt={item.description} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center text-[10px] text-slate-400">
+                            <Package className="h-6 w-6 text-slate-300 mb-0.5" />
+                            <span>No Image</span>
+                          </div>
                         )}
                       </div>
-                      {item.productDescription && (
-                        <p className="text-[11px] text-muted-foreground line-clamp-2">{item.productDescription}</p>
-                      )}
-                      <div className="text-[11px] text-muted-foreground font-mono">
-                        Unit Price: AED {(item.unitPrice || 0).toLocaleString("en-US")} | Qty: {item.quantity}
+
+                      {/* Product Info */}
+                      <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm text-foreground truncate">{item.description}</span>
+                          {quotation.includeCategoryName !== false && item.categoryName && (
+                            <Badge variant="outline" className="text-[10px] py-0 font-semibold bg-slate-100 dark:bg-slate-800">
+                              {item.categoryName}
+                            </Badge>
+                          )}
+                          {isSaved && (
+                            <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900 py-0.5 px-2 flex items-center gap-1 font-semibold">
+                              <CheckCircle2 className="h-3 w-3" /> Saved in Catalog
+                            </Badge>
+                          )}
+                        </div>
+                        
+                        {item.productDescription && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">{item.productDescription}</p>
+                        )}
+
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono flex-wrap pt-0.5">
+                          <span>Unit Price: <strong className="text-foreground">AED {(item.unitPrice || 0).toLocaleString("en-US")}</strong></span>
+                          <span>|</span>
+                          <span>Quote Qty: <strong className="text-foreground">{item.quantity}</strong></span>
+                        </div>
                       </div>
                     </div>
-                    <div className="shrink-0">
-                      {isSaved ? (
-                        <Button variant="ghost" size="sm" disabled className="h-8 text-xs text-muted-foreground">
-                          In Catalog
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          disabled={isSaving}
-                          onClick={() => handleSaveItemToCatalog(item)}
-                          className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer"
-                        >
-                          {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <PackagePlus className="h-3.5 w-3.5 mr-1.5" />}
-                          Save to Catalog
-                        </Button>
-                      )}
+
+                    {/* Right: Update Stock Controls & Save Button */}
+                    <div className="flex items-center gap-3 shrink-0 self-end md:self-center bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                      <div className="flex flex-col space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          Stock Qty:
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={currentStock}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10)
+                            setItemStockMap((prev) => ({
+                              ...prev,
+                              [item.id]: isNaN(val) ? 0 : Math.max(0, val)
+                            }))
+                          }}
+                          className="w-24 h-8 text-xs font-mono font-bold text-center bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700 focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </div>
+
+                      <div className="flex items-end h-full pt-4">
+                        {isSaved ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={isSaving}
+                            onClick={() => handleSaveItemToCatalog(item, currentStock)}
+                            className="h-8 text-xs border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950 font-semibold cursor-pointer shrink-0"
+                          >
+                            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <RefreshCw className="h-3.5 w-3.5 mr-1 text-indigo-600" />}
+                            Update Stock
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            disabled={isSaving}
+                            onClick={() => handleSaveItemToCatalog(item, currentStock)}
+                            className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer shadow-xs shrink-0"
+                          >
+                            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <PackagePlus className="h-3.5 w-3.5 mr-1.5" />}
+                            Save to Catalog
+                          </Button>
+                        )}
+                      </div>
                     </div>
+
                   </div>
                 )
               })}
             </div>
-            <DialogFooter className="mt-2">
+
+            <DialogFooter className="mt-3 pt-3 border-t">
               <Button variant="outline" onClick={() => setIsCatalogDialogOpen(false)}>
                 Close
               </Button>

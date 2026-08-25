@@ -93,8 +93,29 @@ export async function POST(
     const specifications = body.specifications || item.specifications || ""
     const imageUrl = body.imageUrl || item.customImageUrl || null
     const chairType = body.chairType || item.chairType || null
+    const stockVal = body.stock !== undefined ? Number(body.stock) : (body.stockQuantity !== undefined ? Number(body.stockQuantity) : 0)
+    const initialStock = isNaN(stockVal) ? 0 : Math.max(0, stockVal)
 
-    // 3. Create the product
+    // If product is already linked, update its stock inventory level
+    if (item.productId) {
+      const updatedProduct = await prisma.product.update({
+        where: { id: item.productId },
+        data: {
+          stock: initialStock,
+          unitPrice,
+          imageUrl: imageUrl || undefined,
+        },
+        include: { category: true }
+      })
+
+      return NextResponse.json({
+        success: true,
+        product: updatedProduct,
+        item,
+      })
+    }
+
+    // 3. Create the product with initial stock
     const newProduct = await prisma.product.create({
       data: {
         productCode,
@@ -110,6 +131,7 @@ export async function POST(
         specialPrice: unitPrice,
         imageUrl,
         chairType,
+        stock: initialStock,
         status: "ACTIVE",
       },
       include: {
