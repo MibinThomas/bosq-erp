@@ -58,6 +58,11 @@ export async function PUT(
       const disc = existingItem.discount || 0
       const computedAmount = Math.max(0, (computedUnitPrice - disc) * qty)
 
+      const estimatorPrice = computedUnitPrice
+      const consultantPrice = computedUnitPrice - disc
+      const discountAmt = Math.max(0, disc)
+      const discountPct = estimatorPrice > 0 ? (discountAmt / estimatorPrice) * 100 : 0
+
       await prisma.quotationItem.update({
         where: { id: existingItem.id },
         data: {
@@ -70,6 +75,9 @@ export async function PUT(
           marginPercentage: marginPct,
           unitPrice: computedUnitPrice,
           amount: computedAmount,
+          estimatorUnitPrice: estimatorPrice,
+          consultantDiscountAmount: discountAmt,
+          consultantDiscountPct: discountPct,
           costingStatus: itemUpdate.costingStatus || "COSTING_COMPLETED",
           estimatorNotes: itemUpdate.estimatorNotes ?? existingItem.estimatorNotes,
           costingCompletedAt: new Date(),
@@ -78,7 +86,7 @@ export async function PUT(
       })
     }
 
-    // Recalculate quotation grand totals
+    // Recalculate quotation grand totals & discount audit metrics
     const allItems = await prisma.quotationItem.findMany({
       where: { quotationId: quotation.id }
     })
@@ -87,6 +95,34 @@ export async function PUT(
     let vatPct = 0.05
     const vatAmt = quotation.vatMode === "EXCLUDING" ? newSubtotal * vatPct : 0
     const newGrandTotal = newSubtotal + vatAmt + (quotation.deliveryCharge || 0)
+
+    // Calculate Managerial Discount & Approval Audit Metrics
+    let totalEstRev = 0
+    let totalDiscAmt = 0
+    let maxItemDiscountPct = 0
+
+    allItems.forEach((i: any) => {
+      const qty = i.quantity || 1
+      const estPrice = i.estimatorUnitPrice > 0 ? i.estimatorUnitPrice : i.unitPrice
+      const discAmt = i.consultantDiscountAmount || 0
+      const discPct = i.consultantDiscountPct || 0
+
+      totalEstRev += estPrice * qty
+      totalDiscAmt += discAmt * qty
+      if (discPct > maxItemDiscountPct) maxItemDiscountPct = discPct
+    })
+
+    const overallDiscountPct = totalEstRev > 0 ? (totalDiscAmt / totalEstRev) * 100 : 0
+
+    // Automatic Approval Routing Matrix
+    let approvalStatus = "AUTO_APPROVED"
+    if (maxItemDiscountPct > 20 || overallDiscountPct > 20) {
+      approvalStatus = "PENDING_GM_APPROVAL"
+    } else if (maxItemDiscountPct > 10 || overallDiscountPct > 10) {
+      approvalStatus = "PENDING_MANAGER_APPROVAL"
+    } else if (maxItemDiscountPct > 0 || overallDiscountPct > 0) {
+      approvalStatus = "PENDING_IDC_APPROVAL"
+    }
 
     const pendingCount = allItems.filter((i: any) => i.costingStatus === "PENDING_COSTING" || i.costingStatus === "COSTING_IN_PROGRESS").length
     const completedCount = allItems.filter((i: any) => i.costingStatus === "COSTING_COMPLETED").length
@@ -108,7 +144,12 @@ export async function PUT(
         subtotal: newSubtotal,
         vatAmount: vatAmt,
         grandTotal: newGrandTotal,
-        costingStatus: overallCostingStatus
+        costingStatus: overallCostingStatus,
+        totalEstimatorSellingPrice: totalEstRev,
+        totalConsultantDiscountAmount: totalDiscAmt,
+        overallDiscountPercentage: overallDiscountPct,
+        maxDiscountPercentage: maxItemDiscountPct,
+        approvalStatus: approvalStatus
       }
     })
 

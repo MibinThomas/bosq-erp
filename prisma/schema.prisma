@@ -199,6 +199,16 @@ model Quotation {
   assignedEstimatorId      String?
   assignedEstimator        User?     @relation("AssignedEstimatorQuotations", fields: [assignedEstimatorId], references: [id])
 
+  // Managerial Approval & Discount Audit Workflow
+  approvalStatus                 String    @default("AUTO_APPROVED") // AUTO_APPROVED, PENDING_IDC_APPROVAL, PENDING_MANAGER_APPROVAL, PENDING_GM_APPROVAL, APPROVED, REJECTED
+  maxDiscountPercentage          Float     @default(0.0)
+  totalEstimatorSellingPrice     Float     @default(0.0)
+  totalConsultantDiscountAmount  Float     @default(0.0)
+  overallDiscountPercentage      Float     @default(0.0)
+  approvedById                   String?
+  approvedAt                     DateTime?
+  rejectionReason                String?
+
   deletedAt       DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -272,6 +282,11 @@ model QuotationItem {
   estimatorNotes       String?
   costingRequestedAt   DateTime?
   costingCompletedAt   DateTime?
+
+  // Estimator vs Consultant Discount Metrics
+  estimatorUnitPrice     Float     @default(0.0)
+  consultantDiscountAmount Float     @default(0.0)
+  consultantDiscountPct   Float     @default(0.0)
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

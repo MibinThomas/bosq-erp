@@ -55,9 +55,17 @@ export default function ReportsPage() {
       borderColor: "border-zinc-200 dark:border-zinc-800",
     },
     {
-      title: "Total Revisions",
-      value: data?.totalRevisions ?? 0,
-      description: "Revised versions of original quotes",
+      title: "Pending Manager Approvals",
+      value: (data as any)?.pendingApprovals ?? 0,
+      description: "Quotes requiring Manager / GM approval",
+      icon: AlertTriangle,
+      color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20",
+      borderColor: "border-amber-200 dark:border-amber-900/30",
+    },
+    {
+      title: "Total Consultant Discounts Given",
+      value: `AED ${((data as any)?.totalDiscountAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+      description: `Average Discount: ${((data as any)?.avgDiscountPct || 0).toFixed(1)}%`,
       icon: RefreshCw,
       color: "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/20",
       borderColor: "border-purple-200 dark:border-purple-900/30",
@@ -70,24 +78,16 @@ export default function ReportsPage() {
       color: "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20",
       borderColor: "border-green-200 dark:border-green-900/30",
     },
-    {
-      title: "Lost / Rejected Revisions",
-      value: data?.lostOrRejected ?? 0,
-      description: "Superseded or rejected versions",
-      icon: AlertTriangle,
-      color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20",
-      borderColor: "border-amber-200 dark:border-amber-900/30",
-    },
   ]
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-zinc-900 to-zinc-600 dark:from-white dark:to-zinc-400 bg-clip-text text-transparent">
-          Quotation Analytics & Reports
+          Quotation Analytics &amp; Managerial Reports
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Historical overview and breakdown of quotation series, revisions, and confirmation success.
+          Historical overview, discount analysis, approval status, and confirmation success.
         </p>
       </div>
 
@@ -104,8 +104,8 @@ export default function ReportsPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold tracking-tight">{s.value}</div>
-              <p className="text-xs text-zinc-400 mt-1">{s.description}</p>
+              <div className="text-2xl font-extrabold tracking-tight">{s.value}</div>
+              <p className="text-xs text-zinc-400 mt-1 font-medium">{s.description}</p>
             </CardContent>
           </Card>
         ))}

@@ -170,11 +170,22 @@ export async function GET(request: Request) {
 
     const chartData = Array.from(monthlySeriesMap.values())
 
+    const totalEstimatorRevenue = quotations.reduce((a, b) => a + (b.totalEstimatorSellingPrice || b.grandTotal || 0), 0)
+    const totalProposedRevenue = quotations.reduce((a, b) => a + (b.grandTotal || 0), 0)
+    const totalDiscountAmount = quotations.reduce((a, b) => a + (b.totalConsultantDiscountAmount || 0), 0)
+    const avgDiscountPct = totalEstimatorRevenue > 0 ? (totalDiscountAmount / totalEstimatorRevenue) * 100 : 0
+    const pendingApprovals = quotations.filter(q => ["PENDING_MANAGER_APPROVAL", "PENDING_GM_APPROVAL"].includes(q.approvalStatus)).length
+
     return NextResponse.json({
       totalCreated,
       totalRevisions,
       clientConfirmed,
       lostOrRejected,
+      totalEstimatorRevenue,
+      totalProposedRevenue,
+      totalDiscountAmount,
+      avgDiscountPct,
+      pendingApprovals,
       chartData
     })
   } catch (error) {

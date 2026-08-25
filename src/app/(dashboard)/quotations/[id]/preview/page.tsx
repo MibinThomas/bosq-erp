@@ -51,6 +51,8 @@ import { CostingBreakdownModal } from "@/components/costing/CostingBreakdownModa
 import { CostingUpdateModal } from "@/components/costing/CostingUpdateModal"
 import { calculateProductPrice } from "@/components/costing/QuotationCostingWorkspaceModal"
 import { ExecutiveCostSummaryCard } from "@/components/costing/ExecutiveCostSummaryCard"
+import { ManagerialAuditSection, ManagerialAuditSummary, AuditItemMetric } from "@/components/quotations/ManagerialAuditSection"
+import { ApprovalMatrixBanner } from "@/components/quotations/ApprovalMatrixBanner"
 import { Calculator, Sparkles, RefreshCw } from "lucide-react"
 
 interface QuotationItem {
@@ -70,6 +72,9 @@ interface QuotationItem {
   installationCost?: number
   unitCost?: number
   marginPercentage?: number
+  estimatorUnitPrice?: number
+  consultantDiscountAmount?: number
+  consultantDiscountPct?: number
   costingStatus?: string
   estimatorNotes?: string | null
   customImageUrl: string | null
@@ -843,6 +848,78 @@ export default function QuotationHtmlPreviewPage() {
         {activeViewMode === "costing" && isAuthorizedForCosting ? (
           <div className="max-w-6xl mx-auto w-full space-y-6">
             
+            {/* Approval Routing & Decision Banner */}
+            <ApprovalMatrixBanner
+              quotationId={quotation.id}
+              approvalStatus={(quotation as any).approvalStatus || "AUTO_APPROVED"}
+              overallDiscountPct={(quotation as any).overallDiscountPercentage || 0}
+              maxDiscountPct={(quotation as any).maxDiscountPercentage || 0}
+              overallGrossMarginPct={(quotationMetrics as any)?.overallMargin || 0}
+              userRole={userRole}
+              onApprovalUpdate={() => router.refresh()}
+            />
+
+            {/* Managerial Audit Section */}
+            {(() => {
+              const qAny = quotation as any
+              const qMetricsAny = quotationMetrics as any
+              const summaryMetrics: ManagerialAuditSummary = {
+                grandFactoryCost: costingItemsList.reduce((a, b) => a + (b.materialCost || 0) * (b.quantity || 1), 0),
+                grandAccessoriesCost: costingItemsList.reduce((a, b) => a + (b.laborCost || 0) * (b.quantity || 1), 0),
+                grandTotalCost: costingItemsList.reduce((a, b) => a + (b.unitCost || (b.materialCost + b.laborCost)) * (b.quantity || 1), 0),
+                grandEstimatorRevenue: qAny.totalEstimatorSellingPrice || qMetricsAny?.totalSellingPrice || 0,
+                grandConsultantRevenue: qMetricsAny?.totalSellingPrice || 0,
+                grandTotalDiscountAmount: qAny.totalConsultantDiscountAmount || 0,
+                overallDiscountPct: qAny.overallDiscountPercentage || 0,
+                grandExpectedProfit: qMetricsAny?.marginAmount || 0,
+                overallGrossMarginPct: qMetricsAny?.overallMargin || 0,
+                maxItemDiscountPct: qAny.maxDiscountPercentage || 0,
+                approvalStatus: qAny.approvalStatus || "AUTO_APPROVED",
+              }
+
+              const auditItems: AuditItemMetric[] = costingItemsList.map((item, idx) => {
+                const estPrice = item.estimatorUnitPrice || item.unitPrice || 0
+                const consPrice = item.unitPrice || 0
+                const discAmt = Math.max(0, estPrice - consPrice)
+                const discPct = estPrice > 0 ? (discAmt / estPrice) * 100 : 0
+                const qty = item.quantity || 1
+                const lineCostUnit = item.unitCost || (item.materialCost + item.laborCost) || 0
+                const lineRev = consPrice * qty
+                const lineCost = lineCostUnit * qty
+                const lineProfit = lineRev - lineCost
+                const lineMargin = lineRev > 0 ? (lineProfit / lineRev) * 100 : 0
+
+                return {
+                  id: item.id,
+                  itemNo: idx + 1,
+                  description: item.description,
+                  specifications: item.specifications,
+                  quantity: qty,
+                  factoryCost: item.materialCost || 0,
+                  accessoriesCost: item.laborCost || 0,
+                  totalCostUnit: lineCostUnit,
+                  marginPct: item.marginPercentage || 0,
+                  negotiationPct: 0,
+                  estimatorPriceUnit: estPrice,
+                  consultantPriceUnit: consPrice,
+                  discountAmountUnit: discAmt,
+                  discountPct: discPct,
+                  lineTotalRevenue: lineRev,
+                  lineTotalCost: lineCost,
+                  lineExpectedProfit: lineProfit,
+                  lineMarginPct: lineMargin,
+                }
+              })
+
+              return (
+                <ManagerialAuditSection
+                  summary={summaryMetrics}
+                  items={auditItems}
+                  userRole={userRole}
+                />
+              )
+            })()}
+
             {/* Executive Top Profitability & Cost Summary Card */}
             {quotationMetrics && quotationMetrics.totalCost > 0 ? (
               <ExecutiveCostSummaryCard metrics={quotationMetrics} />
