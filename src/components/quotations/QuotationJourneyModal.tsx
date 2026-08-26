@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useSession } from "next-auth/react"
 import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { toast } from "sonner"
+import { QuotationStatusTimeline } from "@/components/quotations/QuotationStatusTimeline"
 
 interface Log {
   id: string
@@ -278,6 +279,20 @@ export function QuotationJourneyModal({
             <div className="text-center text-red-500 py-12 font-medium text-lg">{error}</div>
           ) : data && activeQuotation ? (
             <div className="space-y-8">
+              {/* Quotation Workflow Lifecycle Timeline */}
+              <QuotationStatusTimeline
+                status={activeQuotation?.status}
+                costingStatus={activeQuotation?.costingStatus}
+                createdAt={activeQuotation?.createdAt}
+                preparedByName={activeQuotation?.preparedBy?.name}
+                sentToCostingAt={activeQuotation?.sentToCostingAt}
+                sentToCostingByName={activeQuotation?.sentToCostingBy?.name}
+                costingCompletedAt={activeQuotation?.costingCompletedAt}
+                costedByName={activeQuotation?.costedBy?.name || activeQuotation?.assignedEstimator?.name}
+                approvedAt={activeQuotation?.approvedAt}
+                approvedByName={activeQuotation?.approvedBy?.name}
+              />
+
               {/* Header Cards & Final Quotation Summary */}
               <div className="space-y-6">
                 <div className="p-6 border border-border/80 rounded-2xl bg-card shadow-sm space-y-6 relative overflow-hidden">

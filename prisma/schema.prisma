@@ -42,6 +42,8 @@ model User {
   quotationAssignments QuotationAssignment[]      @relation("QuotationAssignments")
   accessRequests       ClientAccessRequest[]
   assignedEstimatorQuotations Quotation[]        @relation("AssignedEstimatorQuotations")
+  sentToCostingQuotations     Quotation[]        @relation("SentToCostingQuotations")
+  costedByQuotations          Quotation[]        @relation("CostedByQuotations")
   assignedQuotationItems     QuotationItem[]    @relation("EstimatorQuotationItems")
 }
 
@@ -199,6 +201,12 @@ model Quotation {
   costingStatus            String    @default("NONE") // NONE, PENDING_COSTING, COSTING_IN_PROGRESS, PARTIALLY_COSTED, COSTING_COMPLETED
   assignedEstimatorId      String?
   assignedEstimator        User?     @relation("AssignedEstimatorQuotations", fields: [assignedEstimatorId], references: [id])
+  sentToCostingAt          DateTime?
+  sentToCostingById        String?
+  sentToCostingBy          User?     @relation("SentToCostingQuotations", fields: [sentToCostingById], references: [id])
+  costingCompletedAt       DateTime?
+  costedById               String?
+  costedBy                 User?     @relation("CostedByQuotations", fields: [costedById], references: [id])
 
   // Managerial Approval & Discount Audit Workflow
   approvalStatus                 String    @default("AUTO_APPROVED") // AUTO_APPROVED, PENDING_IDC_APPROVAL, PENDING_MANAGER_APPROVAL, PENDING_GM_APPROVAL, APPROVED, REJECTED
@@ -286,8 +294,9 @@ model QuotationItem {
 
   // Estimator vs Consultant Discount Metrics
   estimatorUnitPrice     Float     @default(0.0)
-  consultantDiscountAmount Float     @default(0.0)
+  consultantDiscountAmount Float   @default(0.0)
   consultantDiscountPct   Float     @default(0.0)
+  negotiationPct          Float     @default(0.0)
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

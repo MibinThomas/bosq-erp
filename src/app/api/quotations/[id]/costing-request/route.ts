@@ -70,7 +70,9 @@ export async function POST(
       where: { id: quotation.id },
       data: {
         costingStatus: overallCostingStatus,
-        assignedEstimatorId: estimatorId || quotation.assignedEstimatorId
+        assignedEstimatorId: estimatorId || quotation.assignedEstimatorId,
+        sentToCostingAt: quotation.sentToCostingAt || new Date(),
+        sentToCostingById: logUserId || quotation.sentToCostingById || null
       }
     })
 

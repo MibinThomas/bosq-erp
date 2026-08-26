@@ -145,6 +145,7 @@ const quotationSchema = z.object({
       transportCost: z.number().optional(),
       installationCost: z.number().optional(),
       marginPercentage: z.number().optional(),
+      negotiationPct: z.union([z.number(), z.string()]).optional().default(0),
       estimatorNotes: z.string().nullable().optional(),
       estimatorId: z.string().nullable().optional(),
       costingRequestedAt: z.any().optional(),
@@ -197,6 +198,8 @@ interface Client {
     rejectionReason: string | null
   }>
 }
+
+import { QuotationStatusTimeline } from "@/components/quotations/QuotationStatusTimeline"
 
 interface Product {
   id: string
@@ -1400,6 +1403,7 @@ function StickyFooterToolbar({
   handleSendToCostingClick,
   pendingCostingCount,
   hasPendingCostingItems,
+  isQuotationLockedForCosting,
 }: {
   grandTotal: number
   submitting: boolean
@@ -1410,6 +1414,7 @@ function StickyFooterToolbar({
   handleSendToCostingClick: () => void
   pendingCostingCount: number
   hasPendingCostingItems: boolean
+  isQuotationLockedForCosting?: boolean
 }) {
   return (
     <div className="fixed bottom-0 left-0 md:left-64 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
@@ -1426,9 +1431,9 @@ function StickyFooterToolbar({
             type="button"
             variant="outline"
             size="sm"
-            disabled={submitting}
+            disabled={submitting || isQuotationLockedForCosting}
             onClick={() => onSubmit(form.getValues(), "DRAFT")}
-            className="text-xs h-9 sm:h-10 px-3 sm:px-4 font-medium flex items-center gap-1.5 cursor-pointer bg-background"
+            className="text-xs h-9 sm:h-10 px-3 sm:px-4 font-medium flex items-center gap-1.5 cursor-pointer bg-background disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
             <span className="hidden sm:inline">Save Draft</span>
@@ -1440,10 +1445,10 @@ function StickyFooterToolbar({
             type="button"
             variant="outline"
             size="sm"
-            disabled={submitting}
+            disabled={submitting || isQuotationLockedForCosting}
             onClick={handleSendToCostingClick}
-            className="text-xs h-9 sm:h-10 px-3 sm:px-4 font-semibold flex items-center gap-1.5 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50 cursor-pointer shadow-2xs"
-            title="Submit products to Cost Estimator for pricing"
+            className="text-xs h-9 sm:h-10 px-3 sm:px-4 font-semibold flex items-center gap-1.5 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-900/50 cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Lock quotation and submit to Cost Estimator for pricing"
           >
             <Calculator className="h-4 w-4 text-amber-600" />
             <span className="hidden sm:inline">Send to Estimator</span>
@@ -1455,7 +1460,7 @@ function StickyFooterToolbar({
             )}
           </Button>
 
-          {hasPendingCostingItems && (
+          {(hasPendingCostingItems || isQuotationLockedForCosting) && (
             <span className="hidden md:flex items-center gap-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 shrink-0 bg-amber-500/10 border border-amber-300/60 px-2 py-1 rounded-lg">
               <Lock className="h-3.5 w-3.5" /> Awaiting Estimator
             </span>
@@ -1464,19 +1469,19 @@ function StickyFooterToolbar({
           <Button
             type="button"
             size="sm"
-            disabled={submitting || hasPendingCostingItems}
+            disabled={submitting || hasPendingCostingItems || isQuotationLockedForCosting}
             onClick={() => {
-              if (hasPendingCostingItems) {
-                toast.error("Quotation creation is locked while products are awaiting Estimator completion.")
+              if (isQuotationLockedForCosting || hasPendingCostingItems) {
+                toast.error("Quotation editing is locked while pending Estimator costing.")
                 return
               }
               form.handleSubmit((data: any) => onSubmit(data, "SUBMITTED"), onInvalid)()
             }}
             className={cn(
               "text-xs h-9 sm:h-10 px-4 sm:px-6 font-bold flex items-center gap-1.5 cursor-pointer shadow-md bg-orange-600 hover:bg-orange-500 text-white",
-              (hasPendingCostingItems || submitting) && "opacity-60 cursor-not-allowed"
+              (hasPendingCostingItems || isQuotationLockedForCosting || submitting) && "opacity-60 cursor-not-allowed"
             )}
-            title={hasPendingCostingItems ? "Quotation creation is locked while products are awaiting Estimator completion." : undefined}
+            title={isQuotationLockedForCosting ? "Quotation is locked while pending Estimator costing." : undefined}
           >
             {submitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1536,7 +1541,7 @@ function NewQuotationForm() {
       validityDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       deliveryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       paymentTerms: "50% Advance, 50% on Delivery",
-      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, discountType: "PERCENTAGE", margin: 0, manualMargin: "", customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: "", saveToCatalog: false }],
+      items: [{ productId: "", priceSource: "standard", description: "", specifications: "", productNotes: "", quantity: 1, basePrice: 0, unitPrice: 0, discount: 0, discountType: "PERCENTAGE", margin: 0, manualMargin: "", negotiationPct: 0, customImageUrl: "", productDescription: "", categoryName: "Chairs", chairType: "", batchHeading: "", saveToCatalog: false }],
     },
   })
 
@@ -1567,30 +1572,61 @@ function NewQuotationForm() {
     return watchItems.some((item: any) => item.costingStatus === "ADDED_FOR_COSTING" || item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS")
   }, [watchItems])
 
-  const handleSendToCostingClick = () => {
+  const handleSendToCostingClick = async () => {
+    if (submitting || isQuotationLockedForCosting) return
     const currentItems = form.getValues("items") || []
     if (currentItems.length === 0) {
       toast.error("Please add at least one product item before sending to Estimator.")
       return
     }
 
-    const addedIndexes = currentItems
-      .map((item: any, idx: number) => (item.costingStatus === "ADDED_FOR_COSTING" || item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS" ? idx : -1))
-      .filter((idx) => idx !== -1)
+    try {
+      setSubmitting(true)
+      let targetId = existingQuote?.id || autoSavedQuoteId || searchParams.get("editId")
 
-    if (addedIndexes.length > 0) {
-      // Automatically lock all ADDED_FOR_COSTING items into PENDING_COSTING
-      currentItems.forEach((item: any, idx: number) => {
-        if (item.costingStatus === "ADDED_FOR_COSTING") {
-          form.setValue(`items.${idx}.costingStatus`, "PENDING_COSTING", { shouldDirty: true })
-        }
+      await handleAutoSave()
+      targetId = autoSavedQuoteId || (form.getValues() as any)?.id || existingQuote?.id || targetId
+
+      if (!targetId) {
+        await onSubmit(form.getValues(), "DRAFT")
+        targetId = autoSavedQuoteId || existingQuote?.id
+      }
+
+      if (!targetId) {
+        toast.error("Please save the quotation draft first before sending to Estimator.")
+        setSubmitting(false)
+        return
+      }
+
+      const itemIds = currentItems.map((i: any) => i.id).filter(Boolean)
+
+      const res = await fetch(`/api/quotations/${targetId}/costing-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemIds: itemIds,
+          notes: "Sent to Estimator for product costing"
+        })
       })
 
-      toast.success(`Sent ${addedIndexes.length} product(s) to Cost Estimator. Products are now locked for costing.`)
-      form.handleSubmit((data) => onSubmit(data, "DRAFT"), onInvalid)()
-    } else {
-      setSelectedCostingItemIndexes(currentItems.map((_, idx) => idx))
-      setIsCostingSelectionOpen(true)
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || "Failed to send quotation to Estimator.")
+      }
+
+      toast.success("Quotation successfully locked and sent to Estimator for costing!")
+
+      const fetchRes = await fetch(`/api/quotations/${targetId}`)
+      if (fetchRes.ok) {
+        const freshQuote = await fetchRes.json()
+        setExistingQuote(freshQuote)
+        setIsEdit(true)
+      }
+    } catch (err: any) {
+      console.error("Error sending to Estimator:", err)
+      toast.error(err.message || "Failed to send quotation to Estimator.")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -2593,6 +2629,7 @@ function NewQuotationForm() {
       discountType: "PERCENTAGE",
       margin: 0,
       manualMargin: "",
+      negotiationPct: 0,
       customImageUrl: "",
       productDescription: "",
       categoryName: "Chairs",
@@ -3143,6 +3180,10 @@ function NewQuotationForm() {
     const vat = watchVatMode === "INCLUDING" ? 0 : taxable * 0.05
     return watchVatMode === "INCLUDING" ? taxable : taxable + vat
   }, [watchItems, watchAdditionalCharges, watchSpecialDiscountType, watchSpecialDiscountValue, watchVatMode])
+  const currentUserRole = userRole || (session?.user as any)?.role || ""
+  const isIDC = ["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(currentUserRole)
+  const currentCostingStatus = (existingQuote?.costingStatus || "").toUpperCase()
+  const isQuotationLockedForCosting = isIDC && isEdit && ["PENDING_COSTING", "COSTING_IN_PROGRESS", "PARTIALLY_COSTED"].includes(currentCostingStatus)
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6 pb-28 px-3 sm:px-6 lg:px-8">
@@ -3210,9 +3251,9 @@ function NewQuotationForm() {
             type="button"
             variant="outline"
             size="sm"
-            disabled={submitting}
+            disabled={submitting || isQuotationLockedForCosting}
             onClick={() => onSubmit(form.getValues(), "DRAFT")}
-            className="text-xs h-9 font-medium flex items-center gap-1.5 cursor-pointer bg-background"
+            className="text-xs h-9 font-medium flex items-center gap-1.5 cursor-pointer bg-background disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" />
             <span>Save Draft</span>
@@ -3228,10 +3269,57 @@ function NewQuotationForm() {
             title="Preview quotation in-page (Ctrl + P)"
           >
             <Eye className="h-3.5 w-3.5" />
-            <span>Preview</span>
+            <span>PDF Preview</span>
           </Button>
         </div>
       </div>
+
+      {/* Quotation Workflow Status Timeline */}
+      {existingQuote && (
+        <QuotationStatusTimeline
+          status={existingQuote.status}
+          costingStatus={existingQuote.costingStatus}
+          createdAt={existingQuote.createdAt}
+          preparedByName={existingQuote.preparedBy?.name}
+          sentToCostingAt={existingQuote.sentToCostingAt}
+          sentToCostingByName={existingQuote.sentToCostingBy?.name}
+          costingCompletedAt={existingQuote.costingCompletedAt}
+          costedByName={existingQuote.costedBy?.name || existingQuote.assignedEstimator?.name}
+          approvedAt={existingQuote.approvedAt}
+          approvedByName={existingQuote.approvedBy?.name}
+        />
+      )}
+
+      {/* Lock Banner when quotation is locked for costing */}
+      {isQuotationLockedForCosting && (
+        <div className="bg-amber-500/15 border-2 border-amber-500/40 p-4 sm:p-5 rounded-2xl flex items-center justify-between flex-wrap gap-4 text-amber-950 dark:text-amber-100 shadow-xs">
+          <div className="flex items-center gap-3.5">
+            <div className="h-11 w-11 rounded-2xl bg-amber-600 text-white flex items-center justify-center font-bold shrink-0 shadow-sm">
+              <Lock className="h-5 w-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                Quotation Locked for Estimator Costing
+                <Badge className="bg-amber-600 text-white font-bold text-[10px] uppercase">
+                  {existingQuote?.costingStatus}
+                </Badge>
+              </h3>
+              <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5 max-w-2xl">
+                This quotation was sent to the Costing Estimator team. Product specifications, quantities, prices, and client details are locked for editing until costing is submitted by the estimator.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/quotations")}
+            className="text-xs h-9 px-4 font-semibold border-amber-400 bg-background text-amber-950 hover:bg-amber-100 cursor-pointer"
+          >
+            Back to Quotations
+          </Button>
+        </div>
+      )}
 
       {/* Context Banner Alerts */}
       {isRevision && existingQuote && (
@@ -4702,6 +4790,7 @@ function NewQuotationForm() {
         handleSendToCostingClick={handleSendToCostingClick}
         pendingCostingCount={pendingCostingCount}
         hasPendingCostingItems={hasPendingCostingItems}
+        isQuotationLockedForCosting={isQuotationLockedForCosting}
       />
 
       {/* Modals & Dialogs */}

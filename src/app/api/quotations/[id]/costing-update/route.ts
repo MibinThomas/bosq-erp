@@ -149,7 +149,9 @@ export async function PUT(
         totalConsultantDiscountAmount: totalDiscAmt,
         overallDiscountPercentage: overallDiscountPct,
         maxDiscountPercentage: maxItemDiscountPct,
-        approvalStatus: approvalStatus
+        approvalStatus: approvalStatus,
+        costingCompletedAt: overallCostingStatus === "COSTING_COMPLETED" ? (quotation.costingCompletedAt || new Date()) : quotation.costingCompletedAt,
+        costedById: overallCostingStatus === "COSTING_COMPLETED" ? (logUserId || quotation.costedById) : quotation.costedById
       }
     })
 

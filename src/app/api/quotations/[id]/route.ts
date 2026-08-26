@@ -72,6 +72,12 @@ export async function GET(
         assignedEstimator: {
           select: { id: true, name: true, email: true, designation: true, role: true, phone: true }
         },
+        sentToCostingBy: {
+          select: { id: true, name: true, email: true, designation: true, role: true }
+        },
+        costedBy: {
+          select: { id: true, name: true, email: true, designation: true, role: true }
+        },
       },
     })
 
@@ -304,6 +310,17 @@ export async function PUT(
 
     const isEditingOrCreate = body.isRevision === true || body.isUpdate === true
     if (isEditingOrCreate) {
+      const currentCostingStatus = (existingQuotation.costingStatus || "").toUpperCase()
+      const isCostingLocked = ["PENDING_COSTING", "COSTING_IN_PROGRESS", "PARTIALLY_COSTED"].includes(currentCostingStatus)
+      const isIDCUser = ["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(logUserRole)
+      
+      if (isCostingLocked && isIDCUser && body.isUpdate === true) {
+        return NextResponse.json(
+          { error: `Quotation ${existingQuotation.quotationNumber} is currently locked for Costing by Estimator. Editing is disabled until costing is completed.` },
+          { status: 403 }
+        )
+      }
+
       const targetClientId = body.clientId || existingQuotation.clientId
       const clientObj = await prisma.client.findUnique({ where: { id: targetClientId } })
       if (!clientObj) {
