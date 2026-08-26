@@ -25,22 +25,34 @@ export async function GET(request: Request) {
 
     // Build Prisma query condition
     const whereCondition: any = {
-      costingStatus: {
-        not: "NOT_REQUIRED"
+      quotation: {
+        deletedAt: null
       }
     }
 
     if (statusFilter !== "ALL") {
-      whereCondition.costingStatus = statusFilter
+      whereCondition.OR = [
+        { costingStatus: statusFilter },
+        { quotation: { costingStatus: statusFilter, deletedAt: null } }
+      ]
+    } else {
+      whereCondition.OR = [
+        { costingStatus: { not: "NOT_REQUIRED" } },
+        { quotation: { costingStatus: { not: "NONE" }, deletedAt: null } }
+      ]
     }
 
     if (searchQuery) {
-      whereCondition.OR = [
-        { description: { contains: searchQuery, mode: "insensitive" } },
-        { categoryName: { contains: searchQuery, mode: "insensitive" } },
-        { quotation: { quotationNumber: { contains: searchQuery, mode: "insensitive" } } },
-        { quotation: { client: { companyName: { contains: searchQuery, mode: "insensitive" } } } },
-        { quotation: { projectName: { contains: searchQuery, mode: "insensitive" } } },
+      whereCondition.AND = [
+        {
+          OR: [
+            { description: { contains: searchQuery, mode: "insensitive" } },
+            { categoryName: { contains: searchQuery, mode: "insensitive" } },
+            { quotation: { quotationNumber: { contains: searchQuery, mode: "insensitive" } } },
+            { quotation: { client: { companyName: { contains: searchQuery, mode: "insensitive" } } } },
+            { quotation: { projectName: { contains: searchQuery, mode: "insensitive" } } },
+          ]
+        }
       ]
     }
 
@@ -73,18 +85,39 @@ export async function GET(request: Request) {
       ]
     })
 
+    // Helper to resolve effective costing status (item level preferred, fallback to parent quotation)
+    const resolveEffectiveStatus = (item: any) => {
+      if (item.costingStatus && item.costingStatus !== "NOT_REQUIRED") {
+        return item.costingStatus
+      }
+      if (item.quotation?.costingStatus && item.quotation.costingStatus !== "NONE") {
+        return item.quotation.costingStatus
+      }
+      return "NOT_REQUIRED"
+    }
+
     // Fetch aggregate KPI metrics across all costing items
     const allCostingItems = await prisma.quotationItem.findMany({
-      where: { costingStatus: { not: "NOT_REQUIRED" } },
-      select: { costingStatus: true, marginPercentage: true }
+      where: {
+        quotation: { deletedAt: null },
+        OR: [
+          { costingStatus: { not: "NOT_REQUIRED" } },
+          { quotation: { costingStatus: { not: "NONE" }, deletedAt: null } }
+        ]
+      },
+      select: {
+        costingStatus: true,
+        marginPercentage: true,
+        quotation: { select: { costingStatus: true } }
+      }
     })
 
-    const pendingCount = allCostingItems.filter(i => i.costingStatus === "PENDING_COSTING").length
-    const inProgressCount = allCostingItems.filter(i => i.costingStatus === "COSTING_IN_PROGRESS").length
-    const completedCount = allCostingItems.filter(i => i.costingStatus === "COSTING_COMPLETED").length
-    const revisionRequestedCount = allCostingItems.filter(i => i.costingStatus === "REVISION_REQUESTED").length
+    const pendingCount = allCostingItems.filter(i => resolveEffectiveStatus(i) === "PENDING_COSTING").length
+    const inProgressCount = allCostingItems.filter(i => resolveEffectiveStatus(i) === "COSTING_IN_PROGRESS").length
+    const completedCount = allCostingItems.filter(i => resolveEffectiveStatus(i) === "COSTING_COMPLETED").length
+    const revisionRequestedCount = allCostingItems.filter(i => resolveEffectiveStatus(i) === "REVISION_REQUESTED").length
 
-    const completedWithMargin = allCostingItems.filter(i => i.costingStatus === "COSTING_COMPLETED" && (i.marginPercentage || 0) > 0)
+    const completedWithMargin = allCostingItems.filter(i => resolveEffectiveStatus(i) === "COSTING_COMPLETED" && (i.marginPercentage || 0) > 0)
     const avgMarginPercentage = completedWithMargin.length > 0
       ? completedWithMargin.reduce((acc, i) => acc + (i.marginPercentage || 0), 0) / completedWithMargin.length
       : 0
@@ -92,9 +125,14 @@ export async function GET(request: Request) {
     // Sanitize response if user is IDC (privacy requirement)
     const isIDC = userRole === "INTERIOR_DESIGN_CONSULTANT"
     const sanitizedItems = costingItems.map(item => {
+      const effectiveStatus = resolveEffectiveStatus(item)
+      const mapped = {
+        ...item,
+        costingStatus: effectiveStatus
+      }
       if (isIDC) {
         return {
-          ...item,
+          ...mapped,
           materialCost: 0,
           laborCost: 0,
           overheadCost: 0,
@@ -104,7 +142,7 @@ export async function GET(request: Request) {
           marginPercentage: 0
         }
       }
-      return item
+      return mapped
     })
 
     return NextResponse.json({
