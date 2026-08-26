@@ -15,13 +15,6 @@ export async function POST(
     const body = await request.json()
     const { itemIds, estimatorId, notes } = body
 
-    if (!Array.isArray(itemIds) || itemIds.length === 0) {
-      return NextResponse.json(
-        { error: "Please select at least one item to send for costing." },
-        { status: 400 }
-      )
-    }
-
     const quotation = await prisma.quotation.findFirst({
       where: {
         OR: [{ id: id }, { quotationNumber: id }]
@@ -33,10 +26,23 @@ export async function POST(
       return NextResponse.json({ error: "Quotation not found" }, { status: 404 })
     }
 
+    let targetItemIds = Array.isArray(itemIds) ? itemIds : []
+    if (targetItemIds.length === 0) {
+      // Auto-fallback to ALL items of the quotation
+      targetItemIds = quotation.items.map((i: any) => i.id)
+    }
+
+    if (targetItemIds.length === 0) {
+      return NextResponse.json(
+        { error: "Quotation has no line items to send for costing. Please add at least one line item." },
+        { status: 400 }
+      )
+    }
+
     // Update selected quotation items to PENDING_COSTING
     await prisma.quotationItem.updateMany({
       where: {
-        id: { in: itemIds },
+        id: { in: targetItemIds },
         quotationId: quotation.id
       },
       data: {

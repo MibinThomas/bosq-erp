@@ -859,6 +859,25 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Add to Costing Action Button */}
+          {!currentItemVal.costingStatus || currentItemVal.costingStatus === "NOT_REQUIRED" || currentItemVal.costingStatus === "NONE" ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isItemLocked}
+              onClick={() => {
+                form.setValue(`items.${index}.costingStatus`, "ADDED_FOR_COSTING", { shouldDirty: true })
+                toast.success(`Item #${index + 1} added to Costing Queue.`)
+              }}
+              className="h-6 px-2 text-[11px] font-semibold border-amber-400 text-amber-800 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 cursor-pointer flex items-center gap-1 shrink-0"
+              title="Mark this line item for Cost Estimator pricing"
+            >
+              <Calculator className="h-3 w-3 text-amber-600" />
+              <span>+ Add to Costing</span>
+            </Button>
+          ) : null}
+
           {/* Add for Costing Action & Status Badges */}
           {currentItemVal.costingStatus === "ADDED_FOR_COSTING" ? (
             <Badge 
@@ -1599,7 +1618,18 @@ function NewQuotationForm() {
         return
       }
 
-      const itemIds = currentItems.map((i: any) => i.id).filter(Boolean)
+      let itemIds: string[] = []
+      const fetchRes = await fetch(`/api/quotations/${targetId}`)
+      if (fetchRes.ok) {
+        const freshQuote = await fetchRes.json()
+        const savedItems = freshQuote.items || []
+        const addedItems = savedItems.filter((i: any) => i.costingStatus === "ADDED_FOR_COSTING")
+        if (addedItems.length > 0) {
+          itemIds = addedItems.map((i: any) => i.id)
+        } else {
+          itemIds = savedItems.map((i: any) => i.id)
+        }
+      }
 
       const res = await fetch(`/api/quotations/${targetId}/costing-request`, {
         method: "POST",
