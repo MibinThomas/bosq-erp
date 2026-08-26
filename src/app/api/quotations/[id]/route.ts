@@ -191,8 +191,6 @@ export async function GET(
           overheadCost: 0,
           transportCost: 0,
           installationCost: 0,
-          unitCost: 0,
-          marginPercentage: 0
         }))
       : quotation.items
 

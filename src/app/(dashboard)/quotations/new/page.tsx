@@ -38,6 +38,8 @@ import {
   Palette,
   Calculator,
   MessageSquare,
+  Tag,
+  User,
   Highlighter,
   Eye,
   X
@@ -874,24 +876,18 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             <Badge className="bg-blue-600 text-white font-semibold text-[11px] py-0.5 px-2 flex items-center gap-1">
               <Loader2 className="h-3 w-3 animate-spin" /> Costing In Progress
             </Badge>
-          ) : currentItemVal.costingStatus === "COSTING_COMPLETED" ? (
-            <Badge className="bg-emerald-600 text-white font-semibold text-[11px] py-0.5 px-2 flex items-center gap-1">
-              <Check className="h-3 w-3" /> Costing Completed
+          ) : currentItemVal.costingStatus === "COSTING_COMPLETED" || isCostedByEstimator ? (
+            <Badge className="bg-emerald-600 text-white font-semibold text-[11px] py-0.5 px-2.5 flex items-center gap-1">
+              <Check className="h-3 w-3 stroke-[3]" /> Costing Completed by {currentItemVal.estimator?.name || "Estimator"}
+            </Badge>
+          ) : currentPriceSource === "standard" ? (
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-300 text-[11px] font-semibold py-0.5 px-2 flex items-center gap-1">
+              <Tag className="h-3 w-3 text-blue-500" /> Price from Catalog
             </Badge>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                form.setValue(`items.${index}.costingStatus`, "ADDED_FOR_COSTING", { shouldDirty: true })
-                toast.success(`Item #${index + 1} added for costing. Item remains editable until you click 'Send to Estimator'.`)
-              }}
-              className="text-[11px] h-7 px-2.5 flex items-center gap-1.5 border-amber-300/80 bg-amber-50/60 text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 font-semibold cursor-pointer shadow-2xs"
-              title="Add this product for Estimator custom pricing"
-            >
-              <Calculator className="h-3.5 w-3.5 text-amber-600" /> Add for Costing
-            </Button>
+            <Badge variant="outline" className="bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-300 text-[11px] font-semibold py-0.5 px-2 flex items-center gap-1">
+              <User className="h-3 w-3 text-purple-500" /> Provided by {currentItemVal.consultantName || "Interior Design Consultant"}
+            </Badge>
           )}
 
           {isItemLocked && (
@@ -1149,16 +1145,41 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
 
         {/* Right Side: Pricing & Margins Grid Controls */}
         <div className="lg:col-span-6 space-y-3 bg-muted/20 p-3.5 rounded-xl border border-border/60">
-          {/* Estimator Costing Lock Banner for IDCs */}
+          {/* Estimator Costing Lock Banner & Final Price Audit for Costed Items */}
           {isCostedByEstimator && (
-            <div className="flex items-center justify-between bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 p-2 rounded-lg text-xs text-emerald-800 dark:text-emerald-300">
-              <span className="flex items-center gap-1.5 font-medium text-[11px]">
-                <Lock className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                Costing Finalized by Estimator. Base cost locked.
-              </span>
-              <Badge variant="outline" className="text-[9px] bg-emerald-100 text-emerald-900 font-bold border-emerald-300">
-                Margin & Discount Editable
-              </Badge>
+            <div className="bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 p-3 rounded-xl space-y-2 text-xs text-emerald-900 dark:text-emerald-200">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="flex items-center gap-1.5 font-bold text-xs">
+                  <Check className="h-4 w-4 text-emerald-600 shrink-0 stroke-[3]" />
+                  Costing Completed by {currentItemVal.estimator?.name || "Estimator"}
+                </span>
+                <Badge variant="outline" className="text-[10px] bg-emerald-100 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 font-bold border-emerald-300">
+                  Final Estimated Price: AED {formatCurrency(unitPriceNum)}
+                </Badge>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono pt-1.5 border-t border-emerald-300/40">
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase font-sans">Base Unit Cost</span>
+                  <span className="font-bold text-foreground">AED {formatCurrency(currentItemVal.unitCost || currentItemVal.basePrice || (unitPriceNum / (1 + (currentItemVal.margin || 0) / 100)))}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase font-sans">Margin %</span>
+                  <span className="font-bold text-teal-600 dark:text-teal-400">{(currentItemVal.margin || 0).toFixed(1)}%</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase font-sans">Final Selling Price</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">AED {formatCurrency(unitPriceNum)}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block text-[9px] uppercase font-sans">Line Total ({qtyNum} Qty)</span>
+                  <span className="font-bold text-emerald-700 dark:text-emerald-300">AED {formatCurrency(lineTotal)}</span>
+                </div>
+              </div>
+              {currentItemVal.estimatorNotes && (
+                <div className="text-[11px] text-muted-foreground italic pt-1 border-t border-emerald-300/40">
+                  <span className="font-semibold not-italic">Estimator Note:</span> "{currentItemVal.estimatorNotes}"
+                </div>
+              )}
             </div>
           )}
 
@@ -2231,13 +2252,37 @@ function NewQuotationForm() {
               paymentTerms: activeData.paymentTerms || defaultPaymentTerm,
               termsConditions: activeTerms,
               items: activeData.items.map((item: any) => {
-                const marginVal = item.margin || 0
-                const loadedBase = (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== 0)
-                  ? item.basePrice
-                  : Number((item.unitPrice * (1 - marginVal / 100)).toFixed(2))
+                const isCostedByEstimator = item.costingStatus === "COSTING_COMPLETED" || !!item.costingCompletedAt || (item.unitCost > 0 && (item.marginPercentage || 0) > 0)
+                const marginVal = item.marginPercentage !== undefined && item.marginPercentage !== null && item.marginPercentage !== 0
+                  ? item.marginPercentage
+                  : (item.margin || 0)
+
+                let loadedBase = 0
+                if (item.unitCost > 0) {
+                  loadedBase = item.unitCost
+                } else if (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== 0) {
+                  loadedBase = item.basePrice
+                } else if (item.estimatorUnitPrice > 0 && marginVal > 0 && marginVal < 100) {
+                  loadedBase = Number((item.estimatorUnitPrice / (1 + marginVal / 100)).toFixed(2))
+                } else if (item.unitPrice > 0 && marginVal > 0 && marginVal < 100) {
+                  loadedBase = Number((item.unitPrice / (1 + marginVal / 100)).toFixed(2))
+                } else {
+                  loadedBase = item.unitPrice || 0
+                }
+
+                let loadedUnitPrice = item.unitPrice
+                if ((!loadedUnitPrice || loadedUnitPrice === 0) && item.estimatorUnitPrice > 0) {
+                  loadedUnitPrice = item.estimatorUnitPrice
+                } else if ((!loadedUnitPrice || loadedUnitPrice === 0) && loadedBase > 0 && marginVal > 0) {
+                  loadedUnitPrice = Number((loadedBase * (1 + marginVal / 100)).toFixed(2))
+                } else if (!loadedUnitPrice || loadedUnitPrice === 0) {
+                  loadedUnitPrice = loadedBase
+                }
 
                 let resolvedPriceSource = item.priceSource
-                if (!resolvedPriceSource) {
+                if (isCostedByEstimator) {
+                  resolvedPriceSource = "manual"
+                } else if (!resolvedPriceSource) {
                   if (!item.productId) {
                     resolvedPriceSource = "manual"
                   } else {
@@ -2260,6 +2305,10 @@ function NewQuotationForm() {
                   }
                 }
 
+                const resolvedCostingStatus = isCostedByEstimator
+                  ? "COSTING_COMPLETED"
+                  : (item.costingStatus || (activeData.costingStatus === "COSTING_COMPLETED" ? "COSTING_COMPLETED" : "NOT_REQUIRED"))
+
                 return {
                   productId: item.productId || "",
                   priceSource: resolvedPriceSource,
@@ -2268,8 +2317,8 @@ function NewQuotationForm() {
                   productNotes: item.productNotes || "",
                   quantity: item.quantity,
                   basePrice: loadedBase,
-                  unitPrice: item.unitPrice,
-                  discount: item.unitPrice > 0 ? Number(((item.discount || 0) / item.unitPrice * 100).toFixed(2)) : (item.discount || 0),
+                  unitPrice: loadedUnitPrice,
+                  discount: loadedUnitPrice > 0 ? Number(((item.discount || 0) / loadedUnitPrice * 100).toFixed(2)) : (item.discount || 0),
                   discountType: "PERCENTAGE",
                   margin: marginVal,
                   manualMargin: marginVal,
@@ -2279,16 +2328,17 @@ function NewQuotationForm() {
                   chairType: item.chairType || item.product?.chairType || "",
                   batchHeading: item.batchHeading || "",
                   saveToCatalog: false,
-                  costingStatus: item.costingStatus || "NOT_REQUIRED",
+                  costingStatus: resolvedCostingStatus,
                   unitCost: item.unitCost || 0,
                   materialCost: item.materialCost || 0,
                   laborCost: item.laborCost || 0,
                   overheadCost: item.overheadCost || 0,
                   transportCost: item.transportCost || 0,
                   installationCost: item.installationCost || 0,
-                  marginPercentage: item.marginPercentage || 0,
+                  marginPercentage: marginVal,
                   estimatorNotes: item.estimatorNotes || "",
                   estimatorId: item.estimatorId || null,
+                  estimator: item.estimator || null,
                   costingRequestedAt: item.costingRequestedAt || null,
                   costingCompletedAt: item.costingCompletedAt || null,
                 }
