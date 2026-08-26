@@ -25,6 +25,10 @@ export interface QuotationStatusTimelineProps {
   sentToCostingByName?: string | null
   costingCompletedAt?: string | Date | null
   costedByName?: string | null
+  revisionRequestedAt?: string | Date | null
+  revisionRequestedByName?: string | null
+  revisionReason?: string | null
+  costingRevisionCycles?: number | null
   approvedAt?: string | Date | null
   approvedByName?: string | null
   className?: string
@@ -39,18 +43,14 @@ export function QuotationStatusTimeline({
   sentToCostingByName,
   costingCompletedAt,
   costedByName,
+  revisionRequestedAt,
+  revisionRequestedByName,
+  revisionReason,
+  costingRevisionCycles,
   approvedAt,
   approvedByName,
   className
 }: QuotationStatusTimelineProps) {
-  // Determine current active step index (0 to 5)
-  // 0: Draft
-  // 1: Pending Costing
-  // 2: Partially Costed
-  // 3: Costing Completed
-  // 4: Active Quotation
-  // 5: Client Approved
-
   let currentStepIndex = 0
   const normalizedCosting = (costingStatus || "").toUpperCase()
   const normalizedStatus = (status || "").toUpperCase()
@@ -61,7 +61,9 @@ export function QuotationStatusTimeline({
     currentStepIndex = 4
   } else if (normalizedCosting === "COSTING_COMPLETED") {
     currentStepIndex = 3
-  } else if (normalizedCosting === "COSTING_IN_PROGRESS" || normalizedCosting === "PARTIALLY_COSTED") {
+  } else if (normalizedCosting === "COSTING_REVISION_REQUESTED") {
+    currentStepIndex = 2
+  } else if (normalizedCosting === "COSTING_IN_PROGRESS" || normalizedCosting === "UNDER_COSTING" || normalizedCosting === "PARTIALLY_COSTED") {
     currentStepIndex = 2
   } else if (normalizedCosting === "PENDING_COSTING" || normalizedCosting === "ADDED_FOR_COSTING") {
     currentStepIndex = 1
@@ -149,21 +151,29 @@ export function QuotationStatusTimeline({
         </div>
 
         {/* Current Status Badge */}
-        {currentStepIndex === 1 || currentStepIndex === 2 ? (
-          <Badge className="bg-amber-500 text-white font-bold text-xs px-3 py-1 flex items-center gap-1.5 animate-pulse">
-            <Lock className="h-3.5 w-3.5" /> Locked for Costing
+        {normalizedCosting === "COSTING_REVISION_REQUESTED" ? (
+          <Badge className="bg-rose-600 text-white font-bold text-xs px-3 py-1 flex items-center gap-1.5 animate-bounce shadow-xs">
+            <Clock className="h-3.5 w-3.5" /> Revision Requested {costingRevisionCycles ? `(#${costingRevisionCycles})` : ""}
           </Badge>
-        ) : currentStepIndex === 3 ? (
-          <Badge className="bg-emerald-600 text-white font-bold text-xs px-3 py-1 flex items-center gap-1.5">
+        ) : normalizedCosting === "COSTING_IN_PROGRESS" || normalizedCosting === "UNDER_COSTING" ? (
+          <Badge className="bg-blue-600 text-white font-bold text-xs px-3 py-1 flex items-center gap-1.5 shadow-xs">
+            <Clock className="h-3.5 w-3.5" /> Under Costing
+          </Badge>
+        ) : normalizedCosting === "PENDING_COSTING" || normalizedCosting === "ADDED_FOR_COSTING" ? (
+          <Badge className="bg-orange-500 text-white font-bold text-xs px-3 py-1 flex items-center gap-1.5 animate-pulse shadow-xs">
+            <Lock className="h-3.5 w-3.5" /> Pending Costing (Locked)
+          </Badge>
+        ) : normalizedCosting === "COSTING_COMPLETED" ? (
+          <Badge className="bg-emerald-600 text-white font-bold text-xs px-3 py-1 flex items-center gap-1.5 shadow-xs">
             <CheckCircle2 className="h-3.5 w-3.5" /> Costing Completed
           </Badge>
         ) : currentStepIndex >= 4 ? (
-          <Badge className="bg-blue-600 text-white font-bold text-xs px-3 py-1 flex items-center gap-1.5">
+          <Badge className="bg-teal-700 text-white font-bold text-xs px-3 py-1 flex items-center gap-1.5 shadow-xs">
             <FileCheck className="h-3.5 w-3.5" /> Active Quotation
           </Badge>
         ) : (
-          <Badge variant="secondary" className="font-semibold text-xs px-3 py-1">
-            Draft Mode (Full Access)
+          <Badge variant="secondary" className="font-semibold text-xs px-3 py-1 bg-slate-100 text-slate-700 border-slate-300">
+            Draft Mode
           </Badge>
         )}
       </div>

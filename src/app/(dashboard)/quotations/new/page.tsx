@@ -16,6 +16,7 @@ import {
   Sparkles, 
   Lock, 
   Check, 
+  CheckCircle2,
   ChevronsUpDown, 
   Search, 
   AlertCircle, 
@@ -1614,14 +1615,8 @@ function NewQuotationForm() {
         throw new Error(errData.error || "Failed to send quotation to Estimator.")
       }
 
-      toast.success("Quotation successfully locked and sent to Estimator for costing!")
-
-      const fetchRes = await fetch(`/api/quotations/${targetId}`)
-      if (fetchRes.ok) {
-        const freshQuote = await fetchRes.json()
-        setExistingQuote(freshQuote)
-        setIsEdit(true)
-      }
+      toast.success("Quotation sent to Estimator for costing and locked for editing.")
+      router.push("/quotations")
     } catch (err: any) {
       console.error("Error sending to Estimator:", err)
       toast.error(err.message || "Failed to send quotation to Estimator.")
@@ -2064,6 +2059,71 @@ function NewQuotationForm() {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null)
   const [isQuickAddClientOpen, setIsQuickAddClientOpen] = useState(false)
+
+  const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false)
+  const [revisionReasonText, setRevisionReasonText] = useState("")
+  const [submittingRevision, setSubmittingRevision] = useState(false)
+
+  const handleConfirmRequestRevision = async () => {
+    if (!revisionReasonText.trim()) {
+      toast.error("Please enter a mandatory reason for the costing revision.")
+      return
+    }
+
+    const targetId = existingQuote?.id || autoSavedQuoteId
+    if (!targetId) return
+
+    try {
+      setSubmittingRevision(true)
+      const res = await fetch(`/api/quotations/${targetId}/costing-revision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revisionReason: revisionReasonText }),
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || "Failed to request costing revision")
+      }
+
+      toast.success("Costing revision requested! Quotation sent back to Estimator.")
+      setIsRevisionModalOpen(false)
+      router.push("/quotations")
+    } catch (err: any) {
+      toast.error(err.message || "Error requesting costing revision")
+    } finally {
+      setSubmittingRevision(false)
+    }
+  }
+
+  const handleReopenCosting = async () => {
+    const targetId = existingQuote?.id || autoSavedQuoteId
+    if (!targetId) return
+
+    try {
+      setSubmitting(true)
+      const res = await fetch(`/api/quotations/${targetId}/costing-revision`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: "Reopened costing" }),
+      })
+
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || "Failed to reopen costing")
+      }
+
+      toast.success("Costing process reopened. Estimator can now edit costing fields.")
+      const fetchRes = await fetch(`/api/quotations/${targetId}`)
+      if (fetchRes.ok) {
+        setExistingQuote(await fetchRes.json())
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Error reopening costing")
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const [successModalData, setSuccessModalData] = useState<{
     isOpen: boolean
@@ -3285,9 +3345,60 @@ function NewQuotationForm() {
           sentToCostingByName={existingQuote.sentToCostingBy?.name}
           costingCompletedAt={existingQuote.costingCompletedAt}
           costedByName={existingQuote.costedBy?.name || existingQuote.assignedEstimator?.name}
+          revisionRequestedAt={existingQuote.revisionRequestedAt}
+          revisionRequestedByName={existingQuote.revisionRequestedBy?.name}
+          revisionReason={existingQuote.revisionReason}
+          costingRevisionCycles={existingQuote.costingRevisionCycles}
           approvedAt={existingQuote.approvedAt}
           approvedByName={existingQuote.approvedBy?.name}
         />
+      )}
+
+      {/* Costing Completed Banner & Action Options */}
+      {existingQuote && existingQuote.costingStatus === "COSTING_COMPLETED" && (
+        <div className="bg-emerald-500/10 border-2 border-emerald-500/30 p-4 sm:p-5 rounded-2xl flex items-center justify-between flex-wrap gap-4 text-emerald-950 dark:text-emerald-100 shadow-xs">
+          <div className="flex items-center gap-3.5">
+            <div className="h-11 w-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0 shadow-sm">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                Costing Process Completed
+                <Badge className="bg-emerald-600 text-white font-bold text-[10px] uppercase">
+                  Costing Completed
+                </Badge>
+              </h3>
+              <p className="text-xs text-emerald-800 dark:text-emerald-300 mt-0.5 max-w-2xl">
+                Base costs have been locked by the Estimator. You can update Margin (%), Negotiation (%), and Discount (%). If costs or specs require review, click &quot;Request Costing Revision&quot;.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsRevisionModalOpen(true)}
+              className="text-xs h-9 px-4 font-bold border-rose-500/40 text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 cursor-pointer flex items-center gap-1.5"
+            >
+              <Clock className="h-3.5 w-3.5 text-rose-600" />
+              <span>Request Costing Revision</span>
+            </Button>
+            {["SUPER_ADMIN", "ADMIN", "ESTIMATOR", "SALES_MANAGER"].includes(currentUserRole) && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleReopenCosting}
+                disabled={submitting}
+                className="text-xs h-9 px-4 font-semibold border-blue-400 text-blue-800 dark:text-blue-200 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 cursor-pointer flex items-center gap-1.5"
+              >
+                <RefreshCw className="h-3.5 w-3.5 text-blue-600" />
+                <span>Reopen Costing</span>
+              </Button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Lock Banner when quotation is locked for costing */}
@@ -5187,17 +5298,59 @@ function NewQuotationForm() {
         </DialogContent>
       </Dialog>
 
-      {/* Quotation Success Popup Modal */}
-      <QuotationSuccessModal
-        isOpen={successModalData.isOpen}
-        onClose={() => setSuccessModalData((prev) => ({ ...prev, isOpen: false }))}
-        quotation={successModalData.quotation}
-        onResetForm={() => {
-          setSuccessModalData({ isOpen: false, quotation: null })
-          router.push("/quotations/new")
-          window.location.reload()
-        }}
-      />
+      {/* Request Costing Revision Modal */}
+      <Dialog open={isRevisionModalOpen} onOpenChange={setIsRevisionModalOpen}>
+        <DialogContent className="sm:max-w-[500px] p-6 space-y-4">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2 text-rose-600">
+              <Clock className="h-5 w-5" /> Request Costing Revision
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Send this quotation back to the Estimator team for cost, specification, or quantity revision. Please specify a mandatory reason.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-foreground">
+              Revision Reason / Comments <span className="text-red-500">*</span>
+            </label>
+            <Textarea
+              value={revisionReasonText}
+              onChange={(e) => setRevisionReasonText(e.target.value)}
+              placeholder="E.g., Please review accessories cost and custom veneer finish specification for Item #2."
+              className="text-xs min-h-[100px]"
+            />
+          </div>
+
+          <DialogFooter className="flex justify-end gap-2 pt-2 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsRevisionModalOpen(false)}
+              className="text-xs h-9 cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={submittingRevision || !revisionReasonText.trim()}
+              onClick={handleConfirmRequestRevision}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs h-9 px-4 cursor-pointer flex items-center gap-1.5"
+            >
+              {submittingRevision ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Send className="h-3.5 w-3.5" />
+                  <span>Send Revision Request</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

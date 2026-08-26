@@ -78,6 +78,9 @@ export async function GET(
         costedBy: {
           select: { id: true, name: true, email: true, designation: true, role: true }
         },
+        revisionRequestedBy: {
+          select: { id: true, name: true, email: true, designation: true, role: true }
+        },
       },
     })
 

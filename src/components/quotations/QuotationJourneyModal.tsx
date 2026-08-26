@@ -387,6 +387,63 @@ export function QuotationJourneyModal({
                     )}
                   </div>
 
+                  {/* Costing & Revision Audit Details Grid */}
+                  {(activeQuotation.sentToCostingAt || activeQuotation.costingCompletedAt || activeQuotation.revisionRequestedAt) && (
+                    <div className="bg-amber-500/5 dark:bg-amber-950/20 border border-amber-300/50 dark:border-amber-800/40 rounded-xl p-4 mt-2 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
+                          Costing Workflow Audit Trail
+                        </span>
+                        {activeQuotation.costingRevisionCycles > 0 && (
+                          <Badge variant="outline" className="bg-rose-50 border-rose-200 text-rose-700 font-mono text-[10px] font-bold">
+                            {activeQuotation.costingRevisionCycles} Revision Cycle(s)
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+                        {activeQuotation.sentToCostingAt && (
+                          <div>
+                            <span className="text-[10px] text-muted-foreground font-semibold block">Sent to Estimator</span>
+                            <span className="font-semibold text-foreground">
+                              {activeQuotation.sentToCostingBy?.name || "IDC"}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground font-mono">
+                              {new Date(activeQuotation.sentToCostingAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        )}
+                        {activeQuotation.costingCompletedAt && (
+                          <div>
+                            <span className="text-[10px] text-muted-foreground font-semibold block">Costed By</span>
+                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                              {activeQuotation.costedBy?.name || activeQuotation.assignedEstimator?.name || "Estimator"}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground font-mono">
+                              {new Date(activeQuotation.costingCompletedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        )}
+                        {activeQuotation.revisionRequestedAt && (
+                          <div>
+                            <span className="text-[10px] text-muted-foreground font-semibold block">Revision Requested By</span>
+                            <span className="font-semibold text-rose-700 dark:text-rose-400">
+                              {activeQuotation.revisionRequestedBy?.name || "Consultant"}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground font-mono">
+                              {new Date(activeQuotation.revisionRequestedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {activeQuotation.revisionReason && (
+                        <div className="pt-2 border-t border-amber-200/60 dark:border-amber-800/40 text-xs">
+                          <span className="text-[10px] font-bold text-rose-800 dark:text-rose-300 uppercase block">Revision Reason:</span>
+                          <p className="text-xs text-foreground italic mt-0.5">&quot;{activeQuotation.revisionReason}&quot;</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="bg-muted/40 border border-zinc-150 dark:border-zinc-800 rounded-xl p-4 mt-2">
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Revision Notes</span>
                     <p className="text-xs font-medium text-foreground leading-relaxed">

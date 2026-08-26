@@ -279,6 +279,43 @@ export default function QuotationsPage() {
     return <Badge className={`${badgeClass} font-semibold border hover:opacity-90`}>{label}</Badge>
   }
 
+  const getCombinedWorkflowStatusBadge = (status: string, costingStatus?: string | null) => {
+    const normalizedStatus = (status || "").toUpperCase()
+    const normalizedCosting = (costingStatus || "").toUpperCase()
+
+    if (normalizedStatus === "APPROVED" || normalizedStatus === "CLIENT_APPROVED") {
+      return <Badge className="bg-emerald-800 text-white font-bold border-emerald-900 shadow-2xs">Client Approved</Badge>
+    }
+    if (normalizedStatus === "CLOSED" || normalizedStatus === "REJECTED") {
+      return <Badge className="bg-slate-700 text-white font-semibold">Closed</Badge>
+    }
+
+    if (normalizedCosting === "COSTING_REVISION_REQUESTED") {
+      return <Badge className="bg-rose-600 text-white font-bold border-rose-700 animate-bounce shadow-2xs">Revision Requested</Badge>
+    }
+    if (normalizedCosting === "REOPENED_FOR_COSTING") {
+      return <Badge className="bg-indigo-600 text-white font-bold border-indigo-700 shadow-2xs">Reopened for Costing</Badge>
+    }
+    if (normalizedCosting === "COSTING_COMPLETED") {
+      return <Badge className="bg-emerald-600 text-white font-bold border-emerald-700 shadow-2xs">Costing Completed</Badge>
+    }
+    if (normalizedCosting === "PARTIALLY_COSTED") {
+      return <Badge className="bg-purple-600 text-white font-bold border-purple-700 shadow-2xs">Partially Costed</Badge>
+    }
+    if (normalizedCosting === "COSTING_IN_PROGRESS" || normalizedCosting === "UNDER_COSTING") {
+      return <Badge className="bg-blue-600 text-white font-bold border-blue-700 shadow-2xs">Under Costing</Badge>
+    }
+    if (normalizedCosting === "PENDING_COSTING" || normalizedCosting === "ADDED_FOR_COSTING") {
+      return <Badge className="bg-orange-500 text-white font-bold border-orange-600 animate-pulse shadow-2xs">Pending Costing</Badge>
+    }
+
+    if (normalizedStatus === "SENT_TO_CLIENT" || normalizedStatus === "ACTIVE" || normalizedStatus === "SUBMITTED") {
+      return <Badge className="bg-teal-700 text-white font-bold border-teal-800 shadow-2xs">Active Quotation</Badge>
+    }
+
+    return <Badge variant="secondary" className="bg-slate-100 text-slate-700 border-slate-300 font-semibold">Draft</Badge>
+  }
+
   const handleUpdateStatus = async (id: string, newStatus: string, field: "status" | "poStatus") => {
     try {
       const res = await fetch(`/api/quotations/${id}`, {
@@ -569,12 +606,14 @@ export default function QuotationsPage() {
                           maximumFractionDigits: 2,
                         })}
                       </TableCell>
-                      <TableCell>{getStatusBadge(quote.status, quote.revisionNumber)}</TableCell>
+                      <TableCell>{getCombinedWorkflowStatusBadge(quote.status, quote.costingStatus)}</TableCell>
                       <TableCell>
-                        {quote.costingStatus === "PENDING_COSTING" ? (
-                          <Badge className="bg-amber-500 text-white font-semibold">Pending Costing</Badge>
-                        ) : quote.costingStatus === "COSTING_IN_PROGRESS" ? (
-                          <Badge className="bg-blue-600 text-white font-semibold">In Progress</Badge>
+                        {quote.costingStatus === "COSTING_REVISION_REQUESTED" ? (
+                          <Badge className="bg-rose-600 text-white font-semibold">Revision Requested</Badge>
+                        ) : quote.costingStatus === "PENDING_COSTING" ? (
+                          <Badge className="bg-orange-500 text-white font-semibold">Pending Costing</Badge>
+                        ) : quote.costingStatus === "COSTING_IN_PROGRESS" || quote.costingStatus === "UNDER_COSTING" ? (
+                          <Badge className="bg-blue-600 text-white font-semibold">Under Costing</Badge>
                         ) : quote.costingStatus === "PARTIALLY_COSTED" ? (
                           <Badge className="bg-purple-600 text-white font-semibold">Partially Costed</Badge>
                         ) : quote.costingStatus === "COSTING_COMPLETED" ? (

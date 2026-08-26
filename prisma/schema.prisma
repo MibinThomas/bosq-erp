@@ -44,6 +44,7 @@ model User {
   assignedEstimatorQuotations Quotation[]        @relation("AssignedEstimatorQuotations")
   sentToCostingQuotations     Quotation[]        @relation("SentToCostingQuotations")
   costedByQuotations          Quotation[]        @relation("CostedByQuotations")
+  revisionRequestedQuotations Quotation[]        @relation("RevisionRequestedQuotations")
   assignedQuotationItems     QuotationItem[]    @relation("EstimatorQuotationItems")
 }
 
@@ -207,6 +208,11 @@ model Quotation {
   costingCompletedAt       DateTime?
   costedById               String?
   costedBy                 User?     @relation("CostedByQuotations", fields: [costedById], references: [id])
+  revisionRequestedAt      DateTime?
+  revisionRequestedById    String?
+  revisionRequestedBy      User?     @relation("RevisionRequestedQuotations", fields: [revisionRequestedById], references: [id])
+  revisionReason           String?
+  costingRevisionCycles    Int       @default(0)
 
   // Managerial Approval & Discount Audit Workflow
   approvalStatus                 String    @default("AUTO_APPROVED") // AUTO_APPROVED, PENDING_IDC_APPROVAL, PENDING_MANAGER_APPROVAL, PENDING_GM_APPROVAL, APPROVED, REJECTED
