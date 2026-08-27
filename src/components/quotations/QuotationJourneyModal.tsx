@@ -635,54 +635,44 @@ export function QuotationJourneyModal({
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
                                   {item.status === "DRAFT" ? (
-                                    /* DRAFT STATUS ACTIONS: Update & View */
-                                    <>
-                                      {canEdit && (
-                                        <Link href={`/quotations/new?editId=${item.id}`}>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-8 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-300 font-semibold cursor-pointer"
-                                            title="Update draft quotation"
-                                          >
-                                            <Edit className="h-3.5 w-3.5 mr-1" /> Update
-                                          </Button>
-                                        </Link>
-                                      )}
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 font-semibold cursor-pointer"
-                                        onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
-                                      >
-                                        <Eye className="h-3.5 w-3.5 mr-1" /> View
-                                      </Button>
-                                    </>
+                                    /* DRAFT STATUS ACTIONS: Update */
+                                    canEdit && (
+                                      <Link href={`/quotations/new?editId=${item.id}`}>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-8 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-300 font-semibold cursor-pointer"
+                                          title="Update draft quotation"
+                                        >
+                                          <Edit className="h-3.5 w-3.5 mr-1" /> Update
+                                        </Button>
+                                      </Link>
+                                    )
                                   ) : (
-                                    /* CREATED / ACTIVE STATUS ACTIONS: Revise & View */
-                                    <>
-                                      {canCreate && (
-                                        <Link href={`/quotations/new?reviseId=${item.id}`}>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-8 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-200 font-semibold cursor-pointer"
-                                            title="Create a revision of this quotation"
-                                          >
-                                            <RefreshCw className="h-3.5 w-3.5 mr-1" /> Revise
-                                          </Button>
-                                        </Link>
-                                      )}
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 font-semibold cursor-pointer"
-                                        onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
-                                      >
-                                        <Eye className="h-3.5 w-3.5 mr-1" /> View
-                                      </Button>
-                                    </>
+                                    /* CREATED / ACTIVE STATUS ACTIONS: Revise */
+                                    canCreate && (
+                                      <Link href={`/quotations/new?reviseId=${item.id}`}>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-8 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-200 font-semibold cursor-pointer"
+                                          title="Create a revision of this quotation"
+                                        >
+                                          <RefreshCw className="h-3.5 w-3.5 mr-1" /> Revise
+                                        </Button>
+                                      </Link>
+                                    )
                                   )}
+
+                                  {/* Single View / Preview Action */}
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 font-semibold cursor-pointer"
+                                    onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
+                                  >
+                                    <Eye className="h-3.5 w-3.5 mr-1" /> View
+                                  </Button>
 
                                   {/* Super Admin administrative actions */}
                                   {isSuperAdmin && (
@@ -703,15 +693,7 @@ export function QuotationJourneyModal({
                                     </Button>
                                   )}
 
-                                  {/* View / Preview Action */}
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 font-semibold cursor-pointer"
-                                    onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
-                                  >
-                                    <Eye className="h-3.5 w-3.5 mr-1" /> View
-                                  </Button>
+                                  
 
                                   {/* Super Admin Rename & Delete */}
                                   {isSuperAdmin && (
