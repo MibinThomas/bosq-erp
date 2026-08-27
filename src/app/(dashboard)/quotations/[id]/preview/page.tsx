@@ -784,15 +784,27 @@ export default function QuotationHtmlPreviewPage() {
             </Button>
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(`/quotations/new?editId=${quotation.id}`)}
-            title="Edit Quotation"
-            className="border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold cursor-pointer"
-          >
-            <Edit className="mr-1.5 h-4 w-4 text-slate-600" /> Edit
-          </Button>
+          {quotation.status === "DRAFT" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/quotations/new?editId=${quotation.id}`)}
+              title="Update Draft Quotation"
+              className="border-amber-300 text-amber-700 hover:bg-amber-50 font-semibold cursor-pointer"
+            >
+              <Edit className="mr-1.5 h-4 w-4 text-amber-600" /> Update
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/quotations/new?reviseId=${quotation.id}`)}
+              title="Revise Quotation"
+              className="border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold cursor-pointer"
+            >
+              <RefreshCw className="mr-1.5 h-4 w-4 text-purple-600" /> Revise
+            </Button>
+          )}
 
           {!isIDC && (
             <Button
