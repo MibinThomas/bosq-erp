@@ -9,7 +9,6 @@ import {
   CheckCircle2, 
   AlertCircle, 
   Search, 
-  Eye, 
   FileText, 
   User, 
   Building2, 
@@ -438,17 +437,6 @@ export default function CostingRequestsPage() {
                               >
                                 <Calculator className="h-3.5 w-3.5" />
                                 Open Costing
-                              </Button>
-
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => window.open(`/quotations/${group.quotationId}/preview`, "_blank")}
-                                className="h-8 text-xs px-2.5 text-muted-foreground hover:text-foreground border-border flex items-center gap-1 cursor-pointer rounded-xl"
-                                title="Open quotation preview"
-                              >
-                                <Eye className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </td>
