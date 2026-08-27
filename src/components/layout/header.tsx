@@ -18,10 +18,12 @@ import { useNotifications } from "@/hooks/use-notifications"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Sidebar } from "@/components/layout/sidebar"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { usePageHeader } from "@/components/providers/PageHeaderContext"
 
 export function Header() {
   const { data: session } = useSession()
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications()
+  const { headerContent } = usePageHeader()
   
   const user = session?.user
   const userName = user?.name || "User"
@@ -39,18 +41,23 @@ export function Header() {
   const [isSheetOpen, setIsSheetOpen] = useState(false)
 
   return (
-    <header className="h-16 border-b bg-background flex items-center justify-between px-4 md:px-6">
-      <div className="flex items-center">
+    <header className="h-16 border-b bg-background flex items-center justify-between px-4 md:px-6 shrink-0 z-40">
+      <div className="flex items-center min-w-0 flex-1 mr-4">
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetTrigger render={<Button variant="ghost" size="icon" className="md:hidden mr-2" />}>
+          <SheetTrigger render={<Button variant="ghost" size="icon" className="md:hidden mr-2 shrink-0" />}>
             <Menu className="h-5 w-5" />
           </SheetTrigger>
           <SheetContent side="left" className="p-0 w-64">
             <Sidebar className="flex border-none w-full h-full" onNavClick={() => setIsSheetOpen(false)} />
           </SheetContent>
         </Sheet>
+        {headerContent && (
+          <div className="w-full min-w-0">
+            {headerContent}
+          </div>
+        )}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger className="relative mr-1 hover:bg-muted h-10 w-10 flex items-center justify-center rounded-full transition-colors outline-none cursor-pointer">
             <Bell className="h-5 w-5 text-muted-foreground hover:text-foreground" />

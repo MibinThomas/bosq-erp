@@ -81,6 +81,7 @@ import { ImageCropper } from "@/components/ui/image-cropper"
 import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
 import { QuotationSuccessModal } from "@/components/quotations/QuotationSuccessModal"
 import { InPageQuotationPreviewModal } from "@/components/quotations/InPageQuotationPreviewModal"
+import { usePageHeader } from "@/components/providers/PageHeaderContext"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Image as ImageIcon, UploadCloud } from "lucide-react"
@@ -3289,138 +3290,158 @@ function NewQuotationForm() {
   const currentCostingStatus = (existingQuote?.costingStatus || "").toUpperCase()
   const isQuotationLockedForCosting = isIDC && isEdit && ["PENDING_COSTING", "COSTING_IN_PROGRESS", "PARTIALLY_COSTED"].includes(currentCostingStatus)
 
-  return (
-    <div className="max-w-[1400px] mx-auto space-y-6 pb-28 px-3 sm:px-6 lg:px-8">
-      {/* 1. STICKY TOP QUOTATION ACTION HEADER */}
-      <div className="sticky top-0 z-30 -mt-4 -mx-3 sm:-mt-6 sm:-mx-6 lg:-mt-8 lg:-mx-8 px-3 sm:px-6 lg:px-8 py-3 bg-background/95 backdrop-blur-md border-b shadow-2xs transition-all mb-6">
-        <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
-          
-          {/* Left Navigation & Dynamic Title */}
-          <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
-            <Link href="/quotations">
-              <Button variant="outline" size="icon" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl shrink-0 shadow-xs hover:bg-muted">
-                <ArrowLeft className="h-4 w-4 text-foreground" />
-              </Button>
-            </Link>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-xl font-extrabold tracking-tight text-foreground truncate">
-                  {headerTitle}
-                </h1>
-                {isRevision && existingQuote && (
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs font-semibold py-0.5 px-2">
-                    Rev #{existingQuote.revisionNumber + 1}
-                  </Badge>
-                )}
-                {isOfficiallyCreated && (
-                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs font-semibold py-0.5 px-2">
-                    Edit Mode
-                  </Badge>
-                )}
-                {isCopy && (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs font-semibold py-0.5 px-2">
-                    Copy Mode
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground truncate hidden sm:block">
-                {isRevision
-                  ? `Creating Revision #${existingQuote?.revisionNumber + 1} for ${existingQuote?.quotationNumber}`
-                  : isOfficiallyCreated
-                    ? `Editing Quotation ${existingQuote?.quotationNumber}`
-                    : isCopy
-                      ? `Generating sequential copy of ${existingQuote?.quotationNumber}`
-                      : "Select a client, build custom catalog line items, and generate a quotation PDF."}
-              </p>
-            </div>
-          </div>
+  const { setHeaderContent } = usePageHeader()
 
-          {/* Right Action Bar */}
-          <div className="flex items-center gap-2 flex-wrap self-end md:self-auto shrink-0">
-            {/* Real-time Auto-save Indicator */}
-            <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-xl border border-border/60 font-medium">
-              {isAutoSaving ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                  <span>Auto-saving...</span>
-                </>
-              ) : lastAutoSavedAt ? (
-                <>
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Saved {lastAutoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </>
-              ) : (
-                <span>Draft ready</span>
+  useEffect(() => {
+    setHeaderContent(
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+        {/* Left Navigation & Dynamic Title */}
+        <div className="flex items-center space-x-3 min-w-0">
+          <Link href="/quotations">
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg shrink-0 hover:bg-muted shadow-2xs">
+              <ArrowLeft className="h-4 w-4 text-foreground" />
+            </Button>
+          </Link>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base font-extrabold tracking-tight text-foreground truncate">
+                {headerTitle}
+              </h1>
+              {isRevision && existingQuote && (
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-semibold py-0 px-1.5">
+                  Rev #{existingQuote.revisionNumber + 1}
+                </Badge>
+              )}
+              {isOfficiallyCreated && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-semibold py-0 px-1.5">
+                  Edit Mode
+                </Badge>
+              )}
+              {isCopy && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-semibold py-0 px-1.5">
+                  Copy Mode
+                </Badge>
               )}
             </div>
+            <p className="text-[11px] text-muted-foreground truncate hidden lg:block">
+              {isRevision
+                ? `Revision #${existingQuote?.revisionNumber + 1} for ${existingQuote?.quotationNumber}`
+                : isOfficiallyCreated
+                  ? `Editing Quotation ${existingQuote?.quotationNumber}`
+                  : isCopy
+                    ? `Copy of ${existingQuote?.quotationNumber}`
+                    : "Select a client, build custom catalog line items, and generate a quotation PDF."}
+            </p>
+          </div>
+        </div>
 
-            {/* Save Draft Button */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={submitting || isQuotationLockedForCosting}
-              onClick={() => onSubmit(form.getValues(), "DRAFT")}
-              className="text-xs h-9 font-semibold flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted shadow-2xs"
-            >
-              <Save className="h-3.5 w-3.5" />
-              <span>Save Draft</span>
-            </Button>
+        {/* Right Action Bar */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Real-time Auto-save Indicator */}
+          <div className="hidden xl:flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/40 px-2.5 py-1 rounded-lg border border-border/60 font-medium">
+            {isAutoSaving ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                <span>Auto-saving...</span>
+              </>
+            ) : lastAutoSavedAt ? (
+              <>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Saved {lastAutoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              </>
+            ) : (
+              <span>Draft ready</span>
+            )}
+          </div>
 
-            {/* PDF Preview Button */}
+          {/* Save Draft Button */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting || isQuotationLockedForCosting}
+            onClick={() => onSubmit(form.getValues(), "DRAFT")}
+            className="text-xs h-8 px-2.5 font-semibold flex items-center gap-1 cursor-pointer bg-background hover:bg-muted shadow-2xs"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Save Draft</span>
+          </Button>
+
+          {/* PDF Preview Button */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting}
+            onClick={handleOpenInPagePreview}
+            className="text-xs h-8 px-2.5 font-semibold flex items-center gap-1 cursor-pointer border-primary/40 text-primary hover:bg-primary/10 bg-background shadow-2xs"
+            title="Preview quotation in-page (Ctrl + P)"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            <span>PDF Preview</span>
+          </Button>
+
+          {/* Send to Estimator Action Button (if applicable for IDC) */}
+          {isIDC && hasPendingCostingItems && !isQuotationLockedForCosting && (
             <Button
               type="button"
               variant="outline"
               size="sm"
               disabled={submitting}
-              onClick={handleOpenInPagePreview}
-              className="text-xs h-9 font-semibold flex items-center gap-1.5 cursor-pointer border-primary/40 text-primary hover:bg-primary/10 bg-background shadow-2xs"
-              title="Preview quotation in-page (Ctrl + P)"
+              onClick={handleSendToCostingClick}
+              className="bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-xs h-8 px-2.5 cursor-pointer flex items-center gap-1 shadow-2xs"
             >
-              <Eye className="h-3.5 w-3.5" />
-              <span>PDF Preview</span>
+              <Calculator className="h-3.5 w-3.5 text-amber-600" />
+              <span className="hidden md:inline">Send to Estimator ({pendingCostingCount})</span>
             </Button>
+          )}
 
-            {/* Send to Estimator Action Button (if applicable for IDC) */}
-            {isIDC && hasPendingCostingItems && !isQuotationLockedForCosting && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={submitting}
-                onClick={handleSendToCostingClick}
-                className="bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-xs h-9 px-3 cursor-pointer flex items-center gap-1.5 shadow-2xs"
-              >
-                <Calculator className="h-3.5 w-3.5 text-amber-600" />
-                <span>Send to Estimator ({pendingCostingCount})</span>
-              </Button>
+          {/* Primary Action Button (Create / Update / Save Revision) */}
+          <Button
+            type="button"
+            size="sm"
+            disabled={submitting || isQuotationLockedForCosting}
+            onClick={form.handleSubmit(
+              (data) => onSubmit(data, isOfficiallyCreated ? existingQuote.status : "CLIENT_APPROVED"),
+              onInvalid
             )}
-
-            {/* Primary Action Button (Create / Update / Save Revision) */}
-            <Button
-              type="button"
-              size="sm"
-              disabled={submitting || isQuotationLockedForCosting}
-              onClick={form.handleSubmit(
-                (data) => onSubmit(data, isOfficiallyCreated ? existingQuote.status : "CLIENT_APPROVED"),
-                onInvalid
-              )}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-9 px-4 cursor-pointer flex items-center gap-1.5 shadow-2xs"
-            >
-              {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <Send className="h-3.5 w-3.5" />
-                  <span>{primaryButtonText}</span>
-                </>
-              )}
-            </Button>
-          </div>
-
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-8 px-3.5 cursor-pointer flex items-center gap-1.5 shadow-2xs"
+          >
+            {submitting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <>
+                <Send className="h-3.5 w-3.5" />
+                <span>{primaryButtonText}</span>
+              </>
+            )}
+          </Button>
         </div>
       </div>
+    )
 
+    return () => {
+      setHeaderContent(null)
+    }
+  }, [
+    headerTitle,
+    isRevision,
+    existingQuote,
+    isOfficiallyCreated,
+    isCopy,
+    isAutoSaving,
+    lastAutoSavedAt,
+    submitting,
+    isQuotationLockedForCosting,
+    isIDC,
+    hasPendingCostingItems,
+    pendingCostingCount,
+    primaryButtonText,
+    setHeaderContent,
+  ])
+
+  return (
+    <div className="max-w-[1400px] mx-auto space-y-6 pb-28 px-3 sm:px-6 lg:px-8">
       {/* Quotation Workflow Status Timeline */}
       {existingQuote && (
         <QuotationStatusTimeline
