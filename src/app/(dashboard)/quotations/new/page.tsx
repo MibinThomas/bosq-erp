@@ -396,8 +396,10 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     }, [value])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      setLocalVal(e.target.value)
+      const val = e.target.value
+      setLocalVal(val)
       isFocusedRef.current = true
+      onChange(val)
     }
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -485,7 +487,7 @@ const formatCurrency = (val: number) => {
   })
 }
 
-function CalculationSummaryPanel({ control }: { control: any }) {
+function useQuotationFinancials(control: any) {
   const watchItems = useWatch({ control, name: "items" }) || []
   const watchAdditionalCharges = useWatch({ control, name: "additionalCharges" }) || []
   const watchSpecialDiscountType = useWatch({ control, name: "specialDiscountType" })
@@ -540,6 +542,35 @@ function CalculationSummaryPanel({ control }: { control: any }) {
     }
     return taxableAmount + vatAmount
   }, [taxableAmount, vatAmount, watchVatMode])
+
+  return {
+    subtotal,
+    totalAdditionalCost,
+    specialDiscountAmount,
+    taxableAmount,
+    vatAmount,
+    grandTotal,
+    watchItems,
+    watchAdditionalCharges,
+    watchSpecialDiscountType,
+    watchSpecialDiscountValue,
+    watchSpecialDiscountReason,
+    watchVatMode,
+  }
+}
+
+function CalculationSummaryPanel({ control }: { control: any }) {
+  const {
+    subtotal,
+    totalAdditionalCost,
+    specialDiscountAmount,
+    taxableAmount,
+    vatAmount,
+    grandTotal,
+    watchAdditionalCharges,
+    watchSpecialDiscountReason,
+    watchVatMode,
+  } = useQuotationFinancials(control)
 
   return (
     <div className="bg-card p-5 rounded-xl border shadow-2xs space-y-4">
@@ -3252,32 +3283,7 @@ function NewQuotationForm() {
   const primaryButtonText = isRevision ? "Save Revision" : isOfficiallyCreated ? "Update Quotation" : "Create Quotation"
   const watchIncludeSectionHeadings = useWatch({ control: form.control, name: "includeSectionHeadings" }) ?? true
 
-  const calculatedGrandTotal = useMemo(() => {
-    const sub = watchItems.reduce((sum: number, item: any) => {
-      const qty = item?.quantity === "" ? 0 : Number(item?.quantity) || 0
-      const price = item?.unitPrice === "" ? 0 : Number(item?.unitPrice) || 0
-      const discVal = item?.discount === "" ? 0 : Number(item?.discount) || 0
-      const discType = item?.discountType || "PERCENTAGE"
-      const discPerUnit = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
-      const netPrice = Math.max(0, price - discPerUnit)
-      return sum + qty * netPrice
-    }, 0)
-
-    const addCost = watchAdditionalCharges.reduce((sum: number, c: any) => {
-      const amt = c?.amount === "" ? 0 : Number(c?.amount) || 0
-      return sum + amt
-    }, 0)
-
-    const val = watchSpecialDiscountValue === "" ? 0 : Number(watchSpecialDiscountValue) || 0
-    let specDisc = 0
-    if (watchSpecialDiscountType && val > 0) {
-      specDisc = watchSpecialDiscountType === "PERCENTAGE" ? ((sub + addCost) * val) / 100 : val
-    }
-
-    const taxable = Math.max(0, sub + addCost - specDisc)
-    const vat = watchVatMode === "INCLUDING" ? 0 : taxable * 0.05
-    return watchVatMode === "INCLUDING" ? taxable : taxable + vat
-  }, [watchItems, watchAdditionalCharges, watchSpecialDiscountType, watchSpecialDiscountValue, watchVatMode])
+  const { grandTotal: calculatedGrandTotal } = useQuotationFinancials(form.control)
   const currentUserRole = userRole || (session?.user as any)?.role || ""
   const isIDC = ["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(currentUserRole)
   const currentCostingStatus = (existingQuote?.costingStatus || "").toUpperCase()
