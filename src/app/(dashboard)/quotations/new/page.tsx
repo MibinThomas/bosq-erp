@@ -2344,7 +2344,13 @@ function NewQuotationForm() {
             if (reviseId) {
               setIsRevision(true)
             } else if (editId) {
-              setIsEdit(true)
+              if (activeData.status !== "DRAFT") {
+                toast.info(`Quotation ${activeData.quotationNumber} is already created and locked from direct editing. Opening Revision mode...`)
+                setIsRevision(true)
+                setIsEdit(false)
+              } else {
+                setIsEdit(true)
+              }
             } else if (copyId) {
               setIsCopy(true)
             }

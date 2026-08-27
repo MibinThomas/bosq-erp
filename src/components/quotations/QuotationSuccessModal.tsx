@@ -39,7 +39,7 @@ export function QuotationSuccessModal({
   if (!quotation) return null
 
   const titleText = quotation.isRevision
-    ? "Quotation Revision Submitted!"
+    ? "Quotation Revision Created!"
     : quotation.isEdit
       ? "Quotation Updated Successfully!"
       : "Quotation Created Successfully!"
@@ -51,8 +51,15 @@ export function QuotationSuccessModal({
     }).format(val || 0)
   }
 
+  const handleModalClose = () => {
+    onClose()
+    router.push("/quotations")
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) handleModalClose()
+    }}>
       <DialogContent className="max-w-md p-6 rounded-2xl sm:rounded-3xl border shadow-2xl bg-background">
         <DialogHeader className="flex flex-col items-center text-center space-y-3 pt-2">
           {/* Animated celebration icon */}
@@ -66,7 +73,7 @@ export function QuotationSuccessModal({
               <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              The quotation document has been compiled and saved to the database.
+              Quotation <span className="font-mono font-bold text-foreground">{quotation.quotationNumber}</span> has been created successfully.
             </DialogDescription>
           </div>
         </DialogHeader>
@@ -104,8 +111,18 @@ export function QuotationSuccessModal({
           )}
         </div>
 
-        {/* Primary Action Buttons */}
+        {/* Action Buttons */}
         <div className="space-y-2 pt-1">
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleModalClose}
+            className="w-full text-xs h-10 font-bold bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center gap-2 shadow-md cursor-pointer"
+          >
+            <ArrowRight className="h-4 w-4" />
+            <span>Back to Quotations List</span>
+          </Button>
+
           <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
@@ -115,9 +132,9 @@ export function QuotationSuccessModal({
                 const pdfPath = quotation.pdfUrl || `/api/quotations/${quotation.id}/pdf`
                 window.open(pdfPath, "_blank")
               }}
-              className="text-xs h-10 font-medium flex items-center justify-center gap-1.5 border-border hover:bg-muted cursor-pointer"
+              className="text-xs h-9 font-medium flex items-center justify-center gap-1.5 border-border hover:bg-muted cursor-pointer"
             >
-              <FileText className="h-4 w-4 text-orange-600" />
+              <FileText className="h-3.5 w-3.5 text-orange-600" />
               <span>View PDF</span>
             </Button>
 
@@ -126,32 +143,19 @@ export function QuotationSuccessModal({
               variant="outline"
               size="sm"
               onClick={() => {
-                router.push("/quotations")
                 onClose()
+                if (onResetForm) {
+                  onResetForm()
+                } else {
+                  router.push("/quotations/new")
+                }
               }}
-              className="text-xs h-10 font-medium flex items-center justify-center gap-1.5 border-border hover:bg-muted cursor-pointer"
+              className="text-xs h-9 font-medium flex items-center justify-center gap-1.5 border-border hover:bg-muted cursor-pointer"
             >
-              <ArrowRight className="h-4 w-4 text-blue-600" />
-              <span>Quotations List</span>
+              <Plus className="h-3.5 w-3.5 text-emerald-600" />
+              <span>New Quotation</span>
             </Button>
           </div>
-
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => {
-              onClose()
-              if (onResetForm) {
-                onResetForm()
-              } else {
-                router.push("/quotations/new")
-              }
-            }}
-            className="w-full text-xs h-10 font-bold bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center gap-2 shadow-md cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create Another Quotation</span>
-          </Button>
         </div>
       </DialogContent>
     </Dialog>
