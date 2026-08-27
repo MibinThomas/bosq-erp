@@ -10,6 +10,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast, Toaster } from "sonner"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Loader2,
   Eye,
   EyeOff,
@@ -20,7 +28,9 @@ import {
   ArrowRight,
   Building2,
   Layers,
-  FileSpreadsheet
+  FileSpreadsheet,
+  KeyRound,
+  Send
 } from "lucide-react"
 
 export default function LoginPage() {
@@ -29,6 +39,45 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // Forgot Password modal state
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false)
+  const [resetEmail, setResetEmail] = useState("")
+  const [resetNotes, setResetNotes] = useState("")
+  const [submittingReset, setSubmittingReset] = useState(false)
+
+  const handleRequestPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetEmail || !resetEmail.trim()) {
+      toast.error("Please enter your corporate email address.")
+      return
+    }
+
+    setSubmittingReset(true)
+    try {
+      const res = await fetch("/api/auth/request-password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: resetEmail,
+          notes: resetNotes
+        })
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to submit password reset request.")
+      }
+
+      toast.success(data.message || "Password reset request sent to Super Admin!")
+      setIsForgotModalOpen(false)
+      setResetNotes("")
+    } catch (err: any) {
+      toast.error(err.message || "Failed to request password reset.")
+    } finally {
+      setSubmittingReset(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -212,16 +261,17 @@ export default function LoginPage() {
                   <Label htmlFor="password" className="text-slate-300 text-xs font-bold tracking-wide uppercase">
                     Password
                   </Label>
-                  <a 
-                    href="#" 
+                  <button
+                    type="button"
                     onClick={(e) => {
                       e.preventDefault()
-                      toast.info("Please contact your administrator to reset password.")
+                      setResetEmail(email || "")
+                      setIsForgotModalOpen(true)
                     }}
-                    className="text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+                    className="text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors cursor-pointer bg-transparent border-0 p-0"
                   >
                     Forgot password?
-                  </a>
+                  </button>
                 </div>
                 <div className="relative group">
                   <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 transition-colors duration-200 group-focus-within:text-amber-400">
@@ -309,6 +359,77 @@ export default function LoginPage() {
         </div>
 
       </div>
+
+      {/* FORGOT PASSWORD REQUEST DIALOG MODAL */}
+      <Dialog open={isForgotModalOpen} onOpenChange={setIsForgotModalOpen}>
+        <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800 text-slate-100 font-sans p-6 rounded-2xl shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5 mb-1">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                <KeyRound className="h-5 w-5" />
+              </div>
+              <DialogTitle className="text-lg font-bold text-white">
+                Request Password Reset
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-slate-400">
+              Enter your corporate email address to submit a password reset request to the Super Admin.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleRequestPasswordReset} className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-300">Corporate Email Address <span className="text-rose-400">*</span></Label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+                <Input
+                  type="email"
+                  placeholder="name@bosq.ae"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  className="pl-10 h-10 bg-slate-950/80 border-slate-800 text-slate-100 placeholder-slate-500 text-xs rounded-xl"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-300">Reason / Request Notes (Optional)</Label>
+              <Input
+                placeholder="e.g. Forgot password, locked out of account..."
+                value={resetNotes}
+                onChange={(e) => setResetNotes(e.target.value)}
+                className="h-10 bg-slate-950/80 border-slate-800 text-slate-100 placeholder-slate-500 text-xs rounded-xl"
+              />
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-slate-800 gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsForgotModalOpen(false)}
+                className="h-9 text-xs border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={submittingReset}
+                className="h-9 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1.5"
+              >
+                {submittingReset ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+                Submit Reset Request
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

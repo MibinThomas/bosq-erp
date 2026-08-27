@@ -242,11 +242,27 @@ export async function GET(request: Request) {
       })
     }
 
+    const passwordResetRequests = await prisma.passwordResetRequest.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            department: true,
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" }
+    })
+
     return NextResponse.json({
       roles,
       users,
       clients,
       clientAccessRequests,
+      passwordResetRequests,
       systemSettings,
       stats: {
         totalUsers,
@@ -274,6 +290,45 @@ export async function POST(request: Request) {
 
     const body = await request.json()
     const { action, roleName, description, baseRoleId } = body
+
+    if (action === "create_user") {
+      const { name, email, password, role, department, designation, employeeId, phone, status } = body
+      if (!email || !email.trim()) {
+        return NextResponse.json({ error: "Email address is required" }, { status: 400 })
+      }
+      const cleanEmail = email.trim().toLowerCase()
+      const existing = await prisma.user.findUnique({ where: { email: cleanEmail } })
+      if (existing) {
+        return NextResponse.json({ error: "A user with this email address already exists" }, { status: 400 })
+      }
+
+      const hashedPassword = password && password.trim() ? hashPassword(password.trim()) : hashPassword("Bosq@2026")
+      const newUser = await prisma.user.create({
+        data: {
+          name: name || "New User",
+          email: cleanEmail,
+          password: hashedPassword,
+          role: role || "INTERIOR_DESIGN_CONSULTANT",
+          department: department || null,
+          designation: designation || null,
+          employeeId: employeeId || null,
+          phone: phone || null,
+          status: status || "Active",
+          isActive: status !== "Inactive" && status !== "Suspended"
+        }
+      })
+
+      await prisma.accessControlLog.create({
+        data: {
+          userId: user.id,
+          targetUserId: newUser.id,
+          action: "CREATE_USER",
+          details: `Created new user account for ${newUser.name} (${newUser.email}) assigned to role ${newUser.role}`
+        }
+      })
+
+      return NextResponse.json({ success: true, user: newUser })
+    }
 
     if (action === "create_role") {
       if (!roleName) {
@@ -1060,6 +1115,88 @@ export async function PUT(request: Request) {
             userId: user.id,
             action: "REASSIGN_ACCESS_REQUEST",
             details: `Reassigned client ${clientName} to new owner ID ${newOwnerId} while approving requester ID ${accessRequest.userId}`
+          }
+        })
+
+        return NextResponse.json({ success: true })
+      }
+    }
+
+    if (type === "resolve_password_reset") {
+      const { requestId, action: resetAction, newPassword, notes } = body
+      const resetReq = await prisma.passwordResetRequest.findUnique({
+        where: { id: requestId },
+        include: { user: true }
+      })
+      if (!resetReq) {
+        return NextResponse.json({ error: "Password reset request not found" }, { status: 404 })
+      }
+
+      if (resetAction === "APPROVE") {
+        const finalPassword = newPassword && newPassword.trim() !== "" ? newPassword.trim() : "Bosq@" + Math.floor(1000 + Math.random() * 9000)
+        const hashedPassword = hashPassword(finalPassword)
+
+        await prisma.user.update({
+          where: { id: resetReq.userId },
+          data: { password: hashedPassword }
+        })
+
+        await prisma.passwordResetRequest.update({
+          where: { id: requestId },
+          data: {
+            status: "RESOLVED",
+            resolvedAt: new Date(),
+            resolvedBy: user.id,
+            tempPassword: finalPassword,
+            notes: notes || "Approved and password reset by Super Admin"
+          }
+        })
+
+        await prisma.notification.create({
+          data: {
+            userId: resetReq.userId,
+            title: "Password Reset Approved",
+            message: `Your password reset request has been approved. Your new password is: ${finalPassword}`,
+            type: "SYSTEM"
+          }
+        })
+
+        await prisma.accessControlLog.create({
+          data: {
+            userId: user.id,
+            targetUserId: resetReq.userId,
+            action: "APPROVE_PASSWORD_RESET",
+            details: `Approved password reset for ${resetReq.userEmail}`
+          }
+        })
+
+        return NextResponse.json({ success: true, tempPassword: finalPassword })
+      } else {
+        await prisma.passwordResetRequest.update({
+          where: { id: requestId },
+          data: {
+            status: "REJECTED",
+            resolvedAt: new Date(),
+            resolvedBy: user.id,
+            notes: notes || "Rejected by Super Admin"
+          }
+        })
+
+        await prisma.notification.create({
+          data: {
+            userId: resetReq.userId,
+            title: "Password Reset Rejected",
+            message: `Your password reset request was rejected by the administrator.`,
+            type: "SYSTEM"
+          }
+        })
+
+        await prisma.accessControlLog.create({
+          data: {
+            userId: user.id,
+            targetUserId: resetReq.userId,
+            action: "REJECT_PASSWORD_RESET",
+            details: `Rejected password reset for ${resetReq.userEmail}`
           }
         })
 

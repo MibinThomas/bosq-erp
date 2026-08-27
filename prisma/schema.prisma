@@ -46,6 +46,7 @@ model User {
   costedByQuotations          Quotation[]        @relation("CostedByQuotations")
   revisionRequestedQuotations Quotation[]        @relation("RevisionRequestedQuotations")
   assignedQuotationItems     QuotationItem[]    @relation("EstimatorQuotationItems")
+  passwordResetRequests       PasswordResetRequest[]
 }
 
 model Notification {
@@ -613,4 +614,23 @@ model SequenceTracker {
   prefix      String?
   description String?
   updatedAt   DateTime @updatedAt
+}
+
+model PasswordResetRequest {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userEmail       String
+  userName        String?
+  status          String    @default("PENDING") // PENDING | RESOLVED | REJECTED
+  requestedAt     DateTime  @default(now())
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  tempPassword    String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
