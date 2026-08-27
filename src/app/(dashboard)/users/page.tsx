@@ -110,7 +110,7 @@ const SYSTEM_ROLES = [
   { value: "SUPER_ADMIN", label: "Super Administrator", category: "Governance", desc: "Full CRUD access over users, security, system settings, and approvals." },
   { value: "ADMIN", label: "Administrator", category: "Governance", desc: "Full operational access across clients, BOQs, quotations, and reports." },
   { value: "SALES_MANAGER", label: "Sales Manager", category: "Management", desc: "Manages IDC sales consultants, quote approvals, and client allocations." },
-  { value: "SALES_EXECUTIVE", label: "Interior Design Consultant (IDC)", category: "Sales", desc: "Creates BOQs, builds quotations, manages client portfolio." },
+  { value: "INTERIOR_DESIGN_CONSULTANT", label: "Interior Design Consultant", category: "Sales", desc: "Creates BOQs, builds quotations, manages client portfolio." },
   { value: "ESTIMATOR", label: "Cost Estimator", category: "Costing", desc: "Prepares raw material, labor, transport, and overhead cost breakdowns." },
   { value: "ACCOUNTS", label: "Finance & Accounts", category: "Finance", desc: "Manages payment terms, invoices, and financial compliance." },
   { value: "PROCUREMENT", label: "Procurement", category: "Operations", desc: "Purchasing and raw materials sourcing." },
@@ -121,7 +121,7 @@ const SYSTEM_ROLES = [
 export default function UserManagementPage() {
   const { data: session } = useSession()
   const currentUserId = (session?.user as any)?.id
-  const currentUserRole = (session?.user as any)?.role || "SALES_EXECUTIVE"
+  const currentUserRole = (session?.user as any)?.role || "INTERIOR_DESIGN_CONSULTANT"
   const isSuperAdmin = currentUserRole === "SUPER_ADMIN"
   const isAdminOrSuper = isSuperAdmin || currentUserRole === "ADMIN"
 
@@ -146,7 +146,7 @@ export default function UserManagementPage() {
   const [formName, setFormName] = useState("")
   const [formEmail, setFormEmail] = useState("")
   const [formPassword, setFormPassword] = useState("")
-  const [formRole, setFormRole] = useState("SALES_EXECUTIVE")
+  const [formRole, setFormRole] = useState("INTERIOR_DESIGN_CONSULTANT")
   const [formPhone, setFormPhone] = useState("")
   const [formDepartment, setFormDepartment] = useState("")
   const [formDesignation, setFormDesignation] = useState("")

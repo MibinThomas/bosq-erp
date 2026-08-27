@@ -53,7 +53,7 @@ async function ensureDbSchema() {
         })
         if (!existing) {
           const isManager = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(r.name)
-          const isIDC = ["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(r.name)
+          const isIDC = r.name === "INTERIOR_DESIGN_CONSULTANT"
           const isEstimator = r.name === "ESTIMATOR"
 
           let defaultView = isManager || isIDC

@@ -99,7 +99,7 @@ export default function AccessControlPage() {
       case "ADMIN": return "Administrator"
       case "MANAGER":
       case "SALES_MANAGER": return "Manager"
-      case "SALES_EXECUTIVE": return "Interior Design Consultant (IDC)"
+      case "SALES_EXECUTIVE":
       case "INTERIOR_DESIGN_CONSULTANT": return "Interior Design Consultant"
       case "ESTIMATOR": return "Cost Estimator"
       case "ACCOUNTS": return "Finance & Accounts"
