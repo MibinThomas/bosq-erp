@@ -381,30 +381,25 @@ interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "on
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
   ({ value, onChange, onBlur, onFocus, onKeyDown, type: _unusedType, ...props }, ref) => {
-    const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
     const internalRef = React.useRef<HTMLInputElement | null>(null)
-    const isFocusedRef = React.useRef(false)
+    const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
 
-    // Keep ref in sync with React Hook Form
-    React.useImperativeHandle(ref, () => internalRef.current!, [ref])
+    React.useImperativeHandle(ref, () => internalRef.current!, [])
 
-    // Synchronize external value into local state ONLY when NOT actively focused by user
+    // Synchronize external value into local state ONLY when NOT actively focused in the DOM
     React.useEffect(() => {
-      if (!isFocusedRef.current) {
+      if (document.activeElement !== internalRef.current) {
         setLocalVal(String(value ?? ""))
       }
     }, [value])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value
-      setLocalVal(val)
-      isFocusedRef.current = true
-      onChange(val)
+      const newVal = e.target.value
+      setLocalVal(newVal)
+      onChange(newVal)
     }
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-      isFocusedRef.current = true
-      // Auto-select text on focus if it is "0" or 0 so user can type new price immediately
       if (e.target.value === "0" || e.target.value === "0.00" || e.target.value === "0.0") {
         try {
           e.target.select()
@@ -414,8 +409,6 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     }
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      isFocusedRef.current = false
-      // Commit local value to parent form on blur
       onChange(localVal)
       if (onBlur) onBlur(e)
     }
@@ -423,7 +416,6 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
         e.preventDefault()
-        isFocusedRef.current = false
         onChange(localVal)
         e.currentTarget.blur()
       }
@@ -454,16 +446,24 @@ interface BatchHeadingInputProps {
 
 const BatchHeadingInput: React.FC<BatchHeadingInputProps> = ({ value, onChange }) => {
   const [localValue, setLocalValue] = useState(value)
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
-    setLocalValue(value)
+    if (document.activeElement !== inputRef.current) {
+      setLocalValue(value)
+    }
   }, [value])
 
   return (
     <Input
+      ref={inputRef}
       placeholder="e.g. Executive Cabin, Conference Room, Main Office (Leave blank for default section)"
       value={localValue}
-      onChange={(e) => setLocalValue(e.target.value)}
+      onChange={(e) => {
+        const val = e.target.value
+        setLocalValue(val)
+        onChange(val)
+      }}
       onBlur={() => {
         if (localValue !== value) {
           onChange(localValue)
@@ -4864,28 +4864,22 @@ function NewQuotationForm() {
                                 <FormField
                                   control={form.control}
                                   name={`additionalCharges.${index}.amount`}
-                                  render={({ field }) => {
-                                    const val = field.value === 0 ? "" : field.value
-                                    return (
-                                      <FormControl>
-                                        <div className="relative flex items-center">
-                                          <span className="absolute left-3 text-[10px] font-bold text-muted-foreground font-mono">AED</span>
-                                          <Input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            className="h-9 pl-10 pr-3 font-mono text-right text-xs font-bold bg-background w-full"
-                                            value={val}
-                                            onChange={(e) => {
-                                              const rawVal = e.target.value
-                                              const numVal = rawVal === "" ? "" : parseFloat(rawVal) || 0
-                                              field.onChange(numVal)
-                                            }}
-                                          />
-                                        </div>
-                                      </FormControl>
-                                    )
-                                  }}
+                                  render={({ field }) => (
+                                    <FormControl>
+                                      <div className="relative flex items-center">
+                                        <span className="absolute left-3 text-[10px] font-bold text-muted-foreground font-mono z-10 pointer-events-none">AED</span>
+                                        <NumericInput
+                                          placeholder="0.00"
+                                          className="h-9 pl-10 pr-3 font-mono text-right text-xs font-bold bg-background w-full"
+                                          value={field.value}
+                                          onChange={(val) => {
+                                            const numVal = val === "" ? "" : parseFloat(val) || 0
+                                            field.onChange(numVal)
+                                          }}
+                                        />
+                                      </div>
+                                    </FormControl>
+                                  )}
                                 />
                               </div>
                             </div>
