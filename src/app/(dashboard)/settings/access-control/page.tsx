@@ -165,6 +165,12 @@ export default function AccessControlPage() {
     return roles.find(r => r.id === selectedRoleId) || roles[0] || null
   }, [roles, selectedRoleId])
 
+  // Users assigned to selected role
+  const assignedUsers = useMemo(() => {
+    if (!selectedRole) return []
+    return users.filter(u => u.role === selectedRole.name)
+  }, [users, selectedRole])
+
   // Sync editing permissions when selected role changes
   useEffect(() => {
     if (!selectedRole) return
@@ -368,34 +374,63 @@ export default function AccessControlPage() {
         </button>
       </div>
 
-      {/* TAB 1: ROLE PERMISSIONS MATRIX (Clean Tabular View - Similar to Old UI) */}
+      {/* TAB 1: ROLE PERMISSIONS MATRIX & USER MANAGEMENT */}
       {activeTab === "roles" && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           
-          {/* Role Selector Horizontal Tabs */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Configure Role Matrix:</label>
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              {roles.map(r => {
-                const isSelected = selectedRoleId === r.id
-                const isSuper = r.name === "SUPER_ADMIN"
-                return (
-                  <button
-                    key={r.id}
-                    onClick={() => setSelectedRoleId(r.id)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 border flex items-center gap-2 cursor-pointer ${
-                      isSelected 
-                        ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-900 shadow-xs" 
-                        : "bg-card hover:bg-muted text-muted-foreground border-border"
-                    }`}
+          {/* 1. ROLE SELECTION DROPDOWN CARD */}
+          <div className="p-5 bg-card border rounded-2xl shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              
+              {/* Role Dropdown Selector */}
+              <div className="flex-1 max-w-md space-y-1.5">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5 text-primary" />
+                  Select Role:
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedRoleId}
+                    onChange={e => setSelectedRoleId(e.target.value)}
+                    className="w-full h-10 pl-3.5 pr-10 bg-background border-2 border-primary/20 hover:border-primary/40 focus:border-primary rounded-xl text-xs font-bold text-foreground focus:outline-none transition-all cursor-pointer shadow-2xs"
                   >
-                    {isSuper ? <ShieldAlert className="h-3.5 w-3.5 text-amber-400" /> : <Shield className="h-3.5 w-3.5" />}
-                    <span>{getRoleDisplayName(r.name)}</span>
-                    <span className="text-[10px] opacity-75 font-mono">({users.filter(u => u.role === r.name).length})</span>
-                  </button>
-                )
-              })}
+                    {roles.map(r => {
+                      const count = users.filter(u => u.role === r.name).length
+                      return (
+                        <option key={r.id} value={r.id}>
+                          {getRoleDisplayName(r.name)} ({count} User{count !== 1 ? "s" : ""})
+                        </option>
+                      )
+                    })}
+                  </select>
+                </div>
+              </div>
+
+              {/* Action Button & Metadata */}
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="px-3 py-2 text-xs font-mono font-bold bg-muted/50 border-border">
+                  {assignedUsers.length} User(s) Assigned
+                </Badge>
+                {selectedRole && selectedRole.name !== "SUPER_ADMIN" && (
+                  <Button
+                    onClick={handleSaveRoleMatrix}
+                    disabled={savingMatrix}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-2xs h-10 px-4 rounded-xl"
+                  >
+                    {savingMatrix ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save Permissions Matrix
+                  </Button>
+                )}
+              </div>
             </div>
+
+            {/* Role Description Sub-text */}
+            {selectedRole && (
+              <div className="text-xs text-muted-foreground pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-t border-border/40">
+                <span>{selectedRole.description || `Configuring access permissions and user list for ${getRoleDisplayName(selectedRole.name)}`}</span>
+                <span className="font-mono text-[11px] shrink-0">System Identifier: <code className="font-bold text-foreground bg-muted px-1.5 py-0.5 rounded">{selectedRole.name}</code></span>
+              </div>
+            )}
           </div>
 
           {/* Super Admin Notice */}
@@ -403,122 +438,222 @@ export default function AccessControlPage() {
             <div className="p-3.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 rounded-xl text-amber-900 dark:text-amber-200 text-xs flex items-center gap-3">
               <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
               <span>
-                <strong>Super Admin Bypass Active:</strong> The SUPER_ADMIN role bypasses matrix permissions and has full access across all modules.
+                <strong>Super Admin Bypass Active:</strong> The SUPER_ADMIN role bypasses matrix permissions and has full unrestricted access across all modules.
               </span>
             </div>
           )}
 
-          {/* Module Filter / Search */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search modules..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 bg-card border border-border rounded-xl text-xs focus:outline-none font-sans"
-              />
-            </div>
-            <div className="text-xs text-muted-foreground font-mono">
-              Editing: <strong className="text-foreground font-sans">{selectedRole ? getRoleDisplayName(selectedRole.name) : ""}</strong>
-            </div>
-          </div>
-
-          {/* Clean Role Permission Matrix Table */}
-          <div className="bg-card border rounded-2xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse font-sans">
-                <thead>
-                  <tr className="border-b bg-slate-50 dark:bg-slate-900/80 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">
-                    <th className="p-3.5 min-w-[200px] sticky left-0 bg-slate-50 dark:bg-slate-900/90 z-10 border-r">Module Name</th>
-                    {matrixColumns.map(col => (
-                      <th key={col.id} className="p-3 text-center min-w-[85px]" title={col.title}>
-                        {col.label}
-                      </th>
-                    ))}
-                    <th className="p-3 min-w-[160px] text-left border-l">Ownership Scope</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y border-b">
-                  {filteredModules.map((m, idx) => {
-                    const rowPerm = editingPermissions[m.id] || {}
-                    const ModuleIcon = m.icon
-                    const isEven = idx % 2 === 0
-                    return (
-                      <tr 
-                        key={m.id} 
-                        className={`transition-colors ${isEven ? "bg-card" : "bg-muted/20"} hover:bg-slate-100/60 dark:hover:bg-slate-800/40`}
-                      >
-                        {/* Module Name & Icon Column */}
-                        <td className="p-3.5 font-bold text-foreground sticky left-0 bg-card z-10 border-r shadow-2xs">
-                          <div className="flex items-center space-x-2.5">
-                            <div className="p-1.5 rounded-lg bg-primary/10 text-primary shrink-0">
-                              <ModuleIcon className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <div className="text-xs font-bold text-foreground leading-tight">{m.name}</div>
-                              <div className="text-[10px] text-muted-foreground font-mono font-normal">{m.id}</div>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Permission Checkboxes */}
-                        {matrixColumns.map(col => {
-                          const isChecked = rowPerm[col.id] ?? false
-                          const isHighRisk = ["costPriceVisible", "canApplySpecialDiscount"].includes(col.id)
-                          return (
-                            <td key={col.id} className={`p-3 text-center align-middle ${isHighRisk ? "bg-amber-500/5 dark:bg-amber-950/10" : ""}`}>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                disabled={selectedRole?.name === "SUPER_ADMIN"}
-                                onChange={e => handleRolePermChange(m.id, col.id, e.target.checked)}
-                                className={`h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer disabled:opacity-40 transition-transform hover:scale-110 ${isHighRisk ? "accent-amber-600" : ""}`}
-                              />
-                            </td>
-                          )
-                        })}
-
-                        {/* Ownership Scope Dropdown */}
-                        <td className="p-3 align-middle border-l">
-                          <select
-                            value={rowPerm.ownership || "NONE"}
-                            disabled={selectedRole?.name === "SUPER_ADMIN"}
-                            onChange={e => handleRolePermChange(m.id, "ownership", e.target.value)}
-                            className="w-full bg-muted/60 border border-border rounded-lg px-2 py-1 text-xs font-bold text-foreground focus:outline-none disabled:opacity-40 cursor-pointer font-mono"
-                          >
-                            <option value="ALL">ALL (Full)</option>
-                            <option value="DEPARTMENT">DEPARTMENT</option>
-                            <option value="ASSIGNED">ASSIGNED</option>
-                            <option value="OWN">OWN</option>
-                            <option value="NONE">NONE</option>
-                          </select>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Sticky Bottom Save Bar */}
-          {selectedRole && selectedRole.name !== "SUPER_ADMIN" && (
-            <div className="p-4 bg-card border rounded-2xl flex items-center justify-between shadow-sm">
-              <div className="text-xs text-muted-foreground">
-                Configuring access matrix for <strong className="text-foreground">{getRoleDisplayName(selectedRole.name)}</strong>.
+          {/* 2. ASSIGNED USERS SECTION */}
+          <div className="p-5 bg-card border rounded-2xl shadow-2xs space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  Assigned Users ({selectedRole ? getRoleDisplayName(selectedRole.name) : ""})
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Active employee accounts currently operating under this role.
+                </p>
               </div>
-              <Button
-                onClick={handleSaveRoleMatrix}
-                disabled={savingMatrix}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-xs"
-              >
-                {savingMatrix ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                Save Permissions Matrix
-              </Button>
+              <Badge variant="secondary" className="text-xs font-mono font-bold">
+                {assignedUsers.length} Account(s)
+              </Badge>
             </div>
-          )}
+
+            {assignedUsers.length === 0 ? (
+              <div className="p-8 text-center border border-dashed rounded-xl bg-muted/20 space-y-2">
+                <Users className="h-8 w-8 text-muted-foreground mx-auto opacity-50" />
+                <p className="text-xs font-semibold text-muted-foreground">No users currently assigned to this role.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border">
+                <table className="w-full text-left text-xs border-collapse font-sans">
+                  <thead>
+                    <tr className="border-b bg-slate-50 dark:bg-slate-900/80 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">
+                      <th className="p-3">User Name</th>
+                      <th className="p-3">Email Address</th>
+                      <th className="p-3">Designation / Role</th>
+                      <th className="p-3 text-center">Status</th>
+                      <th className="p-3 font-mono">Assigned Date</th>
+                      <th className="p-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y border-b">
+                    {assignedUsers.map(u => {
+                      const overridesCount = u.permissionOverrides?.length || 0
+                      return (
+                        <tr key={u.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="p-3 font-bold text-foreground">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-7 w-7 rounded-full bg-primary/10 text-primary font-bold text-xs flex items-center justify-center shrink-0">
+                                {u.name ? u.name.charAt(0).toUpperCase() : "U"}
+                              </div>
+                              <div>
+                                <p className="font-bold text-foreground text-xs leading-tight">{u.name || "User"}</p>
+                                {u.employeeId && <p className="text-[10px] text-muted-foreground font-mono">ID: {u.employeeId}</p>}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 font-mono text-muted-foreground text-xs">{u.email}</td>
+                          <td className="p-3 text-muted-foreground font-medium">
+                            {u.department ? `${u.department} (${getRoleDisplayName(u.role)})` : getRoleDisplayName(u.role)}
+                          </td>
+                          <td className="p-3 text-center">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[10px] font-bold px-2 py-0.5 ${
+                                u.isActive || u.status === "Active"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300" 
+                                  : "bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300"
+                              }`}
+                            >
+                              {u.status || (u.isActive ? "Active" : "Inactive")}
+                            </Badge>
+                          </td>
+                          <td className="p-3 font-mono text-muted-foreground text-xs">
+                            {u.createdAt ? new Date(u.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "N/A"}
+                          </td>
+                          <td className="p-3 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenUserOverride(u)}
+                              className="h-7 text-[11px] font-bold cursor-pointer hover:bg-primary/10 hover:text-primary"
+                            >
+                              <UserCheck className="h-3 w-3 mr-1" />
+                              {overridesCount > 0 ? `${overridesCount} Overrides` : "View / Edit Overrides"}
+                            </Button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* 3. PERMISSIONS MATRIX SECTION */}
+          <div className="p-5 bg-card border rounded-2xl shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-3">
+              <div>
+                <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-primary" />
+                  Permissions Matrix ({selectedRole ? getRoleDisplayName(selectedRole.name) : ""})
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Module access levels and action permissions for this role.
+                </p>
+              </div>
+
+              {/* Module Filter / Search */}
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search modules..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-1.5 bg-background border border-border rounded-xl text-xs focus:outline-none font-sans"
+                />
+              </div>
+            </div>
+
+            {/* Clean Role Permission Matrix Table */}
+            <div className="border rounded-2xl shadow-2xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse font-sans">
+                  <thead>
+                    <tr className="border-b bg-slate-50 dark:bg-slate-900/80 text-muted-foreground font-bold uppercase text-[10px] tracking-wider">
+                      <th className="p-3.5 min-w-[200px] sticky left-0 bg-slate-50 dark:bg-slate-900/90 z-10 border-r">Module Name</th>
+                      {matrixColumns.map(col => (
+                        <th key={col.id} className="p-3 text-center min-w-[85px]" title={col.title}>
+                          {col.label}
+                        </th>
+                      ))}
+                      <th className="p-3 min-w-[160px] text-left border-l">Ownership Scope</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y border-b">
+                    {filteredModules.map((m, idx) => {
+                      const rowPerm = editingPermissions[m.id] || {}
+                      const ModuleIcon = m.icon
+                      const isEven = idx % 2 === 0
+                      return (
+                        <tr 
+                          key={m.id} 
+                          className={`transition-colors ${isEven ? "bg-card" : "bg-muted/20"} hover:bg-slate-100/60 dark:hover:bg-slate-800/40`}
+                        >
+                          {/* Module Name & Icon Column */}
+                          <td className="p-3.5 font-bold text-foreground sticky left-0 bg-card z-10 border-r shadow-2xs">
+                            <div className="flex items-center space-x-2.5">
+                              <div className="p-1.5 rounded-lg bg-primary/10 text-primary shrink-0">
+                                <ModuleIcon className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <div className="text-xs font-bold text-foreground leading-tight">{m.name}</div>
+                                <div className="text-[10px] text-muted-foreground font-mono font-normal">{m.id}</div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Permission Checkboxes */}
+                          {matrixColumns.map(col => {
+                            const isChecked = rowPerm[col.id] ?? false
+                            const isHighRisk = ["costPriceVisible", "canApplySpecialDiscount"].includes(col.id)
+                            return (
+                              <td key={col.id} className={`p-3 text-center align-middle ${isHighRisk ? "bg-amber-500/5 dark:bg-amber-950/10" : ""}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  disabled={selectedRole?.name === "SUPER_ADMIN"}
+                                  onChange={e => handleRolePermChange(m.id, col.id, e.target.checked)}
+                                  className={`h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer disabled:opacity-40 transition-transform hover:scale-110 ${isHighRisk ? "accent-amber-600" : ""}`}
+                                />
+                              </td>
+                            )
+                          })}
+
+                          {/* Ownership Scope Dropdown */}
+                          <td className="p-3 align-middle border-l">
+                            <select
+                              value={rowPerm.ownership || "NONE"}
+                              disabled={selectedRole?.name === "SUPER_ADMIN"}
+                              onChange={e => handleRolePermChange(m.id, "ownership", e.target.value)}
+                              className="w-full bg-muted/60 border border-border rounded-lg px-2 py-1 text-xs font-bold text-foreground focus:outline-none disabled:opacity-40 cursor-pointer font-mono"
+                            >
+                              <option value="ALL">ALL (Full)</option>
+                              <option value="DEPARTMENT">DEPARTMENT</option>
+                              <option value="ASSIGNED">ASSIGNED</option>
+                              <option value="OWN">OWN</option>
+                              <option value="NONE">NONE</option>
+                            </select>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Bottom Save Bar */}
+            {selectedRole && selectedRole.name !== "SUPER_ADMIN" && (
+              <div className="pt-2 flex items-center justify-between">
+                <div className="text-xs text-muted-foreground">
+                  Configuring matrix for <strong className="text-foreground">{getRoleDisplayName(selectedRole.name)}</strong>.
+                </div>
+                <Button
+                  onClick={handleSaveRoleMatrix}
+                  disabled={savingMatrix}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 cursor-pointer shadow-2xs h-9 px-4 rounded-xl"
+                >
+                  {savingMatrix ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save Permissions Matrix
+                </Button>
+              </div>
+            )}
+          </div>
 
         </div>
       )}
