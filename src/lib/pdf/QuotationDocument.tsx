@@ -651,10 +651,23 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       .join(" ")
   }
 
-  const hasAdditionalCost = Number(deliveryCharge) > 0
-  const hasDiscount = Number(discount) > 0
-  const discountAmount = Number(discount) || 0
-  const subtotalAfterAdditional = subtotal + Number(deliveryCharge)
+  const additionalChargesTotal = Array.isArray(additionalCharges)
+    ? additionalCharges.reduce((sum: number, c: any) => sum + (Number(c?.amount) || 0), 0)
+    : 0
+  const totalAdditionalCost = additionalChargesTotal + (Number(deliveryCharge) || 0)
+  
+  let discountAmount = Number(discount) || 0
+  if (discountAmount === 0 && specialDiscountValue && Number(specialDiscountValue) > 0) {
+    const grossBase = subtotal + totalAdditionalCost
+    if (specialDiscountType === "PERCENTAGE") {
+      discountAmount = (grossBase * Number(specialDiscountValue)) / 100
+    } else {
+      discountAmount = Number(specialDiscountValue)
+    }
+  }
+
+  const hasDiscount = discountAmount > 0
+  const subtotalAfterAdditional = subtotal + totalAdditionalCost
   const taxableSubtotal = Math.max(0, subtotalAfterAdditional - discountAmount)
 
   const sanitizeHtmlToText = (html: string) => {

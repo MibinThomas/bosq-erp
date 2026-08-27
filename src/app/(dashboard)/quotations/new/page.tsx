@@ -4914,6 +4914,111 @@ function NewQuotationForm() {
                         <Plus className="h-3.5 w-3.5" /> Add Cost Item
                       </Button>
                     </div>
+
+                    {/* Overall Special Discount Section */}
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-xs font-semibold text-foreground uppercase border-b pb-2 flex items-center justify-between">
+                        <span>Overall Special Discount (Quotation Level)</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">Applies to subtotal + additional costs</span>
+                      </h4>
+
+                      <div className="p-4 rounded-xl border bg-card shadow-2xs space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end">
+                          {/* Discount Type Toggle */}
+                          <div className="sm:col-span-5 space-y-1.5">
+                            <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount Type</FormLabel>
+                            <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/80">
+                              <Button
+                                type="button"
+                                variant={watchSpecialDiscountType === "PERCENTAGE" || !watchSpecialDiscountType ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => {
+                                  form.setValue("specialDiscountType", "PERCENTAGE")
+                                }}
+                                className={cn(
+                                  "flex-1 text-xs h-7 font-bold transition-all cursor-pointer",
+                                  (watchSpecialDiscountType === "PERCENTAGE" || !watchSpecialDiscountType) && "bg-primary text-primary-foreground shadow-2xs"
+                                )}
+                              >
+                                Percentage (%)
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={watchSpecialDiscountType === "FIXED" ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => {
+                                  form.setValue("specialDiscountType", "FIXED")
+                                }}
+                                className={cn(
+                                  "flex-1 text-xs h-7 font-bold transition-all cursor-pointer",
+                                  watchSpecialDiscountType === "FIXED" && "bg-primary text-primary-foreground shadow-2xs"
+                                )}
+                              >
+                                Fixed (AED)
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Discount Value Input */}
+                          <div className="sm:col-span-7">
+                            <FormField
+                              control={form.control}
+                              name="specialDiscountValue"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-[11px] font-semibold text-muted-foreground">
+                                    {watchSpecialDiscountType === "FIXED" ? "Discount Amount (AED)" : "Discount Percentage (%)"}
+                                  </FormLabel>
+                                  <FormControl>
+                                    <div className="relative flex items-center">
+                                      {watchSpecialDiscountType === "FIXED" && (
+                                        <span className="absolute left-3 text-[10px] font-bold text-muted-foreground font-mono z-10 pointer-events-none">AED</span>
+                                      )}
+                                      <NumericInput
+                                        placeholder={watchSpecialDiscountType === "FIXED" ? "e.g. 500" : "e.g. 5"}
+                                        className={cn(
+                                          "h-9 font-mono text-xs font-bold bg-background w-full",
+                                          watchSpecialDiscountType === "FIXED" ? "pl-10 text-right text-destructive" : "pr-6 text-destructive"
+                                        )}
+                                        value={field.value}
+                                        onChange={(val) => {
+                                          const num = val === "" ? 0 : Number(val)
+                                          field.onChange(num)
+                                          if (!watchSpecialDiscountType && num > 0) {
+                                            form.setValue("specialDiscountType", "PERCENTAGE")
+                                          }
+                                        }}
+                                      />
+                                      {(watchSpecialDiscountType === "PERCENTAGE" || !watchSpecialDiscountType) && (
+                                        <span className="absolute right-3 text-xs font-bold text-muted-foreground font-mono z-10 pointer-events-none">%</span>
+                                      )}
+                                    </div>
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Discount Reason / Approval Note */}
+                        <FormField
+                          control={form.control}
+                          name="specialDiscountReason"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount Reason / Approval Note (Optional)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="e.g. Executive approval for bulk order, promotional project discount..."
+                                  className="h-8 text-xs bg-background"
+                                  {...field}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
                   </div>
 
                   {/* Right Column: Financial Calculations Summary */}
