@@ -1301,9 +1301,9 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                         const marginVal = val === "" ? 0 : Number(val)
                         field.onChange(marginVal)
                         form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: false })
-                        const baseCost = Number(currentItemVal.unitCost || (Number(currentItemVal.materialCost || 0) + Number(currentItemVal.laborCost || 0)) || form.getValues(`items.${index}.basePrice`)) || 0
-                        if (baseCost > 0) {
-                          const uPrice = Number((baseCost * (1 + marginVal / 100)).toFixed(2))
+                        const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
+                        if (bPrice > 0) {
+                          const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
                           form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
                         }
                       }}
@@ -2379,30 +2379,38 @@ function NewQuotationForm() {
               termsConditions: activeTerms,
               items: activeData.items.map((item: any) => {
                 const isCostedByEstimator = item.costingStatus === "COSTING_COMPLETED" || !!item.costingCompletedAt || (item.unitCost > 0 && (item.marginPercentage || 0) > 0)
-                const marginVal = item.marginPercentage !== undefined && item.marginPercentage !== null && item.marginPercentage !== 0
-                  ? item.marginPercentage
-                  : (item.margin || 0)
 
-                let loadedBase = 0
-                if (item.unitCost > 0) {
-                  loadedBase = item.unitCost
-                } else if (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== 0) {
-                  loadedBase = item.basePrice
-                } else if (item.estimatorUnitPrice > 0 && marginVal > 0 && marginVal < 100) {
-                  loadedBase = Number((item.estimatorUnitPrice / (1 + marginVal / 100)).toFixed(2))
-                } else if (item.unitPrice > 0 && marginVal > 0 && marginVal < 100) {
-                  loadedBase = Number((item.unitPrice / (1 + marginVal / 100)).toFixed(2))
-                } else {
-                  loadedBase = item.unitPrice || 0
+                // Estimator Final Selling Price calculated during costing
+                let estimatorFinalSellingPrice = item.estimatorUnitPrice || item.unitPrice || 0
+                if ((!estimatorFinalSellingPrice || estimatorFinalSellingPrice === 0) && item.unitCost > 0) {
+                  const estMargin = item.marginPercentage !== undefined ? item.marginPercentage : 0
+                  estimatorFinalSellingPrice = Number((item.unitCost * (1 + estMargin / 100)).toFixed(2))
                 }
 
-                let loadedUnitPrice = item.unitPrice
-                if ((!loadedUnitPrice || loadedUnitPrice === 0) && item.estimatorUnitPrice > 0) {
-                  loadedUnitPrice = item.estimatorUnitPrice
-                } else if ((!loadedUnitPrice || loadedUnitPrice === 0) && loadedBase > 0 && marginVal > 0) {
-                  loadedUnitPrice = Number((loadedBase * (1 + marginVal / 100)).toFixed(2))
-                } else if (!loadedUnitPrice || loadedUnitPrice === 0) {
-                  loadedUnitPrice = loadedBase
+                let loadedBase = 0
+                let marginVal = 0
+
+                if (isCostedByEstimator && estimatorFinalSellingPrice > 0) {
+                  // The Estimator's Final Selling Price becomes the Base Price for the Interior Design Consultant
+                  loadedBase = estimatorFinalSellingPrice
+                  // IDC manual margin defaults to 0 (or uses saved manualMargin)
+                  marginVal = item.manualMargin !== undefined && item.manualMargin !== null
+                    ? Number(item.manualMargin)
+                    : 0
+                } else if (item.unitCost > 0) {
+                  loadedBase = item.unitCost
+                  marginVal = item.marginPercentage !== undefined ? item.marginPercentage : (item.margin || 0)
+                } else if (item.basePrice !== undefined && item.basePrice !== null && item.basePrice !== 0) {
+                  loadedBase = item.basePrice
+                  marginVal = item.margin || 0
+                } else {
+                  loadedBase = item.unitPrice || 0
+                  marginVal = item.margin || 0
+                }
+
+                let loadedUnitPrice = Number((loadedBase * (1 + marginVal / 100)).toFixed(2))
+                if (loadedUnitPrice === 0 && item.unitPrice > 0) {
+                  loadedUnitPrice = item.unitPrice
                 }
 
                 let resolvedPriceSource = item.priceSource
