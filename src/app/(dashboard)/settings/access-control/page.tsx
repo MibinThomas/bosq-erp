@@ -45,7 +45,9 @@ import {
   Briefcase,
   Loader2,
   Key,
-  X
+  X,
+  EyeOff,
+  Copy
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -164,6 +166,11 @@ export default function AccessControlPage() {
   const [selectedResetReq, setSelectedResetReq] = useState<any | null>(null)
   const [resetTempPassword, setResetTempPassword] = useState("")
   const [processingReset, setProcessingReset] = useState(false)
+
+  // Password Visibility States
+  const [showEditPassword, setShowEditPassword] = useState(false)
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false)
+  const [showResetTempPassword, setShowResetTempPassword] = useState(false)
 
   // Fetch access control data
   const loadData = async () => {
@@ -1118,14 +1125,38 @@ export default function AccessControlPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-muted-foreground">Initial Password</label>
-                <input
-                  type="text"
-                  value={newUserPassword}
-                  onChange={e => setNewUserPassword(e.target.value)}
-                  className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs font-mono focus:outline-none"
-                  required
-                />
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-muted-foreground">Initial Password</label>
+                  {newUserPassword && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(newUserPassword)
+                        toast.success("Initial password copied to clipboard!")
+                      }}
+                      className="text-[10px] font-bold text-rose-600 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="h-3 w-3" /> Copy
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type={showNewUserPassword ? "text" : "password"}
+                    value={newUserPassword}
+                    onChange={e => setNewUserPassword(e.target.value)}
+                    className="w-full h-9 pl-3 pr-10 bg-card border border-border rounded-xl text-xs font-mono focus:outline-none"
+                    required
+                  />
+                  <button
+                    type="button"
+                    title={showNewUserPassword ? "Hide Password" : "View Password"}
+                    onClick={() => setShowNewUserPassword(!showNewUserPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    {showNewUserPassword ? <EyeOff className="h-3.5 w-3.5 text-amber-500" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1335,7 +1366,7 @@ export default function AccessControlPage() {
                 </div>
               )}
 
-              {/* TAB B: PASSWORD MANAGEMENT (Spacious Layout) */}
+              {/* TAB B: PASSWORD MANAGEMENT (Spacious Layout + View & Copy Options) */}
               {editUserTab === "password" && (
                 <div className="space-y-5 p-5 border rounded-xl bg-card shadow-2xs">
                   <div className="space-y-1 border-b pb-3">
@@ -1348,27 +1379,101 @@ export default function AccessControlPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                    {/* New Password Field with View & Copy */}
                     <div className="space-y-1.5">
-                      <label className="font-bold text-foreground">New Password</label>
-                      <input
-                        type="password"
-                        placeholder="Enter new password"
-                        value={editUserPassword}
-                        onChange={e => setEditUserPassword(e.target.value)}
-                        className="w-full h-10 px-3.5 bg-background border border-border rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
-                      />
+                      <div className="flex items-center justify-between">
+                        <label className="font-bold text-foreground">New Password</label>
+                        {editUserPassword && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(editUserPassword)
+                              toast.success("Password copied to clipboard!")
+                            }}
+                            className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <Copy className="h-3 w-3" /> Copy Password
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showEditPassword ? "text" : "password"}
+                          placeholder="Enter new password"
+                          value={editUserPassword}
+                          onChange={e => setEditUserPassword(e.target.value)}
+                          className="w-full h-10 pl-3.5 pr-20 bg-background border border-border rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
+                        />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          <button
+                            type="button"
+                            title={showEditPassword ? "Hide Password" : "View Password"}
+                            onClick={() => setShowEditPassword(!showEditPassword)}
+                            className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
+                          >
+                            {showEditPassword ? <EyeOff className="h-4 w-4 text-amber-500" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                          {editUserPassword && (
+                            <button
+                              type="button"
+                              title="Copy password to clipboard"
+                              onClick={() => {
+                                navigator.clipboard.writeText(editUserPassword)
+                                toast.success("Password copied to clipboard!")
+                              }}
+                              className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Copy className="h-4 w-4 text-emerald-500" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Confirm New Password Field with View */}
                     <div className="space-y-1.5">
                       <label className="font-bold text-foreground">Confirm New Password</label>
-                      <input
-                        type="password"
-                        placeholder="Re-enter new password"
-                        value={confirmUserPassword}
-                        onChange={e => setConfirmUserPassword(e.target.value)}
-                        className="w-full h-10 px-3.5 bg-background border border-border rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showEditPassword ? "text" : "password"}
+                          placeholder="Re-enter new password"
+                          value={confirmUserPassword}
+                          onChange={e => setConfirmUserPassword(e.target.value)}
+                          className="w-full h-10 pl-3.5 pr-10 bg-background border border-border rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
+                        />
+                        <button
+                          type="button"
+                          title={showEditPassword ? "Hide Password" : "View Password"}
+                          onClick={() => setShowEditPassword(!showEditPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
+                        >
+                          {showEditPassword ? <EyeOff className="h-4 w-4 text-amber-500" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Generated Temp Password Banner */}
+                  {editUserPassword && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2">
+                        <Key className="h-4 w-4 text-amber-500 shrink-0" />
+                        <span>Active Temp Password: <code className="font-bold font-mono text-foreground text-sm bg-background px-2 py-0.5 rounded border select-all">{editUserPassword}</code></span>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(editUserPassword)
+                          toast.success("Password copied to clipboard!")
+                        }}
+                        className="h-8 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copy Password
+                      </Button>
+                    </div>
+                  )}
 
                   <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t">
                     <Button
@@ -1379,14 +1484,15 @@ export default function AccessControlPage() {
                         const temp = "Bosq@" + Math.floor(1000 + Math.random() * 9000)
                         setEditUserPassword(temp)
                         setConfirmUserPassword(temp)
-                        toast.info(`Generated temporary password: ${temp}`)
+                        setShowEditPassword(true)
+                        toast.success(`Generated temporary password: ${temp}`)
                       }}
                       className="text-xs font-bold cursor-pointer h-9 px-4 rounded-xl border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"
                     >
                       <Key className="h-3.5 w-3.5 mr-1.5" />
                       Generate Temp Password
                     </Button>
-                    <span className="text-[11px] text-muted-foreground font-mono">Note: Password changes are applied immediately when you save.</span>
+                    <span className="text-[11px] text-muted-foreground font-mono">Note: Click Save Changes below to apply updated password.</span>
                   </div>
                 </div>
               )}
@@ -1496,16 +1602,40 @@ export default function AccessControlPage() {
 
             <div className="space-y-4 py-3 text-xs">
               <div className="space-y-1">
-                <label className="font-bold text-muted-foreground">New Temporary Password (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="Leave empty to auto-generate password"
-                  value={resetTempPassword}
-                  onChange={e => setResetTempPassword(e.target.value)}
-                  className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs font-mono focus:outline-none"
-                />
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-muted-foreground">New Temporary Password (Optional)</label>
+                  {resetTempPassword && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(resetTempPassword)
+                        toast.success("Temporary password copied to clipboard!")
+                      }}
+                      className="text-[10px] font-bold text-emerald-600 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Copy className="h-3 w-3" /> Copy
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type={showResetTempPassword ? "text" : "password"}
+                    placeholder="Leave empty to auto-generate password"
+                    value={resetTempPassword}
+                    onChange={e => setResetTempPassword(e.target.value)}
+                    className="w-full h-9 pl-3 pr-10 bg-card border border-border rounded-xl text-xs font-mono focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    title={showResetTempPassword ? "Hide Password" : "View Password"}
+                    onClick={() => setShowResetTempPassword(!showResetTempPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    {showResetTempPassword ? <EyeOff className="h-3.5 w-3.5 text-amber-500" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
                 <p className="text-[10px] text-muted-foreground">
-                  If left empty, a password will be automatically generated and sent to the user.
+                  If left empty, a secure password will be automatically generated and sent to the user.
                 </p>
               </div>
             </div>
