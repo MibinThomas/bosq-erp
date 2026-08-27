@@ -1007,7 +1007,7 @@ export default function AccessControlPage() {
 
       {/* 1. ADD NEW USER DIALOG MODAL */}
       <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-        <DialogContent className="max-w-lg font-sans p-6 rounded-2xl">
+        <DialogContent className="sm:max-w-3xl md:max-w-3xl max-w-3xl w-full font-sans p-6 rounded-2xl shadow-2xl">
           <DialogHeader className="border-b pb-3">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20">
@@ -1150,181 +1150,227 @@ export default function AccessControlPage() {
       {/* 2. COMPLETE EDIT USER DIALOG MODAL */}
       {editingUserObj && (
         <Dialog open={!!editingUserObj} onOpenChange={() => setEditingUserObj(null)}>
-          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto font-sans p-6 rounded-2xl">
-            <DialogHeader className="border-b pb-3">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
-                  <Edit3 className="h-6 w-6" />
+          <DialogContent className="sm:max-w-5xl md:max-w-5xl max-w-5xl w-full max-h-[90vh] overflow-y-auto font-sans p-7 rounded-2xl shadow-2xl">
+            <DialogHeader className="border-b pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center space-x-3.5">
+                  <div className="h-11 w-11 rounded-2xl bg-primary/10 text-primary font-bold text-lg flex items-center justify-center shrink-0 border border-primary/20 shadow-2xs">
+                    {editUserName ? editUserName.charAt(0).toUpperCase() : "U"}
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-extrabold text-foreground flex items-center gap-2.5">
+                      Edit User Account: {editingUserObj.name || editingUserObj.email}
+                      <Badge variant="outline" className="text-xs font-mono font-bold bg-primary/10 text-primary border-primary/20">
+                        {getRoleDisplayName(editUserRole)}
+                      </Badge>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-[10px] font-bold px-2 py-0.5 ${
+                          editUserStatus === "Active"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300" 
+                            : "bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300"
+                        }`}
+                      >
+                        {editUserStatus}
+                      </Badge>
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                      Configure complete employee metadata, role assignment, password credentials, and permission overrides.
+                    </DialogDescription>
+                  </div>
                 </div>
-                <div>
-                  <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                    Edit User Account: {editingUserObj.name || editingUserObj.email}
-                    <Badge variant="secondary" className="text-xs">
-                      {getRoleDisplayName(editUserRole)}
-                    </Badge>
-                  </DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground">
-                    Update employee details, system role, credentials, and permission overrides.
-                  </DialogDescription>
-                </div>
-              </div>
 
-              {/* Modal Sub-Tabs */}
-              <div className="flex items-center gap-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setEditUserTab("profile")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    editUserTab === "profile" ? "bg-primary text-white" : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                  }`}
-                >
-                  Profile &amp; Account
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditUserTab("password")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    editUserTab === "password" ? "bg-primary text-white" : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                  }`}
-                >
-                  Password &amp; Security
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditUserTab("overrides")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    editUserTab === "overrides" ? "bg-primary text-white" : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                  }`}
-                >
-                  Permission Overrides
-                </button>
+                {/* Modal Sub-Tabs */}
+                <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-xl border border-border shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setEditUserTab("profile")}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      editUserTab === "profile" ? "bg-background text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Profile &amp; Account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditUserTab("password")}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      editUserTab === "password" ? "bg-background text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Password &amp; Security
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditUserTab("overrides")}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      editUserTab === "overrides" ? "bg-background text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Permission Overrides
+                  </button>
+                </div>
               </div>
             </DialogHeader>
 
             <div className="py-4 text-xs">
-              {/* TAB A: PROFILE & ACCOUNT */}
+              {/* TAB A: PROFILE & ACCOUNT (Spacious 3-Column Layout) */}
               {editUserTab === "profile" && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="font-bold text-muted-foreground">User Name</label>
-                      <input
-                        type="text"
-                        value={editUserName}
-                        onChange={e => setEditUserName(e.target.value)}
-                        className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs focus:outline-none font-bold"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-bold text-muted-foreground">Corporate Email</label>
-                      <input
-                        type="email"
-                        value={editUserEmail}
-                        onChange={e => setEditUserEmail(e.target.value)}
-                        className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs font-mono focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="font-bold text-muted-foreground">Mobile Phone</label>
-                      <input
-                        type="text"
-                        value={editUserPhone}
-                        onChange={e => setEditUserPhone(e.target.value)}
-                        className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="font-bold text-muted-foreground">Designation</label>
-                      <input
-                        type="text"
-                        value={editUserDesignation}
-                        onChange={e => setEditUserDesignation(e.target.value)}
-                        className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs focus:outline-none"
-                      />
+                <div className="space-y-6">
+                  
+                  {/* Card 1: User Identity */}
+                  <div className="p-4 border rounded-xl bg-card space-y-3 shadow-2xs">
+                    <h4 className="font-bold text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
+                      <User className="h-3.5 w-3.5 text-primary" /> Personal Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-foreground">User Name <span className="text-rose-500">*</span></label>
+                        <input
+                          type="text"
+                          value={editUserName}
+                          onChange={e => setEditUserName(e.target.value)}
+                          className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs font-bold focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-foreground">Corporate Email Address <span className="text-rose-500">*</span></label>
+                        <input
+                          type="email"
+                          value={editUserEmail}
+                          onChange={e => setEditUserEmail(e.target.value)}
+                          className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs font-mono focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-foreground">Mobile Phone Number</label>
+                        <input
+                          type="text"
+                          placeholder="+971 50 123 4567"
+                          value={editUserPhone}
+                          onChange={e => setEditUserPhone(e.target.value)}
+                          className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs focus:outline-none focus:border-primary"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="font-bold text-muted-foreground">Assigned Role</label>
-                      <select
-                        value={editUserRole}
-                        onChange={e => setEditUserRole(e.target.value)}
-                        className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs font-bold focus:outline-none cursor-pointer"
-                      >
-                        {roles.map(r => (
-                          <option key={r.id} value={r.name}>
-                            {getRoleDisplayName(r.name)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  {/* Card 2: Role Allocation & Account Status */}
+                  <div className="p-4 border rounded-xl bg-card space-y-3 shadow-2xs">
+                    <h4 className="font-bold text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
+                      <Shield className="h-3.5 w-3.5 text-primary" /> Role Assignment &amp; System Access
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-foreground">Assigned Role</label>
+                        <select
+                          value={editUserRole}
+                          onChange={e => setEditUserRole(e.target.value)}
+                          className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs font-bold focus:outline-none cursor-pointer focus:border-primary"
+                        >
+                          {roles.map(r => (
+                            <option key={r.id} value={r.name}>
+                              {getRoleDisplayName(r.name)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    <div className="space-y-1">
-                      <label className="font-bold text-muted-foreground">Account Status</label>
-                      <select
-                        value={editUserStatus}
-                        onChange={e => setEditUserStatus(e.target.value)}
-                        className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs font-bold focus:outline-none cursor-pointer"
-                      >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="Suspended">Suspended</option>
-                      </select>
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-foreground">Account Status</label>
+                        <select
+                          value={editUserStatus}
+                          onChange={e => setEditUserStatus(e.target.value)}
+                          className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs font-bold focus:outline-none cursor-pointer focus:border-primary"
+                        >
+                          <option value="Active">Active (Full Access Enabled)</option>
+                          <option value="Inactive">Inactive (Disabled)</option>
+                          <option value="Suspended">Suspended (Locked)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-foreground">Employee ID</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. EMP-104"
+                          value={editingUserObj.employeeId || ""}
+                          disabled
+                          className="w-full h-10 px-3 bg-muted border border-border rounded-xl text-xs font-mono text-muted-foreground"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="font-bold text-muted-foreground">Department</label>
-                    <input
-                      type="text"
-                      value={editUserDepartment}
-                      onChange={e => setEditUserDepartment(e.target.value)}
-                      className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs focus:outline-none"
-                    />
+                  {/* Card 3: Organizational Details */}
+                  <div className="p-4 border rounded-xl bg-card space-y-3 shadow-2xs">
+                    <h4 className="font-bold text-xs text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 border-b pb-2">
+                      <Briefcase className="h-3.5 w-3.5 text-primary" /> Department &amp; Organizational Profile
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-foreground">Department Information</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Design &amp; Commercial Sales"
+                          value={editUserDepartment}
+                          onChange={e => setEditUserDepartment(e.target.value)}
+                          className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs focus:outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="font-bold text-foreground">Designation Title</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Senior Interior Design Consultant"
+                          value={editUserDesignation}
+                          onChange={e => setEditUserDesignation(e.target.value)}
+                          className="w-full h-10 px-3 bg-background border border-border rounded-xl text-xs focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                    </div>
                   </div>
+
                 </div>
               )}
 
-              {/* TAB B: PASSWORD MANAGEMENT */}
+              {/* TAB B: PASSWORD MANAGEMENT (Spacious Layout) */}
               {editUserTab === "password" && (
-                <div className="space-y-4 p-4 border rounded-xl bg-muted/20">
-                  <div className="space-y-1">
+                <div className="space-y-5 p-5 border rounded-xl bg-card shadow-2xs">
+                  <div className="space-y-1 border-b pb-3">
                     <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
-                      <Lock className="h-4 w-4 text-amber-500" /> Password Management
+                      <Lock className="h-4.5 w-4.5 text-amber-500" /> Security Credentials &amp; Password Reset
                     </h4>
                     <p className="text-xs text-muted-foreground">
-                      Set a new password for {editingUserObj.name || editingUserObj.email}.
+                      Set a new corporate password or generate temporary credentials for {editingUserObj.name || editingUserObj.email}.
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="space-y-1">
-                      <label className="font-bold text-muted-foreground">New Password</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
+                    <div className="space-y-1.5">
+                      <label className="font-bold text-foreground">New Password</label>
                       <input
                         type="password"
-                        placeholder="••••••••••••"
+                        placeholder="Enter new password"
                         value={editUserPassword}
                         onChange={e => setEditUserPassword(e.target.value)}
-                        className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs focus:outline-none"
+                        className="w-full h-10 px-3.5 bg-background border border-border rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="font-bold text-muted-foreground">Confirm New Password</label>
+                    <div className="space-y-1.5">
+                      <label className="font-bold text-foreground">Confirm New Password</label>
                       <input
                         type="password"
-                        placeholder="••••••••••••"
+                        placeholder="Re-enter new password"
                         value={confirmUserPassword}
                         onChange={e => setConfirmUserPassword(e.target.value)}
-                        className="w-full h-9 px-3 bg-card border border-border rounded-xl text-xs focus:outline-none"
+                        className="w-full h-10 px-3.5 bg-background border border-border rounded-xl text-xs focus:outline-none focus:border-amber-500 font-mono"
                       />
                     </div>
                   </div>
 
-                  <div className="pt-2 flex items-center justify-between">
+                  <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t">
                     <Button
                       type="button"
                       variant="outline"
@@ -1335,79 +1381,94 @@ export default function AccessControlPage() {
                         setConfirmUserPassword(temp)
                         toast.info(`Generated temporary password: ${temp}`)
                       }}
-                      className="text-xs font-bold cursor-pointer"
+                      className="text-xs font-bold cursor-pointer h-9 px-4 rounded-xl border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"
                     >
+                      <Key className="h-3.5 w-3.5 mr-1.5" />
                       Generate Temp Password
                     </Button>
-                    <span className="text-[11px] text-muted-foreground font-mono">Password updates apply when you click Save Changes.</span>
+                    <span className="text-[11px] text-muted-foreground font-mono">Note: Password changes are applied immediately when you save.</span>
                   </div>
                 </div>
               )}
 
-              {/* TAB C: PERMISSION OVERRIDES */}
+              {/* TAB C: PERMISSION OVERRIDES (Multi-Column Matrix) */}
               {editUserTab === "overrides" && (
-                <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-1">
-                  {modules.map(m => (
-                    <div key={m.id} className="p-3 border rounded-xl bg-card space-y-2">
-                      <div className="flex items-center justify-between border-b pb-1">
-                        <span className="font-bold text-xs text-foreground">{m.name} ({m.id})</span>
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                  <div className="p-3 bg-muted/40 border rounded-xl text-xs text-muted-foreground">
+                    Explicitly override permissions for <strong>{editUserName || editUserEmail}</strong>. Setting to &quot;Inherit Role&quot; will use the default role permission matrix.
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {modules.map(m => (
+                      <div key={m.id} className="p-4 border rounded-xl bg-card space-y-3 shadow-2xs">
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                            <Layers className="h-3.5 w-3.5 text-primary" />
+                            {m.name}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">{m.id}</span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {matrixColumns.map(col => {
+                            const key = `${m.id}:${col.id}`
+                            const currentVal = editingOverrides[key]
+                            return (
+                              <div key={col.id} className="p-1.5 border rounded-lg bg-muted/20 flex flex-col space-y-1">
+                                <span className="font-semibold text-[10px] text-foreground truncate" title={col.label}>{col.label}</span>
+                                <select
+                                  value={currentVal === true ? "true" : currentVal === false ? "false" : "default"}
+                                  onChange={e => {
+                                    const val = e.target.value
+                                    setEditingOverrides(prev => {
+                                      const next = { ...prev }
+                                      if (val === "default") {
+                                        delete next[key]
+                                      } else {
+                                        next[key] = val === "true"
+                                      }
+                                      return next
+                                    })
+                                  }}
+                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded border cursor-pointer ${
+                                    currentVal === true 
+                                      ? "bg-emerald-100 text-emerald-800 border-emerald-300" 
+                                      : currentVal === false 
+                                      ? "bg-rose-100 text-rose-800 border-rose-300" 
+                                      : "bg-background text-muted-foreground"
+                                  }`}
+                                >
+                                  <option value="default">Inherit Role</option>
+                                  <option value="true">Force Grant</option>
+                                  <option value="false">Force Deny</option>
+                                </select>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {matrixColumns.map(col => {
-                          const key = `${m.id}:${col.id}`
-                          const currentVal = editingOverrides[key]
-                          return (
-                            <div key={col.id} className="p-1.5 border rounded-lg bg-muted/20 flex flex-col space-y-1">
-                              <span className="font-semibold text-[10px] text-foreground truncate">{col.label}</span>
-                              <select
-                                value={currentVal === true ? "true" : currentVal === false ? "false" : "default"}
-                                onChange={e => {
-                                  const val = e.target.value
-                                  setEditingOverrides(prev => {
-                                    const next = { ...prev }
-                                    if (val === "default") {
-                                      delete next[key]
-                                    } else {
-                                      next[key] = val === "true"
-                                    }
-                                    return next
-                                  })
-                                }}
-                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border cursor-pointer ${
-                                  currentVal === true 
-                                    ? "bg-emerald-100 text-emerald-800 border-emerald-300" 
-                                    : currentVal === false 
-                                    ? "bg-rose-100 text-rose-800 border-rose-300" 
-                                    : "bg-background text-muted-foreground"
-                                }`}
-                              >
-                                <option value="default">Inherit Role</option>
-                                <option value="true">Force Grant</option>
-                                <option value="false">Force Deny</option>
-                              </select>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            <DialogFooter className="border-t pt-4">
-              <Button variant="outline" size="sm" onClick={() => setEditingUserObj(null)}>
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                disabled={savingUserProfile}
-                onClick={handleSaveEditUserProfile}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-              >
-                {savingUserProfile ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                Save Changes
-              </Button>
+            <DialogFooter className="border-t pt-4 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground hidden sm:inline">
+                Editing user profile for <strong className="text-foreground">{editUserEmail}</strong>
+              </span>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setEditingUserObj(null)} className="h-9 px-4 rounded-xl text-xs">
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={savingUserProfile}
+                  onClick={handleSaveEditUserProfile}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9 px-5 rounded-xl text-xs flex items-center gap-1.5 shadow-2xs"
+                >
+                  {savingUserProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save Changes
+                </Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
