@@ -628,41 +628,63 @@ export function QuotationJourneyModal({
                                   )}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
-                                  {/* Edit Action */}
-                                  {canEdit && (
-                                    <Link href={`/quotations/new?editId=${item.id}`}>
+                                  {item.status === "DRAFT" ? (
+                                    /* DRAFT STATUS ACTIONS: Update & View */
+                                    <>
+                                      {canEdit && (
+                                        <Link href={`/quotations/new?editId=${item.id}`}>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-300 font-semibold cursor-pointer"
+                                            title="Update draft quotation"
+                                          >
+                                            <Edit className="h-3.5 w-3.5 mr-1" /> Update
+                                          </Button>
+                                        </Link>
+                                      )}
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200 font-semibold cursor-pointer"
-                                        title="Edit this version"
+                                        className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 font-semibold cursor-pointer"
+                                        onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
                                       >
-                                        <Edit className="h-3.5 w-3.5 mr-1" /> Edit
+                                        <Eye className="h-3.5 w-3.5 mr-1" /> View
                                       </Button>
-                                    </Link>
-                                  )}
-
-                                  {/* Revise Action */}
-                                  {canCreate && (
-                                    <Link href={`/quotations/new?reviseId=${item.id}`}>
+                                    </>
+                                  ) : (
+                                    /* CREATED / ACTIVE STATUS ACTIONS: Revise & View */
+                                    <>
+                                      {canCreate && (
+                                        <Link href={`/quotations/new?reviseId=${item.id}`}>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-8 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-200 font-semibold cursor-pointer"
+                                            title="Create a revision of this quotation"
+                                          >
+                                            <RefreshCw className="h-3.5 w-3.5 mr-1" /> Revise
+                                          </Button>
+                                        </Link>
+                                      )}
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        className="h-8 text-xs text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-200 font-semibold cursor-pointer"
-                                        title="Create a revision from this version"
+                                        className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-300 font-semibold cursor-pointer"
+                                        onClick={() => window.open(`/quotations/${item.id}/preview`, "_blank")}
                                       >
-                                        <RefreshCw className="h-3.5 w-3.5 mr-1" /> Revise
+                                        <Eye className="h-3.5 w-3.5 mr-1" /> View
                                       </Button>
-                                    </Link>
+                                    </>
                                   )}
 
-                                  {/* Copy Action */}
-                                  {canCreate && (
+                                  {/* Super Admin administrative actions */}
+                                  {isSuperAdmin && (
                                     <Button
                                       variant="outline"
                                       size="sm"
                                       className="h-8 text-xs text-teal-600 hover:text-teal-700 hover:bg-teal-50 border-teal-200 font-semibold cursor-pointer"
-                                      title="Create a copy of this version"
+                                      title="Create a copy of this version (Super Admin)"
                                       disabled={copyLoadingId === item.id}
                                       onClick={() => handleCopyTimelineItem(item.id)}
                                     >

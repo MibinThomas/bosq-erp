@@ -702,13 +702,13 @@ export default function QuotationsPage() {
                           </Button>
 
                           {/* Update or Revise button based on status */}
-                          {quote.status === "PENDING_APPROVAL" ? (
+                          {quote.status === "DRAFT" ? (
                             <Link href={`/quotations/new?editId=${(quote as any).activeQuotationId || quote.id}`}>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 hover:bg-muted text-amber-600 hover:text-amber-700"
-                                title="Update Quotation"
+                                title="Update Draft Quotation"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -778,13 +778,16 @@ export default function QuotationsPage() {
                                   </DropdownMenuItem>
                                 </Link>
                               )}
-                              <DropdownMenuItem
-                                onClick={() => handleCopyQuote((quote as any).activeQuotationId || quote.id)}
-                                className="flex items-center text-teal-600 focus:text-teal-600 focus:bg-teal-50 cursor-pointer font-medium"
-                              >
-                                <Copy className="mr-2 h-4 w-4 text-teal-600" />
-                                Copy Quotation...
-                              </DropdownMenuItem>
+
+                              {isSuperAdmin && (
+                                <DropdownMenuItem
+                                  onClick={() => handleCopyQuote((quote as any).activeQuotationId || quote.id)}
+                                  className="flex items-center text-teal-600 focus:text-teal-600 focus:bg-teal-50 cursor-pointer font-medium"
+                                >
+                                  <Copy className="mr-2 h-4 w-4 text-teal-600" />
+                                  Copy Quotation (Super Admin)...
+                                </DropdownMenuItem>
+                              )}
 
                           {isSuperAdmin && (
                             <>
