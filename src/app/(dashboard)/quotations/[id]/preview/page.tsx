@@ -843,15 +843,27 @@ export default function QuotationHtmlPreviewPage() {
             </Button>
           )}
 
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => window.open(`/api/quotations/${quotation.id}/pdf`, "_blank")}
-            title="Download PDF"
-            className="bg-primary hover:bg-primary/90 text-white font-semibold cursor-pointer"
-          >
-            <Download className="mr-1.5 h-4 w-4" /> Download PDF
-          </Button>
+          {quotation.status !== "DRAFT" ? (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => window.open(`/api/quotations/${quotation.id}/pdf`, "_blank")}
+              title="Download PDF"
+              className="bg-primary hover:bg-primary/90 text-white font-semibold cursor-pointer"
+            >
+              <Download className="mr-1.5 h-4 w-4" /> Download PDF
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+              title="Download PDF is disabled for Draft quotations"
+              className="opacity-40 cursor-not-allowed font-semibold"
+            >
+              <Download className="mr-1.5 h-4 w-4" /> Download PDF (Draft)
+            </Button>
+          )}
 
           {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quotation.status) && (
             <Button

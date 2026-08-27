@@ -60,6 +60,10 @@ export async function GET(
       return new Response("Quotation not found", { status: 404 })
     }
 
+    if (quotation.status === "DRAFT") {
+      return new Response("PDF Download is disabled for Draft quotations. Please finalize or create the quotation to generate official PDF.", { status: 403 })
+    }
+
     const session = await getServerSession(authOptions)
     if (!session) {
       return new Response("Unauthorized", { status: 401 })

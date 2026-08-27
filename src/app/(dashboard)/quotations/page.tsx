@@ -660,21 +660,33 @@ export default function QuotationsPage() {
                             </Button>
                           )}
 
-                          {/* Download PDF directly */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-muted"
-                            title={quote.status === "PENDING_APPROVAL" && !canEdit ? "Pending Approval (Locked)" : "Download PDF"}
-                            disabled={quote.status === "PENDING_APPROVAL" && !canEdit}
-                            onClick={() => window.open(`/api/quotations/${(quote as any).activeQuotationId || quote.id}/pdf`, "_blank")}
-                          >
-                            {quote.status === "PENDING_APPROVAL" && !canEdit ? (
-                              <Lock className="h-4 w-4 text-muted-foreground/60" />
-                            ) : (
-                              <FileDown className="h-4 w-4 text-muted-foreground" />
-                            )}
-                          </Button>
+                          {/* Download PDF directly (Disabled for Draft status) */}
+                          {quote.status !== "DRAFT" ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-muted text-muted-foreground"
+                              title={quote.status === "PENDING_APPROVAL" && !canEdit ? "Pending Approval (Locked)" : "Download PDF"}
+                              disabled={quote.status === "PENDING_APPROVAL" && !canEdit}
+                              onClick={() => window.open(`/api/quotations/${(quote as any).activeQuotationId || quote.id}/pdf`, "_blank")}
+                            >
+                              {quote.status === "PENDING_APPROVAL" && !canEdit ? (
+                                <Lock className="h-4 w-4 text-muted-foreground/60" />
+                              ) : (
+                                <FileDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 opacity-30 cursor-not-allowed text-muted-foreground/40"
+                              title="Download PDF is disabled for Draft quotations"
+                              disabled
+                            >
+                              <FileDown className="h-4 w-4" />
+                            </Button>
+                          )}
 
                           {/* SharePoint folder link */}
                           {quote.sharepointUrl && (
