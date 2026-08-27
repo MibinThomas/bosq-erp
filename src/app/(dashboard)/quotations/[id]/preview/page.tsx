@@ -55,6 +55,7 @@ import { calculateProductPrice } from "@/components/costing/QuotationCostingWork
 import { ExecutiveCostSummaryCard } from "@/components/costing/ExecutiveCostSummaryCard"
 import { ManagerialAuditSection, ManagerialAuditSummary, AuditItemMetric } from "@/components/quotations/ManagerialAuditSection"
 import { ApprovalMatrixBanner } from "@/components/quotations/ApprovalMatrixBanner"
+import { usePageHeader } from "@/components/providers/PageHeaderContext"
 import { Calculator, Sparkles, RefreshCw } from "lucide-react"
 
 interface QuotationItem {
@@ -510,6 +511,232 @@ export default function QuotationHtmlPreviewPage() {
     loadQuotation()
   }, [id])
 
+  const { setHeaderContent } = usePageHeader()
+
+  useEffect(() => {
+    if (!quotation) {
+      setHeaderContent(null)
+      return
+    }
+
+    const formattedDateStr = quotation?.date ? new Date(quotation.date).toISOString().split("T")[0] : ""
+    const formattedTotal = quotation.grandTotal ? quotation.grandTotal.toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"
+
+    setHeaderContent(
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
+        {/* Left Navigation & Full Details */}
+        <div className="flex items-center space-x-3 min-w-0">
+          <Link href="/quotations">
+            <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg shrink-0 hover:bg-muted shadow-2xs">
+              <ArrowLeft className="h-4 w-4 text-foreground" />
+            </Button>
+          </Link>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-base font-extrabold tracking-tight text-foreground truncate">
+                Quotation Preview ({(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()})
+              </h1>
+              {(() => {
+                if (["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(quotation.status)) {
+                  return (
+                    <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1 shrink-0 text-[10px] py-0 px-1.5">
+                      <Check className="h-3 w-3" /> Client Approved
+                    </Badge>
+                  )
+                }
+                if (quotation.costingStatus === "COSTING_COMPLETED") {
+                  return (
+                    <Badge className="bg-emerald-600 text-white font-semibold flex items-center gap-1 shrink-0 text-[10px] py-0 px-1.5">
+                      <CheckCircle2 className="h-3 w-3" /> Costing Completed
+                    </Badge>
+                  )
+                }
+                if (quotation.costingStatus === "PARTIALLY_COSTED") {
+                  return (
+                    <Badge className="bg-purple-600 text-white font-semibold flex items-center gap-1 shrink-0 text-[10px] py-0 px-1.5">
+                      <Calculator className="h-3 w-3" /> Partially Costed
+                    </Badge>
+                  )
+                }
+                if (quotation.costingStatus === "COSTING_IN_PROGRESS") {
+                  return (
+                    <Badge className="bg-blue-600 text-white font-semibold flex items-center gap-1 shrink-0 text-[10px] py-0 px-1.5">
+                      <Calculator className="h-3 w-3" /> In Costing
+                    </Badge>
+                  )
+                }
+                if (quotation.costingStatus === "PENDING_COSTING") {
+                  return (
+                    <Badge className="bg-amber-500 text-white font-semibold flex items-center gap-1 shrink-0 text-[10px] py-0 px-1.5">
+                      <Clock className="h-3 w-3" /> Pending Costing
+                    </Badge>
+                  )
+                }
+                if (quotation.status && quotation.status !== "DRAFT") {
+                  return (
+                    <Badge className="bg-blue-600 text-white font-semibold flex items-center gap-1 shrink-0 text-[10px] py-0 px-1.5">
+                      <CheckCircle2 className="h-3 w-3" /> Active Quotation
+                    </Badge>
+                  )
+                }
+                return (
+                  <Badge variant="outline" className="text-muted-foreground font-semibold flex items-center gap-1 shrink-0 text-[10px] py-0 px-1.5">
+                    <Clock className="h-3 w-3" /> Draft
+                  </Badge>
+                )
+              })()}
+            </div>
+            <p className="text-[11px] text-muted-foreground truncate hidden md:block">
+              Client: <span className="font-semibold text-foreground">{quotation.client?.companyName || "N/A"}</span> | Date: {formattedDateStr} | Total: <span className="font-bold text-primary">AED {formattedTotal}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Right Action Bar */}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {/* Mode Navigation */}
+          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 p-0.5 rounded-lg border border-border">
+            {isAuthorizedForCosting && (
+              <Button
+                type="button"
+                variant={activeViewMode === "costing" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setActiveViewMode("costing")}
+                className={`h-7 text-xs font-bold px-2.5 cursor-pointer ${activeViewMode === "costing" ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs" : "text-emerald-700 dark:text-emerald-400"}`}
+              >
+                <Calculator className="h-3.5 w-3.5 mr-1" /> Costing
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              variant={activeViewMode === "pdf" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setActiveViewMode("pdf")}
+              className="h-7 text-xs font-semibold px-2.5 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5 mr-1" /> PDF Viewer
+            </Button>
+          </div>
+
+          {quotation.status === "DRAFT" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/quotations/new?editId=${quotation.id}`)}
+              title="Update Draft Quotation"
+              className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 font-semibold cursor-pointer px-2.5"
+            >
+              <Edit className="mr-1 h-3.5 w-3.5 text-amber-600" /> Update
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/quotations/new?reviseId=${quotation.id}`)}
+              title="Revise Quotation"
+              className="h-7 text-xs border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold cursor-pointer px-2.5"
+            >
+              <RefreshCw className="mr-1 h-3.5 w-3.5 text-purple-600" /> Revise
+            </Button>
+          )}
+
+          {!isIDC && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/quotations/${quotation.id}/copy`, { method: "POST" })
+                  if (!res.ok) throw new Error("Failed to copy quotation")
+                  const newQuote = await res.json()
+                  toast.success(`Created copy "${newQuote.quotationNumber}"!`)
+                  router.push(`/quotations/${newQuote.id}/preview`)
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to copy quotation.")
+                }
+              }}
+              title="Make a Copy"
+              className="h-7 text-xs border-teal-600/50 text-teal-700 hover:bg-teal-50 font-semibold cursor-pointer px-2.5"
+            >
+              <Copy className="mr-1 h-3.5 w-3.5 text-teal-600" /> Copy
+            </Button>
+          )}
+
+          {canSaveToCatalog && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCatalogDialogOpen(true)}
+              title="Save Products to Catalog"
+              className="h-7 text-xs border-indigo-600/50 text-indigo-700 hover:bg-indigo-50 font-semibold cursor-pointer px-2.5"
+            >
+              <PackagePlus className="mr-1 h-3.5 w-3.5 text-indigo-600" /> Catalog
+            </Button>
+          )}
+
+          {quotation.sharepointUrl && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(quotation.sharepointUrl || "", "_blank")}
+              title="Open SharePoint Folder"
+              className="h-7 text-xs cursor-pointer px-2.5"
+            >
+              <ExternalLink className="mr-1 h-3.5 w-3.5" /> SharePoint
+            </Button>
+          )}
+
+          {quotation.status !== "DRAFT" ? (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => window.open(`/api/quotations/${quotation.id}/pdf`, "_blank")}
+              title="Download PDF"
+              className="h-7 text-xs bg-primary hover:bg-primary/90 text-white font-semibold cursor-pointer px-3"
+            >
+              <Download className="mr-1 h-3.5 w-3.5" /> Download PDF
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled
+              title="Download PDF is disabled for Draft quotations"
+              className="h-7 text-xs opacity-40 cursor-not-allowed font-semibold px-2.5"
+            >
+              <Download className="mr-1 h-3.5 w-3.5" /> Download PDF (Draft)
+            </Button>
+          )}
+
+          {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quotation.status) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-semibold cursor-pointer px-2.5"
+              onClick={() => handleConfirmQuote(false)}
+            >
+              <Check className="mr-1 h-3.5 w-3.5 text-emerald-600" /> Approve
+            </Button>
+          )}
+        </div>
+      </div>
+    )
+
+    return () => {
+      setHeaderContent(null)
+    }
+  }, [
+    quotation,
+    activeViewMode,
+    isAuthorizedForCosting,
+    isIDC,
+    canSaveToCatalog,
+    isAuthorizedToConfirm,
+    setHeaderContent,
+    router,
+  ])
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
@@ -679,217 +906,8 @@ export default function QuotationHtmlPreviewPage() {
   ]
 
   return (
-    <div className="absolute inset-0 bg-slate-100 dark:bg-slate-950 flex flex-col overflow-hidden z-20 print:relative print:inset-auto print:bg-white print:h-auto print:overflow-visible font-sans">
+    <div className="w-full flex-1 flex flex-col min-h-0 bg-slate-100 dark:bg-slate-950 font-sans print:relative print:bg-white print:h-auto">
       
-      {/* Top Header Bar */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 py-3 px-6 flex flex-wrap justify-between items-center gap-4 print:hidden shrink-0 z-30 shadow-xs">
-        <div className="flex items-center space-x-3">
-          <Link href="/quotations">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight text-foreground">
-                Quotation Preview ({(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()})
-              </h1>
-              {(() => {
-                if (["CLIENT_APPROVED", "CLIENT_CONFIRMED"].includes(quotation.status)) {
-                  return (
-                    <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1 shrink-0">
-                      <Check className="h-3 w-3" />
-                      Client Approved
-                    </Badge>
-                  )
-                }
-                if (quotation.costingStatus === "COSTING_COMPLETED") {
-                  return (
-                    <Badge className="bg-emerald-600 text-white font-semibold flex items-center gap-1 shrink-0">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Costing Completed
-                    </Badge>
-                  )
-                }
-                if (quotation.costingStatus === "PARTIALLY_COSTED") {
-                  return (
-                    <Badge className="bg-purple-600 text-white font-semibold flex items-center gap-1 shrink-0">
-                      <Calculator className="h-3 w-3" />
-                      Partially Costed
-                    </Badge>
-                  )
-                }
-                if (quotation.costingStatus === "COSTING_IN_PROGRESS") {
-                  return (
-                    <Badge className="bg-blue-600 text-white font-semibold flex items-center gap-1 shrink-0">
-                      <Calculator className="h-3 w-3" />
-                      In Costing
-                    </Badge>
-                  )
-                }
-                if (quotation.costingStatus === "PENDING_COSTING") {
-                  return (
-                    <Badge className="bg-amber-500 text-white font-semibold flex items-center gap-1 shrink-0">
-                      <Clock className="h-3 w-3" />
-                      Pending Costing
-                    </Badge>
-                  )
-                }
-                if (quotation.status && quotation.status !== "DRAFT") {
-                  return (
-                    <Badge className="bg-blue-600 text-white font-semibold flex items-center gap-1 shrink-0">
-                      <CheckCircle2 className="h-3 w-3" />
-                      Active Quotation
-                    </Badge>
-                  )
-                }
-                return (
-                  <Badge variant="outline" className="text-muted-foreground font-semibold flex items-center gap-1 shrink-0">
-                    <Clock className="h-3 w-3" />
-                    Draft
-                  </Badge>
-                )
-              })()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Client: <span className="font-semibold text-foreground">{quotation.client?.companyName}</span> | Date: {formattedDate} | Total: <span className="font-bold text-primary">AED {formatCurrency(quotation.grandTotal)}</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          {/* View Mode Navigation Bar */}
-          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/80 p-0.5 rounded-lg border border-border mr-2">
-
-            {isAuthorizedForCosting && (
-              <Button
-                type="button"
-                variant={activeViewMode === "costing" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveViewMode("costing")}
-                className={`h-7 text-xs font-bold px-3 cursor-pointer ${activeViewMode === "costing" ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs" : "text-emerald-700 dark:text-emerald-400"}`}
-              >
-                <Calculator className="h-3.5 w-3.5 mr-1.5" /> Managerial Audit &amp; Costing
-              </Button>
-            )}
-
-            <Button
-              type="button"
-              variant={activeViewMode === "pdf" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setActiveViewMode("pdf")}
-              className="h-7 text-xs font-semibold px-3 cursor-pointer"
-            >
-              <Download className="h-3.5 w-3.5 mr-1" /> PDF Viewer
-            </Button>
-          </div>
-
-          {quotation.status === "DRAFT" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/quotations/new?editId=${quotation.id}`)}
-              title="Update Draft Quotation"
-              className="border-amber-300 text-amber-700 hover:bg-amber-50 font-semibold cursor-pointer"
-            >
-              <Edit className="mr-1.5 h-4 w-4 text-amber-600" /> Update
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/quotations/new?reviseId=${quotation.id}`)}
-              title="Revise Quotation"
-              className="border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold cursor-pointer"
-            >
-              <RefreshCw className="mr-1.5 h-4 w-4 text-purple-600" /> Revise
-            </Button>
-          )}
-
-          {!isIDC && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                try {
-                  const res = await fetch(`/api/quotations/${quotation.id}/copy`, { method: "POST" })
-                  if (!res.ok) {
-                    const err = await res.json()
-                    throw new Error(err.error || "Failed to copy quotation")
-                  }
-                  const newQuote = await res.json()
-                  toast.success(`Created copy "${newQuote.quotationNumber}"!`)
-                  router.push(`/quotations/${newQuote.id}/preview`)
-                } catch (err: any) {
-                  toast.error(err.message || "Failed to copy quotation.")
-                }
-              }}
-              title="Make a Copy"
-              className="border-teal-600/50 text-teal-700 hover:bg-teal-50 dark:text-teal-300 font-semibold cursor-pointer"
-            >
-              <Copy className="mr-1.5 h-4 w-4 text-teal-600" /> Copy Quotation
-            </Button>
-          )}
-
-          {canSaveToCatalog && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsCatalogDialogOpen(true)}
-              title="Save Products to Catalog"
-              className="border-indigo-600/50 text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 font-semibold cursor-pointer"
-            >
-              <PackagePlus className="mr-1.5 h-4 w-4 text-indigo-600" /> Save Products to Catalog
-            </Button>
-          )}
-
-          {quotation.sharepointUrl && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open(quotation.sharepointUrl || "", "_blank")}
-              title="Open SharePoint Folder"
-              className="cursor-pointer"
-            >
-              <ExternalLink className="mr-1.5 h-4 w-4" /> SharePoint File
-            </Button>
-          )}
-
-          {quotation.status !== "DRAFT" ? (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => window.open(`/api/quotations/${quotation.id}/pdf`, "_blank")}
-              title="Download PDF"
-              className="bg-primary hover:bg-primary/90 text-white font-semibold cursor-pointer"
-            >
-              <Download className="mr-1.5 h-4 w-4" /> Download PDF
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled
-              title="Download PDF is disabled for Draft quotations"
-              className="opacity-40 cursor-not-allowed font-semibold"
-            >
-              <Download className="mr-1.5 h-4 w-4" /> Download PDF (Draft)
-            </Button>
-          )}
-
-          {isAuthorizedToConfirm && !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "CANCELLED"].includes(quotation.status) && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 font-semibold cursor-pointer"
-              onClick={() => handleConfirmQuote(false)}
-            >
-              <Check className="mr-1.5 h-4 w-4 text-emerald-600" /> Mark as Client Approved
-            </Button>
-          )}
-        </div>
-      </div>
-
       {/* Main Executive Workspace Area */}
       <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-950 p-4 sm:p-6 md:p-8 flex flex-col print:hidden overflow-y-auto">
         {activeViewMode === "costing" && isAuthorizedForCosting ? (
