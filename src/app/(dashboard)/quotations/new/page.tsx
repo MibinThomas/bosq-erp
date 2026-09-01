@@ -2979,7 +2979,7 @@ function NewQuotationForm() {
           commonRemarkStyle: data.commonRemarkStyle || "AMBER",
           isRevision: sendIsRevision,
           isUpdate: !sendIsRevision && (isEdit || !!targetId),
-          revisionNotes: revisionNotes.trim() || `Created Revision #${(existingQuote?.revisionNumber || 0) + 1}`,
+          revisionNotes: revisionNotes.trim() || `Created Revision #${targetRevNo}`,
           status: resolvedStatus,
         }),
       })
@@ -3290,11 +3290,20 @@ function NewQuotationForm() {
     }
   }
 
-  const isNonDraftQuote = existingQuote && existingQuote.status !== "DRAFT"
-  const isRevisionMode = isRevision || isNonDraftQuote
-  const isEditingDraft = isEdit && existingQuote && existingQuote.status === "DRAFT"
+  const isDraftRevision = existingQuote && existingQuote.status === "DRAFT" && (!!existingQuote.parentId || (existingQuote.revisionNumber || 1) > 1)
+  const isFinalizedQuote = existingQuote && existingQuote.status !== "DRAFT"
+  const isRevisionMode = isRevision || isFinalizedQuote || isDraftRevision
+
+  const targetRevNo = useMemo(() => {
+    if (!existingQuote) return 1
+    if (isFinalizedQuote) return (existingQuote.revisionNumber || 1) + 1
+    if (isDraftRevision) return existingQuote.revisionNumber || 1
+    return 1
+  }, [existingQuote, isFinalizedQuote, isDraftRevision])
+
+  const isEditingDraft = isEdit && existingQuote && existingQuote.status === "DRAFT" && !isDraftRevision
   const headerTitle = isRevisionMode ? "Revise Quotation" : isEditingDraft ? "Update Draft Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"
-  const primaryButtonText = isRevisionMode ? `Save Revision #${(existingQuote?.revisionNumber || 0) + 1}` : isEditingDraft ? "Update Draft" : "Create Quotation"
+  const primaryButtonText = isRevisionMode ? `Save Revision #${targetRevNo}` : isEditingDraft ? "Update Draft" : "Create Quotation"
   const watchIncludeSectionHeadings = useWatch({ control: form.control, name: "includeSectionHeadings" }) ?? true
 
   const { grandTotal: calculatedGrandTotal } = useQuotationFinancials(form.control)
@@ -3322,7 +3331,7 @@ function NewQuotationForm() {
               </h1>
               {isRevisionMode && existingQuote && (
                 <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-semibold py-0 px-1.5">
-                  Rev #{existingQuote.revisionNumber + 1}
+                  Rev #{targetRevNo} {isDraftRevision ? "(Draft)" : ""}
                 </Badge>
               )}
               {isEditingDraft && (
@@ -3338,7 +3347,9 @@ function NewQuotationForm() {
             </div>
             <p className="text-[11px] text-muted-foreground truncate hidden lg:block">
               {isRevisionMode
-                ? `Revision #${(existingQuote?.revisionNumber || 0) + 1} for ${existingQuote?.quotationNumber}`
+                ? (isDraftRevision 
+                    ? `Editing Draft for Revision #${targetRevNo} (${existingQuote?.quotationNumber})`
+                    : `Revision #${targetRevNo} for ${existingQuote?.quotationNumber}`)
                 : isEditingDraft
                   ? `Editing Quotation Draft ${existingQuote?.quotationNumber}`
                   : isCopy
@@ -3563,13 +3574,17 @@ function NewQuotationForm() {
             </div>
             <div>
               <h3 className="font-bold text-sm flex items-center gap-2 text-purple-950 dark:text-purple-100">
-                Quotation Locked from Direct Editing – Revision Mode
+                {isDraftRevision ? `Editing Draft Revision #${targetRevNo}` : `Quotation Locked from Direct Editing – Revision Mode`}
                 <Badge className="bg-purple-600 text-white font-bold text-[10px] uppercase">
-                  Rev #{existingQuote.revisionNumber + 1}
+                  Rev #{targetRevNo} {isDraftRevision ? "(Draft)" : ""}
                 </Badge>
               </h3>
               <p className="text-xs text-purple-800 dark:text-purple-300 mt-1 max-w-3xl">
-                Quotation <strong>{existingQuote.quotationNumber}</strong> has been created and is locked from direct editing. Any updates to line items, prices, quantities, or terms will save as a new revision (<strong>Revision #{existingQuote.revisionNumber + 1}</strong>) while preserving full original version history.
+                {isDraftRevision ? (
+                  <>Editing working draft for <strong>Revision #{targetRevNo}</strong> of quotation <strong>{existingQuote.quotationNumber}</strong>. Click <strong>Save Revision #{targetRevNo}</strong> to finalize and publish this revision.</>
+                ) : (
+                  <>Quotation <strong>{existingQuote.quotationNumber}</strong> has been finalized and locked from direct editing. Any changes will create and publish a new revision (<strong>Revision #{targetRevNo}</strong>) while preserving full audit history.</>
+                )}
               </p>
             </div>
           </div>

@@ -786,6 +786,19 @@ export async function PUT(
       return NextResponse.json(confirmedQuotation)
     }
 
+    // Check if target quotation is finalized (status !== "DRAFT")
+    if (existingQuotation.status !== "DRAFT" && !body.isRevision) {
+      if (logUserRole === "SUPER_ADMIN") {
+        body.isRevision = true
+        body.isUpdate = false
+      } else {
+        return NextResponse.json(
+          { error: `Quotation ${existingQuotation.quotationNumber} is finalized and locked from direct editing. Please create a Revision to modify this quotation.` },
+          { status: 400 }
+        )
+      }
+    }
+
     // CASE 1: FULL REVISION REQUEST
     if (body.isRevision === true) {
       if (!(await canManageQuotationSeries())) {
