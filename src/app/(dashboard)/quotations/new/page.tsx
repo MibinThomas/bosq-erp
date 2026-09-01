@@ -2198,6 +2198,7 @@ function NewQuotationForm() {
       isRevision?: boolean
       isEdit?: boolean
       pdfUrl?: string
+      status?: string
     } | null
   }>({ isOpen: false, quotation: null })
 
@@ -2991,14 +2992,14 @@ function NewQuotationForm() {
 
       const result = await res.json()
       toast.success(
-        isRevision
+        isRevisionMode
           ? (resolvedStatus === "DRAFT"
               ? `Quotation revision draft saved!`
-              : `Quotation revised successfully to Revision #${result.revisionNumber}!`)
-          : (isEdit || !!targetId)
+              : `Quotation Revision #${result.revisionNumber || targetRevNo} finalized and saved successfully!`)
+          : (isEditingDraft)
             ? (resolvedStatus === "DRAFT"
                 ? `Quotation draft updated successfully!`
-                : `Quotation ${result.quotationNumber} updated successfully!`)
+                : `Quotation ${result.quotationNumber} finalized successfully!`)
             : (resolvedStatus === "DRAFT"
                 ? `Quotation draft saved successfully!`
                 : `Quotation ${result.quotationNumber} created successfully!`)
@@ -3019,9 +3020,10 @@ function NewQuotationForm() {
             clientName: selectedClient?.companyName || (selectedClient as any)?.name || "",
             projectName: data.projectName,
             grandTotal: grandSub + calcDeliveryCharge,
-            isRevision: isRevision,
-            isEdit: isEdit,
+            isRevision: isRevisionMode,
+            isEdit: isEditingDraft,
             pdfUrl: `/api/quotations/${result.id}/pdf`,
+            status: resolvedStatus,
           }
         })
       }
@@ -3652,25 +3654,6 @@ function NewQuotationForm() {
             }}
             className="space-y-6"
           >
-            {/* Revision Notes Card */}
-            {isRevision && (
-              <Card className="border border-purple-200 dark:border-purple-900/40 bg-purple-50/10 shadow-xs">
-                <CardHeader className="py-3 px-4 sm:px-6 bg-purple-50/20 border-b border-purple-100">
-                  <CardTitle className="text-xs sm:text-sm text-purple-800 dark:text-purple-300 font-semibold uppercase tracking-wider flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-purple-600" />
-                    Revision Notes <span className="text-destructive">*</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6">
-                  <Textarea
-                    placeholder="Describe the specific updates made in this revision (e.g., 'Discounted workstation line items by 5% as per client request')."
-                    value={revisionNotes}
-                    onChange={(e) => setRevisionNotes(e.target.value)}
-                    className="min-h-[80px] bg-background text-xs sm:text-sm"
-                  />
-                </CardContent>
-              </Card>
-            )}
 
             {/* CARD 1: Quotation Information (Client & Project Metadata) */}
             <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">
