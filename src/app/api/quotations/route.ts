@@ -416,15 +416,7 @@ export async function POST(request: Request) {
 
     if (session.user) {
       const userRole = (session.user as any).role || "SALES_EXECUTIVE"
-      let finalId = body.preparedById || clientObj.salespersonId
-
-      if (!finalId) {
-        const primaryAssignment = await prisma.clientAssignment.findFirst({
-          where: { clientId: clientObj.id, isPrimary: true },
-          select: { userId: true }
-        })
-        finalId = primaryAssignment?.userId || (session.user as any).id
-      }
+      let finalId = body.preparedById || dbSessionUser.id
 
       const dbUser = await prisma.user.findUnique({
         where: { id: finalId }

@@ -1072,7 +1072,7 @@ export async function PUT(
       const targetClientId = body.clientId || existingQuotation.clientId
       const revisionClient = (await prisma.client.findUnique({ where: { id: targetClientId } })) || existingQuotation.client
 
-      const finalPreparedById = body.preparedById || existingQuotation.preparedById || revisionClient.salespersonId || logUserId
+      const finalPreparedById = body.preparedById || existingQuotation.preparedById || logUserId
       const dbPreparedUser = await prisma.user.findUnique({ where: { id: finalPreparedById } })
       const finalPreparedByUser = dbPreparedUser || {
         id: logUserId,
