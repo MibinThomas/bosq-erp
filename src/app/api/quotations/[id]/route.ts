@@ -806,18 +806,18 @@ export async function PUT(
       }
 
       const rootId = existingQuotation.parentId || existingQuotation.id
-      const resolvedStatus = body.status || "SUBMITTED"
 
-      // Lock / Idempotency Check: Check if a draft revision already exists for this parent root
-      // created by the same user within the last 15 minutes ONLY when auto-saving a DRAFT revision.
-      // When publishing an official revision (status !== "DRAFT"), ALWAYS create a brand new revision record!
-      if (resolvedStatus === "DRAFT") {
+      // 1. If existingQuotation itself is in DRAFT status, update it in-place
+      if (existingQuotation.status === "DRAFT") {
+        body.isRevision = false
+        body.isUpdate = true
+      } else {
+        // 2. Check if a working draft revision already exists for this parent root
         const existingDraftRevision = await prisma.quotation.findFirst({
           where: {
             parentId: rootId,
             status: "DRAFT",
             preparedById: logUserId,
-            createdAt: { gte: new Date(Date.now() - 15 * 60 * 1000) }
           },
           include: {
             client: true,
@@ -828,7 +828,7 @@ export async function PUT(
         })
 
         if (existingDraftRevision) {
-          // Update the existing draft revision in-place instead of creating another revision record
+          // Update the existing draft revision in-place
           existingQuotation = existingDraftRevision
           body.isRevision = false
           body.isUpdate = true
