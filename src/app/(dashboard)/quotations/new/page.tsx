@@ -2343,16 +2343,20 @@ function NewQuotationForm() {
             setExistingQuote(activeData)
             if (reviseId) {
               setIsRevision(true)
+              setIsEdit(false)
             } else if (editId) {
               if (activeData.status !== "DRAFT") {
-                toast.info(`Quotation ${activeData.quotationNumber} is already created and locked from direct editing. Opening Revision mode...`)
+                toast.info(`Quotation ${activeData.quotationNumber} is created and locked from direct editing. Opening Revision mode...`)
                 setIsRevision(true)
                 setIsEdit(false)
               } else {
                 setIsEdit(true)
+                setIsRevision(false)
               }
             } else if (copyId) {
               setIsCopy(true)
+              setIsEdit(false)
+              setIsRevision(false)
             }
 
             const rawPhones = activeData.salesAgentContactNumber || ""
@@ -2852,16 +2856,17 @@ function NewQuotationForm() {
       let method = "POST"
       let sendIsRevision = false
 
-      if (isRevision && existingQuote) {
+      const isRevisionSubmission = (isRevision || (existingQuote && existingQuote.status !== "DRAFT")) && !!existingQuote
+
+      if (isRevisionSubmission) {
         url = `/api/quotations/${existingQuote.id}`
         method = "PUT"
         sendIsRevision = true
-        if (!revisionNotes.trim()) {
-          toast.error("Please provide revision notes explaining the changes.")
-          setSubmitting(false)
-          return
-        }
-      } else if ((isEdit && existingQuote) || targetId) {
+      } else if (isEdit && existingQuote && existingQuote.status === "DRAFT") {
+        url = `/api/quotations/${existingQuote.id}`
+        method = "PUT"
+        sendIsRevision = false
+      } else if (targetId && (!existingQuote || existingQuote.status === "DRAFT")) {
         url = `/api/quotations/${targetId}`
         method = "PUT"
         sendIsRevision = false
@@ -2973,8 +2978,8 @@ function NewQuotationForm() {
           commonRemarkHighlight: !!data.commonRemarkHighlight,
           commonRemarkStyle: data.commonRemarkStyle || "AMBER",
           isRevision: sendIsRevision,
-          isUpdate: isEdit || !!targetId,
-          revisionNotes: revisionNotes,
+          isUpdate: !sendIsRevision && (isEdit || !!targetId),
+          revisionNotes: revisionNotes.trim() || `Created Revision #${(existingQuote?.revisionNumber || 0) + 1}`,
           status: resolvedStatus,
         }),
       })
@@ -3285,9 +3290,11 @@ function NewQuotationForm() {
     }
   }
 
-  const isOfficiallyCreated = isEdit && existingQuote && existingQuote.status !== "DRAFT"
-  const headerTitle = isRevision ? "Revise Quotation" : isOfficiallyCreated ? "Update Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"
-  const primaryButtonText = isRevision ? "Save Revision" : isOfficiallyCreated ? "Update Quotation" : "Create Quotation"
+  const isNonDraftQuote = existingQuote && existingQuote.status !== "DRAFT"
+  const isRevisionMode = isRevision || isNonDraftQuote
+  const isEditingDraft = isEdit && existingQuote && existingQuote.status === "DRAFT"
+  const headerTitle = isRevisionMode ? "Revise Quotation" : isEditingDraft ? "Update Draft Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"
+  const primaryButtonText = isRevisionMode ? `Save Revision #${(existingQuote?.revisionNumber || 0) + 1}` : isEditingDraft ? "Update Draft" : "Create Quotation"
   const watchIncludeSectionHeadings = useWatch({ control: form.control, name: "includeSectionHeadings" }) ?? true
 
   const { grandTotal: calculatedGrandTotal } = useQuotationFinancials(form.control)
@@ -3313,14 +3320,14 @@ function NewQuotationForm() {
               <h1 className="text-base font-extrabold tracking-tight text-foreground truncate">
                 {headerTitle}
               </h1>
-              {isRevision && existingQuote && (
+              {isRevisionMode && existingQuote && (
                 <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-semibold py-0 px-1.5">
                   Rev #{existingQuote.revisionNumber + 1}
                 </Badge>
               )}
-              {isOfficiallyCreated && (
+              {isEditingDraft && (
                 <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-semibold py-0 px-1.5">
-                  Edit Mode
+                  Draft Edit Mode
                 </Badge>
               )}
               {isCopy && (
@@ -3330,10 +3337,10 @@ function NewQuotationForm() {
               )}
             </div>
             <p className="text-[11px] text-muted-foreground truncate hidden lg:block">
-              {isRevision
-                ? `Revision #${existingQuote?.revisionNumber + 1} for ${existingQuote?.quotationNumber}`
-                : isOfficiallyCreated
-                  ? `Editing Quotation ${existingQuote?.quotationNumber}`
+              {isRevisionMode
+                ? `Revision #${(existingQuote?.revisionNumber || 0) + 1} for ${existingQuote?.quotationNumber}`
+                : isEditingDraft
+                  ? `Editing Quotation Draft ${existingQuote?.quotationNumber}`
                   : isCopy
                     ? `Copy of ${existingQuote?.quotationNumber}`
                     : "Select a client, build custom catalog line items, and generate a quotation PDF."}
@@ -3408,7 +3415,7 @@ function NewQuotationForm() {
             size="sm"
             disabled={submitting || isQuotationLockedForCosting}
             onClick={form.handleSubmit(
-              (data) => onSubmit(data, isOfficiallyCreated ? existingQuote.status : "CLIENT_APPROVED"),
+              (data) => onSubmit(data, (isRevisionMode || isEditingDraft) ? existingQuote.status : "CLIENT_APPROVED"),
               onInvalid
             )}
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-8 px-3.5 cursor-pointer flex items-center gap-1.5 shadow-2xs"
@@ -3433,7 +3440,8 @@ function NewQuotationForm() {
     headerTitle,
     isRevision,
     existingQuote,
-    isOfficiallyCreated,
+    isRevisionMode,
+    isEditingDraft,
     isCopy,
     isAutoSaving,
     lastAutoSavedAt,
@@ -3547,25 +3555,47 @@ function NewQuotationForm() {
       )}
 
       {/* Context Banner Alerts */}
-      {isRevision && existingQuote && (
-        <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/50 rounded-xl p-3.5 sm:p-4 flex items-start gap-3 text-purple-950 dark:text-purple-300">
-          <Info className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-          <div className="text-xs sm:text-sm">
-            <span className="font-semibold">Revising Quotation {existingQuote.quotationNumber}</span>
-            <p className="text-muted-foreground mt-0.5">
-              Creating Revision #{existingQuote.revisionNumber + 1}. The updated compiled PDF will be uploaded to SharePoint as the active revision while logging revision history.
-            </p>
+      {isRevisionMode && existingQuote && (
+        <div className="bg-purple-50 dark:bg-purple-950/20 border-2 border-purple-300 dark:border-purple-800 rounded-2xl p-4 sm:p-5 flex flex-col gap-3 text-purple-950 dark:text-purple-200 shadow-xs">
+          <div className="flex items-start gap-3.5">
+            <div className="h-10 w-10 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold shrink-0 shadow-sm mt-0.5">
+              <RefreshCw className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2 text-purple-950 dark:text-purple-100">
+                Quotation Locked from Direct Editing – Revision Mode
+                <Badge className="bg-purple-600 text-white font-bold text-[10px] uppercase">
+                  Rev #{existingQuote.revisionNumber + 1}
+                </Badge>
+              </h3>
+              <p className="text-xs text-purple-800 dark:text-purple-300 mt-1 max-w-3xl">
+                Quotation <strong>{existingQuote.quotationNumber}</strong> has been created and is locked from direct editing. Any updates to line items, prices, quantities, or terms will save as a new revision (<strong>Revision #{existingQuote.revisionNumber + 1}</strong>) while preserving full original version history.
+              </p>
+            </div>
+          </div>
+          <div className="pt-2.5 border-t border-purple-200 dark:border-purple-900/60 space-y-1.5">
+            <label className="text-xs font-bold text-purple-900 dark:text-purple-200 flex items-center gap-1.5">
+              <span>Revision Reason / Audit Notes:</span>
+              <span className="text-[11px] font-normal text-purple-600 dark:text-purple-400">(describe why this revision is being created)</span>
+            </label>
+            <Textarea
+              placeholder="e.g., Updated item quantities and line item pricing per client request."
+              value={revisionNotes}
+              onChange={(e) => setRevisionNotes(e.target.value)}
+              className="text-xs bg-background border-purple-300 focus-visible:ring-purple-500 font-normal"
+              rows={2}
+            />
           </div>
         </div>
       )}
 
-      {isEdit && existingQuote && (
+      {isEditingDraft && existingQuote && (
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-xl p-3.5 sm:p-4 flex items-start gap-3 text-amber-950 dark:text-amber-300">
           <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <div className="text-xs sm:text-sm">
-            <span className="font-semibold">Updating Quotation {existingQuote.quotationNumber}</span>
+            <span className="font-semibold">Updating Quotation Draft {existingQuote.quotationNumber}</span>
             <p className="text-muted-foreground mt-0.5">
-              Modifying existing quotation draft directly. Changes will overwrite current draft data and update the compiled PDF on SharePoint without incrementing revision number.
+              Modifying un-submitted draft directly. Changes will update the current draft until the quotation is officially created.
             </p>
           </div>
         </div>

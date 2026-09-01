@@ -133,11 +133,11 @@ export function ConsultantQuotations({ quotations }: { quotations: any[] }) {
                               View Details
                             </DropdownMenuItem>
                           </Link>
-                          {q.status === "DRAFT" || q.status === "PENDING_APPROVAL" ? (
+                          {q.status === "DRAFT" ? (
                             <Link href={`/quotations/new?editId=${q.id}`}>
                               <DropdownMenuItem className="flex items-center text-amber-600 focus:text-amber-600 focus:bg-amber-50 cursor-pointer">
                                 <FileEdit className="mr-2 h-4 w-4 text-amber-600" />
-                                Update Quotation
+                                Update Draft
                               </DropdownMenuItem>
                             </Link>
                           ) : (

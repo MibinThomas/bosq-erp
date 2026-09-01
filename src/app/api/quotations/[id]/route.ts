@@ -1318,6 +1318,13 @@ export async function PUT(
         return NextResponse.json({ error: "Unauthorized: You can only update your own or assigned quotations" }, { status: 403 })
       }
 
+      if (existingQuotation.status !== "DRAFT") {
+        return NextResponse.json(
+          { error: `Quotation ${existingQuotation.quotationNumber} is locked from direct editing. Please create a Revision to modify this quotation.` },
+          { status: 400 }
+        )
+      }
+
       const {
         items,
         projectName,
