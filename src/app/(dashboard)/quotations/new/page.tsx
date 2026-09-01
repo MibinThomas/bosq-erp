@@ -5167,6 +5167,7 @@ function NewQuotationForm() {
         quotationNumber={previewQuoteData?.quotationNumber || existingQuote?.quotationNumber}
         clientName={previewQuoteData?.client?.companyName}
         loading={loadingPreview}
+        status={previewQuoteData?.status || existingQuote?.status || "DRAFT"}
       />
 
       {/* Request Access Note Dialog */}

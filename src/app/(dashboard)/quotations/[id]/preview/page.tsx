@@ -995,17 +995,29 @@ export default function QuotationHtmlPreviewPage() {
           <div className="w-full flex-1 flex flex-col space-y-3">
             <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-xs flex items-center justify-between text-blue-800 dark:text-blue-200 shrink-0">
               <span>Streaming PDF document preview directly from server. If your browser blocks embedded PDF viewers:</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(`/api/quotations/${quotation.id}/pdf`, "_blank")}
-                className="h-7 text-xs bg-white dark:bg-slate-900 border-blue-300 text-blue-700 dark:text-blue-300 hover:bg-blue-100 font-semibold cursor-pointer shrink-0"
-              >
-                <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open PDF in New Tab
-              </Button>
+              {quotation.status !== "DRAFT" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.open(`/api/quotations/${quotation.id}/pdf`, "_blank")}
+                  className="h-7 text-xs bg-white dark:bg-slate-900 border-blue-300 text-blue-700 dark:text-blue-300 hover:bg-blue-100 font-semibold cursor-pointer shrink-0"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open PDF in New Tab
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  title="Opening PDF in new tab is disabled for Draft quotations"
+                  className="h-7 text-xs bg-slate-100 dark:bg-slate-900 border-slate-300 text-slate-400 font-semibold opacity-40 cursor-not-allowed shrink-0"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open PDF (Disabled in Draft)
+                </Button>
+              )}
             </div>
             <iframe
-              src={`/api/quotations/${quotation.id}/pdf?preview=true#toolbar=0&navpanes=0`}
+              src={`/api/quotations/${quotation.id}/pdf?preview=true#toolbar=${quotation.status === "DRAFT" ? 0 : 1}&navpanes=0`}
               className="w-full flex-1 min-h-[85vh] border-0 shadow-xl rounded-md bg-white"
               title={`Quotation ${(quotation.quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()} Preview`}
             />

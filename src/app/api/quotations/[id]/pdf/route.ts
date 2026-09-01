@@ -71,6 +71,10 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const isPreview = searchParams.get("preview") === "true"
 
+    if (!isPreview && quotation.status === "DRAFT") {
+      return new Response("Downloading draft quotations is disabled. Downloads are only available once a quotation is created, submitted, or approved.", { status: 403 })
+    }
+
     const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
     if (!isUnrestricted) {
       let hasAccess = false

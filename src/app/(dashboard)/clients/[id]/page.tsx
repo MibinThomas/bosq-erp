@@ -876,17 +876,29 @@ function QuotationFolderGroup({ rootQuote }: { rootQuote: Quotation }) {
                   </p>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  window.open(`/api/quotations/${v.id}/pdf`, "_blank")
-                }}
-              >
-                Download
-              </Button>
+              {v.status !== "DRAFT" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    window.open(`/api/quotations/${v.id}/pdf`, "_blank")
+                  }}
+                >
+                  Download
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  title="Download PDF is disabled for Draft quotations"
+                  className="h-7 text-xs gap-1 shrink-0 opacity-40 cursor-not-allowed"
+                >
+                  Download
+                </Button>
+              )}
             </div>
           ))}
         </div>

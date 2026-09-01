@@ -114,6 +114,7 @@ export async function GET(request: Request) {
     const filterStatus = searchParams.get("status") || ""
     const filterSegment = searchParams.get("customerSegment") || ""
     const filterPoStatus = searchParams.get("poStatus") || ""
+    const filterUserId = searchParams.get("userId") || ""
     const sortBy = searchParams.get("sortBy") || "quotationNumber"
     const sortOrder = searchParams.get("sortOrder") || "desc"
 
@@ -148,6 +149,30 @@ export async function GET(request: Request) {
         OR: [
           { poStatus: filterPoStatus },
           { revisionsList: { some: { poStatus: filterPoStatus, deletedAt: null } } }
+        ]
+      })
+    }
+
+    if (filterUserId) {
+      andConditions.push({
+        OR: [
+          { preparedById: filterUserId },
+          { salesAgentId: filterUserId },
+          { assignments: { some: { userId: filterUserId } } },
+          { client: { salespersonId: filterUserId } },
+          { client: { assignments: { some: { userId: filterUserId } } } },
+          {
+            revisionsList: {
+              some: {
+                OR: [
+                  { preparedById: filterUserId },
+                  { salesAgentId: filterUserId },
+                  { assignments: { some: { userId: filterUserId } } }
+                ],
+                deletedAt: null
+              }
+            }
+          }
         ]
       })
     }

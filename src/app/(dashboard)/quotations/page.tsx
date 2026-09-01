@@ -82,7 +82,7 @@ interface Quotation {
 
 export default function QuotationsPage() {
   const { data: session } = useSession()
-  const { hasPermission } = usePermissions()
+  const { profile, hasPermission } = usePermissions()
   
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [loading, setLoading] = useState(false)
@@ -90,6 +90,8 @@ export default function QuotationsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [segmentFilter, setSegmentFilter] = useState("all")
   const [poStatusFilter, setPoStatusFilter] = useState("all")
+  const [userFilter, setUserFilter] = useState("all")
+  const [usersList, setUsersList] = useState<{ id: string; name: string | null; email: string }[]>([])
   const [sortBy, setSortBy] = useState("quotationNumber")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [currentPage, setCurrentPage] = useState(1)
@@ -163,11 +165,12 @@ export default function QuotationsPage() {
     }
   }
 
+  const userRole = (session?.user as any)?.role || profile?.role || ""
   const canCreate = hasPermission("QUOTATIONS", "create")
   const canEdit = hasPermission("QUOTATIONS", "edit")
   const canDelete = hasPermission("QUOTATIONS", "delete")
-  const isSuperAdmin = hasPermission("SETTINGS", "manage")
-  const isManagerOrAdmin = canDelete || isSuperAdmin
+  const isSuperAdmin = hasPermission("SETTINGS", "manage") || userRole === "SUPER_ADMIN"
+  const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole) || isSuperAdmin
   const isAdminOrSuperAdmin = isSuperAdmin
   
   const isAuthorizedToConfirm = isSuperAdmin || isManagerOrAdmin || hasPermission("QUOTATIONS", "canConfirmQuotation")
@@ -224,6 +227,19 @@ export default function QuotationsPage() {
     }
   }
 
+  useEffect(() => {
+    if (isManagerOrAdmin) {
+      fetch("/api/users")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setUsersList(data)
+          }
+        })
+        .catch((err) => console.error("Error fetching users list for filter:", err))
+    }
+  }, [isManagerOrAdmin])
+
   const fetchQuotations = useCallback(async () => {
     try {
       setLoading(true)
@@ -234,6 +250,7 @@ export default function QuotationsPage() {
       if (statusFilter && statusFilter !== "all") params.append("status", statusFilter)
       if (segmentFilter && segmentFilter !== "all") params.append("customerSegment", segmentFilter)
       if (poStatusFilter && poStatusFilter !== "all") params.append("poStatus", poStatusFilter)
+      if (userFilter && userFilter !== "all") params.append("userId", userFilter)
       params.append("sortBy", sortBy)
       params.append("sortOrder", sortOrder)
 
@@ -252,7 +269,7 @@ export default function QuotationsPage() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, limit, searchTerm, statusFilter, segmentFilter, poStatusFilter, sortBy, sortOrder])
+  }, [currentPage, limit, searchTerm, statusFilter, segmentFilter, poStatusFilter, userFilter, sortBy, sortOrder])
 
   useEffect(() => {
     fetchQuotations()
@@ -263,6 +280,7 @@ export default function QuotationsPage() {
     setStatusFilter("all")
     setSegmentFilter("all")
     setPoStatusFilter("all")
+    setUserFilter("all")
     setSortBy("quotationNumber")
     setSortOrder("desc")
     setCurrentPage(1)
@@ -437,7 +455,7 @@ export default function QuotationsPage() {
                 Delete Selected ({selectedIds.length})
               </Button>
             )}
-            {(searchTerm || statusFilter !== "all" || segmentFilter !== "all" || poStatusFilter !== "all" || sortBy !== "quotationNumber" || sortOrder !== "desc") && (
+            {(searchTerm || statusFilter !== "all" || segmentFilter !== "all" || poStatusFilter !== "all" || userFilter !== "all" || sortBy !== "quotationNumber" || sortOrder !== "desc") && (
               <Button
                 variant="outline"
                 size="sm"
@@ -450,7 +468,24 @@ export default function QuotationsPage() {
           </div>
         </div>
         
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className={`grid grid-cols-2 sm:grid-cols-3 ${isManagerOrAdmin ? "lg:grid-cols-6" : "lg:grid-cols-5"} gap-3`}>
+          {isManagerOrAdmin && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">User</label>
+              <Select value={userFilter} onValueChange={(val) => { setUserFilter(val || "all"); setCurrentPage(1); }}>
+                <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Users" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {usersList.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.name || u.email || "Unnamed User"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</label>
             <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val || "all"); setCurrentPage(1); }}>
@@ -540,7 +575,7 @@ export default function QuotationsPage() {
           <div className="flex flex-col items-center justify-center py-20 gap-2">
             <p className="text-lg font-medium">No quotations found</p>
             <p className="text-sm text-muted-foreground">
-              {searchTerm || statusFilter !== "all" || segmentFilter !== "all" || poStatusFilter !== "all" 
+              {searchTerm || statusFilter !== "all" || segmentFilter !== "all" || poStatusFilter !== "all" || userFilter !== "all"
                 ? "Try searching or filtering with a different term/value" 
                 : "Click 'Create Quotation' to get started"}
             </p>

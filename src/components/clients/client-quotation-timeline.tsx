@@ -427,12 +427,22 @@ function SeriesCard({
                             >
                               <Eye className="mr-2 h-3.5 w-3.5 text-blue-600" /> View Quote
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="cursor-pointer text-xs"
-                              onClick={() => window.open(`/api/quotations/${v.id}/pdf`, "_blank")}
-                            >
-                              <FileDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" /> Download PDF
-                            </DropdownMenuItem>
+                            {v.status !== "DRAFT" ? (
+                              <DropdownMenuItem
+                                className="cursor-pointer text-xs"
+                                onClick={() => window.open(`/api/quotations/${v.id}/pdf`, "_blank")}
+                              >
+                                <FileDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" /> Download PDF
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                className="text-xs opacity-40 cursor-not-allowed"
+                                disabled
+                                title="Download PDF is disabled for Draft quotations"
+                              >
+                                <FileDown className="mr-2 h-3.5 w-3.5 text-muted-foreground" /> Download PDF (Draft)
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="cursor-pointer text-xs"
@@ -522,14 +532,26 @@ function SeriesCard({
                     >
                       <Eye className="mr-1 h-3 w-3" /> View
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => window.open(`/api/quotations/${v.id}/pdf`, "_blank")}
-                    >
-                      <FileDown className="mr-1 h-3 w-3" /> PDF
-                    </Button>
+                    {v.status !== "DRAFT" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => window.open(`/api/quotations/${v.id}/pdf`, "_blank")}
+                      >
+                        <FileDown className="mr-1 h-3 w-3" /> PDF
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled
+                        title="Download PDF is disabled for Draft quotations"
+                        className="h-7 text-xs opacity-40 cursor-not-allowed"
+                      >
+                        <FileDown className="mr-1 h-3 w-3" /> PDF
+                      </Button>
+                    )}
                     {isAuthorizedToConfirm &&
                       !["CLIENT_APPROVED", "CLIENT_CONFIRMED", "PO_CONVERTED", "PO_RECEIVED", "UNDER_PRODUCTION", "COMPLETED", "CANCELLED"].includes(v.status) && (
                         <Button
