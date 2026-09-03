@@ -1316,53 +1316,54 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
               }} 
             />
 
-            {/* Swatches Horizontal Grid */}
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {/* Swatches Grid Layout */}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 }}>
               {selectedMaterials.map((mat: any, idx: number) => {
                 const displayCode = mat.code || `CODE-${1000101 + idx}`
                 const displayName = mat.name && mat.name !== displayCode ? mat.name : null
-                const codeLen = displayCode.length
-                const fontSize = codeLen > 18 ? 5.5 : codeLen > 12 ? 6.5 : 7.5
+                const displayCategory = mat.category || "FINISH"
 
                 return (
                   <View 
                     key={mat.id || mat.code || idx} 
                     style={{ 
+                      width: 150,
                       flexDirection: "row", 
                       alignItems: "center", 
                       backgroundColor: "#F9FAFB", 
-                      padding: 4, 
-                      borderRadius: 3, 
-                      borderWidth: 0.5, 
+                      padding: 6, 
+                      borderRadius: 4, 
+                      borderWidth: 0.75, 
                       borderColor: "#E5E7EB", 
-                      gap: 6,
-                      minWidth: 70,
-                      maxWidth: 150
+                      gap: 8,
                     }} 
                     wrap={false}
                   >
-                    {/* Square Swatch Image Box */}
+                    {/* Swatch Image Thumbnail */}
                     {mat.swatchUrl ? (
                       <PdfImage 
                         src={mat.swatchUrl} 
-                        style={{ width: 32, height: 32, borderRadius: 2, objectFit: "cover" }} 
+                        style={{ width: 40, height: 40, borderRadius: 3, objectFit: "cover", borderWidth: 0.5, borderColor: "#D1D5DB" }} 
                       />
                     ) : (
-                      <View style={{ width: 32, height: 32, borderRadius: 2, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ fontSize: 6, color: "#FFFFFF", fontWeight: "bold" }}>MAT</Text>
+                      <View style={{ width: 40, height: 40, borderRadius: 3, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 7, color: "#FFFFFF", fontWeight: "bold" }}>MAT</Text>
                       </View>
                     )}
 
-                    {/* Auto-Adjusting Material Details */}
-                    <View style={{ flex: 1, justifyContent: "center" }}>
+                    {/* Properly Aligned Details Container */}
+                    <View style={{ width: 90, justifyContent: "center" }}>
+                      <Text style={{ fontSize: 5.5, color: colors.accent, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
+                        {displayCategory}
+                      </Text>
+                      <Text style={{ fontSize: 7.5, fontWeight: "bold", color: colors.primary, lineHeight: 1.2 }}>
+                        {displayCode}
+                      </Text>
                       {displayName && (
-                        <Text style={{ fontSize: 5.5, color: "#6B7280", fontWeight: "medium", marginBottom: 1 }}>
+                        <Text style={{ fontSize: 6, color: "#4B5563", marginTop: 2 }}>
                           {displayName}
                         </Text>
                       )}
-                      <Text style={{ fontSize: fontSize, fontWeight: "bold", color: colors.primary, lineHeight: 1.1 }}>
-                        {displayCode}
-                      </Text>
                     </View>
                   </View>
                 )
