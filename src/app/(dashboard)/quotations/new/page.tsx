@@ -3013,21 +3013,11 @@ function NewQuotationForm() {
         setIsRevision(false)
         lastSavedDataRef.current = JSON.stringify(data)
       } else {
-        const grandSub = deduplicatedFormattedItems.reduce((s, i) => s + (i.quantity * i.unitPrice - (i.discount * i.quantity)), 0)
-        setSuccessModalData({
-          isOpen: true,
-          quotation: {
-            id: result.id,
-            quotationNumber: result.quotationNumber,
-            clientName: selectedClient?.companyName || (selectedClient as any)?.name || "",
-            projectName: data.projectName,
-            grandTotal: grandSub + calcDeliveryCharge,
-            isRevision: isRevisionMode,
-            isEdit: isEditingDraft,
-            pdfUrl: `/api/quotations/${result.id}/pdf`,
-            status: resolvedStatus,
-          }
-        })
+        if (autoSaveTimerRef.current) {
+          clearTimeout(autoSaveTimerRef.current)
+          autoSaveTimerRef.current = null
+        }
+        router.push("/quotations")
       }
     } catch (error: any) {
       console.error("Error submitting quotation:", error)
@@ -3058,10 +3048,14 @@ function NewQuotationForm() {
         targetUrl = `/api/quotations/${autoSavedQuoteId}`
         method = "PUT"
         sendIsRevision = false
-      } else if (isRevision || isEdit) {
+      } else if (existingQuote && existingQuote.status === "DRAFT") {
         targetUrl = `/api/quotations/${existingQuote.id}`
         method = "PUT"
-        sendIsRevision = isRevision
+        sendIsRevision = false
+      } else if (existingQuote && existingQuote.status !== "DRAFT") {
+        targetUrl = `/api/quotations/${existingQuote.id}`
+        method = "PUT"
+        sendIsRevision = true
       } else {
         targetUrl = "/api/quotations"
         method = "POST"
@@ -3121,6 +3115,9 @@ function NewQuotationForm() {
         const result = await res.json()
         if (result.id) {
           setAutoSavedQuoteId(result.id)
+          setExistingQuote(result)
+          setIsEdit(true)
+          setIsRevision(false)
         }
         setLastAutoSavedAt(new Date())
         lastSavedDataRef.current = dataString
