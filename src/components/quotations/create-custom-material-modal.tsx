@@ -89,13 +89,18 @@ export function CreateCustomMaterialModal({
     const rawCode = code.trim()
     const rawName = name.trim()
 
-    if (!rawCode && !rawName) {
-      toast.error("Please enter a Material Code or Name")
+    if (!swatchUrl && !rawCode && !rawName) {
+      toast.error("Please upload a swatch image or enter a material code/name")
       return
     }
 
-    const finalCode = rawCode ? rawCode.toUpperCase() : rawName.toUpperCase().replace(/\s+/g, "-")
-    const finalName = rawName || finalCode
+    const finalCode = rawCode 
+      ? rawCode.toUpperCase() 
+      : rawName 
+        ? rawName.toUpperCase().replace(/\s+/g, "-") 
+        : `SWATCH-${Math.floor(1000 + Math.random() * 9000)}`
+
+    const finalName = rawName || (rawCode ? rawCode.toUpperCase() : "Custom Swatch")
     const finalCategory = "Custom"
 
     setSubmitting(true)
@@ -253,9 +258,8 @@ export function CreateCustomMaterialModal({
             {/* 2. Material Name & Code Inputs */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs text-foreground font-semibold">Material Name *</Label>
+                <Label className="text-xs text-foreground font-semibold">Material Name (Optional)</Label>
                 <Input
-                  required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Custom Grey Felt, Walnut Veneer"
