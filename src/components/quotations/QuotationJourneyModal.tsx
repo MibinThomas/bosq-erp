@@ -46,6 +46,7 @@ interface Revision {
   discount: number
   vatAmount: number
   grandTotal: number
+  notes?: string | null
   preparedBy: {
     name: string
   }
@@ -261,7 +262,7 @@ export function QuotationJourneyModal({
   const activeRevisionLog = data?.revisions?.find(
     (r: any) => r.revisionNumber === activeQuotation?.revisionNumber
   )
-  const activeRevisionNotes = activeRevisionLog?.notes || (activeQuotation?.revisionNumber === 0 ? "Initial Version" : null) || "No revision notes available."
+  const activeRevisionNotes = activeRevisionLog?.notes || activeQuotation?.notes || (activeQuotation?.revisionNumber === 0 ? "Initial Version" : null) || "No revision notes available."
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -523,7 +524,7 @@ export function QuotationJourneyModal({
                         const revisionLog = data.revisions?.find(
                           (r: any) => r.revisionNumber === item.revisionNumber
                         )
-                        const revisionNotes = revisionLog?.notes || (item.revisionNumber === 0 ? "Initial Version" : null) || "No revision notes available."
+                        const revisionNotes = revisionLog?.notes || item.notes || (item.revisionNumber === 0 ? "Initial Version" : null) || "No revision notes available."
 
                         return (
                           <div key={item.id} className="relative animate-in fade-in slide-in-from-top-1 duration-200">
