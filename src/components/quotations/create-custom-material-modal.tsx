@@ -76,8 +76,8 @@ export function CreateCustomMaterialModal({
     const reader = new FileReader()
     reader.onloadend = () => {
       if (typeof reader.result === "string") {
+        setSwatchUrl(reader.result)
         setCropSource(reader.result)
-        setCropperOpen(true)
       }
     }
     reader.readAsDataURL(file)
@@ -86,13 +86,17 @@ export function CreateCustomMaterialModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!name.trim()) {
-      toast.error("Material Name is required")
+    const rawCode = code.trim()
+    const rawName = name.trim()
+
+    if (!rawCode && !rawName) {
+      toast.error("Please enter a Material Code or Name")
       return
     }
 
+    const finalCode = rawCode ? rawCode.toUpperCase() : rawName.toUpperCase().replace(/\s+/g, "-")
+    const finalName = rawName || finalCode
     const finalCategory = "Custom"
-    const finalCode = code.trim() ? code.trim().toUpperCase() : `CUST-${Math.floor(1000 + Math.random() * 9000)}`
 
     setSubmitting(true)
     try {
@@ -102,7 +106,7 @@ export function CreateCustomMaterialModal({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: name.trim(),
+            name: finalName,
             code: finalCode,
             category: finalCategory,
             description: null,
@@ -117,7 +121,7 @@ export function CreateCustomMaterialModal({
         }
 
         const libraryItem = await res.json()
-        toast.success(`Saved "${name}" to Master Material Library & Quotation!`)
+        toast.success(`Saved "${finalName}" to Master Material Library & Quotation!`)
 
         if (onSavedToLibrary) {
           onSavedToLibrary(libraryItem)
@@ -135,7 +139,7 @@ export function CreateCustomMaterialModal({
         // Save for current quotation only (client-side unique item)
         const customItem: CustomMaterialData = {
           id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-          name: name.trim(),
+          name: finalName,
           code: finalCode,
           category: finalCategory,
           swatchUrl: swatchUrl || null,

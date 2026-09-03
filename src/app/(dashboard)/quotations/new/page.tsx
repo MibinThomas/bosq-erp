@@ -43,6 +43,7 @@ import {
   User,
   Highlighter,
   Eye,
+  Upload,
   X
 } from "lucide-react"
 import Link from "next/link"
@@ -4331,15 +4332,26 @@ function NewQuotationForm() {
                             Select materials from library to include swatch cards in the quotation output.
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsMaterialPickerOpen(true)}
-                          className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background"
-                        >
-                          <Plus className="h-3.5 w-3.5" /> Select Materials ({materialsLibrary.length} available)
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            onClick={() => setIsCreateCustomMaterialOpen(true)}
+                            className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-orange-600 hover:bg-orange-500 text-white font-semibold shadow-xs"
+                          >
+                            <Upload className="h-3.5 w-3.5" /> Quick Upload Material Code
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsMaterialPickerOpen(true)}
+                            className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background"
+                          >
+                            <Palette className="h-3.5 w-3.5 text-orange-500" /> Library ({materialsLibrary.length})
+                          </Button>
+                        </div>
                       </div>
 
                       {watchSelectedMaterials.length === 0 ? (

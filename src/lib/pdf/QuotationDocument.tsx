@@ -1317,37 +1317,53 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             />
 
             {/* Swatches Horizontal Grid */}
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               {selectedMaterials.map((mat: any, idx: number) => {
                 const displayCode = mat.code || `CODE-${1000101 + idx}`
+                const displayName = mat.name && mat.name !== displayCode ? mat.name : null
+                const codeLen = displayCode.length
+                const fontSize = codeLen > 18 ? 5.5 : codeLen > 12 ? 6.5 : 7.5
+
                 return (
-                  <View key={mat.id || mat.code || idx} style={{ flexDirection: "row", alignItems: "center" }} wrap={false}>
-                    {/* Square Swatch Image Box (36x36px) */}
+                  <View 
+                    key={mat.id || mat.code || idx} 
+                    style={{ 
+                      flexDirection: "row", 
+                      alignItems: "center", 
+                      backgroundColor: "#F9FAFB", 
+                      padding: 4, 
+                      borderRadius: 3, 
+                      borderWidth: 0.5, 
+                      borderColor: "#E5E7EB", 
+                      gap: 6,
+                      minWidth: 70,
+                      maxWidth: 150
+                    }} 
+                    wrap={false}
+                  >
+                    {/* Square Swatch Image Box */}
                     {mat.swatchUrl ? (
                       <PdfImage 
                         src={mat.swatchUrl} 
-                        style={{ width: 36, height: 36, borderRadius: 0, objectFit: "cover" }} 
+                        style={{ width: 32, height: 32, borderRadius: 2, objectFit: "cover" }} 
                       />
                     ) : (
-                      <View style={{ width: 36, height: 36, borderRadius: 0, backgroundColor: "#555555", alignItems: "center", justifyContent: "center" }}>
-                        <Text style={{ fontSize: 5, color: "#FFFFFF" }}>MAT</Text>
+                      <View style={{ width: 32, height: 32, borderRadius: 2, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }}>
+                        <Text style={{ fontSize: 6, color: "#FFFFFF", fontWeight: "bold" }}>MAT</Text>
                       </View>
                     )}
 
-                    {/* Vertical Rotated Code Label */}
-                    <Svg width={14} height={36}>
-                      <G transform="rotate(-90 7 18)">
-                        <SvgText 
-                          x={7} 
-                          y={18} 
-                          fill={colors.primary} 
-                          textAnchor="middle"
-                          style={{ fontSize: 6.5, fontWeight: "bold" }}
-                        >
-                          {displayCode}
-                        </SvgText>
-                      </G>
-                    </Svg>
+                    {/* Auto-Adjusting Material Details */}
+                    <View style={{ flex: 1, justifyContent: "center" }}>
+                      {displayName && (
+                        <Text style={{ fontSize: 5.5, color: "#6B7280", fontWeight: "medium", marginBottom: 1 }}>
+                          {displayName}
+                        </Text>
+                      )}
+                      <Text style={{ fontSize: fontSize, fontWeight: "bold", color: colors.primary, lineHeight: 1.1 }}>
+                        {displayCode}
+                      </Text>
+                    </View>
                   </View>
                 )
               })}
