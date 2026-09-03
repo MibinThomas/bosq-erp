@@ -122,13 +122,8 @@ export function CreateCustomMaterialModal({
       return
     }
 
-    const finalCode = rawCode 
-      ? rawCode.toUpperCase() 
-      : rawName 
-        ? rawName.toUpperCase().replace(/\s+/g, "-") 
-        : `SWATCH-${Math.floor(1000 + Math.random() * 9000)}`
-
-    const finalName = rawName || (rawCode ? rawCode.toUpperCase() : "Custom Swatch")
+    const finalCode = rawCode ? rawCode.toUpperCase() : ""
+    const finalName = rawName
     const finalCategory = "Custom"
 
     setSubmitting(true)
@@ -305,7 +300,7 @@ export function CreateCustomMaterialModal({
                 <Input
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
-                  placeholder="AUTO-GENERATED IF EMPTY (E.G. CUST-2394)"
+                  placeholder="e.g. OAK-01, MAT-100 (Optional)"
                   className="text-xs h-9 font-mono uppercase"
                 />
               </div>

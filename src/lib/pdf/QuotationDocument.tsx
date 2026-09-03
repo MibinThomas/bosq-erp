@@ -1319,19 +1319,20 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
             {/* Swatches Grid Layout */}
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 }}>
               {selectedMaterials.map((mat: any, idx: number) => {
-                const displayCode = mat.code || `CODE-${1000101 + idx}`
-                const displayName = mat.name && mat.name !== displayCode ? mat.name : null
-                const displayCategory = mat.category || "FINISH"
+                const displayCode = mat.code?.trim() || ""
+                const displayName = mat.name?.trim() && mat.name?.trim() !== displayCode ? mat.name.trim() : ""
+                const hasText = !!displayCode || !!displayName
+                const displayCategory = mat.category && mat.category !== "Custom" ? mat.category : (hasText ? "FINISH" : null)
 
                 return (
                   <View 
                     key={mat.id || mat.code || idx} 
                     style={{ 
-                      width: 150,
+                      width: hasText ? 150 : 52,
                       flexDirection: "row", 
                       alignItems: "center", 
                       backgroundColor: "#F9FAFB", 
-                      padding: 6, 
+                      padding: 5, 
                       borderRadius: 4, 
                       borderWidth: 0.75, 
                       borderColor: "#E5E7EB", 
@@ -1351,20 +1352,26 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                       </View>
                     )}
 
-                    {/* Properly Aligned Details Container */}
-                    <View style={{ width: 90, justifyContent: "center" }}>
-                      <Text style={{ fontSize: 5.5, color: colors.accent, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
-                        {displayCategory}
-                      </Text>
-                      <Text style={{ fontSize: 7.5, fontWeight: "bold", color: colors.primary, lineHeight: 1.2 }}>
-                        {displayCode}
-                      </Text>
-                      {displayName && (
-                        <Text style={{ fontSize: 6, color: "#4B5563", marginTop: 2 }}>
-                          {displayName}
-                        </Text>
-                      )}
-                    </View>
+                    {/* Text Container (Only rendered if Code or Name is entered) */}
+                    {hasText && (
+                      <View style={{ width: 90, justifyContent: "center" }}>
+                        {displayCategory && (
+                          <Text style={{ fontSize: 5.5, color: colors.accent, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>
+                            {displayCategory}
+                          </Text>
+                        )}
+                        {displayCode ? (
+                          <Text style={{ fontSize: 7.5, fontWeight: "bold", color: colors.primary, lineHeight: 1.2 }}>
+                            {displayCode}
+                          </Text>
+                        ) : null}
+                        {displayName ? (
+                          <Text style={{ fontSize: 6, color: "#4B5563", marginTop: displayCode ? 2 : 0 }}>
+                            {displayName}
+                          </Text>
+                        ) : null}
+                      </View>
+                    )}
                   </View>
                 )
               })}
