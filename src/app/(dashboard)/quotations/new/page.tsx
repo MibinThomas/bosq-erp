@@ -44,6 +44,7 @@ import {
   Highlighter,
   Eye,
   Upload,
+  Edit3,
   X
 } from "lucide-react"
 import Link from "next/link"
@@ -1607,6 +1608,7 @@ function NewQuotationForm() {
   const [materialsLibrary, setMaterialsLibrary] = useState<any[]>([])
   const [isMaterialPickerOpen, setIsMaterialPickerOpen] = useState(false)
   const [isCreateCustomMaterialOpen, setIsCreateCustomMaterialOpen] = useState(false)
+  const [editingMaterial, setEditingMaterial] = useState<any | null>(null)
   const [materialPickerSearch, setMaterialPickerSearch] = useState("")
   const [materialPickerCategory, setMaterialPickerCategory] = useState("all")
 
@@ -4379,17 +4381,30 @@ function NewQuotationForm() {
                                 <p className="text-xs font-semibold text-foreground truncate mt-0.5">{mat.name}</p>
                                 {mat.brand && <p className="text-[10px] text-orange-500 font-medium truncate">{mat.brand}</p>}
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = watchSelectedMaterials.filter((m: any) => (m.id || m.code) !== (mat.id || mat.code))
-                                  form.setValue("selectedMaterials", updated, { shouldDirty: true, shouldValidate: true })
-                                }}
-                                className="text-muted-foreground hover:text-destructive p-1 rounded-md transition-colors"
-                                title="Remove swatch"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingMaterial(mat)
+                                    setIsCreateCustomMaterialOpen(true)
+                                  }}
+                                  className="text-muted-foreground hover:text-orange-600 p-1.5 rounded-md hover:bg-orange-50 transition-colors cursor-pointer"
+                                  title="Edit swatch details"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = watchSelectedMaterials.filter((m: any) => (m.id || m.code) !== (mat.id || mat.code))
+                                    form.setValue("selectedMaterials", updated, { shouldDirty: true, shouldValidate: true })
+                                  }}
+                                  className="text-muted-foreground hover:text-destructive p-1.5 rounded-md hover:bg-red-50 transition-colors cursor-pointer"
+                                  title="Remove swatch"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -5427,23 +5442,37 @@ function NewQuotationForm() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Custom Material Modal */}
+      {/* Create / Edit Custom Material Modal */}
       <CreateCustomMaterialModal
         isOpen={isCreateCustomMaterialOpen}
-        onClose={() => setIsCreateCustomMaterialOpen(false)}
+        editingMaterial={editingMaterial}
+        onClose={() => {
+          setIsCreateCustomMaterialOpen(false)
+          setEditingMaterial(null)
+        }}
         userRole={userRole}
         onSavedToLibrary={(newMat) => {
           setMaterialsLibrary((prev) => [newMat, ...prev])
         }}
         onSaveCustom={(customMat) => {
           const current = form.getValues("selectedMaterials") || []
-          const exists = current.some((m: any) => (m.id || m.code) === (customMat.id || customMat.code))
-          if (!exists) {
-            form.setValue("selectedMaterials", [customMat, ...current], { shouldDirty: true, shouldValidate: true })
+          const matchIdx = current.findIndex((m: any) => 
+            (m.id && customMat.id && m.id === customMat.id) ||
+            (editingMaterial && ((m.id && editingMaterial.id && m.id === editingMaterial.id) || (m.code && editingMaterial.code && m.code === editingMaterial.code)))
+          )
+
+          let updated: any[]
+          if (matchIdx >= 0) {
+            updated = [...current]
+            updated[matchIdx] = customMat
+          } else {
+            updated = [customMat, ...current]
           }
-          // Automatically close both custom material popup and parent material selection popup
+
+          form.setValue("selectedMaterials", updated, { shouldDirty: true, shouldValidate: true })
           setIsCreateCustomMaterialOpen(false)
           setIsMaterialPickerOpen(false)
+          setEditingMaterial(null)
         }}
       />
 

@@ -44,6 +44,7 @@ export interface CreateCustomMaterialModalProps {
   userRole: string
   onSaveCustom: (material: CustomMaterialData) => void
   onSavedToLibrary?: (newMaterial: any) => void
+  editingMaterial?: CustomMaterialData | null
 }
 
 export function CreateCustomMaterialModal({
@@ -52,6 +53,7 @@ export function CreateCustomMaterialModal({
   userRole,
   onSaveCustom,
   onSavedToLibrary,
+  editingMaterial,
 }: CreateCustomMaterialModalProps) {
   const isAuthorizedToSaveLibrary = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER", "DESIGN_TEAM"].includes(userRole)
 
@@ -61,6 +63,18 @@ export function CreateCustomMaterialModal({
   const [swatchUrl, setSwatchUrl] = useState("")
   const [saveTarget, setSaveTarget] = useState<"QUOTE_ONLY" | "MASTER_LIBRARY">("QUOTE_ONLY")
   const [submitting, setSubmitting] = useState(false)
+
+  React.useEffect(() => {
+    if (editingMaterial && isOpen) {
+      setName(editingMaterial.name || "")
+      setCode(editingMaterial.code || "")
+      setSwatchUrl(editingMaterial.swatchUrl || "")
+    } else if (isOpen && !editingMaterial) {
+      setName("")
+      setCode("")
+      setSwatchUrl("")
+    }
+  }, [editingMaterial, isOpen])
 
   // Cropper state
   const [cropperOpen, setCropperOpen] = useState(false)
@@ -166,16 +180,16 @@ export function CreateCustomMaterialModal({
       } else {
         // Save for current quotation only (client-side unique item)
         const customItem: CustomMaterialData = {
-          id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+          id: editingMaterial?.id || `custom-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
           name: finalName,
           code: finalCode,
-          category: finalCategory,
+          category: editingMaterial?.category || finalCategory,
           swatchUrl: swatchUrl || null,
           isCustomQuoteOnly: true,
         }
 
         onSaveCustom(customItem)
-        toast.success(`Custom material "${name}" added to quotation!`)
+        toast.success(editingMaterial ? `Material swatch details updated!` : `Custom material added to quotation!`)
       }
 
       onClose()
@@ -203,7 +217,7 @@ export function CreateCustomMaterialModal({
                 <Palette className="h-4 w-4" />
               </div>
               <div>
-                <span>Create Custom Material & Finish</span>
+                <span>{editingMaterial ? "Edit Material Swatch & Finish" : "Create Custom Material & Finish"}</span>
                 <p className="text-xs font-normal text-muted-foreground mt-0.5">
                   Add project-specific swatches or add new finishes to the master library.
                 </p>
@@ -395,7 +409,7 @@ export function CreateCustomMaterialModal({
                   className="bg-orange-600 hover:bg-orange-500 text-white font-semibold text-xs h-9 px-4 flex items-center gap-1.5 shadow-sm"
                 >
                   {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  {saveTarget === "MASTER_LIBRARY" ? "Save to Library & Add" : "Add to Quotation"}
+                  {editingMaterial ? "Update Swatch Details" : saveTarget === "MASTER_LIBRARY" ? "Save to Library & Add" : "Add to Quotation"}
                 </Button>
               </div>
             </DialogFooter>
