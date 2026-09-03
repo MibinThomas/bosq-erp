@@ -2857,7 +2857,8 @@ function NewQuotationForm() {
       let method = "POST"
       let sendIsRevision = false
 
-      const isRevisionSubmission = (isRevision || (existingQuote && existingQuote.status !== "DRAFT")) && !!existingQuote
+      // Send isRevision = true ONLY when revising an existing finalized quotation (status !== "DRAFT")
+      const isRevisionSubmission = !!existingQuote && existingQuote.status !== "DRAFT"
 
       if (isRevisionSubmission) {
         url = `/api/quotations/${existingQuote.id}`
@@ -3009,6 +3010,7 @@ function NewQuotationForm() {
         setAutoSavedQuoteId(result.id)
         setExistingQuote(result)
         setIsEdit(true)
+        setIsRevision(false)
         lastSavedDataRef.current = JSON.stringify(data)
       } else {
         const grandSub = deduplicatedFormattedItems.reduce((s, i) => s + (i.quantity * i.unitPrice - (i.discount * i.quantity)), 0)
