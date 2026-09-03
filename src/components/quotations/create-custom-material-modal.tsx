@@ -66,18 +66,46 @@ export function CreateCustomMaterialModal({
   const [cropperOpen, setCropperOpen] = useState(false)
   const [cropSource, setCropSource] = useState<string | null>(null)
 
+  const compressSwatchImage = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+      img.onload = () => {
+        const canvas = document.createElement("canvas")
+        const ctx = canvas.getContext("2d")
+        const size = 300
+        canvas.width = size
+        canvas.height = size
+
+        if (ctx) {
+          const minDim = Math.min(img.width, img.height)
+          const sx = (img.width - minDim) / 2
+          const sy = (img.height - minDim) / 2
+          ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size)
+          resolve(canvas.toDataURL("image/jpeg", 0.85))
+        } else {
+          resolve(dataUrl)
+        }
+      }
+      img.onerror = () => resolve(dataUrl)
+      img.src = dataUrl
+    })
+  }
+
   const handleSwatchUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error("Image file must be smaller than 10MB")
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("Image file must be smaller than 15MB")
       return
     }
     const reader = new FileReader()
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       if (typeof reader.result === "string") {
-        setSwatchUrl(reader.result)
-        setCropSource(reader.result)
+        const compressed = await compressSwatchImage(reader.result)
+        setSwatchUrl(compressed)
+        setCropSource(compressed)
+        toast.success("Swatch image uploaded & optimized!")
       }
     }
     reader.readAsDataURL(file)
@@ -237,21 +265,26 @@ export function CreateCustomMaterialModal({
                   </div>
                 </div>
               ) : (
-                <div className="h-32 w-full rounded-xl border-2 border-dashed border-border hover:border-orange-500/50 bg-card hover:bg-muted/30 transition-all flex flex-col items-center justify-center text-center p-4 relative cursor-pointer group">
+                <label 
+                  htmlFor="swatch-file-input-id"
+                  className="h-32 w-full rounded-xl border-2 border-dashed border-border hover:border-orange-500/50 bg-card hover:bg-muted/30 transition-all flex flex-col items-center justify-center text-center p-4 relative cursor-pointer group"
+                >
                   <div className="h-9 w-9 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 mb-1.5 group-hover:scale-110 transition-transform">
                     <Upload className="h-4 w-4" />
                   </div>
-                  <p className="text-xs font-semibold text-foreground">Upload & Crop Swatch Image</p>
+                  <p className="text-xs font-semibold text-foreground">Upload Swatch Image</p>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Click or drag photo. Includes instant square cropper tool.
+                    Click anywhere to browse photo from your device.
                   </p>
-                  <Input
+                  <input
+                    id="swatch-file-input-id"
                     type="file"
-                    accept="image/png, image/jpeg, image/webp"
+                    accept="image/*"
                     onChange={handleSwatchUpload}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onClick={(e) => { (e.target as any).value = "" }}
+                    className="sr-only"
                   />
-                </div>
+                </label>
               )}
             </div>
 
