@@ -3427,7 +3427,7 @@ function NewQuotationForm() {
             size="sm"
             disabled={submitting || isQuotationLockedForCosting}
             onClick={form.handleSubmit(
-              (data) => onSubmit(data, (isRevisionMode || isEditingDraft) ? existingQuote.status : "CLIENT_APPROVED"),
+              (data) => onSubmit(data, "SUBMITTED"),
               onInvalid
             )}
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-8 px-3.5 cursor-pointer flex items-center gap-1.5 shadow-2xs"
