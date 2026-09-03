@@ -203,8 +203,6 @@ interface Client {
   }>
 }
 
-import { QuotationStatusTimeline } from "@/components/quotations/QuotationStatusTimeline"
-
 interface Product {
   id: string
   productCode: string
@@ -3471,25 +3469,6 @@ function NewQuotationForm() {
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6 pb-28 px-3 sm:px-6 lg:px-8">
-      {/* Quotation Workflow Status Timeline */}
-      {existingQuote && (
-        <QuotationStatusTimeline
-          status={existingQuote.status}
-          costingStatus={existingQuote.costingStatus}
-          createdAt={existingQuote.createdAt}
-          preparedByName={existingQuote.preparedBy?.name}
-          sentToCostingAt={existingQuote.sentToCostingAt}
-          sentToCostingByName={existingQuote.sentToCostingBy?.name}
-          costingCompletedAt={existingQuote.costingCompletedAt}
-          costedByName={existingQuote.costedBy?.name || existingQuote.assignedEstimator?.name}
-          revisionRequestedAt={existingQuote.revisionRequestedAt}
-          revisionRequestedByName={existingQuote.revisionRequestedBy?.name}
-          revisionReason={existingQuote.revisionReason}
-          costingRevisionCycles={existingQuote.costingRevisionCycles}
-          approvedAt={existingQuote.approvedAt}
-          approvedByName={existingQuote.approvedBy?.name}
-        />
-      )}
 
       {/* Costing Completed Banner & Action Options */}
       {existingQuote && existingQuote.costingStatus === "COSTING_COMPLETED" && (
