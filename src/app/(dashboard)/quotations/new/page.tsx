@@ -2347,7 +2347,7 @@ function NewQuotationForm() {
               setIsRevision(true)
               setIsEdit(false)
             } else if (editId) {
-              if (activeData.status !== "DRAFT") {
+              if (activeData.status !== "DRAFT" && userRole !== "SUPER_ADMIN") {
                 toast.info(`Quotation ${activeData.quotationNumber} is created and locked from direct editing. Opening Revision mode...`)
                 setIsRevision(true)
                 setIsEdit(false)
@@ -2859,17 +2859,17 @@ function NewQuotationForm() {
       let sendIsRevision = false
 
       // Send isRevision = true ONLY when revising an existing finalized quotation (status !== "DRAFT")
-      const isRevisionSubmission = !!existingQuote && existingQuote.status !== "DRAFT"
+      const isRevisionSubmission = !!existingQuote && existingQuote.status !== "DRAFT" && !isEdit
 
       if (isRevisionSubmission) {
         url = `/api/quotations/${existingQuote.id}`
         method = "PUT"
         sendIsRevision = true
-      } else if (isEdit && existingQuote && existingQuote.status === "DRAFT") {
+      } else if (isEdit && existingQuote) {
         url = `/api/quotations/${existingQuote.id}`
         method = "PUT"
         sendIsRevision = false
-      } else if (targetId && (!existingQuote || existingQuote.status === "DRAFT")) {
+      } else if (targetId) {
         url = `/api/quotations/${targetId}`
         method = "PUT"
         sendIsRevision = false
@@ -3294,7 +3294,7 @@ function NewQuotationForm() {
 
   const isDraftRevision = existingQuote && existingQuote.status === "DRAFT" && (!!existingQuote.parentId || (existingQuote.revisionNumber || 1) > 1)
   const isFinalizedQuote = existingQuote && existingQuote.status !== "DRAFT"
-  const isRevisionMode = isRevision || isFinalizedQuote || isDraftRevision
+  const isRevisionMode = isRevision || (isFinalizedQuote && !isEdit) || isDraftRevision
 
   const targetRevNo = useMemo(() => {
     if (!existingQuote) return 1
@@ -3303,16 +3303,16 @@ function NewQuotationForm() {
     return 1
   }, [existingQuote, isFinalizedQuote, isDraftRevision])
 
-  const isEditingDraft = isEdit && existingQuote && existingQuote.status === "DRAFT" && !isDraftRevision
-  const headerTitle = isRevisionMode ? "Revise Quotation" : isEditingDraft ? "Update Draft Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"
-  const primaryButtonText = isRevisionMode ? `Save Revision #${targetRevNo}` : isEditingDraft ? "Update Draft" : "Create Quotation"
+  const isEditingDraft = isEdit || (existingQuote && existingQuote.status === "DRAFT" && !isDraftRevision)
+  const headerTitle = isRevisionMode ? "Revise Quotation" : isEdit ? (existingQuote?.status !== "DRAFT" ? "Edit Quotation" : "Update Draft Quotation") : isCopy ? "Copy Quotation" : "Create Quotation"
+  const primaryButtonText = isRevisionMode ? `Save Revision #${targetRevNo}` : isEdit ? (existingQuote?.status !== "DRAFT" ? "Update Quotation" : "Update Draft") : "Create Quotation"
   const watchIncludeSectionHeadings = useWatch({ control: form.control, name: "includeSectionHeadings" }) ?? true
 
   const { grandTotal: calculatedGrandTotal } = useQuotationFinancials(form.control)
   const currentUserRole = userRole || (session?.user as any)?.role || ""
   const isIDC = ["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(currentUserRole)
   const currentCostingStatus = (existingQuote?.costingStatus || "").toUpperCase()
-  const isQuotationLockedForCosting = isIDC && isEdit && ["PENDING_COSTING", "COSTING_IN_PROGRESS", "PARTIALLY_COSTED"].includes(currentCostingStatus)
+  const isQuotationLockedForCosting = isIDC && isEdit && ["PENDING_COSTING", "COSTING_IN_PROGRESS", "PARTIALLY_COSTED"].includes(currentCostingStatus) && currentUserRole !== "SUPER_ADMIN"
 
   const { setHeaderContent } = usePageHeader()
 

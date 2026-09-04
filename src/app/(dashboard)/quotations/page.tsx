@@ -748,8 +748,31 @@ export default function QuotationsPage() {
                             <Eye className="h-4 w-4" />
                           </Button>
 
-                          {/* Update or Revise button based on status */}
-                          {quote.status === "DRAFT" ? (
+                          {/* Update or Revise button based on status & role */}
+                          {isSuperAdmin ? (
+                            <>
+                              <Link href={`/quotations/new?editId=${(quote as any).activeQuotationId || quote.id}`}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-600 hover:text-amber-700"
+                                  title="Edit Quotation (Super Admin Override)"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                              <Link href={`/quotations/new?reviseId=${(quote as any).activeQuotationId || quote.id}`}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-purple-50 dark:hover:bg-purple-950/40 text-purple-600 hover:text-purple-700"
+                                  title="Revise Quotation (Super Admin)"
+                                >
+                                  <RefreshCw className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                            </>
+                          ) : quote.status === "DRAFT" ? (
                             <Link href={`/quotations/new?editId=${(quote as any).activeQuotationId || quote.id}`}>
                               <Button
                                 variant="ghost"
@@ -810,7 +833,22 @@ export default function QuotationsPage() {
                               
                               <DropdownMenuSeparator />
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              {quote.status === "DRAFT" ? (
+                              {isSuperAdmin ? (
+                                <>
+                                  <Link href={`/quotations/new?editId=${(quote as any).activeQuotationId || quote.id}`}>
+                                    <DropdownMenuItem className="flex items-center text-amber-600 focus:text-amber-600 focus:bg-amber-50 dark:focus:bg-amber-950/40 cursor-pointer font-medium">
+                                      <Edit className="mr-2 h-4 w-4 text-amber-600" />
+                                      Edit Quotation (Super Admin)
+                                    </DropdownMenuItem>
+                                  </Link>
+                                  <Link href={`/quotations/new?reviseId=${(quote as any).activeQuotationId || quote.id}`}>
+                                    <DropdownMenuItem className="flex items-center text-purple-600 focus:text-purple-600 focus:bg-purple-50 dark:focus:bg-purple-950/40 cursor-pointer font-medium">
+                                      <RefreshCw className="mr-2 h-4 w-4 text-purple-600" />
+                                      Revise Quotation (Super Admin)
+                                    </DropdownMenuItem>
+                                  </Link>
+                                </>
+                              ) : quote.status === "DRAFT" ? (
                                 <Link href={`/quotations/new?editId=${(quote as any).activeQuotationId || quote.id}`}>
                                   <DropdownMenuItem className="flex items-center text-amber-600 focus:text-amber-600 focus:bg-amber-50 cursor-pointer">
                                     <Edit className="mr-2 h-4 w-4 text-amber-600" />

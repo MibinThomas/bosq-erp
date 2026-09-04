@@ -317,7 +317,7 @@ export async function PUT(
       const isCostingLocked = ["PENDING_COSTING", "COSTING_IN_PROGRESS", "PARTIALLY_COSTED"].includes(currentCostingStatus)
       const isIDCUser = ["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(logUserRole)
       
-      if (isCostingLocked && isIDCUser && body.isUpdate === true) {
+      if (isCostingLocked && isIDCUser && body.isUpdate === true && logUserRole !== "SUPER_ADMIN") {
         return NextResponse.json(
           { error: `Quotation ${existingQuotation.quotationNumber} is currently locked for Costing by Estimator. Editing is disabled until costing is completed.` },
           { status: 403 }
@@ -787,16 +787,11 @@ export async function PUT(
     }
 
     // Check if target quotation is finalized (status !== "DRAFT")
-    if (existingQuotation.status !== "DRAFT" && !body.isRevision) {
-      if (logUserRole === "SUPER_ADMIN") {
-        body.isRevision = true
-        body.isUpdate = false
-      } else {
-        return NextResponse.json(
-          { error: `Quotation ${existingQuotation.quotationNumber} is finalized and locked from direct editing. Please create a Revision to modify this quotation.` },
-          { status: 400 }
-        )
-      }
+    if (existingQuotation.status !== "DRAFT" && !body.isRevision && logUserRole !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: `Quotation ${existingQuotation.quotationNumber} is finalized and locked from direct editing. Please create a Revision to modify this quotation.` },
+        { status: 400 }
+      )
     }
 
     // CASE 1: FULL REVISION REQUEST
@@ -1330,7 +1325,7 @@ export async function PUT(
         return NextResponse.json({ error: "Unauthorized: You can only update your own or assigned quotations" }, { status: 403 })
       }
 
-      if (existingQuotation.status !== "DRAFT") {
+      if (existingQuotation.status !== "DRAFT" && logUserRole !== "SUPER_ADMIN") {
         return NextResponse.json(
           { error: `Quotation ${existingQuotation.quotationNumber} is locked from direct editing. Please create a Revision to modify this quotation.` },
           { status: 400 }

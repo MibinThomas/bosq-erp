@@ -631,7 +631,28 @@ export default function QuotationHtmlPreviewPage() {
             </Button>
           )}
 
-          {quotation.status === "DRAFT" ? (
+          {isSuperAdmin ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/quotations/new?editId=${quotation.id}`)}
+                title="Edit Quotation (Super Admin Override)"
+                className="h-7 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 font-semibold cursor-pointer px-2.5"
+              >
+                <Edit className="mr-1 h-3.5 w-3.5 text-amber-600" /> Update
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/quotations/new?reviseId=${quotation.id}`)}
+                title="Revise Quotation (Super Admin)"
+                className="h-7 text-xs border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold cursor-pointer px-2.5"
+              >
+                <RefreshCw className="mr-1 h-3.5 w-3.5 text-purple-600" /> Revise
+              </Button>
+            </>
+          ) : quotation.status === "DRAFT" ? (
             <Button
               variant="outline"
               size="sm"
