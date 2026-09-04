@@ -307,7 +307,13 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       { key: "clientType", synonyms: ["type", "clienttype", "category", "segment"] },
       { key: "priceCategory", synonyms: ["pricecategory", "price", "pricing", "price category"] },
       { key: "notes", synonyms: ["notes", "remarks", "comments", "details"] },
-      { key: "assignedConsultant", synonyms: ["consultant", "assigneddesignconsultant", "salesperson", "designconsultant", "salesexecutive", "sales", "idc", "idcname", "assignedconsultant", "assignedidc", "interiordesignconsultant"] }
+      { key: "assignedConsultant", synonyms: [
+        "consultant", "assigneddesignconsultant", "salesperson", "designconsultant", 
+        "salesexecutive", "sales", "idc", "idcname", "assignedconsultant", "assignedidc", 
+        "interiordesignconsultant", "contact person / consultant", "idc consultant", 
+        "consultant name", "sales agent", "sales person", "sales rep", "sales representative", 
+        "assigned idc", "interior design consultant"
+      ] }
     ]
 
     fileHeaders.forEach(header => {
@@ -341,6 +347,26 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return colIdx !== -1 ? String(row[colIdx] || "").trim() : ""
       }
 
+      let rawConsultant = getVal("assignedConsultant")
+      const contactPersonVal = getVal("contactPerson")
+      const notesVal = getVal("notes")
+
+      // Fallback: If assignedConsultant is empty or doesn't match an ERP user, check contactPerson or notes
+      if (!rawConsultant || !findUserMatch(dbUsers, rawConsultant)) {
+        if (contactPersonVal) {
+          const matchedContactUser = findUserMatch(dbUsers, contactPersonVal)
+          if (matchedContactUser && matchedContactUser.isActive !== false) {
+            rawConsultant = matchedContactUser.name || contactPersonVal
+          }
+        }
+        if ((!rawConsultant || !findUserMatch(dbUsers, rawConsultant)) && notesVal) {
+          const matchedNotesUser = findUserMatch(dbUsers, notesVal)
+          if (matchedNotesUser && matchedNotesUser.isActive !== false) {
+            rawConsultant = matchedNotesUser.name || rawConsultant
+          }
+        }
+      }
+
       return {
         rowIndex: idx + 2,
         clientId: getVal("clientId"),
@@ -353,7 +379,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         clientType: getVal("clientType") || "Project",
         priceCategory: getVal("priceCategory"),
         notes: getVal("notes"),
-        assignedConsultant: getVal("assignedConsultant"),
+        assignedConsultant: rawConsultant,
       }
     })
 
@@ -675,6 +701,25 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return colIdx !== -1 ? String(row[colIdx] || "").trim() : ""
       }
 
+      let rawConsultant = getVal("assignedConsultant")
+      const contactPersonVal = getVal("contactPerson")
+      const notesVal = getVal("notes")
+
+      if (!rawConsultant || !findUserMatch(dbUsers, rawConsultant)) {
+        if (contactPersonVal) {
+          const matchedContactUser = findUserMatch(dbUsers, contactPersonVal)
+          if (matchedContactUser && matchedContactUser.isActive !== false) {
+            rawConsultant = matchedContactUser.name || contactPersonVal
+          }
+        }
+        if ((!rawConsultant || !findUserMatch(dbUsers, rawConsultant)) && notesVal) {
+          const matchedNotesUser = findUserMatch(dbUsers, notesVal)
+          if (matchedNotesUser && matchedNotesUser.isActive !== false) {
+            rawConsultant = matchedNotesUser.name || rawConsultant
+          }
+        }
+      }
+
       return {
         rowIndex: idx + 2,
         clientId: getVal("clientId"),
@@ -687,7 +732,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         clientType: getVal("clientType") || "Project",
         priceCategory: getVal("priceCategory"),
         notes: getVal("notes"),
-        assignedConsultant: getVal("assignedConsultant"),
+        assignedConsultant: rawConsultant,
       }
     })
 
@@ -1393,14 +1438,22 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                                   <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wide">Assigned Interior Design Consultant</label>
                                   <input
                                     id={`input-${idx}-assignedConsultant`}
+                                    list="erp-consultants-list"
                                     className={`w-full border rounded-lg px-2.5 py-1.5 bg-white dark:bg-zinc-900 text-xs focus:ring-blue-500 ${
                                       rowErrors.some(e => e.key === "assignedConsultant") ? "border-red-500 bg-red-950/20 text-red-500 font-bold" : 
                                       rowWarnings.some(e => e.key === "assignedConsultant") ? "border-amber-500" : ""
                                     }`}
                                     value={c.assignedConsultant}
-                                    placeholder="e.g. John Consultant"
+                                    placeholder="Type or select consultant..."
                                     onChange={(e) => handleClientFieldChange(idx, "assignedConsultant", e.target.value)}
                                   />
+                                  <datalist id="erp-consultants-list">
+                                    {dbUsers.filter(u => u.isActive !== false).map(u => (
+                                      <option key={u.id} value={u.name || u.email}>
+                                        {u.name} ({u.role?.replace(/_/g, " ")})
+                                      </option>
+                                    ))}
+                                  </datalist>
                                 </div>
 
                                 <div className="space-y-1 md:col-span-2">

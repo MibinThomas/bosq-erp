@@ -143,6 +143,7 @@ export async function POST(request: Request) {
 
     const processedRows: any[] = []
     const validNewClientsToCreate: any[] = []
+    const existingClientsToUpdate: any[] = []
     
     let stats = {
       totalReceived: clients.length,
@@ -228,37 +229,63 @@ export async function POST(request: Request) {
         }
       }
 
-      // 6. Validate Consultant
+      // 6. Validate & Resolve Consultant
       let assignedConsultantUserId: string | null = null
-      if (!assignedConsultant || String(assignedConsultant).trim() === "") {
-        assignedConsultantUserId = assignToUploader ? creatorUserId : fallbackAdminUserId
-      } else {
+
+      // Priority 1: Direct match from assignedConsultant field
+      if (assignedConsultant && String(assignedConsultant).trim() !== "") {
         const matchedUser = findUserMatch(dbUsers, assignedConsultant)
-        if (!matchedUser) {
-          cellIssues.push({
-            columnKey: "assignedConsultant",
-            type: "warning",
-            message: `Consultant "${assignedConsultant}" not found in ERP users. Assigned to uploader.`
-          })
-          assignedConsultantUserId = assignToUploader ? creatorUserId : fallbackAdminUserId
-        } else if (matchedUser.isActive === false) {
-          cellIssues.push({
-            columnKey: "assignedConsultant",
-            type: "error",
-            message: `Interior Design consultant "${matchedUser.name || assignedConsultant}" is inactive`
-          })
-        } else {
+        if (matchedUser) {
+          if (matchedUser.isActive === false) {
+            cellIssues.push({
+              columnKey: "assignedConsultant",
+              type: "error",
+              message: `Interior Design consultant "${matchedUser.name || assignedConsultant}" is inactive`
+            })
+          } else {
+            assignedConsultantUserId = matchedUser.id
+          }
+        }
+      }
+
+      // Priority 2: Fallback check on contactPerson field if consultant not resolved
+      if (!assignedConsultantUserId && contactPerson && String(contactPerson).trim() !== "") {
+        const matchedUser = findUserMatch(dbUsers, contactPerson)
+        if (matchedUser && matchedUser.isActive !== false) {
           assignedConsultantUserId = matchedUser.id
         }
       }
 
+      // Priority 3: Fallback check on notes field if consultant not resolved
+      if (!assignedConsultantUserId && notes && String(notes).trim() !== "") {
+        const matchedUser = findUserMatch(dbUsers, notes)
+        if (matchedUser && matchedUser.isActive !== false) {
+          assignedConsultantUserId = matchedUser.id
+        }
+      }
+
+      // Fallback if still not resolved to an active user
+      if (!assignedConsultantUserId) {
+        if (assignedConsultant && String(assignedConsultant).trim() !== "") {
+          cellIssues.push({
+            columnKey: "assignedConsultant",
+            type: "warning",
+            message: `Consultant "${assignedConsultant}" not found in ERP users. Assigned to uploader/admin.`
+          })
+        }
+        assignedConsultantUserId = assignToUploader ? creatorUserId : fallbackAdminUserId
+      }
+
       // Check Existing Logic
       let isExisting = false
+      let existingClientObj: any = null
       if (companyKey) {
         if (clientByCompany.has(companyKey)) {
           isExisting = true
+          existingClientObj = clientByCompany.get(companyKey)
         } else if (clientId && clientByClientId.has(clientId.trim().toUpperCase())) {
           isExisting = true
+          existingClientObj = clientByClientId.get(clientId.trim().toUpperCase())
         }
       }
 
@@ -278,7 +305,13 @@ export async function POST(request: Request) {
       } else if (isExisting) {
         finalStatus = "EXISTING_SKIPPED"
         stats.existingSkipped++
-        errorMessage = "Client already exists in database (skipped)"
+        errorMessage = "Client already exists in database (assignment refreshed)"
+        if (existingClientObj && assignedConsultantUserId) {
+          existingClientsToUpdate.push({
+            id: existingClientObj.id,
+            assignedConsultantUserId
+          })
+        }
       } else {
         // It's a valid new client
         processedCompanyKeys.add(companyKey) // Mark to catch dupes further down
@@ -333,9 +366,44 @@ export async function POST(request: Request) {
       }));
     }
 
-    // Pass 3: Database Insertion (Transaction)
-    if (validNewClientsToCreate.length > 0) {
+    // Pass 3: Database Operations (Transaction for inserts & assignment updates)
+    if (validNewClientsToCreate.length > 0 || existingClientsToUpdate.length > 0) {
       await prisma.$transaction(async (tx) => {
+        // Update existing clients with their resolved consultant assignment
+        for (const updateData of existingClientsToUpdate) {
+          await tx.client.update({
+            where: { id: updateData.id },
+            data: {
+              salespersonId: updateData.assignedConsultantUserId,
+            }
+          })
+
+          const existingAssignment = await tx.clientAssignment.findFirst({
+            where: { clientId: updateData.id, userId: updateData.assignedConsultantUserId }
+          })
+
+          if (!existingAssignment) {
+            await tx.clientAssignment.create({
+              data: {
+                clientId: updateData.id,
+                userId: updateData.assignedConsultantUserId,
+                isPrimary: true,
+                allowAllQuotations: true,
+                allowQuotationEdit: true,
+                allowRevisionApproval: true,
+                allowBoqAccess: true,
+                allowPricingVisibility: false
+              }
+            })
+          } else if (!existingAssignment.isPrimary) {
+            await tx.clientAssignment.update({
+              where: { id: existingAssignment.id },
+              data: { isPrimary: true }
+            })
+          }
+        }
+
+        // Create new clients
         for (const clientData of validNewClientsToCreate) {
           const savedClient = await tx.client.create({
             data: {
