@@ -15,6 +15,7 @@ import {
   Loader2,
   FileText,
   RefreshCw,
+  X,
 } from "lucide-react"
 
 interface InPageQuotationPreviewModalProps {
@@ -46,7 +47,7 @@ export function InPageQuotationPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[96vw] sm:max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] flex flex-col p-0 gap-0 overflow-hidden border-slate-800 shadow-2xl rounded-2xl bg-slate-950">
+      <DialogContent showCloseButton={false} className="max-w-[96vw] sm:max-w-[96vw] w-[96vw] h-[94vh] max-h-[94vh] flex flex-col p-0 gap-0 overflow-hidden border-slate-800 shadow-2xl rounded-2xl bg-slate-950">
         {/* Modal Header */}
         <DialogHeader className="p-3.5 sm:p-4 border-b border-slate-800 bg-slate-950 flex flex-row items-center justify-between gap-4 shrink-0 text-slate-100">
           <div className="flex items-center space-x-3">
@@ -77,7 +78,7 @@ export function InPageQuotationPreviewModal({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 pr-10 sm:pr-12">
+          <div className="flex items-center gap-2">
             {quoteId && (
               <>
                 <Button
@@ -135,6 +136,17 @@ export function InPageQuotationPreviewModal({
                 )}
               </>
             )}
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="h-8 w-8 p-0 flex items-center justify-center border-slate-700 bg-slate-800 text-slate-200 hover:text-white hover:bg-slate-700 hover:border-slate-500 cursor-pointer rounded-lg shadow-sm transition-colors ml-1"
+              title="Close Preview (Esc)"
+            >
+              <X className="h-4 w-4 stroke-[2.5]" />
+              <span className="sr-only">Close</span>
+            </Button>
           </div>
         </DialogHeader>
 
