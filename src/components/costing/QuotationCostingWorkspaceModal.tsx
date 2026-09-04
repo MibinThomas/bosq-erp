@@ -28,7 +28,8 @@ import {
   Save,
   Tag,
   Maximize2,
-  Info
+  Info,
+  FileSpreadsheet,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -370,8 +371,18 @@ export function QuotationCostingWorkspaceModal({
               </div>
 
               <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(`/api/quotations/${quotationGroup.quotationId}/export-costing`, "_blank")}
+                  className="h-8 text-xs font-bold border-emerald-600/60 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 dark:text-emerald-400 cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                  title="Export full costing breakdown to Excel spreadsheet"
+                >
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Export Costing (Excel)</span>
+                </Button>
                 <Badge variant="secondary" className="font-mono text-xs font-bold px-3 py-1">
-                  {items.length} Product(s) Pending Costing
+                  {items.length} Product(s) Total
                 </Badge>
               </div>
             </div>

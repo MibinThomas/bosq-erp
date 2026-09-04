@@ -2,7 +2,8 @@
 
 import React from "react"
 import { Badge } from "@/components/ui/badge"
-import { Package, ChevronDown } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Package, ChevronDown, FileSpreadsheet, Download } from "lucide-react"
 
 function cleanHtmlText(text?: string | null): string {
   if (!text) return ""
@@ -123,11 +124,55 @@ interface ManagerialAuditSectionProps {
   items: AuditItemMetric[]
   userRole?: string
   includeSectionHeadings?: boolean
+  quotationId?: string
+  onExportExcel?: () => void
 }
 
-export function ManagerialAuditSection({ items, includeSectionHeadings = true }: ManagerialAuditSectionProps) {
+export function ManagerialAuditSection({
+  items,
+  includeSectionHeadings = true,
+  quotationId,
+  onExportExcel,
+}: ManagerialAuditSectionProps) {
+  const handleExport = () => {
+    if (onExportExcel) {
+      onExportExcel()
+    } else if (quotationId) {
+      window.open(`/api/quotations/${quotationId}/export-costing`, "_blank")
+    }
+  }
+
   return (
     <div className="w-full bg-white text-slate-900 border border-slate-300 rounded-lg shadow-md overflow-hidden font-sans my-4">
+      {/* Table Header Action Bar */}
+      <div className="p-3 bg-slate-900 text-slate-100 flex flex-row items-center justify-between gap-3 border-b border-slate-800">
+        <div className="flex items-center space-x-2.5">
+          <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+            <FileSpreadsheet className="h-4 w-4" />
+          </div>
+          <div>
+            <h3 className="text-xs sm:text-sm font-bold text-white tracking-wide uppercase">
+              Detailed Costing Breakdown &amp; Audit Report
+            </h3>
+            <p className="text-[11px] text-slate-400">
+              Factory cost, accessories, estimator prices &amp; consultant final margin breakdown
+            </p>
+          </div>
+        </div>
+
+        {(quotationId || onExportExcel) && (
+          <Button
+            size="sm"
+            onClick={handleExport}
+            className="h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-sm shrink-0 flex items-center gap-1.5"
+            title="Export full costing breakdown as formatted Excel spreadsheet"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            <span>Export Costing (Excel)</span>
+          </Button>
+        )}
+      </div>
+
       {/* 13-Column Reference Audit Table */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs font-sans border-slate-300">

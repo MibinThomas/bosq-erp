@@ -619,6 +619,18 @@ export default function QuotationHtmlPreviewPage() {
             </Button>
           </div>
 
+          {isAuthorizedForCosting && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(`/api/quotations/${quotation.id}/export-costing`, "_blank")}
+              title="Export Costing Breakdown as Excel Spreadsheet"
+              className="h-7 text-xs border-emerald-600/60 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950 font-bold cursor-pointer px-2.5 shadow-2xs"
+            >
+              <FileSpreadsheet className="mr-1 h-3.5 w-3.5 text-emerald-600" /> Export Costing
+            </Button>
+          )}
+
           {quotation.status === "DRAFT" ? (
             <Button
               variant="outline"
@@ -986,6 +998,7 @@ export default function QuotationHtmlPreviewPage() {
                   summary={summaryMetrics}
                   items={auditItems}
                   userRole={userRole}
+                  quotationId={quotation.id}
                   includeSectionHeadings={(quotation as any).includeSectionHeadings ?? true}
                 />
               )
