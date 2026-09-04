@@ -73,6 +73,7 @@ export async function GET(request: Request) {
               select: {
                 id: true,
                 name: true,
+                email: true,
                 role: true
               }
             }
@@ -84,13 +85,38 @@ export async function GET(request: Request) {
       }
     })
 
+    // Self-healing: Ensure any client with a salespersonId has a matching primary ClientAssignment record
+    const unassignedClients = (clients as any[]).filter(c => c.salespersonId && (!c.assignments || c.assignments.length === 0))
+    if (unassignedClients.length > 0) {
+      Promise.all(
+        unassignedClients.map(async (c: any) => {
+          try {
+            await prisma.clientAssignment.create({
+              data: {
+                clientId: c.id,
+                userId: c.salespersonId!,
+                isPrimary: true,
+                allowAllQuotations: true,
+                allowQuotationEdit: true,
+                allowRevisionApproval: true,
+                allowBoqAccess: true,
+                allowPricingVisibility: false
+              }
+            })
+          } catch (e) {
+            // ignore
+          }
+        })
+      ).catch(() => {})
+    }
+
     // Map clients to add isAssigned flag
     const allowRequestAgain = (await getSetting("client_allow_request_again")) !== "false"
 
-    const clientsWithAccess = clients.map(client => {
+    const clientsWithAccess = (clients as any[]).map((client: any) => {
       const isClientUserAssigned = client.salespersonId === dbSessionUser.id || 
-                                   client.assignments.some(a => a.userId === dbSessionUser.id) ||
-                                   client.accessRequests.some(r => r.userId === dbSessionUser.id && r.status === "Approved")
+                                   (Array.isArray(client.assignments) && client.assignments.some((a: any) => a.userId === dbSessionUser.id)) ||
+                                   (Array.isArray(client.accessRequests) && client.accessRequests.some((r: any) => r.userId === dbSessionUser.id && r.status === "Approved"))
 
       const isAssigned = canViewAllClients || isClientUserAssigned
 

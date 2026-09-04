@@ -19,7 +19,9 @@ export async function GET(
           include: {
             user: {
               select: {
+                id: true,
                 name: true,
+                email: true,
                 role: true
               }
             }
@@ -50,7 +52,7 @@ export async function GET(
         where: { clientId: id, userId: currentUserId, status: "Approved" }
       })
       const isAssigned = client.salespersonId === currentUserId ||
-                         client.assignments.some(a => a.userId === currentUserId) ||
+                         (Array.isArray(client.assignments) && client.assignments.some((a: any) => a.userId === currentUserId)) ||
                          !!hasApprovedRequest
       if (!isAssigned) {
         return NextResponse.json({ error: "Forbidden: You do not have access to this client" }, { status: 403 })

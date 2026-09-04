@@ -538,7 +538,7 @@ export default function ClientDetailPage() {
                   <div className="flex items-center gap-2 p-2.5 border bg-background rounded-lg shadow-sm">
                     <User className="h-4 w-4 text-primary shrink-0" />
                     <span className="text-sm font-semibold">
-                      {client.assignments?.find(a => a.isPrimary)?.user.name || "Not Assigned"}
+                      {client.assignments?.find(a => a.isPrimary)?.user?.name || client.assignments?.[0]?.user?.name || (client as any).salesperson?.name || "Not Assigned"}
                     </span>
                   </div>
                 </div>

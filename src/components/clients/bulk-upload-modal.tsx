@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { read, write, utils } from "xlsx"
+import { findUserMatch } from "@/lib/user-matcher"
 
 interface BulkUploadModalProps {
   isOpen: boolean
@@ -163,7 +164,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       setExpandedRows({})
 
       // Fetch active users to validate assignments
-      fetch("/api/users/sales-agents")
+      fetch("/api/users")
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {
@@ -306,7 +307,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       { key: "clientType", synonyms: ["type", "clienttype", "category", "segment"] },
       { key: "priceCategory", synonyms: ["pricecategory", "price", "pricing", "price category"] },
       { key: "notes", synonyms: ["notes", "remarks", "comments", "details"] },
-      { key: "assignedConsultant", synonyms: ["consultant", "assigneddesignconsultant", "salesperson", "designconsultant", "salesexecutive", "sales"] }
+      { key: "assignedConsultant", synonyms: ["consultant", "assigneddesignconsultant", "salesperson", "designconsultant", "salesexecutive", "sales", "idc", "idcname", "assignedconsultant", "assignedidc", "interiordesignconsultant"] }
     ]
 
     fileHeaders.forEach(header => {
@@ -593,46 +594,30 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       // 6. Assigned Interior Design Consultant validation
       if (!c.assignedConsultant || c.assignedConsultant.trim() === "") {
         const assignToUploader = systemSettings["client_assign_to_uploader"] !== "false"
-        if (assignToUploader) {
+        warningsList.push({
+          row: csvRowNum,
+          column: currentMappings["assignedConsultant"] || "Assigned Interior Design Consultant",
+          message: assignToUploader 
+            ? "Blank consultant name; client will default to uploading user."
+            : "Blank consultant name; client will default to system admin.",
+          key: "assignedConsultant"
+        })
+      } else {
+        const matchedUser = findUserMatch(dbUsers, c.assignedConsultant)
+        if (!matchedUser) {
           warningsList.push({
             row: csvRowNum,
             column: currentMappings["assignedConsultant"] || "Assigned Interior Design Consultant",
-            message: "Blank assigned consultant, will default to uploading user.",
-            key: "assignedConsultant"
-          })
-        }
-      } else {
-        const matchedUser = dbUsers.find(
-          u => u.name && u.name.trim().toLowerCase() === c.assignedConsultant.trim().toLowerCase()
-        )
-        if (!matchedUser) {
-          errorsList.push({
-            row: csvRowNum,
-            column: currentMappings["assignedConsultant"] || "Assigned Interior Design Consultant",
-            message: "Interior Design consultant not found in ERP users.",
+            message: `Consultant "${c.assignedConsultant}" not found in ERP users list. Will default to uploading user.`,
             key: "assignedConsultant"
           })
         } else if (matchedUser.isActive === false) {
           errorsList.push({
             row: csvRowNum,
             column: currentMappings["assignedConsultant"] || "Assigned Interior Design Consultant",
-            message: "Interior Design consultant is inactive.",
+            message: `Consultant "${matchedUser.name || c.assignedConsultant}" is marked inactive.`,
             key: "assignedConsultant"
           })
-        } else {
-          const allowSalesExec = systemSettings["client_allow_sales_executive_assignment"] !== "false"
-          const allowedRoles = ["INTERIOR_DESIGN_CONSULTANT"]
-          if (allowSalesExec) {
-            allowedRoles.push("SALES_EXECUTIVE")
-          }
-          if (!allowedRoles.includes(matchedUser.role)) {
-            errorsList.push({
-              row: csvRowNum,
-              column: currentMappings["assignedConsultant"] || "Assigned Interior Design Consultant",
-              message: `User role (${matchedUser.role.replace(/_/g, " ")}) is not permitted for client assignment.`,
-              key: "assignedConsultant"
-            })
-          }
         }
       }
     })

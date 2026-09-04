@@ -228,8 +228,8 @@ export default function ClientsPage() {
       }
     } else {
       if (consultantFilter !== "All") {
-        const primaryAssignment = client.assignments?.find(a => a.isPrimary)
-        if (primaryAssignment?.user.name !== consultantFilter) {
+        const consultantName = client.assignments?.find(a => a.isPrimary)?.user?.name || client.assignments?.[0]?.user?.name || (client as any).salesperson?.name
+        if (consultantName !== consultantFilter) {
           return false
         }
       }
@@ -495,7 +495,7 @@ export default function ClientsPage() {
                   {isManagerOrAdmin && (
                     <TableCell>
                       <Badge variant="outline" className="font-normal bg-muted/50">
-                        {client.assignments?.find(a => a.isPrimary)?.user.name || "Unassigned"}
+                        {client.assignments?.find(a => a.isPrimary)?.user?.name || client.assignments?.[0]?.user?.name || (client as any).salesperson?.name || "Unassigned"}
                       </Badge>
                     </TableCell>
                   )}

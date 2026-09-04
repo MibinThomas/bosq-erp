@@ -7,6 +7,7 @@ import { createClientFolder } from "@/lib/sharepoint"
 import { getSettings } from "@/lib/settings"
 import ExcelJS from "exceljs"
 import { hasPermission } from "@/lib/rbac"
+import { findUserMatch } from "@/lib/user-matcher"
 
 export async function POST(request: Request) {
   try {
@@ -229,24 +230,25 @@ export async function POST(request: Request) {
 
       // 6. Validate Consultant
       let assignedConsultantUserId: string | null = null
-      if (!assignedConsultant || assignedConsultant.trim() === "") {
-        assignedConsultantUserId = fallbackAdminUserId
+      if (!assignedConsultant || String(assignedConsultant).trim() === "") {
+        assignedConsultantUserId = assignToUploader ? creatorUserId : fallbackAdminUserId
       } else {
-        const matchedUser = userByName.get(assignedConsultant.trim().toLowerCase())
+        const matchedUser = findUserMatch(dbUsers, assignedConsultant)
         if (!matchedUser) {
-          assignedConsultantUserId = fallbackAdminUserId
+          cellIssues.push({
+            columnKey: "assignedConsultant",
+            type: "warning",
+            message: `Consultant "${assignedConsultant}" not found in ERP users. Assigned to uploader.`
+          })
+          assignedConsultantUserId = assignToUploader ? creatorUserId : fallbackAdminUserId
         } else if (matchedUser.isActive === false) {
-          cellIssues.push({ columnKey: "assignedConsultant", type: "error", message: "Interior Design consultant is inactive" })
+          cellIssues.push({
+            columnKey: "assignedConsultant",
+            type: "error",
+            message: `Interior Design consultant "${matchedUser.name || assignedConsultant}" is inactive`
+          })
         } else {
-          const allowedRoles = ["INTERIOR_DESIGN_CONSULTANT", "SALES_MANAGER", "MANAGER"]
-          if (allowSalesExec) allowedRoles.push("SALES_EXECUTIVE")
-          if (systemConfig["client_allow_admin_assignment"] !== "false") allowedRoles.push("ADMIN", "SUPER_ADMIN")
-
-          if (!allowedRoles.includes(matchedUser.role)) {
-            cellIssues.push({ columnKey: "assignedConsultant", type: "error", message: `User role (${matchedUser.role}) not permitted` })
-          } else {
-            assignedConsultantUserId = matchedUser.id
-          }
+          assignedConsultantUserId = matchedUser.id
         }
       }
 
