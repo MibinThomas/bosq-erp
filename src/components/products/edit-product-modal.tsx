@@ -27,6 +27,10 @@ interface Product {
   status: string
   imageUrl: string | null
   stock: number
+  tableTopFinish?: string | null
+  legType?: string | null
+  storageOptions?: string | null
+  finishMaterial?: string | null
   category: {
     name: string
   }
@@ -54,6 +58,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
   const [specifications, setSpecifications] = useState("")
   const [description, setDescription] = useState("")
   const [status, setStatus] = useState("ACTIVE")
+  const [tableTopFinish, setTableTopFinish] = useState("")
+  const [legType, setLegType] = useState("")
+  const [dimensions, setDimensions] = useState("")
+  const [storageOptions, setStorageOptions] = useState("")
+  const [finishMaterial, setFinishMaterial] = useState("")
   const [categoriesList, setCategoriesList] = useState<any[]>([])
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [base64Image, setBase64Image] = useState<string | null>(null)
@@ -106,6 +115,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
       setSpecifications(product.specifications || "")
       setDescription(product.description || "")
       setStatus(product.status)
+      setTableTopFinish(product.tableTopFinish || "")
+      setLegType(product.legType || "")
+      setDimensions(product.dimensions || "")
+      setStorageOptions(product.storageOptions || "")
+      setFinishMaterial(product.finishMaterial || "")
       setImagePreview(product.imageUrl)
       setBase64Image(null)
     }
@@ -225,6 +239,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
           description,
           specifications,
           status,
+          tableTopFinish: tableTopFinish || null,
+          legType: legType || null,
+          dimensions: dimensions || null,
+          storageOptions: storageOptions || null,
+          finishMaterial: finishMaterial || null,
           imageUrl: base64Image || undefined,
           stock: parseInt(stock.toString(), 10) || 0,
         })

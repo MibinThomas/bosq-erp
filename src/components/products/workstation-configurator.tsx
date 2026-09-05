@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react"
 import { 
   SlidersHorizontal, 
   Check, 
+  Plus,
   AlertTriangle, 
   Package, 
   Sparkles, 
@@ -137,6 +138,13 @@ export function WorkstationConfigurator({
     return Array.from(validSet).sort()
   }, [activeModel, selectedLegType, availableCombinations])
 
+  // Auto-adjust selectedTableTop if current selection is invalid
+  useEffect(() => {
+    if (activeModel && validTableTops.length > 0 && selectedTableTop && !validTableTops.includes(selectedTableTop)) {
+      setSelectedTableTop(validTableTops[0])
+    }
+  }, [activeModel, validTableTops, selectedTableTop])
+
   // Compute valid options for Dimensions based on selected Leg Type & Table Top
   const validDimensions = useMemo(() => {
     if (!activeModel) return []
@@ -150,6 +158,13 @@ export function WorkstationConfigurator({
     })
     return Array.from(validSet).sort()
   }, [activeModel, selectedLegType, selectedTableTop, availableCombinations])
+
+  // Auto-adjust selectedDimension if current selection is invalid
+  useEffect(() => {
+    if (activeModel && validDimensions.length > 0 && selectedDimension && !validDimensions.includes(selectedDimension)) {
+      setSelectedDimension(validDimensions[0])
+    }
+  }, [activeModel, validDimensions, selectedDimension])
 
   // Locate matching combination in local matrix
   const matchedCombination = useMemo(() => {
@@ -495,13 +510,13 @@ export function WorkstationConfigurator({
           onClick={() => {
             if (matchedProduct) {
               onSelectVariant(matchedProduct)
-              toast.success(`Applied variant "${matchedProduct.productCode}" to line item!`)
+              toast.success(`Added configured product "${matchedProduct.productCode}" to quotation!`)
             }
           }}
           className="ml-auto text-xs h-9 px-5 font-bold flex items-center gap-1.5 cursor-pointer shadow-md bg-primary hover:bg-primary/90"
         >
-          <Check className="h-4 w-4" />
-          <span>Apply Configured Variant</span>
+          <Plus className="h-4 w-4" />
+          <span>Add to Quotation</span>
         </Button>
       </CardFooter>
     </Card>

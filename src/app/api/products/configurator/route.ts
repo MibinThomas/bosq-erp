@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
-
 import { getSetting } from "@/lib/settings"
 
 export async function GET() {
@@ -14,7 +13,8 @@ export async function GET() {
 
     const userRole = (session.user as any).role || ""
     const isSuperAdmin = userRole === "SUPER_ADMIN"
-    const isConfiguratorEnabled = (await getSetting("enable_workstation_configurator")) === "true"
+    const settingVal = await getSetting("enable_workstation_configurator")
+    const isConfiguratorEnabled = settingVal !== "false"
 
     if (!isSuperAdmin && !isConfiguratorEnabled) {
       return NextResponse.json({
@@ -47,14 +47,32 @@ export async function GET() {
     // If no workstation-specific category matches, include all active products with attributes or all products
     const targetProducts = workstationProducts.length > 0 ? workstationProducts : products
 
-    // Helper to extract base model name from productName (e.g., "Zen X Single Seater - White" -> "Zen X Single Seater")
+    // Helper to extract clean base model name from productName / productCode
     const getModelName = (p: typeof products[0]) => {
-      let name = p.productName.trim()
-      // If product name has hyphen delimiter containing attributes, extract base name
-      if (name.includes(" - ")) {
-        name = name.split(" - ")[0].trim()
+      const code = (p.productCode || "").toUpperCase()
+      const name = p.productName.trim()
+      const lowerName = name.toLowerCase()
+
+      if (code.startsWith("ZENX-S") || lowerName.includes("single seater")) {
+        return "Zen X Single Seater Workstation"
       }
-      return name
+      if (code.startsWith("ZENX-F2F") || code.startsWith("ZENX-2S") || lowerName.includes("2 seater") || lowerName.includes("face-to-face")) {
+        return "Zen X Face-to-Face 2 Seater Workstation"
+      }
+      if (code.startsWith("ZENX-4S") || lowerName.includes("4 seater")) {
+        return "Zen X 4-Seater Workstation"
+      }
+      if (code.startsWith("ZENX-6S") || lowerName.includes("6 seater")) {
+        return "Zen X 6-Seater Workstation"
+      }
+
+      // General product name normalization: strip out hyphen/pipe delimiters and dimension strings
+      let cleanName = name
+        .split(/\s*[-–|]\s*/)[0]
+        .replace(/\b\d{3,4}\s*[x×]\s*\d{3,4}\s*(mm)?\b/gi, "")
+        .trim()
+
+      return cleanName || name
     }
 
     // Group products by model
@@ -114,18 +132,25 @@ export async function GET() {
       })
     }
 
-    // Convert Sets to Arrays for JSON response
-    const models = Object.values(modelsMap).map((m) => ({
-      modelName: m.modelName,
-      categoryId: m.categoryId,
-      categoryName: m.categoryName,
-      legTypes: Array.from(m.legTypes).sort(),
-      tableTopFinishes: Array.from(m.tableTopFinishes).sort(),
-      dimensions: Array.from(m.dimensions).sort(),
-      storageOptions: Array.from(m.storageOptions).sort(),
-      finishMaterials: Array.from(m.finishMaterials).sort(),
-      combinations: m.combinations,
-    }))
+    // Convert Sets to Arrays for JSON response and sort configurable models to top
+    const models = Object.values(modelsMap)
+      .map((m) => ({
+        modelName: m.modelName,
+        categoryId: m.categoryId,
+        categoryName: m.categoryName,
+        legTypes: Array.from(m.legTypes).sort(),
+        tableTopFinishes: Array.from(m.tableTopFinishes).sort(),
+        dimensions: Array.from(m.dimensions).sort(),
+        storageOptions: Array.from(m.storageOptions).sort(),
+        finishMaterials: Array.from(m.finishMaterials).sort(),
+        combinations: m.combinations,
+      }))
+      .sort((a, b) => {
+        const aHasAttr = (a.legTypes.length > 0 || a.tableTopFinishes.length > 0) ? 1 : 0
+        const bHasAttr = (b.legTypes.length > 0 || b.tableTopFinishes.length > 0) ? 1 : 0
+        if (aHasAttr !== bHasAttr) return bHasAttr - aHasAttr
+        return a.modelName.localeCompare(b.modelName)
+      })
 
     return NextResponse.json({
       success: true,
@@ -137,3 +162,4 @@ export async function GET() {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
+

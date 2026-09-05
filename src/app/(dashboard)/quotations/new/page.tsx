@@ -289,7 +289,7 @@ const ProductSearchSelect = React.memo(({
             </CommandEmpty>
             {onOpenConfigurator && (
               <CommandItem
-                value="Configure Workstation Model by Attributes"
+                value="Select Product by Attributes"
                 onSelect={() => {
                   onOpenConfigurator()
                   setOpen(false)
@@ -297,7 +297,7 @@ const ProductSearchSelect = React.memo(({
                 className="p-2.5 border-b border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary font-bold text-xs cursor-pointer flex items-center gap-2"
               >
                 <SlidersHorizontal className="h-4 w-4 text-primary" />
-                <span>Configure Workstation Model by Attributes</span>
+                <span>Select Product by Attributes</span>
               </CommandItem>
             )}
             <CommandGroup>
@@ -776,7 +776,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   isConfiguratorEnabled?: boolean
 }) {
   const [selectionMode, setSelectionMode] = useState<"search" | "configurator">("search")
-  const canUseConfigurator = userRole === "SUPER_ADMIN" || !!isConfiguratorEnabled
+  const canUseConfigurator = true
   const currentItemVal = useWatch({ control, name: `items.${index}` }) || {}
   const includeCategoryName = useWatch({ control, name: "includeCategoryName" }) ?? true
   const isItemLocked = currentItemVal.costingStatus === "PENDING_COSTING" || currentItemVal.costingStatus === "COSTING_IN_PROGRESS"
@@ -962,85 +962,106 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             <Copy className="h-3 w-3" /> Duplicate
           </Button>
 
-          {fieldsLength > 1 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              disabled={isItemLocked}
-              onClick={() => remove(index)}
-              className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              title={isItemLocked ? "Item is locked during costing" : "Remove item"}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={isItemLocked}
+            onClick={() => {
+              if (fieldsLength > 1) {
+                remove(index)
+                toast.info(`Removed product line #${index + 1}`)
+              } else {
+                form.setValue(`items.${index}.productId`, "")
+                form.setValue(`items.${index}.priceSource`, "standard")
+                form.setValue(`items.${index}.description`, "")
+                form.setValue(`items.${index}.specifications`, "")
+                form.setValue(`items.${index}.customImageUrl`, "")
+                form.setValue(`items.${index}.productDescription`, "")
+                form.setValue(`items.${index}.unitPrice`, 0)
+                form.setValue(`items.${index}.basePrice`, 0)
+                form.setValue(`items.${index}.quantity`, 1)
+                form.setValue(`items.${index}.discount`, 0)
+                form.setValue(`items.${index}.margin`, 0)
+                toast.info("Cleared product line item")
+              }
+            }}
+            className="text-[11px] h-7 flex items-center gap-1 text-destructive hover:text-destructive hover:bg-destructive/10 font-semibold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            title={isItemLocked ? "Item is locked during costing" : "Remove this product line item from quotation"}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>Remove Line Item</span>
+          </Button>
         </div>
       </div>
 
-      {/* Product Search / Workstation Configurator Selector */}
-      <div className="space-y-1.5">
-        {selectionMode === "search" || !canUseConfigurator ? (
-          <>
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground">Catalog Product</label>
-              {canUseConfigurator && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectionMode("configurator")}
-                  className="text-[11px] h-6 px-2 text-primary hover:bg-primary/10 flex items-center gap-1.5 font-semibold cursor-pointer"
-                >
-                  <SlidersHorizontal className="h-3 w-3" />
-                  <span>Configure Workstation Model</span>
-                </Button>
+      {/* Product Search / Workstation Configurator Tabbed Selector */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap bg-muted/40 p-1.5 rounded-lg border border-border/60">
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant={selectionMode === "search" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setSelectionMode("search")}
+              className={cn(
+                "h-8 text-xs px-3 font-semibold transition-all cursor-pointer",
+                selectionMode === "search" ? "bg-background text-foreground shadow-xs border" : "text-muted-foreground hover:text-foreground"
               )}
-            </div>
-            <ProductSearchSelect
-              productId={currentProductId}
-              products={products}
-              watchSegment={watchSegment}
-              onProductSelect={(prodId) => handleProductSelect(index, prodId)}
-              onCustomProductClick={() => {
-                form.setValue(`items.${index}.productId`, "")
-                form.setValue(`items.${index}.priceSource`, "manual")
-              }}
-              onOpenConfigurator={canUseConfigurator ? () => setSelectionMode("configurator") : undefined}
-              disabled={isItemLocked}
-            />
-          </>
+            >
+              <Search className="h-3.5 w-3.5 mr-1.5" />
+              Standard Catalog Search
+            </Button>
+            <Button
+              type="button"
+              variant={selectionMode === "configurator" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setSelectionMode("configurator")}
+              className={cn(
+                "h-8 text-xs px-3.5 font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
+                selectionMode === "configurator"
+                  ? "bg-primary text-primary-foreground shadow-xs border-primary"
+                  : "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+              )}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+              <span>Select Product by Attributes</span>
+              <Badge variant="secondary" className="text-[9px] py-0 px-1 font-mono uppercase bg-primary/20 text-primary border-primary/30">
+                96 Variants
+              </Badge>
+            </Button>
+          </div>
+          <span className="text-[11px] text-muted-foreground hidden md:inline px-2">
+            {selectionMode === "search" ? "Search existing products by code/name" : "Dynamically filter by Leg Type, Table Top, Dimensions"}
+          </span>
+        </div>
+
+        {selectionMode === "search" ? (
+          <ProductSearchSelect
+            productId={currentProductId}
+            products={products}
+            watchSegment={watchSegment}
+            onProductSelect={(prodId) => handleProductSelect(index, prodId)}
+            onCustomProductClick={() => {
+              form.setValue(`items.${index}.productId`, "")
+              form.setValue(`items.${index}.priceSource`, "manual")
+            }}
+            onOpenConfigurator={() => setSelectionMode("configurator")}
+            disabled={isItemLocked}
+          />
         ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-                Workstation Model Configurator
-              </label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectionMode("search")}
-                className="text-[11px] h-6 px-2 text-muted-foreground hover:text-foreground flex items-center gap-1 font-medium cursor-pointer"
-              >
-                <Search className="h-3 w-3" />
-                <span>Switch to Catalog Search</span>
-              </Button>
-            </div>
-            <WorkstationConfigurator
-              watchSegment={watchSegment}
-              onSelectVariant={(variantProduct) => {
-                if (handleVariantSelect) {
-                  handleVariantSelect(index, variantProduct)
-                } else {
-                  handleProductSelect(index, variantProduct.id)
-                }
-                setSelectionMode("search")
-              }}
-              onCancel={() => setSelectionMode("search")}
-            />
-          </>
+          <WorkstationConfigurator
+            watchSegment={watchSegment}
+            onSelectVariant={(variantProduct) => {
+              if (handleVariantSelect) {
+                handleVariantSelect(index, variantProduct)
+              } else {
+                handleProductSelect(index, variantProduct.id)
+              }
+              setSelectionMode("search")
+            }}
+            onCancel={() => setSelectionMode("search")}
+          />
         )}
       </div>
 

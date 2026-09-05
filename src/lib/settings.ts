@@ -19,7 +19,7 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   company_bank_details: "Bank Name: Emirates NBD\nAccount Name: BOSQ OFFICE FURNITURE TRADING LLC\nAccount No: 10158492048201\nIBAN: AE28020000010158492048201\nSWIFT / BIC: EBILAEADXXX\nBranch: Dubai Main Branch, UAE",
   company_disclaimer_title: "Disclaimers",
   company_disclaimer: "",
-  enable_workstation_configurator: "false",
+  enable_workstation_configurator: "true",
 }
 
 export async function getSetting(key: string): Promise<string> {
