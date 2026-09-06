@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
-import { ArrowLeft, Loader2, Save, Package, Tag, Calculator, Info, Image as ImageIcon, Briefcase, Settings2, ShieldCheck, Palette, Grid, Plus, X } from "lucide-react"
+import { ArrowLeft, Loader2, Save, Package, Tag, Calculator, Info, Image as ImageIcon, Briefcase, Settings2, ShieldCheck, Palette, Grid, Plus, X, Layers } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { ImageUploader } from "@/components/products/ImageUploader"
+import { VariantMatrixBuilder, GeneratedVariant } from "@/components/products/variant-matrix-builder"
 
 export default function NewProductPage() {
   const router = useRouter()
@@ -23,6 +24,7 @@ export default function NewProductPage() {
   const [margins, setMargins] = useState({ dealer: 15, interior: 30, direct: 50, online: 75 })
   const [manualOverride, setManualOverride] = useState(false)
   const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; description: string | null }[]>([])
+  const [configuredVariants, setConfiguredVariants] = useState<GeneratedVariant[]>([])
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [newCategoryDesc, setNewCategoryDesc] = useState("")
@@ -217,6 +219,8 @@ export default function NewProductPage() {
         ...formData,
         imageUrl: formData.imageUrls.length > 0 ? formData.imageUrls[0] : undefined,
         stock: parseInt(formData.stock, 10) || 0,
+        isMaster: configuredVariants.length > 0,
+        variants: configuredVariants,
       }
 
       const res = await fetch("/api/products", {
@@ -231,7 +235,11 @@ export default function NewProductPage() {
       }
 
       const newProduct = await res.json()
-      toast.success(`Product ${newProduct.productName} created successfully!`)
+      toast.success(
+        configuredVariants.length > 0
+          ? `Master Product ${newProduct.productName} with ${configuredVariants.length} variants created successfully!`
+          : `Product ${newProduct.productName} created successfully!`
+      )
       router.push("/products")
     } catch (error: any) {
       console.error("Error creating product:", error)
@@ -377,6 +385,23 @@ export default function NewProductPage() {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Configurable Variants Matrix Configurator */}
+          <div className="bg-card border border-border/60 rounded-2xl p-6 shadow-sm space-y-6">
+            <h2 className="text-lg font-bold border-b pb-4 flex items-center gap-2">
+              <Layers className="h-5 w-5 text-primary" /> Master Product & Configurable Variations
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Define sub-models and color/finish options to auto-generate all product variants under this master model in a single step.
+            </p>
+            <VariantMatrixBuilder
+              masterName={formData.productName}
+              categoryName={formData.categoryName}
+              baseCostPrice={parseFloat(formData.costPrice) || 0}
+              margins={margins}
+              onChangeVariants={(vars) => setConfiguredVariants(vars)}
+            />
           </div>
 
           {/* Dynamic Category Specifications */}

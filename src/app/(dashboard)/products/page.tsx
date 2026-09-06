@@ -37,7 +37,8 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2, ChevronRight, UserPlus } from "lucide-react"
+import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2, ChevronRight, UserPlus, Layers, Eye } from "lucide-react"
+import { VariantDrawerModal } from "@/components/products/variant-drawer-modal"
 
 interface Product {
   id: string
@@ -56,10 +57,17 @@ interface Product {
   description?: string | null
   status: string
   imageUrl: string | null
+  imageUrls?: string[] | null
   stock: number
+  isMaster?: boolean
+  parentProductId?: string | null
+  modelCode?: string | null
+  modelName?: string | null
+  variantAttributes?: any
   category: {
     name: string
   }
+  variants?: Product[]
 }
 
 export default function ProductsPage() {
@@ -83,6 +91,7 @@ export default function ProductsPage() {
   const [deleting, setDeleting] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
   const [sortBy, setSortBy] = useState<string>("productCode")
+  const [selectedMasterForVariants, setSelectedMasterForVariants] = useState<Product | null>(null)
 
   // Inline Stock Edit states
   const [editingStockId, setEditingStockId] = useState<string | null>(null)
@@ -539,7 +548,7 @@ export default function ProductsPage() {
   async function fetchProducts() {
     try {
       setLoading(true)
-      const res = await fetch("/api/products")
+      const res = await fetch("/api/products?grouped=true")
       if (!res.ok) throw new Error("Failed to fetch products")
       const data = await res.json()
       setProducts(data)
@@ -592,15 +601,22 @@ export default function ProductsPage() {
     fetchCategories()
   }, [])
 
-  // Filter products dynamically
+  // Filter products dynamically across master & variants
   const filteredProducts = products.filter((product) => {
     const term = searchTerm.toLowerCase()
+    const matchesVariants = product.variants?.some(v => 
+      v.productName.toLowerCase().includes(term) ||
+      v.productCode.toLowerCase().includes(term) ||
+      (v.availableColors && v.availableColors.toLowerCase().includes(term)) ||
+      (v.modelName && v.modelName.toLowerCase().includes(term))
+    )
     const matchesSearch = (
       product.productName.toLowerCase().includes(term) ||
       product.productCode.toLowerCase().includes(term) ||
-      product.category.name.toLowerCase().includes(term)
+      (product.category?.name && product.category.name.toLowerCase().includes(term)) ||
+      Boolean(matchesVariants)
     )
-    const matchesCategory = selectedCategory ? product.category.name === selectedCategory : true
+    const matchesCategory = selectedCategory ? product.category?.name === selectedCategory : true
     return matchesSearch && matchesCategory
   })
 
@@ -770,164 +786,188 @@ export default function ProductsPage() {
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
-            {sortedProducts.map((product) => (
-              <div 
-                key={product.id} 
-                className={`relative border rounded-2xl bg-card text-card-foreground shadow-sm hover:shadow-xl hover:border-primary/30 transition-all flex flex-col group overflow-hidden ${
-                  selectedIds.includes(product.id) ? "border-primary bg-primary/[0.02]" : ""
-                }`}
-              >
-                {/* Checkbox Overlay */}
-                {canDeleteProduct && (
-                  <div className="absolute top-3 left-3 z-10 bg-white/85 dark:bg-black/75 p-1.5 rounded-lg border shadow-sm transition-opacity opacity-100 sm:opacity-0 group-hover:opacity-100 flex items-center justify-center">
-                    <input 
-                      type="checkbox"
-                      className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
-                      checked={selectedIds.includes(product.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedIds([...selectedIds, product.id])
-                        } else {
-                          setSelectedIds(selectedIds.filter(id => id !== product.id))
-                        }
-                      }}
-                    />
-                  </div>
-                )}
+            {sortedProducts.map((product) => {
+              const isMasterModel = Boolean(product.variants && product.variants.length > 0)
+              const variantList = product.variants || []
+              
+              // Min and Max prices across variants
+              const prices = isMasterModel ? variantList.map(v => v.projectPrice || v.unitPrice || 0).filter(p => p > 0) : [product.unitPrice || 0]
+              const minPrice = prices.length > 0 ? Math.min(...prices) : product.unitPrice || 0
+              const maxPrice = prices.length > 0 ? Math.max(...prices) : product.unitPrice || 0
+              const priceDisplay = minPrice === maxPrice
+                ? `AED ${minPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : `AED ${minPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} - ${maxPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
 
-                {/* Card Status Badge */}
-                <div className="absolute top-3 right-3 z-10">
-                  <Badge variant={product.status === "ACTIVE" ? "default" : "destructive"} className="shadow-sm">
-                    {product.status}
-                  </Badge>
-                </div>
+              // Total stock across variants
+              const totalVariantStock = isMasterModel ? variantList.reduce((sum, v) => sum + (v.stock || 0), 0) : (product.stock || 0)
 
-                {/* Product Image */}
+              // Distinct sub-models list (e.g. High Back, Mid Back, Low Back)
+              const subModelNames = isMasterModel ? Array.from(new Set(variantList.map(v => v.modelName).filter(Boolean))) : []
+
+              return (
                 <div 
-                  className="h-48 w-full bg-muted/30 flex items-center justify-center overflow-hidden relative border-b p-4 cursor-pointer hover:bg-muted/40 transition-colors"
-                  onClick={() => {
-                    setSelectedDetailProduct(product)
-                    setIsDetailOpen(true)
-                  }}
-                  title="Click to view product details"
+                  key={product.id} 
+                  className={`relative border rounded-2xl bg-card text-card-foreground shadow-sm hover:shadow-xl hover:border-primary/30 transition-all flex flex-col group overflow-hidden ${
+                    selectedIds.includes(product.id) ? "border-primary bg-primary/[0.02]" : ""
+                  }`}
                 >
-                  {product.imageUrl ? (
-                    <img 
-                      src={product.imageUrl} 
-                      alt={product.productName} 
-                      className="object-contain max-h-full max-w-full transition-transform duration-300 group-hover:scale-105" 
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
-                      <Package className="h-10 w-10 stroke-[1.5]" />
-                      <span className="text-[10px] uppercase tracking-wider font-semibold">No Image</span>
+                  {/* Checkbox Overlay */}
+                  {canDeleteProduct && (
+                    <div className="absolute top-3 left-3 z-10 bg-white/85 dark:bg-black/75 p-1.5 rounded-lg border shadow-sm transition-opacity opacity-100 sm:opacity-0 group-hover:opacity-100 flex items-center justify-center">
+                      <input 
+                        type="checkbox"
+                        className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                        checked={selectedIds.includes(product.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds([...selectedIds, product.id])
+                          } else {
+                            setSelectedIds(selectedIds.filter(id => id !== product.id))
+                          }
+                        }}
+                      />
                     </div>
                   )}
-                </div>
 
-                {/* Card Info */}
-                <div className="p-5 flex-1 flex flex-col gap-3">
-                  <div>
-                    <span className="text-[10px] font-mono text-muted-foreground uppercase bg-secondary/80 px-2 py-0.5 rounded border">
-                      {product.productCode}
-                    </span>
-                    <h3 className="font-bold text-base mt-2 line-clamp-1 group-hover:text-primary transition-colors">
-                      {product.productName}
-                    </h3>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-muted-foreground font-medium">
+                  {/* Card Badge: Master Model status or Variation Count */}
+                  <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+                    {isMasterModel ? (
+                      <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-extrabold text-xs shadow-sm flex items-center gap-1">
+                        <Layers className="h-3.5 w-3.5" />
+                        {variantList.length} Variations
+                      </Badge>
+                    ) : (
+                      <Badge variant={product.status === "ACTIVE" ? "default" : "destructive"} className="shadow-sm">
+                        {product.status}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Product / Master Image */}
+                  <div 
+                    className="h-48 w-full bg-muted/30 flex items-center justify-center overflow-hidden relative border-b p-4 cursor-pointer hover:bg-muted/40 transition-colors"
+                    onClick={() => {
+                      if (isMasterModel) {
+                        setSelectedMasterForVariants(product)
+                      } else {
+                        setSelectedDetailProduct(product)
+                        setIsDetailOpen(true)
+                      }
+                    }}
+                    title={isMasterModel ? "Click to view variations" : "Click to view product details"}
+                  >
+                    {product.imageUrl ? (
+                      <img 
+                        src={product.imageUrl.startsWith("http") || product.imageUrl.startsWith("/") ? product.imageUrl : `/${product.imageUrl}`} 
+                        alt={product.productName} 
+                        className="object-contain max-h-full max-w-full transition-transform duration-300 group-hover:scale-105" 
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
+                        <Package className="h-10 w-10 stroke-[1.5]" />
+                        <span className="text-[10px] uppercase tracking-wider font-semibold">No Image</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card Info */}
+                  <div className="p-5 flex-1 flex flex-col gap-3">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-mono text-muted-foreground uppercase bg-secondary/80 px-2 py-0.5 rounded border">
+                          {product.productCode}
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          totalVariantStock >= 5
+                            ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                            : totalVariantStock > 0
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+                            : "bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400"
+                        }`}>
+                          {totalVariantStock > 0 ? `${totalVariantStock} Total Stock` : "Out of Stock"}
+                        </span>
+                      </div>
+
+                      <h3 className="font-bold text-base mt-2 line-clamp-1 group-hover:text-primary transition-colors">
+                        {product.productName}
+                      </h3>
+                      
+                      <p className="text-xs text-muted-foreground font-medium mt-1">
                         Category: <span className="text-foreground">{product.category.name}</span>
                       </p>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        (product.stock ?? 0) >= 5
-                          ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
-                          : (product.stock ?? 0) > 0
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
-                          : "bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400"
-                      }`}>
-                        {(product.stock ?? 0) >= 5
-                          ? `${product.stock} In Stock`
-                          : (product.stock ?? 0) > 0
-                          ? `Low Stock (${product.stock})`
-                          : "Out of Stock"}
-                      </span>
-                    </div>
-                  </div>
 
-                  <div className="h-px bg-border my-1" />
+                      {subModelNames.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap mt-2">
+                          {subModelNames.slice(0, 3).map(sm => (
+                            <Badge key={sm} variant="outline" className="text-[9px] py-0 px-1.5 font-medium">
+                              {sm}
+                            </Badge>
+                          ))}
+                          {subModelNames.length > 3 && (
+                            <span className="text-[9px] font-bold text-muted-foreground">+ {subModelNames.length - 3} more</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                    <div>
-                      <p className="font-bold text-[10px] text-muted-foreground/80 uppercase">Warranty</p>
-                      <p className="text-foreground mt-0.5">{product.warranty || "5 Years"}</p>
-                    </div>
-                    <div>
-                      <p className="font-bold text-[10px] text-muted-foreground/80 uppercase">Dimensions</p>
-                      <p className="text-foreground mt-0.5 line-clamp-1">{product.dimensions || "Standard"}</p>
-                    </div>
-                  </div>
+                    <div className="h-px bg-border my-1" />
 
-                  <div className="flex items-end justify-between mt-2 pt-2 border-t">
-                    <div>
-                      <p className="text-[10px] font-bold text-muted-foreground/80 uppercase">Unit Price</p>
-                      <p className="text-lg font-extrabold text-primary font-mono mt-0.5">
-                        AED {product.unitPrice.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </p>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      {canEditProduct ? (
+                    <div className="flex items-end justify-between mt-auto pt-2 border-t">
+                      <div>
+                        <p className="text-[10px] font-bold text-muted-foreground/80 uppercase">
+                          {isMasterModel ? "Price Range" : "Unit Price"}
+                        </p>
+                        <p className="text-base font-extrabold text-primary font-mono mt-0.5">
+                          {priceDisplay}
+                        </p>
+                      </div>
+                      
+                      {isMasterModel ? (
                         <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setEditingProduct(product)
-                            setIsEditOpen(true)
-                          }}
-                          className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-8 rounded-full px-3"
+                          onClick={() => setSelectedMasterForVariants(product)}
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shrink-0 cursor-pointer h-9 rounded-xl px-3 flex items-center gap-1.5 shadow"
                         >
-                          <Edit className="h-3.5 w-3.5" />
+                          <Eye className="h-3.5 w-3.5" />
+                          View Variations
                         </Button>
                       ) : (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedDetailProduct(product)
-                            setIsDetailOpen(true)
-                          }}
-                          className="border-muted-foreground/20 hover:border-muted-foreground/45 hover:bg-muted/5 text-muted-foreground text-xs shrink-0 cursor-pointer h-8 rounded-full px-3"
-                        >
-                          View Details
-                        </Button>
-                      )}
-                      
-                      {/* Add to Quote Button */}
-                      {hasQuoteAccess && (
-                        <Button 
-                          variant="default" 
-                          size="sm" 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            addToQuoteCart(product)
-                          }}
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs shrink-0 cursor-pointer h-8 rounded-full px-4 flex items-center gap-1 font-bold shadow-sm"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Add to Quote
-                        </Button>
+                        <div className="flex gap-2">
+                          {canEditProduct && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingProduct(product)
+                                setIsEditOpen(true)
+                              }}
+                              className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-8 rounded-full px-3"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {hasQuoteAccess && (
+                            <Button 
+                              variant="default" 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                addToQuoteCart(product)
+                              }}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs shrink-0 cursor-pointer h-8 rounded-full px-4 flex items-center gap-1 font-bold shadow-sm"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
-                </div>
 
-              </div>
-            ))}
+                </div>
+              )
+            })}
           </div>
         ) : (
           <div className="overflow-x-auto w-full">
@@ -2152,6 +2192,19 @@ export default function ProductsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Interactive Variant Drawer Modal */}
+      <VariantDrawerModal
+        masterProduct={selectedMasterForVariants as any}
+        isOpen={Boolean(selectedMasterForVariants)}
+        onClose={() => setSelectedMasterForVariants(null)}
+        onAddToCart={(variant) => {
+          addToQuoteCart(variant as any)
+        }}
+        onSaveStock={handleSaveStock}
+        canEditProduct={canEditProduct}
+        hasQuoteAccess={hasQuoteAccess}
+      />
     </div>
   )
 }

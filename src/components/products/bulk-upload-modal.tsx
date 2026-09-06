@@ -180,16 +180,13 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
   const downloadEmptyTemplate = (e: React.MouseEvent) => {
     e.stopPropagation()
-    const csvContent = CSV_HEADERS.join(",") + "\n"
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
-    link.setAttribute("href", url)
-    link.setAttribute("download", "bosq_product_import_template_empty.csv")
+    link.setAttribute("href", "/templates/bosq_master_product_bulk_import_template.xlsx")
+    link.setAttribute("download", "bosq_master_product_bulk_import_template.xlsx")
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    toast.success("Empty template downloaded successfully.")
+    toast.success("Master Model & Variant Excel template downloaded successfully.")
   }
 
   const downloadExistingProductsCSV = async (e: React.MouseEvent) => {
@@ -421,6 +418,63 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       reader.onload = (e) => {
         const data = new Uint8Array(e.target?.result as ArrayBuffer)
         const workbook = read(data, { type: "array" })
+        
+        // Multi-sheet master/variant structure support (e.g. bosq_bulk_update.xlsx)
+        if (workbook.SheetNames.includes("product_variants")) {
+          const variantsSheet = workbook.Sheets["product_variants"]
+          const parsedVariants: any[] = utils.sheet_to_json(variantsSheet)
+          
+          if (parsedVariants.length > 0) {
+            const mappedProducts: ParsedProduct[] = parsedVariants.map(v => {
+              const cost = parseFloat(v["price without vat"]) || 200.0
+              const calculatePrice = (pct: number) => {
+                if (pct >= 100) return cost
+                return Number((cost / (1 - (pct / 100))).toFixed(2))
+              }
+              let color = "Standard"
+              if (v.attributes) {
+                const match = String(v.attributes).match(/color:([a-z0-9-]+)/i)
+                if (match && match[1]) {
+                  color = match[1].split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+                }
+              }
+              return {
+                productCode: String(v.sku || "").trim(),
+                productName: String(v.title || "").trim(),
+                categoryName: "Chairs",
+                description: String(v.additional_details || v.description || "").trim(),
+                specifications: String(v.details || "").trim(),
+                unitPrice: calculatePrice(pricingTiers.direct),
+                costPrice: cost,
+                dealerPrice: calculatePrice(pricingTiers.dealer),
+                interiorPrice: calculatePrice(pricingTiers.interior),
+                projectPrice: calculatePrice(pricingTiers.direct),
+                specialPrice: cost,
+                warranty: "3 Years",
+                finishMaterial: String(v.model_title || "Executive Chair"),
+                chairType: String(v.model_title || "Executive Chair"),
+                availableColors: color,
+                imageFilename: String(v.cover_image || "").trim(),
+                stock: parseInt(v.stock, 10) || 0,
+                status: "ACTIVE"
+              }
+            })
+
+            setProducts(mappedProducts)
+            validateCatalogData(mappedProducts)
+            setUploadedFileMeta({
+              fileName: file.name,
+              fileSize: formatBytes(file.size),
+              totalRows: mappedProducts.length + 1,
+              productsDetected: mappedProducts.length,
+              uploadedAt: new Date().toLocaleString()
+            })
+            setStep(3)
+            toast.success(`Multi-sheet catalog (${mappedProducts.length} variants) loaded successfully!`)
+            return
+          }
+        }
+
         const firstSheetName = workbook.SheetNames[0]
         const worksheet = workbook.Sheets[firstSheetName]
         const parsed: any[][] = utils.sheet_to_json(worksheet, { header: 1 })

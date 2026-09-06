@@ -140,6 +140,14 @@ model Product {
   availableColors String?
   dimensions      String?
   stock           Int       @default(0)
+  // Master Product & Variant Hierarchy
+  isMaster          Boolean   @default(false)
+  parentProductId   String?
+  parentProduct     Product?  @relation("ProductVariants", fields: [parentProductId], references: [id], onDelete: Cascade)
+  variants          Product[] @relation("ProductVariants")
+  modelCode         String?
+  modelName         String?
+  variantAttributes Json?
   status          String    @default("ACTIVE") // ACTIVE, DISCONTINUED
   deletedAt       DateTime?
   createdAt       DateTime  @default(now())

@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
@@ -15,8 +15,32 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden: You do not have permission to view products" }, { status: 403 })
     }
 
+    const { searchParams } = new URL(request.url)
+    const grouped = searchParams.get("grouped") === "true"
+
     const userRole = (session?.user as any)?.role || ""
     const isInteriorConsultant = userRole === "INTERIOR_DESIGN_CONSULTANT"
+
+    if (grouped) {
+      // Fetch Master products and standalone products (parentProductId is null)
+      const masterProducts = await prisma.product.findMany({
+        where: {
+          deletedAt: null,
+          parentProductId: null,
+          ...(isInteriorConsultant ? { stock: { gt: 0 } } : {})
+        },
+        include: {
+          category: true,
+          variants: {
+            where: { deletedAt: null },
+            include: { category: true },
+            orderBy: { productCode: "asc" }
+          }
+        },
+        orderBy: { productName: "asc" },
+      })
+      return NextResponse.json(masterProducts)
+    }
 
     const products = await prisma.product.findMany({
       where: { 
@@ -25,6 +49,7 @@ export async function GET() {
       },
       include: {
         category: true,
+        parentProduct: { select: { id: true, productName: true } }
       },
       orderBy: { productCode: "asc" },
     })
@@ -54,7 +79,7 @@ export async function POST(request: Request) {
     const {
       productCode,
       productName,
-      categoryName, // E.g., Workstations
+      categoryName,
       description,
       specifications,
       unitPrice,
@@ -70,6 +95,8 @@ export async function POST(request: Request) {
       storageOptions,
       finishMaterial,
       stock,
+      isMaster,
+      variants, // Optional array of variant definitions
     } = body
 
     if (!productName || !categoryName) {
@@ -93,7 +120,7 @@ export async function POST(request: Request) {
       })
     }
 
-    // 2. Generate code if not provided
+    // 2. Generate master code if not provided
     let finalCode = productCode
     if (!finalCode) {
       const prefix = categoryName.substring(0, 2).toUpperCase()
@@ -112,14 +139,14 @@ export async function POST(request: Request) {
       finalCode = `${prefix}-${nextNum.toString().padStart(2, "0")}`
     }
 
-    // 3. Save product
-    const newProduct = await prisma.product.create({
+    // 3. Save master product
+    const masterProduct = await prisma.product.create({
       data: {
         productCode: finalCode,
         productName,
         categoryId: category.id,
         description: description || null,
-        specifications,
+        specifications: specifications || null,
         unitPrice: parseFloat(unitPrice) || 0.0,
         costPrice: parseFloat(costPrice) || 0.0,
         interiorPrice: parseFloat(body.interiorPrice) || parseFloat(unitPrice) || 0.0,
@@ -138,11 +165,51 @@ export async function POST(request: Request) {
         finishMaterial: finishMaterial || null,
         stock: parseInt(stock) || 0,
         status: "ACTIVE",
+        isMaster: Boolean(isMaster || (variants && variants.length > 0)),
       },
       include: {
         category: true,
       },
     })
+
+    // 4. Create child variants if provided
+    if (variants && Array.isArray(variants) && variants.length > 0) {
+      for (const varItem of variants) {
+        const varCode = varItem.productCode || `${finalCode}-${(varItem.availableColors || varItem.modelName || "VAR").toUpperCase().replace(/[^A-Z0-9]/g, "")}`
+        await prisma.product.create({
+          data: {
+            productCode: varCode,
+            productName: varItem.productName || `${productName} - ${varItem.modelName || varItem.availableColors || "Variant"}`,
+            parentProductId: masterProduct.id,
+            isMaster: false,
+            categoryId: category.id,
+            modelName: varItem.modelName || null,
+            modelCode: varItem.modelCode || null,
+            description: varItem.description || description || null,
+            specifications: varItem.specifications || specifications || null,
+            costPrice: parseFloat(varItem.costPrice) || parseFloat(costPrice) || 0.0,
+            unitPrice: parseFloat(varItem.unitPrice) || parseFloat(unitPrice) || 0.0,
+            dealerPrice: parseFloat(varItem.dealerPrice) || parseFloat(body.dealerPrice) || 0.0,
+            interiorPrice: parseFloat(varItem.interiorPrice) || parseFloat(body.interiorPrice) || 0.0,
+            projectPrice: parseFloat(varItem.projectPrice) || parseFloat(body.projectPrice) || 0.0,
+            specialPrice: parseFloat(varItem.specialPrice) || parseFloat(body.specialPrice) || 0.0,
+            warranty: varItem.warranty || warranty || null,
+            availableColors: varItem.availableColors || availableColors || null,
+            dimensions: varItem.dimensions || dimensions || null,
+            imageUrl: varItem.imageUrl || imageUrl || null,
+            imageUrls: varItem.imageUrls || imageUrls || [],
+            chairType: varItem.chairType || chairType || null,
+            tableTopFinish: varItem.tableTopFinish || tableTopFinish || null,
+            legType: varItem.legType || legType || null,
+            storageOptions: varItem.storageOptions || storageOptions || null,
+            finishMaterial: varItem.finishMaterial || finishMaterial || null,
+            stock: parseInt(varItem.stock) || 0,
+            status: "ACTIVE",
+            variantAttributes: varItem.variantAttributes || null,
+          }
+        })
+      }
+    }
 
     // Log Activity
     await prisma.activityLog.create({
@@ -150,12 +217,12 @@ export async function POST(request: Request) {
         userId: (session.user as any).id,
         action: "CREATED_PRODUCT",
         entityType: "PRODUCT",
-        entityId: newProduct.id,
-        details: `Created product ${productName} (${finalCode})`,
+        entityId: masterProduct.id,
+        details: `Created master product ${productName} (${finalCode})${variants?.length ? ` with ${variants.length} variants` : ''}`,
       },
     })
 
-    return NextResponse.json(newProduct, { status: 201 })
+    return NextResponse.json(masterProduct, { status: 201 })
   } catch (error) {
     console.error("Failed to create product:", error)
     return NextResponse.json(
