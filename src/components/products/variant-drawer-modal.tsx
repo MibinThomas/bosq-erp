@@ -14,7 +14,10 @@ import {
   Palette,
   ShieldCheck,
   ChevronRight,
-  Plus
+  Plus,
+  Camera,
+  Upload,
+  Loader2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -61,6 +64,7 @@ interface VariantDrawerModalProps {
   onAddToCart: (variant: ProductVariantItem) => void
   onEditVariant?: (variant: ProductVariantItem) => void
   onSaveStock?: (productId: string, newStock: number) => Promise<void>
+  onImageUploaded?: () => void
   canEditProduct?: boolean
   hasQuoteAccess?: boolean
 }
@@ -72,6 +76,7 @@ export function VariantDrawerModal({
   onAddToCart,
   onEditVariant,
   onSaveStock,
+  onImageUploaded,
   canEditProduct = true,
   hasQuoteAccess = true,
 }: VariantDrawerModalProps) {
@@ -79,6 +84,7 @@ export function VariantDrawerModal({
   const [editingStockId, setEditingStockId] = useState<string | null>(null)
   const [draftStockVal, setDraftStockVal] = useState<number>(0)
   const [savingStockId, setSavingStockId] = useState<string | null>(null)
+  const [uploadingImageId, setUploadingImageId] = useState<string | null>(null)
 
   if (!isOpen || !masterProduct) return null
 
@@ -108,6 +114,47 @@ export function VariantDrawerModal({
       console.error(err)
     } finally {
       setSavingStockId(null)
+    }
+  }
+
+  const handleImageUpload = async (variantId: string, file: File) => {
+    setUploadingImageId(variantId)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const res = await fetch("/api/upload?type=products", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await res.json()
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Failed to upload image")
+      }
+
+      // Update variant in database
+      const patchRes = await fetch(`/api/products/${variantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: data.url }),
+      })
+
+      if (!patchRes.ok) {
+        throw new Error("Failed to link image to product variant")
+      }
+
+      // Update local variant object
+      const vItem = variants.find((v) => v.id === variantId)
+      if (vItem) vItem.imageUrl = data.url
+
+      toast.success("Variant image updated successfully!")
+      if (onImageUploaded) onImageUploaded()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Failed to upload image")
+    } finally {
+      setUploadingImageId(null)
     }
   }
 
@@ -204,15 +251,41 @@ export function VariantDrawerModal({
                   >
                     {/* Variant Thumbnail & Primary Info */}
                     <div className="flex items-start sm:items-center gap-4 flex-1">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg border bg-muted/40 shrink-0 overflow-hidden relative flex items-center justify-center">
-                        {variant.imageUrl ? (
-                          <img
-                            src={variant.imageUrl.startsWith("http") || variant.imageUrl.startsWith("/") ? variant.imageUrl : `/${variant.imageUrl}`}
-                            alt={variant.productName}
-                            className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform"
-                          />
+                      <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg border bg-muted/40 shrink-0 overflow-hidden relative flex items-center justify-center group/img shadow-sm">
+                        {uploadingImageId === variant.id ? (
+                          <div className="flex flex-col items-center justify-center gap-1 text-primary animate-pulse p-1 text-center">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span className="text-[9px] font-bold">Uploading...</span>
+                          </div>
                         ) : (
-                          <Package className="h-8 w-8 text-muted-foreground/40" />
+                          <>
+                            {variant.imageUrl ? (
+                              <img
+                                src={variant.imageUrl.startsWith("http") || variant.imageUrl.startsWith("/") ? variant.imageUrl : `/${variant.imageUrl}`}
+                                alt={variant.productName}
+                                className="h-full w-full object-cover object-center group-hover/img:scale-105 transition-transform"
+                              />
+                            ) : (
+                              <Package className="h-8 w-8 text-muted-foreground/40" />
+                            )}
+
+                            {/* Image Upload Overlay Button */}
+                            {canEditProduct && (
+                              <label className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer text-[10px] font-bold gap-1 p-1 text-center select-none z-10">
+                                <Camera className="h-4 w-4 text-white" />
+                                <span>{variant.imageUrl ? "Change" : "Add Image"}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0]
+                                    if (file) handleImageUpload(variant.id, file)
+                                  }}
+                                />
+                              </label>
+                            )}
+                          </>
                         )}
                       </div>
 

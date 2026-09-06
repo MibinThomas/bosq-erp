@@ -160,7 +160,7 @@ export async function PUT(
   }
 }
 
-// Partial update single product (e.g. stock)
+// Partial update single product (e.g. stock, image, attributes)
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -178,17 +178,18 @@ export async function PATCH(
 
     const { id } = await params
     const body = await request.json()
-    const { stock } = body
+    const { stock, imageUrl, availableColors, modelName, productName } = body
 
-    if (stock === undefined) {
-      return NextResponse.json({ error: "Stock value is required for this operation" }, { status: 400 })
-    }
+    const updateData: any = {}
+    if (stock !== undefined) updateData.stock = parseInt(stock, 10) || 0
+    if (imageUrl !== undefined) updateData.imageUrl = imageUrl
+    if (availableColors !== undefined) updateData.availableColors = availableColors
+    if (modelName !== undefined) updateData.modelName = modelName
+    if (productName !== undefined) updateData.productName = productName
 
     const updatedProduct = await prisma.product.update({
       where: { id },
-      data: {
-        stock: parseInt(stock, 10) || 0,
-      },
+      data: updateData,
       include: {
         category: true,
       },
@@ -198,16 +199,16 @@ export async function PATCH(
     await prisma.activityLog.create({
       data: {
         userId,
-        action: "UPDATED_PRODUCT_STOCK",
+        action: "UPDATED_PRODUCT",
         entityType: "PRODUCT",
         entityId: id,
-        details: `Updated product stock for ${updatedProduct.productName} (${updatedProduct.productCode}) to ${updatedProduct.stock}`,
+        details: `Updated product ${updatedProduct.productName} (${updatedProduct.productCode})`,
       },
     })
 
     return NextResponse.json(updatedProduct)
   } catch (error) {
-    console.error("Failed to patch product stock:", error)
+    console.error("Failed to patch product:", error)
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

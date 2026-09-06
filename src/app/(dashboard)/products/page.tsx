@@ -37,7 +37,7 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2, ChevronRight, UserPlus, Layers, Eye } from "lucide-react"
+import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2, ChevronRight, UserPlus, Layers, Eye, Camera } from "lucide-react"
 import { VariantDrawerModal } from "@/components/products/variant-drawer-modal"
 
 interface Product {
@@ -94,6 +94,39 @@ export default function ProductsPage() {
   const [selectedMasterForVariants, setSelectedMasterForVariants] = useState<Product | null>(null)
   const [selectedVariantMap, setSelectedVariantMap] = useState<Record<string, string>>({})
   const [expandedTableRows, setExpandedTableRows] = useState<Record<string, boolean>>({})
+  const [uploadingCardImgId, setUploadingCardImgId] = useState<string | null>(null)
+
+  const handleUploadCardImage = async (productId: string, file: File) => {
+    setUploadingCardImgId(productId)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const res = await fetch("/api/upload?type=products", {
+        method: "POST",
+        body: formData,
+      })
+
+      const data = await res.json()
+      if (!res.ok || !data.url) throw new Error(data.error || "Failed to upload image")
+
+      const patchRes = await fetch(`/api/products/${productId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: data.url }),
+      })
+
+      if (!patchRes.ok) throw new Error("Failed to update product image")
+
+      toast.success("Product image updated successfully!")
+      fetchProducts()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Failed to upload image")
+    } finally {
+      setUploadingCardImgId(null)
+    }
+  }
 
   // Inline Stock Edit states
   const [editingStockId, setEditingStockId] = useState<string | null>(null)
@@ -858,7 +891,7 @@ export default function ProductsPage() {
 
                   {/* Product / Master Image */}
                   <div 
-                    className="h-48 w-full bg-muted/30 flex items-center justify-center overflow-hidden relative border-b p-4 cursor-pointer hover:bg-muted/40 transition-colors"
+                    className="h-48 w-full bg-muted/30 flex items-center justify-center overflow-hidden relative border-b p-4 cursor-pointer hover:bg-muted/40 transition-colors group/cardimg"
                     onClick={() => {
                       if (isMasterModel) {
                         setSelectedMasterForVariants(product)
@@ -869,17 +902,49 @@ export default function ProductsPage() {
                     }}
                     title={isMasterModel ? "Click to view all variations" : "Click to view product details"}
                   >
-                    {activeImage ? (
-                      <img 
-                        src={activeImage.startsWith("http") || activeImage.startsWith("/") ? activeImage : `/${activeImage}`} 
-                        alt={product.productName} 
-                        className="object-contain max-h-full max-w-full transition-transform duration-300 group-hover:scale-105" 
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
-                        <Package className="h-10 w-10 stroke-[1.5]" />
-                        <span className="text-[10px] uppercase tracking-wider font-semibold">No Image</span>
+                    {uploadingCardImgId === activeVariant?.id ? (
+                      <div className="flex flex-col items-center justify-center gap-1.5 text-primary animate-pulse">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <span className="text-xs font-bold">Uploading Photo...</span>
                       </div>
+                    ) : (
+                      <>
+                        {activeImage ? (
+                          <img 
+                            src={activeImage.startsWith("http") || activeImage.startsWith("/") ? activeImage : `/${activeImage}`} 
+                            alt={product.productName} 
+                            className="object-contain max-h-full max-w-full transition-transform duration-300 group-hover:scale-105" 
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
+                            <Package className="h-10 w-10 stroke-[1.5]" />
+                            <span className="text-[10px] uppercase tracking-wider font-semibold">No Image</span>
+                          </div>
+                        )}
+
+                        {/* Quick Camera Upload Overlay */}
+                        {canEditProduct && (
+                          <label 
+                            className="absolute top-2 left-2 z-20 bg-black/70 hover:bg-primary text-white p-1.5 rounded-xl cursor-pointer transition-all opacity-0 group-hover/cardimg:opacity-100 flex items-center gap-1 text-[10px] font-bold shadow-md"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Upload/change photo for this variation"
+                          >
+                            <Camera className="h-3.5 w-3.5" />
+                            <span>{activeImage ? "Edit Photo" : "Add Photo"}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0]
+                                if (file && activeVariant?.id) {
+                                  handleUploadCardImage(activeVariant.id, file)
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                      </>
                     )}
                   </div>
 
@@ -2222,6 +2287,7 @@ export default function ProductsPage() {
           addToQuoteCart(variant as any)
         }}
         onSaveStock={handleSaveStock}
+        onImageUploaded={fetchProducts}
         canEditProduct={canEditProduct}
         hasQuoteAccess={hasQuoteAccess}
       />
