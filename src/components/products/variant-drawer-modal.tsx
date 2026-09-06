@@ -94,6 +94,98 @@ export function VariantDrawerModal({
   const [uploadingImageId, setUploadingImageId] = useState<string | null>(null)
   const [deletingVariantId, setDeletingVariantId] = useState<string | null>(null)
 
+  // Inline Edit Variant Details state
+  const [editingVariantDetailsId, setEditingVariantDetailsId] = useState<string | null>(null)
+  const [isSubmittingEditVariant, setIsSubmittingEditVariant] = useState(false)
+  const [editVariantForm, setEditVariantForm] = useState({
+    productCode: "",
+    productName: "",
+    modelName: "",
+    availableColors: "",
+    costPrice: 0,
+    unitPrice: 0,
+    projectPrice: 0,
+    stock: 0,
+    description: "",
+  })
+
+  const startEditingVariant = (variant: ProductVariantItem) => {
+    if (onEditVariant) {
+      onEditVariant(variant)
+      return
+    }
+    setEditingVariantDetailsId(variant.id)
+    setEditVariantForm({
+      productCode: variant.productCode || "",
+      productName: variant.productName || "",
+      modelName: variant.modelName || "",
+      availableColors: variant.availableColors || "",
+      costPrice: variant.costPrice || 0,
+      unitPrice: variant.unitPrice || 0,
+      projectPrice: variant.projectPrice || variant.unitPrice || 0,
+      stock: variant.stock || 0,
+      description: variant.description || "",
+    })
+  }
+
+  const handleSaveVariantSubmit = async (variantId: string) => {
+    if (!masterProduct) return
+    setIsSubmittingEditVariant(true)
+
+    try {
+      const cost = editVariantForm.costPrice || 0
+      const project = editVariantForm.projectPrice || editVariantForm.unitPrice || 0
+
+      const res = await fetch(`/api/products/${variantId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productCode: editVariantForm.productCode.trim(),
+          productName: editVariantForm.productName.trim(),
+          categoryName: masterProduct.category?.name || "Chairs",
+          modelName: editVariantForm.modelName.trim() || null,
+          availableColors: editVariantForm.availableColors.trim() || null,
+          costPrice: cost,
+          unitPrice: project,
+          projectPrice: project,
+          dealerPrice: Number((cost / 0.85).toFixed(2)) || project,
+          interiorPrice: Number((cost / 0.70).toFixed(2)) || project,
+          specialPrice: cost || project,
+          stock: editVariantForm.stock || 0,
+          description: editVariantForm.description.trim() || null,
+          status: "ACTIVE",
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to update variant details")
+
+      if (masterProduct && masterProduct.variants) {
+        const idx = masterProduct.variants.findIndex((v) => v.id === variantId)
+        if (idx !== -1) {
+          masterProduct.variants[idx] = {
+            ...masterProduct.variants[idx],
+            ...data,
+            modelName: editVariantForm.modelName.trim() || null,
+            availableColors: editVariantForm.availableColors.trim() || null,
+            stock: editVariantForm.stock,
+            projectPrice: project,
+            unitPrice: project,
+          }
+        }
+      }
+
+      toast.success(`Variant "${editVariantForm.productName}" updated successfully!`)
+      setEditingVariantDetailsId(null)
+      if (onVariantAdded) onVariantAdded()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Failed to update variant details")
+    } finally {
+      setIsSubmittingEditVariant(false)
+    }
+  }
+
   const handleDeleteVariant = async (variantId: string, variantName: string) => {
     if (!confirm(`Are you sure you want to delete variant "${variantName}"?`)) return
 
@@ -569,7 +661,181 @@ export function VariantDrawerModal({
             <div className="grid grid-cols-1 gap-4">
               {filteredVariants.map((variant) => {
                 const isStockEditing = editingStockId === variant.id
+                const isDetailsEditing = editingVariantDetailsId === variant.id
                 const displayPrice = variant.projectPrice || variant.unitPrice || 0
+
+                if (isDetailsEditing) {
+                  return (
+                    <div
+                      key={variant.id}
+                      className="bg-amber-500/5 border border-amber-500/30 rounded-xl p-5 space-y-4 shadow-md animate-in fade-in duration-200"
+                    >
+                      <div className="flex items-center justify-between border-b border-amber-500/15 pb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-7 w-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs">
+                            <Pencil className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold text-foreground">
+                              Edit Variant Details: {variant.productName}
+                            </h3>
+                            <p className="text-[11px] text-muted-foreground">
+                              Modify Sub-Model, colors, SKU, name, prices, and stock quantity below.
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
+                          onClick={() => setEditingVariantDetailsId(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                        {/* Sub-Model Name */}
+                        <div className="space-y-1">
+                          <label className="font-bold text-foreground block">
+                            Sub-Model / Variant Type
+                          </label>
+                          <Input
+                            placeholder="e.g. High Back, Mid Back, Visitor"
+                            value={editVariantForm.modelName}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, modelName: e.target.value })}
+                            className="h-8 text-xs bg-background"
+                          />
+                        </div>
+
+                        {/* Colors / Finish */}
+                        <div className="space-y-1">
+                          <label className="font-bold text-foreground block">
+                            Color / Finish
+                          </label>
+                          <Input
+                            placeholder="e.g. Black Leather, Cream"
+                            value={editVariantForm.availableColors}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, availableColors: e.target.value })}
+                            className="h-8 text-xs bg-background"
+                          />
+                        </div>
+
+                        {/* Product SKU */}
+                        <div className="space-y-1">
+                          <label className="font-bold text-foreground block">
+                            Product SKU
+                          </label>
+                          <Input
+                            value={editVariantForm.productCode}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, productCode: e.target.value })}
+                            className="h-8 text-xs bg-background font-mono"
+                          />
+                        </div>
+
+                        {/* Variant Display Name */}
+                        <div className="space-y-1 sm:col-span-2">
+                          <label className="font-bold text-foreground block">
+                            Variant Display Name
+                          </label>
+                          <Input
+                            value={editVariantForm.productName}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, productName: e.target.value })}
+                            className="h-8 text-xs bg-background"
+                          />
+                        </div>
+
+                        {/* Stock Quantity */}
+                        <div className="space-y-1">
+                          <label className="font-bold text-foreground block">
+                            Stock Quantity
+                          </label>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={editVariantForm.stock}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, stock: parseInt(e.target.value, 10) || 0 })}
+                            className="h-8 text-xs bg-background"
+                          />
+                        </div>
+
+                        {/* Cost Price */}
+                        <div className="space-y-1">
+                          <label className="font-bold text-foreground block">
+                            Cost Price (AED)
+                          </label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editVariantForm.costPrice}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, costPrice: parseFloat(e.target.value) || 0 })}
+                            className="h-8 text-xs bg-background"
+                          />
+                        </div>
+
+                        {/* Project Price */}
+                        <div className="space-y-1">
+                          <label className="font-bold text-foreground block">
+                            Project Price (AED)
+                          </label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editVariantForm.projectPrice}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, projectPrice: parseFloat(e.target.value) || 0, unitPrice: parseFloat(e.target.value) || 0 })}
+                            className="h-8 text-xs bg-background font-bold text-primary"
+                          />
+                        </div>
+
+                        {/* Description */}
+                        <div className="space-y-1 sm:col-span-3">
+                          <label className="font-bold text-foreground block">
+                            Description
+                          </label>
+                          <Input
+                            value={editVariantForm.description}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, description: e.target.value })}
+                            className="h-8 text-xs bg-background"
+                            placeholder="Optional product description..."
+                          />
+                        </div>
+                      </div>
+
+                      {/* Form Buttons */}
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-500/15">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingVariantDetailsId(null)}
+                          className="text-xs h-8 rounded-lg cursor-pointer"
+                          disabled={isSubmittingEditVariant}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveVariantSubmit(variant.id)}
+                          disabled={isSubmittingEditVariant}
+                          className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs h-8 px-4 rounded-lg flex items-center gap-1.5 cursor-pointer shadow"
+                        >
+                          {isSubmittingEditVariant ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Saving Changes...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              Save Changes
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )
+                }
 
                 return (
                   <div
@@ -720,8 +986,20 @@ export function VariantDrawerModal({
                         </span>
                       </div>
 
-                      {/* Action Buttons: Add to Cart & Delete */}
+                      {/* Action Buttons: Edit, Add to Cart & Delete */}
                       <div className="flex items-center gap-2 shrink-0">
+                        {canEditProduct && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => startEditingVariant(variant)}
+                            className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl border-muted-foreground/20 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 cursor-pointer"
+                            title="Edit Variant Details"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+
                         {hasQuoteAccess && (
                           <Button
                             onClick={() => onAddToCart(variant)}

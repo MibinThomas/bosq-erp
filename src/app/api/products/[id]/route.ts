@@ -67,6 +67,7 @@ export async function PUT(
       productCode,
       productName,
       categoryName,
+      modelName,
       description,
       specifications,
       unitPrice,
@@ -112,6 +113,7 @@ export async function PUT(
       data: {
         productCode: productCode ? productCode.trim() : undefined,
         productName: productName.trim(),
+        modelName: modelName !== undefined ? (modelName ? modelName.trim() : null) : undefined,
         categoryId: category.id,
         description: description || null,
         specifications: specifications || null,
