@@ -22,7 +22,58 @@ export async function GET(request: Request) {
     const isInteriorConsultant = userRole === "INTERIOR_DESIGN_CONSULTANT"
 
     if (grouped) {
-      // Fetch Master products and standalone products (parentProductId is null)
+      // 1. Auto-consolidate any unlinked products if needed
+      const unlinkedProducts = await prisma.product.findMany({
+        where: {
+          deletedAt: null,
+          parentProductId: null,
+          isMaster: false,
+        }
+      })
+
+      if (unlinkedProducts.length > 0) {
+        const brandGroups: Record<string, typeof unlinkedProducts> = {}
+        for (const p of unlinkedProducts) {
+          const brand = p.productName.trim().split(" ")[0]
+          if (!brandGroups[brand]) brandGroups[brand] = []
+          brandGroups[brand].push(p)
+        }
+
+        for (const [brand, items] of Object.entries(brandGroups)) {
+          let master = await prisma.product.findFirst({
+            where: {
+              deletedAt: null,
+              isMaster: true,
+              productName: { equals: brand, mode: "insensitive" }
+            }
+          })
+
+          if (!master) {
+            const masterCode = `MASTER-${brand.toUpperCase().replace(/[^A-Z0-9]/g, "")}`
+            master = await prisma.product.create({
+              data: {
+                productCode: masterCode,
+                productName: brand,
+                isMaster: true,
+                categoryId: items[0].categoryId,
+                description: `${brand} Series Seating Collection`,
+                status: "ACTIVE",
+                warranty: "3 Years",
+              }
+            })
+          }
+
+          await prisma.product.updateMany({
+            where: { id: { in: items.map(i => i.id) } },
+            data: {
+              isMaster: false,
+              parentProductId: master.id
+            }
+          })
+        }
+      }
+
+      // 2. Fetch Master products and standalone products (parentProductId is null)
       const masterProducts = await prisma.product.findMany({
         where: {
           deletedAt: null,

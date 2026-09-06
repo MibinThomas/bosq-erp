@@ -92,6 +92,8 @@ export default function ProductsPage() {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
   const [sortBy, setSortBy] = useState<string>("productCode")
   const [selectedMasterForVariants, setSelectedMasterForVariants] = useState<Product | null>(null)
+  const [selectedVariantMap, setSelectedVariantMap] = useState<Record<string, string>>({})
+  const [expandedTableRows, setExpandedTableRows] = useState<Record<string, boolean>>({})
 
   // Inline Stock Edit states
   const [editingStockId, setEditingStockId] = useState<string | null>(null)
@@ -790,13 +792,24 @@ export default function ProductsPage() {
               const isMasterModel = Boolean(product.variants && product.variants.length > 0)
               const variantList = product.variants || []
               
+              // Active variant selected from dropdown on card, defaulting to first variant
+              const activeVariantId = selectedVariantMap[product.id] || (variantList.length > 0 ? variantList[0].id : null)
+              const activeVariant = variantList.find(v => v.id === activeVariantId) || variantList[0] || product
+
               // Min and Max prices across variants
               const prices = isMasterModel ? variantList.map(v => v.projectPrice || v.unitPrice || 0).filter(p => p > 0) : [product.unitPrice || 0]
               const minPrice = prices.length > 0 ? Math.min(...prices) : product.unitPrice || 0
               const maxPrice = prices.length > 0 ? Math.max(...prices) : product.unitPrice || 0
-              const priceDisplay = minPrice === maxPrice
+              const priceRangeDisplay = minPrice === maxPrice
                 ? `AED ${minPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : `AED ${minPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} - ${maxPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+
+              // Active display properties
+              const activePrice = activeVariant?.unitPrice ?? product.unitPrice
+              const activePriceDisplay = `AED ${(activePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              const activeStock = activeVariant?.stock ?? product.stock ?? 0
+              const activeImage = activeVariant?.imageUrl || product.imageUrl
+              const activeCode = activeVariant?.productCode || product.productCode
 
               // Total stock across variants
               const totalVariantStock = isMasterModel ? variantList.reduce((sum, v) => sum + (v.stock || 0), 0) : (product.stock || 0)
@@ -854,11 +867,11 @@ export default function ProductsPage() {
                         setIsDetailOpen(true)
                       }
                     }}
-                    title={isMasterModel ? "Click to view variations" : "Click to view product details"}
+                    title={isMasterModel ? "Click to view all variations" : "Click to view product details"}
                   >
-                    {product.imageUrl ? (
+                    {activeImage ? (
                       <img 
-                        src={product.imageUrl.startsWith("http") || product.imageUrl.startsWith("/") ? product.imageUrl : `/${product.imageUrl}`} 
+                        src={activeImage.startsWith("http") || activeImage.startsWith("/") ? activeImage : `/${activeImage}`} 
                         alt={product.productName} 
                         className="object-contain max-h-full max-w-full transition-transform duration-300 group-hover:scale-105" 
                       />
@@ -875,16 +888,16 @@ export default function ProductsPage() {
                     <div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[10px] font-mono text-muted-foreground uppercase bg-secondary/80 px-2 py-0.5 rounded border">
-                          {product.productCode}
+                          {activeCode}
                         </span>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          totalVariantStock >= 5
+                          activeStock >= 5
                             ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
-                            : totalVariantStock > 0
+                            : activeStock > 0
                             ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
                             : "bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400"
                         }`}>
-                          {totalVariantStock > 0 ? `${totalVariantStock} Total Stock` : "Out of Stock"}
+                          {activeStock > 0 ? `${activeStock} Stock` : "Out of Stock"}
                         </span>
                       </div>
 
@@ -892,76 +905,85 @@ export default function ProductsPage() {
                         {product.productName}
                       </h3>
                       
-                      <p className="text-xs text-muted-foreground font-medium mt-1">
+                      <p className="text-xs text-muted-foreground font-medium mt-0.5">
                         Category: <span className="text-foreground">{product.category.name}</span>
                       </p>
 
                       {subModelNames.length > 0 && (
-                        <div className="flex items-center gap-1 flex-wrap mt-2">
-                          {subModelNames.slice(0, 3).map(sm => (
+                        <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                          {subModelNames.map(sm => (
                             <Badge key={sm} variant="outline" className="text-[9px] py-0 px-1.5 font-medium">
                               {sm}
                             </Badge>
                           ))}
-                          {subModelNames.length > 3 && (
-                            <span className="text-[9px] font-bold text-muted-foreground">+ {subModelNames.length - 3} more</span>
-                          )}
                         </div>
                       )}
                     </div>
 
+                    {/* Interactive Dropdown Selector directly on Card */}
+                    {isMasterModel && (
+                      <div className="space-y-1 bg-muted/30 p-2.5 rounded-xl border border-muted-foreground/15">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase">
+                          <span>Select Variation:</span>
+                          <span className="text-primary font-extrabold">{variantList.length} Options</span>
+                        </div>
+                        <select
+                          className="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 font-semibold text-foreground cursor-pointer focus:ring-1 focus:ring-primary focus:outline-none truncate shadow-sm"
+                          value={activeVariant?.id}
+                          onChange={(e) => {
+                            e.stopPropagation()
+                            setSelectedVariantMap(prev => ({ ...prev, [product.id]: e.target.value }))
+                          }}
+                        >
+                          {variantList.map(v => (
+                            <option key={v.id} value={v.id}>
+                              {v.modelName ? `${v.modelName} - ` : ''}{v.availableColors || v.productName} (AED {v.unitPrice.toFixed(2)})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
                     <div className="h-px bg-border my-1" />
 
-                    <div className="flex items-end justify-between mt-auto pt-2 border-t">
+                    <div className="flex items-end justify-between mt-auto pt-1 border-t">
                       <div>
                         <p className="text-[10px] font-bold text-muted-foreground/80 uppercase">
-                          {isMasterModel ? "Price Range" : "Unit Price"}
+                          {isMasterModel ? "Selected Price" : "Unit Price"}
                         </p>
                         <p className="text-base font-extrabold text-primary font-mono mt-0.5">
-                          {priceDisplay}
+                          {activePriceDisplay}
                         </p>
                       </div>
                       
-                      {isMasterModel ? (
-                        <Button 
-                          onClick={() => setSelectedMasterForVariants(product)}
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shrink-0 cursor-pointer h-9 rounded-xl px-3 flex items-center gap-1.5 shadow"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          View Variations
-                        </Button>
-                      ) : (
-                        <div className="flex gap-2">
-                          {canEditProduct && (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setEditingProduct(product)
-                                setIsEditOpen(true)
-                              }}
-                              className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs shrink-0 cursor-pointer h-8 rounded-full px-3"
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          {hasQuoteAccess && (
-                            <Button 
-                              variant="default" 
-                              size="sm" 
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                addToQuoteCart(product)
-                              }}
-                              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs shrink-0 cursor-pointer h-8 rounded-full px-4 flex items-center gap-1 font-bold shadow-sm"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                              Add
-                            </Button>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {isMasterModel && (
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedMasterForVariants(product)}
+                            className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs font-bold shrink-0 cursor-pointer h-8 rounded-xl px-2.5 flex items-center gap-1 shadow-sm"
+                            title="View all variations side by side"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            All
+                          </Button>
+                        )}
+                        {hasQuoteAccess && (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              addToQuoteCart(activeVariant)
+                            }}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs shrink-0 cursor-pointer h-8 rounded-xl px-3 flex items-center gap-1 font-bold shadow-sm"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add to Quote
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -975,6 +997,7 @@ export default function ProductsPage() {
               <Table>
                 <TableHeader className="bg-muted/50">
                 <TableRow>
+                  <TableHead className="w-10"></TableHead>
                   <TableHead className="w-12">
                     {canDeleteProduct && (
                       <input 
@@ -992,153 +1015,150 @@ export default function ProductsPage() {
                     )}
                   </TableHead>
                   <TableHead>Code</TableHead>
-                  <TableHead>Product Name</TableHead>
+                  <TableHead>Product Series</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Specifications</TableHead>
-                  <TableHead>Dimensions</TableHead>
-                  <TableHead>Warranty</TableHead>
-                  <TableHead className="text-right">Unit Price (AED)</TableHead>
-                  <TableHead className="text-center">Stock</TableHead>
+                  <TableHead>Variations</TableHead>
+                  <TableHead className="text-right">Price Range (AED)</TableHead>
+                  <TableHead className="text-center">Total Stock</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedProducts.map((product) => (
-                  <TableRow key={product.id} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="w-12">
-                      {canDeleteProduct && (
-                        <input 
-                          type="checkbox"
-                          className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
-                          checked={selectedIds.includes(product.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedIds([...selectedIds, product.id])
-                            } else {
-                              setSelectedIds(selectedIds.filter(id => id !== product.id))
-                            }
-                          }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell className="font-mono font-medium text-primary">{product.productCode}</TableCell>
-                    <TableCell className="font-semibold">{product.productName}</TableCell>
-                    <TableCell>{product.category.name}</TableCell>
-                    <TableCell className="max-w-[250px] truncate text-muted-foreground" title={product.specifications || undefined}>
-                      {product.specifications || "-"}
-                    </TableCell>
-                    <TableCell>{product.dimensions || "-"}</TableCell>
-                    <TableCell>{product.warranty || "-"}</TableCell>
-                    <TableCell className="text-right font-mono font-medium">
-                      {product.unitPrice.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {updatingStockId === product.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-primary mx-auto" />
-                      ) : editingStockId === product.id ? (
-                        <div className="flex items-center gap-1 justify-center animate-in zoom-in duration-155" onClick={(e) => e.stopPropagation()}>
-                          <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setDraftStockVal(v => Math.max(0, v - 1)) }} 
-                            className="h-6 w-6 text-xs flex items-center justify-center hover:bg-muted border rounded-md cursor-pointer font-bold select-none"
-                            title="Decrement"
-                          >
-                            -
-                          </button>
-                          <input 
-                            type="number" 
-                            min="0"
-                            value={draftStockVal} 
-                            onChange={(e) => setDraftStockVal(parseInt(e.target.value) || 0)} 
-                            className="w-12 text-center h-6 text-xs border rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono font-bold" 
-                            onClick={(e) => e.stopPropagation()} 
-                          />
-                          <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setDraftStockVal(v => v + 1) }} 
-                            className="h-6 w-6 text-xs flex items-center justify-center hover:bg-muted border rounded-md cursor-pointer font-bold select-none"
-                            title="Increment"
-                          >
-                            +
-                          </button>
-                          <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleSaveStock(product.id, draftStockVal) }} 
-                            className="h-6 w-6 text-xs flex items-center justify-center text-green-600 hover:bg-green-50 border border-green-200 rounded-md cursor-pointer select-none font-bold"
-                            title="Save"
-                          >
-                            ✓
-                          </button>
-                          <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setEditingStockId(null) }} 
-                            className="h-6 w-6 text-xs flex items-center justify-center text-slate-555 hover:bg-slate-50 border rounded-md cursor-pointer select-none font-bold"
-                            title="Cancel"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ) : canEditProduct ? (
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setEditingStockId(product.id); setDraftStockVal(product.stock || 0) }} 
-                          className="group/stock flex items-center gap-1.5 mx-auto font-bold font-mono px-2.5 py-0.5 rounded-full bg-secondary/80 hover:bg-primary/10 hover:text-primary transition-all duration-200 cursor-pointer"
-                          title="Click to edit stock level"
-                        >
-                          <span>{product.stock || 0}</span>
-                          <Edit className="h-3 w-3 opacity-0 group-hover/stock:opacity-100 transition-opacity" />
-                        </button>
-                      ) : (
-                        <span className="font-mono font-bold text-center block">{product.stock || 0}</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={product.status === "ACTIVE" ? "default" : "destructive"}>
-                        {product.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right flex items-center justify-end gap-2">
-                      {hasQuoteAccess && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => addToQuoteCart(product)}
-                          className="h-8 w-8 text-primary hover:text-primary-foreground hover:bg-primary rounded-full cursor-pointer shrink-0"
-                          title="Add to quote cart"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-muted inline-flex items-center justify-center rounded-md cursor-pointer text-muted-foreground hover:text-foreground">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => {
-                            setSelectedDetailProduct(product)
-                            setIsDetailOpen(true)
-                          }}>
-                            View details
-                          </DropdownMenuItem>
-                          {canEditProduct && (
-                            <DropdownMenuItem onClick={() => {
-                              setEditingProduct(product)
-                              setIsEditOpen(true)
-                            }}>
-                              Edit product
-                            </DropdownMenuItem>
+                {sortedProducts.map((product) => {
+                  const isMasterModel = Boolean(product.variants && product.variants.length > 0)
+                  const variantList = product.variants || []
+                  const isExpanded = Boolean(expandedTableRows[product.id])
+
+                  const prices = isMasterModel ? variantList.map(v => v.projectPrice || v.unitPrice || 0).filter(p => p > 0) : [product.unitPrice || 0]
+                  const minPrice = prices.length > 0 ? Math.min(...prices) : product.unitPrice || 0
+                  const maxPrice = prices.length > 0 ? Math.max(...prices) : product.unitPrice || 0
+                  const priceRangeDisplay = minPrice === maxPrice
+                    ? `AED ${minPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                    : `AED ${minPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} - ${maxPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                  
+                  const totalVariantStock = isMasterModel ? variantList.reduce((sum, v) => sum + (v.stock || 0), 0) : (product.stock || 0)
+
+                  return (
+                    <>
+                      <TableRow key={product.id} className="hover:bg-muted/30 transition-colors">
+                        <TableCell className="w-10">
+                          {isMasterModel && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 cursor-pointer"
+                              onClick={() => setExpandedTableRows(prev => ({ ...prev, [product.id]: !prev[product.id] }))}
+                            >
+                              <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? "rotate-90 text-primary" : ""}`} />
+                            </Button>
                           )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        </TableCell>
+                        <TableCell className="w-12">
+                          {canDeleteProduct && (
+                            <input 
+                              type="checkbox"
+                              className="rounded border-gray-350 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                              checked={selectedIds.includes(product.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedIds([...selectedIds, product.id])
+                                } else {
+                                  setSelectedIds(selectedIds.filter(id => id !== product.id))
+                                }
+                              }}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono font-medium text-primary">{product.productCode}</TableCell>
+                        <TableCell className="font-bold text-base">{product.productName}</TableCell>
+                        <TableCell>{product.category.name}</TableCell>
+                        <TableCell>
+                          {isMasterModel ? (
+                            <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-bold">
+                              {variantList.length} Variants
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">Single Item</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-primary">
+                          {priceRangeDisplay}
+                        </TableCell>
+                        <TableCell className="text-center font-mono font-bold">
+                          {totalVariantStock}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={product.status === "ACTIVE" ? "default" : "destructive"}>
+                            {product.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right flex items-center justify-end gap-2">
+                          {isMasterModel && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedMasterForVariants(product)}
+                              className="text-xs font-bold border-primary/20 text-primary hover:bg-primary/10"
+                            >
+                              View Variations
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Expandable Sub-table for Master Model Variants */}
+                      {isExpanded && isMasterModel && (
+                        <TableRow key={`${product.id}-variants`} className="bg-muted/15 border-y">
+                          <TableCell colSpan={10} className="p-4">
+                            <div className="bg-card border rounded-xl p-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
+                                  <Layers className="h-4 w-4 text-primary" />
+                                  Variations under {product.productName} ({variantList.length} items)
+                                </h4>
+                              </div>
+                              <Table>
+                                <TableHeader className="bg-muted/40">
+                                  <TableRow className="text-xs">
+                                    <TableHead>SKU Code</TableHead>
+                                    <TableHead>Model / Title</TableHead>
+                                    <TableHead>Color</TableHead>
+                                    <TableHead className="text-right">Price (AED)</TableHead>
+                                    <TableHead className="text-center">Stock</TableHead>
+                                    <TableHead className="text-right">Action</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {variantList.map(v => (
+                                    <TableRow key={v.id} className="text-xs hover:bg-muted/30">
+                                      <TableCell className="font-mono font-bold text-primary">{v.productCode}</TableCell>
+                                      <TableCell className="font-semibold">{v.productName}</TableCell>
+                                      <TableCell>{v.availableColors || "-"}</TableCell>
+                                      <TableCell className="text-right font-mono font-bold">AED {v.unitPrice.toFixed(2)}</TableCell>
+                                      <TableCell className="text-center font-mono font-bold">{v.stock}</TableCell>
+                                      <TableCell className="text-right">
+                                        {hasQuoteAccess && (
+                                          <Button
+                                            size="sm"
+                                            onClick={() => addToQuoteCart(v)}
+                                            className="h-7 text-[11px] font-bold px-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
+                                          >
+                                            + Add to Quote
+                                          </Button>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
