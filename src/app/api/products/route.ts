@@ -196,6 +196,8 @@ export async function POST(request: Request) {
         productCode: finalCode,
         productName,
         categoryId: category.id,
+        parentProductId: body.parentProductId || null,
+        modelName: body.modelName || null,
         description: description || null,
         specifications: specifications || null,
         unitPrice: parseFloat(unitPrice) || 0.0,
@@ -216,7 +218,7 @@ export async function POST(request: Request) {
         finishMaterial: finishMaterial || null,
         stock: parseInt(stock) || 0,
         status: "ACTIVE",
-        isMaster: Boolean(isMaster || (variants && variants.length > 0)),
+        isMaster: body.parentProductId ? false : Boolean(isMaster || (variants && variants.length > 0)),
       },
       include: {
         category: true,

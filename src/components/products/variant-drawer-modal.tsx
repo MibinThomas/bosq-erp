@@ -65,6 +65,7 @@ interface VariantDrawerModalProps {
   onEditVariant?: (variant: ProductVariantItem) => void
   onSaveStock?: (productId: string, newStock: number) => Promise<void>
   onImageUploaded?: () => void
+  onVariantAdded?: () => void
   canEditProduct?: boolean
   hasQuoteAccess?: boolean
 }
@@ -77,6 +78,7 @@ export function VariantDrawerModal({
   onEditVariant,
   onSaveStock,
   onImageUploaded,
+  onVariantAdded,
   canEditProduct = true,
   hasQuoteAccess = true,
 }: VariantDrawerModalProps) {
@@ -85,6 +87,22 @@ export function VariantDrawerModal({
   const [draftStockVal, setDraftStockVal] = useState<number>(0)
   const [savingStockId, setSavingStockId] = useState<string | null>(null)
   const [uploadingImageId, setUploadingImageId] = useState<string | null>(null)
+
+  // Inline Add Variant state
+  const [isAddingVariant, setIsAddingVariant] = useState(false)
+  const [isSubmittingNewVariant, setIsSubmittingNewVariant] = useState(false)
+  const [newVariantImageFile, setNewVariantImageFile] = useState<File | null>(null)
+  const [newVariantForm, setNewVariantForm] = useState({
+    productCode: "",
+    productName: "",
+    modelName: "High Back",
+    availableColors: "",
+    costPrice: 200,
+    unitPrice: 300,
+    projectPrice: 300,
+    stock: 10,
+    description: "",
+  })
 
   if (!isOpen || !masterProduct) return null
 
@@ -158,6 +176,91 @@ export function VariantDrawerModal({
     }
   }
 
+  const handleCreateVariantSubmit = async () => {
+    if (!masterProduct) return
+    setIsSubmittingNewVariant(true)
+
+    try {
+      let imageUrl = null
+
+      if (newVariantImageFile) {
+        const formData = new FormData()
+        formData.append("file", newVariantImageFile)
+        const uploadRes = await fetch("/api/upload?type=products", {
+          method: "POST",
+          body: formData,
+        })
+        const uploadData = await uploadRes.json()
+        if (uploadRes.ok && uploadData.url) {
+          imageUrl = uploadData.url
+        }
+      }
+
+      const masterPrefix = masterProduct.productCode.replace("MASTER-", "").slice(0, 5)
+      const modelPart = (newVariantForm.modelName || "VAR").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4)
+      const colorPart = (newVariantForm.availableColors || "STD").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4)
+      const sku = newVariantForm.productCode.trim() || `${masterPrefix}-${modelPart}-${colorPart}`
+
+      const varName = newVariantForm.productName.trim() || `${masterProduct.productName} ${newVariantForm.modelName}${newVariantForm.availableColors ? ` - ${newVariantForm.availableColors}` : ""}`
+
+      const cost = newVariantForm.costPrice || 200
+      const project = newVariantForm.projectPrice || newVariantForm.unitPrice || Number((cost * 1.5).toFixed(2))
+
+      const payload = {
+        productCode: sku,
+        productName: varName,
+        categoryName: masterProduct.category?.name || "Chairs",
+        parentProductId: masterProduct.id,
+        isMaster: false,
+        modelName: newVariantForm.modelName.trim() || null,
+        availableColors: newVariantForm.availableColors.trim() || null,
+        costPrice: cost,
+        unitPrice: project,
+        projectPrice: project,
+        dealerPrice: Number((cost / 0.85).toFixed(2)),
+        interiorPrice: Number((cost / 0.70).toFixed(2)),
+        specialPrice: cost,
+        stock: newVariantForm.stock || 0,
+        imageUrl: imageUrl || masterProduct.imageUrl || null,
+        description: newVariantForm.description || `${masterProduct.productName} Series ${newVariantForm.modelName}`,
+      }
+
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to create variant")
+
+      if (!masterProduct.variants) masterProduct.variants = []
+      masterProduct.variants.push(data)
+
+      toast.success(`New variant "${varName}" created successfully!`)
+      setIsAddingVariant(false)
+      setNewVariantImageFile(null)
+      setNewVariantForm({
+        productCode: "",
+        productName: "",
+        modelName: "High Back",
+        availableColors: "",
+        costPrice: 200,
+        unitPrice: 300,
+        projectPrice: 300,
+        stock: 10,
+        description: "",
+      })
+
+      if (onVariantAdded) onVariantAdded()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Failed to create new variant")
+    } finally {
+      setIsSubmittingNewVariant(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-3 sm:p-6 animate-in fade-in duration-200">
       <div className="relative w-full max-w-4xl max-h-[90vh] bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
@@ -183,6 +286,15 @@ export function VariantDrawerModal({
           </div>
 
           <div className="flex items-center gap-3 self-end sm:self-auto">
+            {canEditProduct && (
+              <Button
+                onClick={() => setIsAddingVariant(!isAddingVariant)}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl h-9 px-4 flex items-center gap-1.5 shadow cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                Add Variant
+              </Button>
+            )}
             <div className="text-right hidden sm:block">
               <span className="text-[10px] uppercase font-bold text-muted-foreground block">Total Stock</span>
               <span className={`text-sm font-extrabold ${totalStock > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600"}`}>
@@ -233,6 +345,188 @@ export function VariantDrawerModal({
 
         {/* Variants List Content */}
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
+
+          {/* Add New Variant Form Card */}
+          {isAddingVariant && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-4 shadow-md animate-in fade-in slide-in-from-top-3 duration-200">
+              <div className="flex items-center justify-between border-b border-primary/10 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
+                    <Plus className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">
+                      Create New Variant for {masterProduct.productName}
+                    </h3>
+                    <p className="text-[11px] text-muted-foreground">
+                      Configure model type, colors, prices, and stock to add a new option to this series.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsAddingVariant(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                {/* Sub-Model Name */}
+                <div className="space-y-1">
+                  <label className="font-bold text-foreground block">
+                    Sub-Model / Variant Type <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    placeholder="e.g. High Back, Mid Back, Visitor"
+                    value={newVariantForm.modelName}
+                    onChange={(e) => setNewVariantForm({ ...newVariantForm, modelName: e.target.value })}
+                    className="h-8 text-xs bg-background"
+                  />
+                </div>
+
+                {/* Colors / Finish */}
+                <div className="space-y-1">
+                  <label className="font-bold text-foreground block">
+                    Color / Finish
+                  </label>
+                  <Input
+                    placeholder="e.g. Black Leather, Cream, Tan Brown"
+                    value={newVariantForm.availableColors}
+                    onChange={(e) => setNewVariantForm({ ...newVariantForm, availableColors: e.target.value })}
+                    className="h-8 text-xs bg-background"
+                  />
+                </div>
+
+                {/* SKU Code (Optional) */}
+                <div className="space-y-1">
+                  <label className="font-bold text-foreground block">
+                    Product SKU (Optional)
+                  </label>
+                  <Input
+                    placeholder="Auto-generated if blank"
+                    value={newVariantForm.productCode}
+                    onChange={(e) => setNewVariantForm({ ...newVariantForm, productCode: e.target.value })}
+                    className="h-8 text-xs bg-background font-mono"
+                  />
+                </div>
+
+                {/* Full Variant Name (Optional) */}
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="font-bold text-foreground block">
+                    Variant Display Name (Optional)
+                  </label>
+                  <Input
+                    placeholder={`e.g. ${masterProduct.productName} ${newVariantForm.modelName || "High Back"} ${newVariantForm.availableColors ? `- ${newVariantForm.availableColors}` : ""}`}
+                    value={newVariantForm.productName}
+                    onChange={(e) => setNewVariantForm({ ...newVariantForm, productName: e.target.value })}
+                    className="h-8 text-xs bg-background"
+                  />
+                </div>
+
+                {/* Initial Stock */}
+                <div className="space-y-1">
+                  <label className="font-bold text-foreground block">
+                    Initial Stock Qty
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={newVariantForm.stock}
+                    onChange={(e) => setNewVariantForm({ ...newVariantForm, stock: parseInt(e.target.value, 10) || 0 })}
+                    className="h-8 text-xs bg-background"
+                  />
+                </div>
+
+                {/* Cost Price */}
+                <div className="space-y-1">
+                  <label className="font-bold text-foreground block">
+                    Cost Price (AED)
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newVariantForm.costPrice}
+                    onChange={(e) => setNewVariantForm({ ...newVariantForm, costPrice: parseFloat(e.target.value) || 0 })}
+                    className="h-8 text-xs bg-background"
+                  />
+                </div>
+
+                {/* Project Price / Unit Price */}
+                <div className="space-y-1">
+                  <label className="font-bold text-foreground block">
+                    Project Price (AED)
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newVariantForm.projectPrice}
+                    onChange={(e) => setNewVariantForm({ ...newVariantForm, projectPrice: parseFloat(e.target.value) || 0, unitPrice: parseFloat(e.target.value) || 0 })}
+                    className="h-8 text-xs bg-background font-bold text-primary"
+                  />
+                </div>
+
+                {/* Photo File Upload */}
+                <div className="space-y-1 sm:col-span-3">
+                  <label className="font-bold text-foreground block">
+                    Variant Image (Optional)
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) setNewVariantImageFile(file)
+                      }}
+                      className="h-9 text-xs bg-background cursor-pointer file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                    />
+                    {newVariantImageFile && (
+                      <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0">
+                        <Check className="h-3.5 w-3.5" /> File Selected
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-primary/10">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsAddingVariant(false)}
+                  className="text-xs h-8 rounded-lg cursor-pointer"
+                  disabled={isSubmittingNewVariant}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleCreateVariantSubmit}
+                  disabled={isSubmittingNewVariant}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-8 px-4 rounded-lg flex items-center gap-1.5 cursor-pointer shadow"
+                >
+                  {isSubmittingNewVariant ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Creating Variant...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-3.5 w-3.5" />
+                      Save Variant
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {filteredVariants.length === 0 ? (
             <div className="py-12 text-center border border-dashed rounded-xl bg-muted/10">
               <Package className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />

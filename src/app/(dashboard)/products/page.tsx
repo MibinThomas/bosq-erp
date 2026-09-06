@@ -2288,6 +2288,7 @@ export default function ProductsPage() {
         }}
         onSaveStock={handleSaveStock}
         onImageUploaded={fetchProducts}
+        onVariantAdded={fetchProducts}
         canEditProduct={canEditProduct}
         hasQuoteAccess={hasQuoteAccess}
       />
