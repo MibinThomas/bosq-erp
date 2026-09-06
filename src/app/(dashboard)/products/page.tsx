@@ -2289,7 +2289,9 @@ export default function ProductsPage() {
         onSaveStock={handleSaveStock}
         onImageUploaded={fetchProducts}
         onVariantAdded={fetchProducts}
+        onVariantDeleted={fetchProducts}
         canEditProduct={canEditProduct}
+        canDeleteProduct={canDeleteProduct}
         hasQuoteAccess={hasQuoteAccess}
       />
     </div>

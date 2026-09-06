@@ -17,7 +17,8 @@ import {
   Plus,
   Camera,
   Upload,
-  Loader2
+  Loader2,
+  Trash2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -66,7 +67,9 @@ interface VariantDrawerModalProps {
   onSaveStock?: (productId: string, newStock: number) => Promise<void>
   onImageUploaded?: () => void
   onVariantAdded?: () => void
+  onVariantDeleted?: () => void
   canEditProduct?: boolean
+  canDeleteProduct?: boolean
   hasQuoteAccess?: boolean
 }
 
@@ -79,7 +82,9 @@ export function VariantDrawerModal({
   onSaveStock,
   onImageUploaded,
   onVariantAdded,
+  onVariantDeleted,
   canEditProduct = true,
+  canDeleteProduct = true,
   hasQuoteAccess = true,
 }: VariantDrawerModalProps) {
   const [selectedModelFilter, setSelectedModelFilter] = useState<string>("all")
@@ -87,6 +92,34 @@ export function VariantDrawerModal({
   const [draftStockVal, setDraftStockVal] = useState<number>(0)
   const [savingStockId, setSavingStockId] = useState<string | null>(null)
   const [uploadingImageId, setUploadingImageId] = useState<string | null>(null)
+  const [deletingVariantId, setDeletingVariantId] = useState<string | null>(null)
+
+  const handleDeleteVariant = async (variantId: string, variantName: string) => {
+    if (!confirm(`Are you sure you want to delete variant "${variantName}"?`)) return
+
+    setDeletingVariantId(variantId)
+    try {
+      const res = await fetch(`/api/products/${variantId}`, {
+        method: "DELETE",
+      })
+
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to delete variant")
+
+      if (masterProduct && masterProduct.variants) {
+        masterProduct.variants = masterProduct.variants.filter((v) => v.id !== variantId)
+      }
+
+      toast.success(`Variant "${variantName}" deleted successfully!`)
+      if (onVariantDeleted) onVariantDeleted()
+      else if (onVariantAdded) onVariantAdded()
+    } catch (err: any) {
+      console.error(err)
+      toast.error(err.message || "Failed to delete variant")
+    } finally {
+      setDeletingVariantId(null)
+    }
+  }
 
   // Inline Add Variant state
   const [isAddingVariant, setIsAddingVariant] = useState(false)
@@ -262,8 +295,8 @@ export function VariantDrawerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-3 sm:p-6 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl max-h-[90vh] bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-2 sm:p-4 md:p-6 animate-in fade-in duration-200 overflow-x-hidden">
+      <div className="relative w-full max-w-5xl max-h-[92vh] bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
         
         {/* Modal Header */}
         <div className="p-6 border-b bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
@@ -541,11 +574,11 @@ export function VariantDrawerModal({
                 return (
                   <div
                     key={variant.id}
-                    className="border rounded-xl p-4 bg-background hover:border-primary/40 transition-all shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 group"
+                    className="border rounded-xl p-4 sm:p-5 bg-background hover:border-primary/40 transition-all shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4 group"
                   >
                     {/* Variant Thumbnail & Primary Info */}
-                    <div className="flex items-start sm:items-center gap-4 flex-1">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg border bg-muted/40 shrink-0 overflow-hidden relative flex items-center justify-center group/img shadow-sm">
+                    <div className="flex items-start sm:items-center gap-4 flex-1 min-w-0">
+                      <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl border bg-muted/30 shrink-0 overflow-hidden relative flex items-center justify-center group/img shadow-sm">
                         {uploadingImageId === variant.id ? (
                           <div className="flex flex-col items-center justify-center gap-1 text-primary animate-pulse p-1 text-center">
                             <Loader2 className="h-5 w-5 animate-spin" />
@@ -589,12 +622,12 @@ export function VariantDrawerModal({
                             {variant.productCode}
                           </span>
                           {variant.modelName && (
-                            <Badge variant="secondary" className="text-[10px] font-semibold">
+                            <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
                               {variant.modelName}
                             </Badge>
                           )}
                           {variant.availableColors && (
-                            <span className="text-[11px] font-medium text-foreground flex items-center gap-1 bg-primary/5 border border-primary/15 px-2 py-0.5 rounded-md">
+                            <span className="text-[11px] font-medium text-foreground flex items-center gap-1 bg-muted/60 border px-2 py-0.5 rounded-md">
                               <Palette className="h-3 w-3 text-primary" />
                               {variant.availableColors}
                             </span>
@@ -613,8 +646,8 @@ export function VariantDrawerModal({
                       </div>
                     </div>
 
-                    {/* Stock & Pricing */}
-                    <div className="flex items-center justify-between md:justify-end gap-6 pt-3 md:pt-0 border-t md:border-t-0 shrink-0">
+                    {/* Stock, Pricing & Actions */}
+                    <div className="flex items-center justify-between lg:justify-end gap-4 sm:gap-6 pt-3 lg:pt-0 border-t lg:border-t-0 shrink-0 flex-wrap sm:flex-nowrap">
                       
                       {/* Stock Level */}
                       <div className="flex flex-col items-start sm:items-end">
@@ -651,7 +684,7 @@ export function VariantDrawerModal({
                         ) : (
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span
-                              className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                              className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
                                 variant.stock > 0
                                   ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                                   : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
@@ -668,6 +701,7 @@ export function VariantDrawerModal({
                                   setEditingStockId(variant.id)
                                   setDraftStockVal(variant.stock || 0)
                                 }}
+                                title="Edit stock level"
                               >
                                 <Pencil className="h-3 w-3" />
                               </Button>
@@ -686,16 +720,35 @@ export function VariantDrawerModal({
                         </span>
                       </div>
 
-                      {/* Action Button: Add to Cart */}
-                      {hasQuoteAccess && (
-                        <Button
-                          onClick={() => onAddToCart(variant)}
-                          className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow hover:shadow-md cursor-pointer flex items-center gap-1.5 h-10 px-4 rounded-xl shrink-0"
-                        >
-                          <ShoppingCart className="h-4 w-4" />
-                          <span className="hidden sm:inline">Add to Cart</span>
-                        </Button>
-                      )}
+                      {/* Action Buttons: Add to Cart & Delete */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {hasQuoteAccess && (
+                          <Button
+                            onClick={() => onAddToCart(variant)}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow hover:shadow-md cursor-pointer flex items-center gap-1.5 h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl shrink-0 text-xs"
+                          >
+                            <ShoppingCart className="h-4 w-4" />
+                            <span>Add to Cart</span>
+                          </Button>
+                        )}
+
+                        {canDeleteProduct && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleDeleteVariant(variant.id, variant.productName)}
+                            disabled={deletingVariantId === variant.id}
+                            className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40 transition-colors shrink-0 cursor-pointer"
+                            title="Delete Variant"
+                          >
+                            {deletingVariantId === variant.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                            ) : (
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                   </div>
