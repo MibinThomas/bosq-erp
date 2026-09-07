@@ -985,39 +985,15 @@ export default function ProductsPage() {
                       )}
                     </div>
 
-                    {/* Interactive Dropdown Selector directly on Card */}
-                    {isMasterModel && (
-                      <div className="space-y-1 bg-muted/30 p-2.5 rounded-xl border border-muted-foreground/15">
-                        <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase">
-                          <span>Select Variation:</span>
-                          <span className="text-primary font-extrabold">{variantList.length} Options</span>
-                        </div>
-                        <select
-                          className="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 font-semibold text-foreground cursor-pointer focus:ring-1 focus:ring-primary focus:outline-none truncate shadow-sm"
-                          value={activeVariant?.id}
-                          onChange={(e) => {
-                            e.stopPropagation()
-                            setSelectedVariantMap(prev => ({ ...prev, [product.id]: e.target.value }))
-                          }}
-                        >
-                          {variantList.map(v => (
-                            <option key={v.id} value={v.id}>
-                              {v.modelName ? `${v.modelName} - ` : ''}{v.availableColors || v.productName} (AED {v.unitPrice.toFixed(2)})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
                     <div className="h-px bg-border my-1" />
 
                     <div className="flex items-end justify-between mt-auto pt-1 border-t">
                       <div>
                         <p className="text-[10px] font-bold text-muted-foreground/80 uppercase">
-                          {isMasterModel ? "Selected Price" : "Unit Price"}
+                          {isMasterModel ? "Price Range" : "Unit Price"}
                         </p>
                         <p className="text-base font-extrabold text-primary font-mono mt-0.5">
-                          {activePriceDisplay}
+                          {isMasterModel ? priceRangeDisplay : activePriceDisplay}
                         </p>
                       </div>
                       
@@ -1028,10 +1004,10 @@ export default function ProductsPage() {
                             size="sm"
                             onClick={() => setSelectedMasterForVariants(product)}
                             className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-primary text-xs font-bold shrink-0 cursor-pointer h-8 rounded-xl px-2.5 flex items-center gap-1 shadow-sm"
-                            title="View all variations side by side"
+                            title="View and select variants"
                           >
                             <Eye className="h-3.5 w-3.5" />
-                            All
+                            Select Variant
                           </Button>
                         )}
                         {hasQuoteAccess && (

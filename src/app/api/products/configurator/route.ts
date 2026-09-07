@@ -4,6 +4,53 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { getSetting } from "@/lib/settings"
 
+// Helper to extract color attribute from product
+const getColor = (p: any) => {
+  if (p.availableColors && p.availableColors.trim() && p.availableColors.trim().toLowerCase() !== "standard") {
+    return p.availableColors.trim()
+  }
+  const nameParts = p.productName.split(/\s*[-–|]\s*/)
+  if (nameParts.length > 1) {
+    const lastPart = nameParts[nameParts.length - 1].trim()
+    if (lastPart && !/^\d+/.test(lastPart) && lastPart.length < 25 && !lastPart.toLowerCase().includes("custom")) {
+      return lastPart
+    }
+  }
+  const code = (p.productCode || "").toUpperCase()
+  const codeParts = code.split("-")
+  if (codeParts.length > 1) {
+    const lastCode = codeParts[codeParts.length - 1]
+    const knownColors = ["BLACK", "GREY", "GRAY", "CREAM", "WHITE", "BROWN", "TAN", "RED", "BLUE", "GREEN", "YELLOW", "ORANGE", "BEIGE"]
+    if (knownColors.includes(lastCode)) {
+      return lastCode.charAt(0) + lastCode.slice(1).toLowerCase()
+    }
+    if (codeParts.length > 2) {
+      const doubleCode = `${codeParts[codeParts.length - 2]}-${lastCode}`
+      if (["TAN-BROWN", "DARK-GREY", "LIGHT-GREY"].includes(doubleCode)) {
+        return doubleCode.split("-").map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(" ")
+      }
+    }
+  }
+  return p.availableColors && p.availableColors.trim() ? p.availableColors.trim() : null
+}
+
+// Helper to extract chair type attribute from product
+const getChairType = (p: any) => {
+  if (p.chairType && p.chairType.trim()) {
+    const val = p.chairType.trim()
+    return val
+  }
+  const lowerName = p.productName.toLowerCase()
+  if (lowerName.includes("high back")) return "High Back"
+  if (lowerName.includes("mid back")) return "Mid Back"
+  if (lowerName.includes("low back")) return "Low Back"
+  if (lowerName.includes("visitor")) return "Visitor Chair"
+  if (lowerName.includes("executive")) return "Executive Chair"
+  if (lowerName.includes("meeting")) return "Meeting Chair"
+  if (lowerName.includes("lounge")) return "Lounge Chair"
+  return null
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -32,23 +79,28 @@ export async function GET() {
       },
       include: {
         category: true,
+        parentProduct: {
+          select: {
+            id: true,
+            productName: true,
+            modelName: true,
+          }
+        }
       },
       orderBy: { productName: "asc" },
     })
 
-    // Filter products that belong to Workstation categories or have workstation attributes
-    const workstationProducts = products.filter((p) => {
-      const catName = (p.category?.name || "").toLowerCase()
-      const isWorkstationCat = catName.includes("workstation") || catName.includes("desk") || catName.includes("table") || catName.includes("office")
-      const hasAttributes = !!(p.legType || p.tableTopFinish || p.dimensions || p.storageOptions || p.finishMaterial)
-      return isWorkstationCat || hasAttributes
-    })
-
-    // If no workstation-specific category matches, include all active products with attributes or all products
-    const targetProducts = workstationProducts.length > 0 ? workstationProducts : products
+    // Filter out top-level master container products that have no price/stock and have variants
+    const targetProducts = products.filter(p => !p.isMaster)
 
     // Helper to extract clean base model name from productName / productCode
     const getModelName = (p: typeof products[0]) => {
+      if (p.parentProduct?.productName) {
+        return p.parentProduct.productName.trim()
+      }
+      if (p.modelName && p.modelName.trim()) {
+        return p.modelName.trim()
+      }
       const code = (p.productCode || "").toUpperCase()
       const name = p.productName.trim()
       const lowerName = name.toLowerCase()
@@ -80,20 +132,26 @@ export async function GET() {
       modelName: string
       categoryId: string
       categoryName: string
+      colors: Set<string>
+      chairTypes: Set<string>
       legTypes: Set<string>
       tableTopFinishes: Set<string>
       dimensions: Set<string>
       storageOptions: Set<string>
       finishMaterials: Set<string>
+      warranties: Set<string>
       combinations: Array<{
         id: string
         sku: string
         productName: string
+        color: string | null
+        chairType: string | null
         legType: string | null
         tableTopFinish: string | null
         dimensions: string | null
         storageOptions: string | null
         finishMaterial: string | null
+        warranty: string | null
       }>
     }> = {}
 
@@ -103,32 +161,44 @@ export async function GET() {
         modelsMap[modelName] = {
           modelName,
           categoryId: p.categoryId,
-          categoryName: p.category?.name || "Workstations",
+          categoryName: p.category?.name || "Catalog",
+          colors: new Set<string>(),
+          chairTypes: new Set<string>(),
           legTypes: new Set<string>(),
           tableTopFinishes: new Set<string>(),
           dimensions: new Set<string>(),
           storageOptions: new Set<string>(),
           finishMaterials: new Set<string>(),
+          warranties: new Set<string>(),
           combinations: [],
         }
       }
 
       const group = modelsMap[modelName]
+      const colorVal = getColor(p)
+      const chairTypeVal = getChairType(p)
+
+      if (colorVal) group.colors.add(colorVal)
+      if (chairTypeVal) group.chairTypes.add(chairTypeVal)
       if (p.legType) group.legTypes.add(p.legType.trim())
       if (p.tableTopFinish) group.tableTopFinishes.add(p.tableTopFinish.trim())
       if (p.dimensions) group.dimensions.add(p.dimensions.trim())
       if (p.storageOptions) group.storageOptions.add(p.storageOptions.trim())
       if (p.finishMaterial) group.finishMaterials.add(p.finishMaterial.trim())
+      if (p.warranty) group.warranties.add(p.warranty.trim())
 
       group.combinations.push({
         id: p.id,
         sku: p.productCode,
         productName: p.productName,
+        color: colorVal,
+        chairType: chairTypeVal,
         legType: p.legType ? p.legType.trim() : null,
         tableTopFinish: p.tableTopFinish ? p.tableTopFinish.trim() : null,
         dimensions: p.dimensions ? p.dimensions.trim() : null,
         storageOptions: p.storageOptions ? p.storageOptions.trim() : null,
         finishMaterial: p.finishMaterial ? p.finishMaterial.trim() : null,
+        warranty: p.warranty ? p.warranty.trim() : null,
       })
     }
 
@@ -138,17 +208,20 @@ export async function GET() {
         modelName: m.modelName,
         categoryId: m.categoryId,
         categoryName: m.categoryName,
+        colors: Array.from(m.colors).sort(),
+        chairTypes: Array.from(m.chairTypes).sort(),
         legTypes: Array.from(m.legTypes).sort(),
         tableTopFinishes: Array.from(m.tableTopFinishes).sort(),
         dimensions: Array.from(m.dimensions).sort(),
         storageOptions: Array.from(m.storageOptions).sort(),
         finishMaterials: Array.from(m.finishMaterials).sort(),
+        warranties: Array.from(m.warranties).sort(),
         combinations: m.combinations,
       }))
       .sort((a, b) => {
-        const aHasAttr = (a.legTypes.length > 0 || a.tableTopFinishes.length > 0) ? 1 : 0
-        const bHasAttr = (b.legTypes.length > 0 || b.tableTopFinishes.length > 0) ? 1 : 0
-        if (aHasAttr !== bHasAttr) return bHasAttr - aHasAttr
+        const aCount = a.colors.length + a.chairTypes.length + a.legTypes.length + a.tableTopFinishes.length + a.dimensions.length
+        const bCount = b.colors.length + b.chairTypes.length + b.legTypes.length + b.tableTopFinishes.length + b.dimensions.length
+        if (aCount !== bCount) return bCount - aCount
         return a.modelName.localeCompare(b.modelName)
       })
 
@@ -162,4 +235,3 @@ export async function GET() {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
-

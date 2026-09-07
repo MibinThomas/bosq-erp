@@ -13,7 +13,9 @@ import {
   CheckCircle2, 
   XCircle,
   Tag,
-  Maximize2
+  Palette,
+  Armchair,
+  ShieldCheck
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -26,20 +28,26 @@ export interface WorkstationModel {
   modelName: string
   categoryId: string
   categoryName: string
+  colors: string[]
+  chairTypes: string[]
   legTypes: string[]
   tableTopFinishes: string[]
   dimensions: string[]
   storageOptions: string[]
   finishMaterials: string[]
+  warranties: string[]
   combinations: Array<{
     id: string
     sku: string
     productName: string
+    color: string | null
+    chairType: string | null
     legType: string | null
     tableTopFinish: string | null
     dimensions: string | null
     storageOptions: string | null
     finishMaterial: string | null
+    warranty: string | null
   }>
 }
 
@@ -59,17 +67,20 @@ export function WorkstationConfigurator({
   const [selectedModelName, setSelectedModelName] = useState<string>("")
 
   // Attribute selections
+  const [selectedColor, setSelectedColor] = useState<string>("")
+  const [selectedChairType, setSelectedChairType] = useState<string>("")
   const [selectedLegType, setSelectedLegType] = useState<string>("")
   const [selectedTableTop, setSelectedTableTop] = useState<string>("")
   const [selectedDimension, setSelectedDimension] = useState<string>("")
   const [selectedStorage, setSelectedStorage] = useState<string>("")
   const [selectedFinish, setSelectedFinish] = useState<string>("")
+  const [selectedWarranty, setSelectedWarranty] = useState<string>("")
 
   // Matched Variant state
   const [fetchingVariant, setFetchingVariant] = useState(false)
   const [matchedProduct, setMatchedProduct] = useState<any>(null)
 
-  // Fetch workstation metadata
+  // Fetch product configurator metadata
   useEffect(() => {
     let isMounted = true
     setLoadingModels(true)
@@ -85,8 +96,8 @@ export function WorkstationConfigurator({
         }
       })
       .catch((err) => {
-        console.error("Failed to load workstation models:", err)
-        toast.error("Failed to load workstation product models")
+        console.error("Failed to load product models:", err)
+        toast.error("Failed to load product models for configurator")
       })
       .finally(() => {
         if (isMounted) setLoadingModels(false)
@@ -105,17 +116,14 @@ export function WorkstationConfigurator({
   // Reset/Initialize attributes when active model changes
   useEffect(() => {
     if (activeModel) {
-      const firstLeg = activeModel.legTypes[0] || ""
-      const firstTop = activeModel.tableTopFinishes[0] || ""
-      const firstDim = activeModel.dimensions[0] || ""
-      const firstStore = activeModel.storageOptions[0] || ""
-      const firstFinish = activeModel.finishMaterials[0] || ""
-
-      setSelectedLegType(firstLeg)
-      setSelectedTableTop(firstTop)
-      setSelectedDimension(firstDim)
-      setSelectedStorage(firstStore)
-      setSelectedFinish(firstFinish)
+      setSelectedColor(activeModel.colors[0] || "")
+      setSelectedChairType(activeModel.chairTypes[0] || "")
+      setSelectedLegType(activeModel.legTypes[0] || "")
+      setSelectedTableTop(activeModel.tableTopFinishes[0] || "")
+      setSelectedDimension(activeModel.dimensions[0] || "")
+      setSelectedStorage(activeModel.storageOptions[0] || "")
+      setSelectedFinish(activeModel.finishMaterials[0] || "")
+      setSelectedWarranty(activeModel.warranties[0] || "")
     }
   }, [activeModel])
 
@@ -125,68 +133,33 @@ export function WorkstationConfigurator({
     return activeModel.combinations
   }, [activeModel])
 
-  // Compute valid options for Table Top based on selected Leg Type
-  const validTableTops = useMemo(() => {
-    if (!activeModel) return []
-    if (!selectedLegType) return activeModel.tableTopFinishes
-    const validSet = new Set<string>()
-    availableCombinations.forEach((c) => {
-      if (!c.legType || c.legType === selectedLegType) {
-        if (c.tableTopFinish) validSet.add(c.tableTopFinish)
-      }
-    })
-    return Array.from(validSet).sort()
-  }, [activeModel, selectedLegType, availableCombinations])
-
-  // Auto-adjust selectedTableTop if current selection is invalid
-  useEffect(() => {
-    if (activeModel && validTableTops.length > 0 && selectedTableTop && !validTableTops.includes(selectedTableTop)) {
-      setSelectedTableTop(validTableTops[0])
-    }
-  }, [activeModel, validTableTops, selectedTableTop])
-
-  // Compute valid options for Dimensions based on selected Leg Type & Table Top
-  const validDimensions = useMemo(() => {
-    if (!activeModel) return []
-    const validSet = new Set<string>()
-    availableCombinations.forEach((c) => {
-      const matchLeg = !selectedLegType || !c.legType || c.legType === selectedLegType
-      const matchTop = !selectedTableTop || !c.tableTopFinish || c.tableTopFinish === selectedTableTop
-      if (matchLeg && matchTop && c.dimensions) {
-        validSet.add(c.dimensions)
-      }
-    })
-    return Array.from(validSet).sort()
-  }, [activeModel, selectedLegType, selectedTableTop, availableCombinations])
-
-  // Auto-adjust selectedDimension if current selection is invalid
-  useEffect(() => {
-    if (activeModel && validDimensions.length > 0 && selectedDimension && !validDimensions.includes(selectedDimension)) {
-      setSelectedDimension(validDimensions[0])
-    }
-  }, [activeModel, validDimensions, selectedDimension])
-
   // Locate matching combination in local matrix
   const matchedCombination = useMemo(() => {
     if (!activeModel || availableCombinations.length === 0) return null
     return (
       availableCombinations.find((c) => {
-        const matchLeg = !selectedLegType || c.legType === selectedLegType
-        const matchTop = !selectedTableTop || c.tableTopFinish === selectedTableTop
-        const matchDim = !selectedDimension || c.dimensions === selectedDimension
-        const matchStore = !selectedStorage || c.storageOptions === selectedStorage
-        const matchFinish = !selectedFinish || c.finishMaterial === selectedFinish
-        return matchLeg && matchTop && matchDim && matchStore && matchFinish
-      }) || null
+        const matchColor = !selectedColor || !c.color || c.color === selectedColor
+        const matchChair = !selectedChairType || !c.chairType || c.chairType === selectedChairType
+        const matchLeg = !selectedLegType || !c.legType || c.legType === selectedLegType
+        const matchTop = !selectedTableTop || !c.tableTopFinish || c.tableTopFinish === selectedTableTop
+        const matchDim = !selectedDimension || !c.dimensions || c.dimensions === selectedDimension
+        const matchStore = !selectedStorage || !c.storageOptions || c.storageOptions === selectedStorage
+        const matchFinish = !selectedFinish || !c.finishMaterial || c.finishMaterial === selectedFinish
+        const matchWarranty = !selectedWarranty || !c.warranty || c.warranty === selectedWarranty
+        return matchColor && matchChair && matchLeg && matchTop && matchDim && matchStore && matchFinish && matchWarranty
+      }) || availableCombinations[0] || null
     )
   }, [
     activeModel,
     availableCombinations,
+    selectedColor,
+    selectedChairType,
     selectedLegType,
     selectedTableTop,
     selectedDimension,
     selectedStorage,
     selectedFinish,
+    selectedWarranty,
   ])
 
   // Fetch full details of matched variant SKU
@@ -238,7 +211,7 @@ export function WorkstationConfigurator({
     return (
       <div className="p-8 text-center space-y-3 bg-card border rounded-xl shadow-2xs">
         <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-        <p className="text-xs text-muted-foreground font-medium">Loading Workstation Configurator...</p>
+        <p className="text-xs text-muted-foreground font-medium">Loading Product Configurator...</p>
       </div>
     )
   }
@@ -247,9 +220,9 @@ export function WorkstationConfigurator({
     return (
       <div className="p-6 text-center space-y-2 bg-card border rounded-xl">
         <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto" />
-        <h4 className="text-sm font-bold text-foreground">No Workstation Models Found</h4>
+        <h4 className="text-sm font-bold text-foreground">No Catalog Models Found</h4>
         <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-          No workstation product models with configurable attributes exist in the product catalog.
+          No product models with configurable attributes exist in the product catalog.
         </p>
       </div>
     )
@@ -261,7 +234,7 @@ export function WorkstationConfigurator({
       <CardHeader className="bg-primary/5 border-b py-3 px-4 flex flex-row items-center justify-between">
         <CardTitle className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
           <SlidersHorizontal className="h-4 w-4 text-primary" />
-          Workstation Attribute Configurator
+          Product Attribute Configurator
         </CardTitle>
         <Badge variant="outline" className="text-[10px] uppercase font-mono font-bold bg-background">
           Segment: {watchSegment}
@@ -273,11 +246,11 @@ export function WorkstationConfigurator({
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
             <Layers className="h-3.5 w-3.5 text-primary" />
-            Step 1: Select Workstation Model
+            Step 1: Select Product Model
           </label>
           <Select value={selectedModelName} onValueChange={(val) => setSelectedModelName(val || "")}>
             <SelectTrigger className="h-10 text-xs sm:text-sm font-medium bg-background border-border/80">
-              <SelectValue placeholder="Select Workstation Model" />
+              <SelectValue placeholder="Select Product Model" />
             </SelectTrigger>
             <SelectContent>
               {models.map((m) => (
@@ -298,6 +271,48 @@ export function WorkstationConfigurator({
             </label>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Color Selector */}
+              {activeModel.colors.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                    <Palette className="h-3 w-3 text-primary" /> Color
+                  </span>
+                  <Select value={selectedColor} onValueChange={(val) => setSelectedColor(val || "")}>
+                    <SelectTrigger className="h-9 text-xs bg-background">
+                      <SelectValue placeholder="Select Color" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeModel.colors.map((color) => (
+                        <SelectItem key={color} value={color} className="text-xs font-medium">
+                          {color}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Chair / Backrest Type Selector */}
+              {activeModel.chairTypes.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                    <Armchair className="h-3 w-3 text-primary" /> Chair / Backrest Type
+                  </span>
+                  <Select value={selectedChairType} onValueChange={(val) => setSelectedChairType(val || "")}>
+                    <SelectTrigger className="h-9 text-xs bg-background">
+                      <SelectValue placeholder="Select Chair Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeModel.chairTypes.map((ct) => (
+                        <SelectItem key={ct} value={ct} className="text-xs font-medium">
+                          {ct}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Leg Type Selector */}
               {activeModel.legTypes.length > 0 && (
                 <div className="space-y-1">
@@ -326,19 +341,11 @@ export function WorkstationConfigurator({
                       <SelectValue placeholder="Select Table Top" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeModel.tableTopFinishes.map((top) => {
-                        const isAvailable = validTableTops.includes(top)
-                        return (
-                          <SelectItem
-                            key={top}
-                            value={top}
-                            disabled={!isAvailable}
-                            className={cn("text-xs", !isAvailable && "opacity-40 italic")}
-                          >
-                            {top} {!isAvailable && "(N/A)"}
-                          </SelectItem>
-                        )
-                      })}
+                      {activeModel.tableTopFinishes.map((top) => (
+                        <SelectItem key={top} value={top} className="text-xs">
+                          {top}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -353,19 +360,11 @@ export function WorkstationConfigurator({
                       <SelectValue placeholder="Select Dimension" />
                     </SelectTrigger>
                     <SelectContent font-mono>
-                      {activeModel.dimensions.map((dim) => {
-                        const isAvailable = validDimensions.includes(dim)
-                        return (
-                          <SelectItem
-                            key={dim}
-                            value={dim}
-                            disabled={!isAvailable}
-                            className={cn("text-xs font-mono", !isAvailable && "opacity-40 italic")}
-                          >
-                            {dim} {!isAvailable && "(N/A)"}
-                          </SelectItem>
-                        )
-                      })}
+                      {activeModel.dimensions.map((dim) => (
+                        <SelectItem key={dim} value={dim} className="text-xs font-mono">
+                          {dim}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -402,6 +401,27 @@ export function WorkstationConfigurator({
                       {activeModel.finishMaterials.map((fm) => (
                         <SelectItem key={fm} value={fm} className="text-xs">
                           {fm}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Warranty Selector */}
+              {activeModel.warranties.length > 0 && (
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                    <ShieldCheck className="h-3 w-3 text-primary" /> Warranty
+                  </span>
+                  <Select value={selectedWarranty} onValueChange={(val) => setSelectedWarranty(val || "")}>
+                    <SelectTrigger className="h-9 text-xs bg-background">
+                      <SelectValue placeholder="Select Warranty" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeModel.warranties.map((w) => (
+                        <SelectItem key={w} value={w} className="text-xs">
+                          {w}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -454,7 +474,17 @@ export function WorkstationConfigurator({
                     </Badge>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                    {matchedProduct.availableColors && (
+                      <Badge variant="secondary" className="text-[10px] font-medium py-0">
+                        Color: {matchedProduct.availableColors}
+                      </Badge>
+                    )}
+                    {matchedProduct.chairType && (
+                      <Badge variant="secondary" className="text-[10px] font-medium py-0">
+                        Type: {matchedProduct.chairType}
+                      </Badge>
+                    )}
                     {matchedProduct.dimensions && (
                       <span className="font-mono bg-background border px-1.5 py-0.5 rounded text-[10px]">
                         Dim: {matchedProduct.dimensions}
