@@ -186,7 +186,18 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    toast.success("Master Model & Variant Excel template downloaded successfully.")
+    toast.success("Excel (.xlsx) import template downloaded successfully.")
+  }
+
+  const downloadCSVTemplate = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const link = document.createElement("a")
+    link.setAttribute("href", "/templates/bosq_product_bulk_import_template.csv")
+    link.setAttribute("download", "bosq_product_bulk_import_template.csv")
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success("CSV import template downloaded successfully.")
   }
 
   const downloadExistingProductsCSV = async (e: React.MouseEvent) => {
@@ -1140,8 +1151,17 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                     onClick={downloadEmptyTemplate}
                     className="border-zinc-250 text-zinc-700 dark:border-zinc-800 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-xs font-semibold flex items-center gap-1.5 cursor-pointer bg-white"
                   >
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                    Excel Template (.xlsx)
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    onClick={downloadCSVTemplate}
+                    className="border-zinc-250 text-zinc-700 dark:border-zinc-800 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 text-xs font-semibold flex items-center gap-1.5 cursor-pointer bg-white"
+                  >
                     <FileSpreadsheet className="h-4 w-4 text-amber-500" />
-                    Download Sample Template
+                    CSV Template (.csv)
                   </Button>
                   <Button 
                     type="button"
@@ -1153,9 +1173,9 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                     {exporting ? (
                       <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
                     ) : (
-                      <FileSpreadsheet className="h-4 w-4 text-amber-500" />
+                      <FileSpreadsheet className="h-4 w-4 text-blue-500" />
                     )}
-                    Download Existing Products
+                    Export Catalog CSV
                   </Button>
                 </div>
               </div>
