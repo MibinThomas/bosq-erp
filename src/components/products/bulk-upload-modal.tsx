@@ -39,6 +39,7 @@ interface ParsedProduct {
   productName: string
   categoryName: string
   description: string
+  shortDescription?: string
   specifications: string
   unitPrice: number
   costPrice: number
@@ -59,6 +60,8 @@ interface ParsedProduct {
   availableColors?: string
   dimensions?: string
   stock?: number
+  modelName?: string
+  masterTitle?: string
 }
 
 export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalProps) {
@@ -154,22 +157,23 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   }
 
   const CSV_HEADERS = [
+    "Main Product / Base Title",
+    "Sub-Product / Model",
     "Product Code",
     "Product Name",
-    "Product Description",
     "Category",
     "Base Price (AED)",
+    "Stock Quantity",
+    "Short Description",
+    "Dimensions / Size",
+    "Table Top Finish / Wood",
+    "Leg Type / Color",
+    "Side Return Option",
+    "Chair Type",
+    "Color",
     "Warranty",
-    "Product Type",
-    "Chair Type (for chairs)",
-    "Color (for chairs)",
-    "Table Top Finish (for workstations)",
-    "Leg Type (for workstations)",
-    "Storage Options (for workstations)",
     "Specifications / Details",
-    "Dimensions",
-    "Image Filename",
-    "Stock Quantity"
+    "Image Filename"
   ]
 
   const serializeToCSVCell = (val: any) => {
@@ -219,22 +223,23 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
           }
         }
         return [
+          p.masterTitle || p.modelName || "",
+          p.modelName || "",
           p.productCode || "",
           p.productName || "",
-          p.description || "",
           p.category?.name || p.categoryName || "",
           typeof p.costPrice === "number" ? p.costPrice.toFixed(2) : "0.00",
-          p.warranty || "",
-          p.finishMaterial || "",
-          p.chairType || "",
-          p.availableColors || "",
+          p.stock !== undefined && p.stock !== null ? p.stock.toString() : "0",
+          p.description || "",
+          p.dimensions || "",
           p.tableTopFinish || "",
           p.legType || "",
           p.storageOptions || "",
+          p.chairType || "",
+          p.availableColors || "",
+          p.warranty || "",
           p.specifications || "",
-          p.dimensions || "",
-          imageFilename,
-          p.stock !== undefined && p.stock !== null ? p.stock.toString() : "0"
+          imageFilename
         ]
       })
 
@@ -292,22 +297,25 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const processImportData = (fileHeaders: string[], fileRows: string[][], fileName: string, fileSize: number) => {
     const initialMappings: Record<string, string> = {}
     const targetFields = [
+      { key: "masterTitle", synonyms: ["main product / base title", "main product", "base_title", "base title", "master title", "master product"] },
+      { key: "modelName", synonyms: ["sub-product / model", "sub product / model", "model_title", "model title", "model name", "modelname", "sub-product", "sub product", "model"] },
       { key: "productCode", synonyms: ["product code", "code", "sku", "productcode", "itemcode", "id"] },
       { key: "productName", synonyms: ["product name", "name", "title", "productname", "chairname", "item"] },
-      { key: "description", synonyms: ["product description", "description", "short description", "shortdescription", "short desc", "summary", "full description"] },
+      { key: "shortDescription", synonyms: ["short description", "shortdescription", "short desc", "summary", "brief description"] },
+      { key: "description", synonyms: ["product description", "description", "full description"] },
       { key: "categoryName", synonyms: ["category", "category name", "categoryname", "product category", "productcategory", "item category", "categories", "category_name", "product_category", "type", "group", "class", "sub category", "subcategory"] },
-      { key: "basePrice", synonyms: ["base price (aed)", "base price", "price", "unitprice", "rate", "cost", "sellingprice", "selling rate", "baseprice", "costprice", "price(aed)"] },
+      { key: "basePrice", synonyms: ["base price (aed)", "base price", "base_price", "price", "unitprice", "rate", "cost", "sellingprice", "selling rate", "baseprice", "costprice", "price(aed)"] },
       { key: "warranty", synonyms: ["warranty", "warranty period", "guarantee", "period"] },
       { key: "finishMaterial", synonyms: ["product type", "producttype", "finish / material", "finish/material", "finish material", "finishmaterial"] },
       { key: "chairType", synonyms: ["chair type (for chairs)", "chair type", "chairtype"] },
-      { key: "availableColors", synonyms: ["color (for chairs)", "color", "colors", "available color(s)", "available colors", "availablecolors"] },
-      { key: "tableTopFinish", synonyms: ["table top finish / wood", "tabletop finish / wood", "table top finish (for workstations)", "table top finish", "tabletop finish", "tabletopfinish"] },
-      { key: "legType", synonyms: ["leg type / color", "legtype / color", "leg type (for workstations)", "leg type", "legtype"] },
-      { key: "storageOptions", synonyms: ["storage options (for workstations)", "storage options", "storageoptions"] },
+      { key: "availableColors", synonyms: ["color", "colors", "color (for chairs)", "available color(s)", "available colors", "availablecolors"] },
+      { key: "tableTopFinish", synonyms: ["table top finish / wood", "tabletop finish / wood", "table top finish (for workstations)", "table top finish", "tabletop finish", "tabletopfinish", "finish"] },
+      { key: "legType", synonyms: ["leg type / color", "legtype / color", "leg type (for workstations)", "leg type", "legtype", "legs"] },
+      { key: "storageOptions", synonyms: ["side return option", "storage options (for workstations)", "storage options", "storageoptions", "side return"] },
       { key: "specifications", synonyms: ["specifications / details", "specifications", "details", "specs", "specification", "technical"] },
       { key: "dimensions", synonyms: ["dimensions / size", "dimensions/size", "dimensions", "dimension", "size"] },
-      { key: "imageFilename", synonyms: ["image filename", "image", "photo", "filename", "imagename", "imagefilename", "picture"] },
-      { key: "stock", synonyms: ["stock", "quantity", "qty", "stock level", "inventory", "stockquantity", "available"] }
+      { key: "imageFilename", synonyms: ["image filename", "cover_image", "image", "photo", "filename", "imagename", "imagefilename", "picture"] },
+      { key: "stock", synonyms: ["stock quantity", "stock", "quantity", "qty", "stock level", "inventory", "stockquantity", "available"] }
     ]
 
     fileHeaders.forEach(header => {
@@ -368,20 +376,23 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       const pCode = getVal("productCode")
       const pName = getVal("productName")
       const pCat = getVal("categoryName")
+      const shortDesc = getVal("shortDescription") || getVal("description") || getVal("specifications") || ""
+      const fullSpecs = getVal("specifications") || shortDesc
 
       return {
         productCode: pCode,
         productName: pName,
         categoryName: inferCategoryName(pCat, pName, pCode),
-        description: getVal("description") || getVal("shortDescription") || getVal("specifications") || "",
-        specifications: getVal("specifications"),
+        description: shortDesc,
+        shortDescription: shortDesc,
+        specifications: fullSpecs,
         unitPrice: calculatePrice(pricingTiers.direct),
         costPrice: basePrice,
         dealerPrice: calculatePrice(pricingTiers.dealer),
         interiorPrice: calculatePrice(pricingTiers.interior),
         projectPrice: calculatePrice(pricingTiers.direct),
         specialPrice: basePrice,
-        warranty: getVal("warranty"),
+        warranty: getVal("warranty") || "5 Years",
         finishMaterial: getVal("finishMaterial"),
         chairType: getVal("chairType"),
         availableColors: getVal("availableColors"),
@@ -391,6 +402,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         dimensions: getVal("dimensions"),
         imageFilename: getVal("imageFilename"),
         stock: stock,
+        modelName: getVal("modelName") || undefined,
+        masterTitle: getVal("masterTitle") || undefined,
         status: "ACTIVE"
       }
     })
