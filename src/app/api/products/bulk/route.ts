@@ -61,9 +61,9 @@ export async function POST(request: Request) {
         continue // Skip invalid rows gracefully
       }
 
-      // 1. Get or create category
-      let category = await prisma.productCategory.findUnique({
-        where: { name: categoryName.trim() },
+      // 1. Get or create category case-insensitively
+      let category = await prisma.productCategory.findFirst({
+        where: { name: { equals: categoryName.trim(), mode: "insensitive" } },
       })
 
       if (!category) {

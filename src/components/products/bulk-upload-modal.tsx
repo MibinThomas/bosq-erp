@@ -257,6 +257,26 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
   }
 
+  const inferCategoryName = (categoryFromCsv?: string, productName?: string, productCode?: string): string => {
+    const cleanCat = (categoryFromCsv || "").trim()
+    if (cleanCat && cleanCat.toLowerCase() !== "chairs" && cleanCat.toLowerCase() !== "general") {
+      return cleanCat
+    }
+
+    const text = `${productName || ""} ${productCode || ""}`.toLowerCase()
+    
+    if (text.includes("reception")) return "Reception Desk"
+    if (text.includes("conference") || text.includes("meeting table") || (text.includes("meeting") && text.includes("table"))) return "Meeting Tables"
+    if (text.includes("executive desk") || text.includes("exec desk")) return "Executive Desks"
+    if (text.includes("workstation") || text.includes("desk") || text.includes("bench") || text.includes("f2f") || (text.includes("seater") && !text.includes("sofa"))) return "Workstations"
+    if (text.includes("storage") || text.includes("credenza") || text.includes("pedestal") || text.includes("cabinet") || text.includes("drawer") || text.includes("locker") || text.includes("shelf")) return "Storage"
+    if (text.includes("sofa") || text.includes("lounge") || text.includes("couch") || text.includes("pouf")) return "Sofas"
+    if (text.includes("pod") || text.includes("booth") || text.includes("acoustic")) return "Acoustic Pods"
+    if (text.includes("chair") || text.includes("seating") || text.includes("high back") || text.includes("mid back") || text.includes("low back") || text.includes("visitor")) return "Chairs"
+    
+    return cleanCat || "General"
+  }
+
   // Auto-suggest and process data silently
   const processImportData = (fileHeaders: string[], fileRows: string[][], fileName: string, fileSize: number) => {
     const initialMappings: Record<string, string> = {}
@@ -264,7 +284,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       { key: "productCode", synonyms: ["product code", "code", "sku", "productcode", "itemcode", "id"] },
       { key: "productName", synonyms: ["product name", "name", "title", "productname", "chairname", "item"] },
       { key: "description", synonyms: ["product description", "description", "short description", "shortdescription", "short desc", "summary", "full description"] },
-      { key: "categoryName", synonyms: ["category", "type", "group", "class", "categoryname"] },
+      { key: "categoryName", synonyms: ["category", "category name", "categoryname", "product category", "productcategory", "item category", "categories", "category_name", "product_category", "type", "group", "class", "sub category", "subcategory"] },
       { key: "basePrice", synonyms: ["base price (aed)", "base price", "price", "unitprice", "rate", "cost", "sellingprice", "selling rate", "baseprice", "costprice", "price(aed)"] },
       { key: "warranty", synonyms: ["warranty", "warranty period", "guarantee", "period"] },
       { key: "finishMaterial", synonyms: ["product type", "producttype", "finish / material", "finish/material", "finish material", "finishmaterial"] },
@@ -334,10 +354,14 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         stock = isNaN(stockVal) ? 0 : stockVal
       }
 
+      const pCode = getVal("productCode")
+      const pName = getVal("productName")
+      const pCat = getVal("categoryName")
+
       return {
-        productCode: getVal("productCode"),
-        productName: getVal("productName"),
-        categoryName: getVal("categoryName") || "Chairs",
+        productCode: pCode,
+        productName: pName,
+        categoryName: inferCategoryName(pCat, pName, pCode),
         description: getVal("description") || getVal("shortDescription") || getVal("specifications") || "",
         specifications: getVal("specifications"),
         unitPrice: calculatePrice(pricingTiers.direct),
@@ -441,7 +465,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
               return {
                 productCode: String(v.sku || "").trim(),
                 productName: String(v.title || "").trim(),
-                categoryName: "Chairs",
+                categoryName: inferCategoryName(String(v.category || v.category_name || v.product_category || "").trim(), String(v.title || v.model_title || "").trim(), String(v.sku || "").trim()),
                 description: String(v.additional_details || v.description || "").trim(),
                 specifications: String(v.details || "").trim(),
                 unitPrice: calculatePrice(pricingTiers.direct),
@@ -662,10 +686,14 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       const stockVal = parseInt(getVal("stock").replace(/[^0-9]/g, ""), 10)
       const stock = isNaN(stockVal) ? 0 : stockVal
 
+      const pCode = getVal("productCode")
+      const pName = getVal("productName")
+      const pCat = getVal("categoryName")
+
       return {
-        productCode: getVal("productCode"),
-        productName: getVal("productName"),
-        categoryName: getVal("categoryName") || "Chairs",
+        productCode: pCode,
+        productName: pName,
+        categoryName: inferCategoryName(pCat, pName, pCode),
         description: getVal("description") || getVal("shortDescription") || getVal("specifications") || "",
         specifications: getVal("specifications"),
         unitPrice: calculatePrice(pricingTiers.direct),

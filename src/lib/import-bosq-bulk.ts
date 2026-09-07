@@ -8,6 +8,26 @@ export interface ImportResult {
   errors: string[]
 }
 
+const inferCategoryName = (categoryFromCsv?: string, productName?: string, productCode?: string): string => {
+  const cleanCat = (categoryFromCsv || "").trim()
+  if (cleanCat && cleanCat.toLowerCase() !== "chairs" && cleanCat.toLowerCase() !== "general") {
+    return cleanCat
+  }
+
+  const text = `${productName || ""} ${productCode || ""}`.toLowerCase()
+  
+  if (text.includes("reception")) return "Reception Desk"
+  if (text.includes("conference") || text.includes("meeting table") || (text.includes("meeting") && text.includes("table"))) return "Meeting Tables"
+  if (text.includes("executive desk") || text.includes("exec desk")) return "Executive Desks"
+  if (text.includes("workstation") || text.includes("desk") || text.includes("bench") || text.includes("f2f") || (text.includes("seater") && !text.includes("sofa"))) return "Workstations"
+  if (text.includes("storage") || text.includes("credenza") || text.includes("pedestal") || text.includes("cabinet") || text.includes("drawer") || text.includes("locker") || text.includes("shelf")) return "Storage"
+  if (text.includes("sofa") || text.includes("lounge") || text.includes("couch") || text.includes("pouf")) return "Sofas"
+  if (text.includes("pod") || text.includes("booth") || text.includes("acoustic")) return "Acoustic Pods"
+  if (text.includes("chair") || text.includes("seating") || text.includes("high back") || text.includes("mid back") || text.includes("low back") || text.includes("visitor")) return "Chairs"
+  
+  return cleanCat || "General"
+}
+
 export async function importBosqBulkData(filePath: string = "public/uploads/bosq_bulk_update.xlsx"): Promise<ImportResult> {
   const errors: string[] = []
   let masterCount = 0
@@ -37,18 +57,24 @@ export async function importBosqBulkData(filePath: string = "public/uploads/bosq
     // Map base titles to Master Product IDs
     const masterProductMap: Record<string, any> = {}
 
-    // Default or ensure main "Chairs" category
-    let chairsCategory = await prisma.productCategory.findFirst({
-      where: { name: { contains: "Chair", mode: "insensitive" } },
-    })
-
-    if (!chairsCategory) {
-      chairsCategory = await prisma.productCategory.create({
-        data: {
-          name: "Chairs",
-          description: "Office & Executive Ergonomic Chairs",
-        },
+    // Helper to get or create category dynamically
+    const catCache: Record<string, string> = {}
+    const getOrCreateCategory = async (catName: string) => {
+      const trimmed = catName.trim()
+      if (catCache[trimmed]) return catCache[trimmed]
+      let category = await prisma.productCategory.findFirst({
+        where: { name: { equals: trimmed, mode: "insensitive" } },
       })
+      if (!category) {
+        category = await prisma.productCategory.create({
+          data: {
+            name: trimmed,
+            description: `${trimmed} category`,
+          },
+        })
+      }
+      catCache[trimmed] = category.id
+      return category.id
     }
 
     // Default pricing margins
@@ -68,6 +94,8 @@ export async function importBosqBulkData(filePath: string = "public/uploads/bosq
       if (!title) continue
 
       const masterCode = `MASTER-${title.toUpperCase().replace(/[^A-Z0-9]/g, "")}`
+      const targetCatName = inferCategoryName(base.category || base.category_name, title, masterCode)
+      const categoryId = await getOrCreateCategory(targetCatName)
 
       // Check existing master or create
       const masterProduct = await prisma.product.upsert({
@@ -75,15 +103,15 @@ export async function importBosqBulkData(filePath: string = "public/uploads/bosq
         update: {
           productName: title,
           isMaster: true,
-          categoryId: chairsCategory.id,
+          categoryId: categoryId,
           status: "ACTIVE",
         },
         create: {
           productCode: masterCode,
           productName: title,
           isMaster: true,
-          categoryId: chairsCategory.id,
-          description: `${title} Series Ergonomic & Executive Office Seating Collection`,
+          categoryId: categoryId,
+          description: `${title} Series Collection`,
           status: "ACTIVE",
           warranty: "3 Years",
         },
@@ -105,6 +133,9 @@ export async function importBosqBulkData(filePath: string = "public/uploads/bosq
       const masterProduct = masterProductMap[baseTitle]
       const modelKey = `${baseTitle}_${modelTitle.toLowerCase()}`
       const modelCode = modelCodeMap[modelKey] || ""
+
+      const targetCatName = inferCategoryName(v.category || v.category_name, title, sku)
+      const categoryId = await getOrCreateCategory(targetCatName)
 
       // Extract attributes (e.g. "color:tan-brown:0")
       let color = "Standard"
@@ -149,7 +180,7 @@ export async function importBosqBulkData(filePath: string = "public/uploads/bosq
           isMaster: false,
           modelName: modelTitle || undefined,
           modelCode: modelCode || undefined,
-          categoryId: chairsCategory.id,
+          categoryId: categoryId,
           costPrice: cost,
           unitPrice: projectPrice,
           dealerPrice,
@@ -174,7 +205,7 @@ export async function importBosqBulkData(filePath: string = "public/uploads/bosq
           isMaster: false,
           modelName: modelTitle || null,
           modelCode: modelCode || null,
-          categoryId: chairsCategory.id,
+          categoryId: categoryId,
           costPrice: cost,
           unitPrice: projectPrice,
           dealerPrice,
