@@ -22,10 +22,13 @@ import {
   Search,
   SlidersHorizontal,
   LayoutGrid,
-  CheckCircle2
+  CheckCircle2,
+  Ruler
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 
@@ -753,98 +756,132 @@ export function VariantDrawerModal({
             
             {/* 1. Sub-Product / Model Dropdown Select */}
             <div className="space-y-1">
-              <label className="text-[11px] font-extrabold text-foreground block uppercase tracking-wider flex items-center gap-1">
+              <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
                 <LayoutGrid className="h-3 w-3 text-primary" />
                 Sub-Product / Model
               </label>
-              <select
-                value={selectedSubProduct}
-                onChange={(e) => setSelectedSubProduct(e.target.value)}
-                className="w-full h-9 text-xs font-bold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
-              >
-                <option value="all">All Sub-Products ({availableSubProducts.length})</option>
-                {availableSubProducts.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label} ({opt.count})
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedSubProduct} onValueChange={(val) => setSelectedSubProduct(val || "all")}>
+                <SelectTrigger className="w-full h-9 text-xs font-bold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
+                  <SelectValue placeholder="All Sub-Products" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 bg-card border rounded-xl shadow-xl z-50">
+                  <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
+                    All Sub-Products ({allSubProductNames.length})
+                  </SelectItem>
+                  {availableSubProducts.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-medium cursor-pointer">
+                      <span className="flex items-center justify-between w-full gap-2">
+                        <span className="truncate">{opt.label}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* 2. Dimensions / Size Dropdown */}
             <div className="space-y-1">
-              <label className="text-[11px] font-extrabold text-foreground block uppercase tracking-wider">
+              <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
+                <Ruler className="h-3 w-3 text-primary" />
                 Dimensions / Size
               </label>
-              <select
-                value={selectedDimension}
-                onChange={(e) => setSelectedDimension(e.target.value)}
-                className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
-              >
-                <option value="all">All Dimensions ({availableDimensions.length})</option>
-                {availableDimensions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label} ({opt.count})
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedDimension} onValueChange={(val) => setSelectedDimension(val || "all")}>
+                <SelectTrigger className="w-full h-9 text-xs font-semibold font-mono rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
+                  <SelectValue placeholder="All Dimensions" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 bg-card border rounded-xl shadow-xl z-50">
+                  <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
+                    All Dimensions ({availableDimensions.length})
+                  </SelectItem>
+                  {availableDimensions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-mono font-medium cursor-pointer">
+                      <span className="flex items-center justify-between w-full gap-2">
+                        <span className="truncate">{opt.label}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* 3. Table Top Finish / Wood Dropdown */}
             <div className="space-y-1">
-              <label className="text-[11px] font-extrabold text-foreground block uppercase tracking-wider">
-                Table Top Finish / Wood
+              <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
+                <Palette className="h-3 w-3 text-primary" />
+                Table Top Finish
               </label>
-              <select
-                value={selectedFinish}
-                onChange={(e) => setSelectedFinish(e.target.value)}
-                className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
-              >
-                <option value="all">All Finishes ({availableFinishes.length})</option>
-                {availableFinishes.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label} ({opt.count})
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedFinish} onValueChange={(val) => setSelectedFinish(val || "all")}>
+                <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
+                  <SelectValue placeholder="All Finishes" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 bg-card border rounded-xl shadow-xl z-50">
+                  <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
+                    All Finishes ({availableFinishes.length})
+                  </SelectItem>
+                  {availableFinishes.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-medium cursor-pointer">
+                      <span className="flex items-center justify-between w-full gap-2">
+                        <span className="truncate">{opt.label}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* 4. Leg Type / Color Dropdown */}
             <div className="space-y-1">
-              <label className="text-[11px] font-extrabold text-foreground block uppercase tracking-wider">
+              <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
+                <Layers className="h-3 w-3 text-primary" />
                 Leg Type / Color
               </label>
-              <select
-                value={selectedLeg}
-                onChange={(e) => setSelectedLeg(e.target.value)}
-                className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
-              >
-                <option value="all">All Leg Options ({availableLegs.length})</option>
-                {availableLegs.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label} ({opt.count})
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedLeg} onValueChange={(val) => setSelectedLeg(val || "all")}>
+                <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
+                  <SelectValue placeholder="All Leg Options" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 bg-card border rounded-xl shadow-xl z-50">
+                  <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
+                    All Leg Options ({availableLegs.length})
+                  </SelectItem>
+                  {availableLegs.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-medium cursor-pointer">
+                      <span className="flex items-center justify-between w-full gap-2">
+                        <span className="truncate">{opt.label}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* 5. Side Return Option Dropdown */}
             <div className="space-y-1">
-              <label className="text-[11px] font-extrabold text-foreground block uppercase tracking-wider">
+              <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
+                <Boxes className="h-3 w-3 text-primary" />
                 Side Return Option
               </label>
-              <select
-                value={selectedSideReturn}
-                onChange={(e) => setSelectedSideReturn(e.target.value)}
-                className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
-              >
-                <option value="all">All Side Returns ({availableSideReturns.length})</option>
-                {availableSideReturns.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label} ({opt.count})
-                  </option>
-                ))}
-              </select>
+              <Select value={selectedSideReturn} onValueChange={(val) => setSelectedSideReturn(val || "all")}>
+                <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
+                  <SelectValue placeholder="All Side Returns" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60 bg-card border rounded-xl shadow-xl z-50">
+                  <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
+                    All Side Returns ({availableSideReturns.length})
+                  </SelectItem>
+                  {availableSideReturns.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-medium cursor-pointer">
+                      <span className="flex items-center justify-between w-full gap-2">
+                        <span className="truncate">{opt.label}</span>
+                        <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -966,6 +1003,19 @@ export function VariantDrawerModal({
                     value={newVariantForm.projectPrice}
                     onChange={(e) => setNewVariantForm({ ...newVariantForm, projectPrice: parseFloat(e.target.value) || 0, unitPrice: parseFloat(e.target.value) || 0 })}
                     className="h-8 text-xs bg-background font-bold text-primary"
+                  />
+                </div>
+
+                <div className="space-y-1 sm:col-span-3">
+                  <label className="font-bold text-foreground block">
+                    Short Description
+                  </label>
+                  <Textarea
+                    rows={2}
+                    placeholder="Enter short description for quotation preview..."
+                    value={newVariantForm.description}
+                    onChange={(e) => setNewVariantForm({ ...newVariantForm, description: e.target.value })}
+                    className="text-xs bg-background resize-none"
                   />
                 </div>
               </div>
@@ -1136,6 +1186,20 @@ export function VariantDrawerModal({
                             className="h-8 text-xs bg-background font-bold text-primary"
                           />
                         </div>
+
+                        <div className="space-y-1 sm:col-span-3">
+                          <label className="font-bold text-foreground block flex items-center justify-between">
+                            <span>Short Description</span>
+                            <span className="text-[10px] text-muted-foreground font-normal">Essential product details for quotations</span>
+                          </label>
+                          <Textarea
+                            rows={2}
+                            placeholder="Enter short description for quotation preview..."
+                            value={editVariantForm.description}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, description: e.target.value })}
+                            className="text-xs bg-background resize-none"
+                          />
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-500/15">
@@ -1238,6 +1302,12 @@ export function VariantDrawerModal({
                         <h4 className="font-bold text-base text-foreground leading-snug truncate">
                           {variant.productName}
                         </h4>
+
+                        {variant.description && (
+                          <p className="text-[11px] text-muted-foreground line-clamp-1 italic bg-muted/30 px-2 py-0.5 rounded border border-border/40 max-w-xl">
+                            "{variant.description}"
+                          </p>
+                        )}
 
                         {/* Attribute Badges */}
                         <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground pt-0.5">
