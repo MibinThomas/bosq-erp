@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   X,
   Package,
@@ -212,66 +212,189 @@ export function VariantDrawerModal({
   const variants = masterProduct?.variants || []
   const masterTitle = masterProduct?.productName || "Product Series"
 
-  // Group variants by Sub-Product Title
-  const subProductsMap = useMemo(() => {
-    const map = new Map<string, ProductVariantItem[]>()
-    for (const v of variants) {
-      const subName = getSubProductName(v, masterTitle)
-      if (!map.has(subName)) map.set(subName, [])
-      map.get(subName)!.push(v)
-    }
-    return map
-  }, [variants, masterTitle])
-
-  const subProductNames = useMemo(() => Array.from(subProductsMap.keys()), [subProductsMap])
-
-  // Filter Sub-Products by search query
-  const filteredSubProductNames = useMemo(() => {
-    if (!subProductSearch.trim()) return subProductNames
-    const q = subProductSearch.toLowerCase().trim()
-    return subProductNames.filter(name => name.toLowerCase().includes(q))
-  }, [subProductNames, subProductSearch])
-
-  // Get active variant list based on selected Sub-Product
-  const activeSubProductVariants = useMemo(() => {
-    if (selectedSubProduct === "all") return variants
-    return subProductsMap.get(selectedSubProduct) || []
-  }, [selectedSubProduct, variants, subProductsMap])
-
-  // Extract distinct attribute values for active Sub-Product
-  const attributeOptions = useMemo(() => {
-    const dims = new Set<string>()
-    const finishes = new Set<string>()
-    const legs = new Set<string>()
-    const returns = new Set<string>()
-
-    for (const v of activeSubProductVariants) {
+  // Pre-parse all variants for fast dynamic filtering
+  const parsedVariants = useMemo(() => {
+    return (masterProduct?.variants || []).map((v) => {
+      const subProduct = getSubProductName(v, masterTitle)
       const attrs = extractVariantAttributes(v)
-      if (attrs.dimensions && attrs.dimensions !== "Standard Size") dims.add(attrs.dimensions)
-      if (attrs.finish && attrs.finish !== "Standard Finish") finishes.add(attrs.finish)
-      if (attrs.legs && attrs.legs !== "Standard Frame") legs.add(attrs.legs)
-      if (attrs.sideReturn && attrs.sideReturn !== "No Side Return") returns.add(attrs.sideReturn)
-    }
-
-    return {
-      dimensions: Array.from(dims).sort(),
-      finishes: Array.from(finishes).sort(),
-      legs: Array.from(legs).sort(),
-      returns: Array.from(returns).sort(),
-    }
-  }, [activeSubProductVariants])
-
-  // Filter active variants by attribute combination selection
-  const finalFilteredVariants = useMemo(() => {
-    return activeSubProductVariants.filter(v => {
-      const attrs = extractVariantAttributes(v)
-      if (selectedDimension !== "all" && attrs.dimensions !== selectedDimension) return false
-      if (selectedFinish !== "all" && attrs.finish !== selectedFinish) return false
-      if (selectedLeg !== "all" && attrs.legs !== selectedLeg) return false
-      if (selectedSideReturn !== "all" && attrs.sideReturn !== selectedSideReturn) return false
-      return true
+      return {
+        variant: v,
+        subProduct,
+        dimensions: attrs.dimensions,
+        finish: attrs.finish,
+        legs: attrs.legs,
+        sideReturn: attrs.sideReturn,
+      }
     })
-  }, [activeSubProductVariants, selectedDimension, selectedFinish, selectedLeg, selectedSideReturn])
+  }, [masterProduct, masterTitle])
+
+  // Distinct sub-product names count for header badge
+  const allSubProductNames = useMemo(() => {
+    const set = new Set<string>()
+    for (const pv of parsedVariants) {
+      if (pv.subProduct) set.add(pv.subProduct)
+    }
+    return Array.from(set).sort()
+  }, [parsedVariants])
+
+  // Filter variants by search query (SKU, name, sub-product)
+  const searchFilteredVariants = useMemo(() => {
+    if (!subProductSearch.trim()) return parsedVariants
+    const q = subProductSearch.toLowerCase().trim()
+    return parsedVariants.filter(
+      (pv) =>
+        pv.subProduct.toLowerCase().includes(q) ||
+        (pv.variant.productCode && pv.variant.productCode.toLowerCase().includes(q)) ||
+        (pv.variant.productName && pv.variant.productName.toLowerCase().includes(q))
+    )
+  }, [parsedVariants, subProductSearch])
+
+  // Active filter predicates
+  const matchSubProduct = (pv: (typeof parsedVariants)[0]) =>
+    selectedSubProduct === "all" || pv.subProduct === selectedSubProduct
+
+  const matchDimension = (pv: (typeof parsedVariants)[0]) =>
+    selectedDimension === "all" || pv.dimensions === selectedDimension
+
+  const matchFinish = (pv: (typeof parsedVariants)[0]) =>
+    selectedFinish === "all" || pv.finish === selectedFinish
+
+  const matchLeg = (pv: (typeof parsedVariants)[0]) =>
+    selectedLeg === "all" || pv.legs === selectedLeg
+
+  const matchSideReturn = (pv: (typeof parsedVariants)[0]) =>
+    selectedSideReturn === "all" || pv.sideReturn === selectedSideReturn
+
+  // Dynamic available Sub-Products (matching remaining 4 attribute filters)
+  const availableSubProducts = useMemo(() => {
+    const matching = searchFilteredVariants.filter(
+      (pv) => matchDimension(pv) && matchFinish(pv) && matchLeg(pv) && matchSideReturn(pv)
+    )
+    const countsMap = new Map<string, number>()
+    for (const pv of matching) {
+      if (pv.subProduct) {
+        countsMap.set(pv.subProduct, (countsMap.get(pv.subProduct) || 0) + 1)
+      }
+    }
+    return Array.from(countsMap.entries())
+      .map(([value, count]) => ({ value, label: value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value))
+  }, [searchFilteredVariants, selectedDimension, selectedFinish, selectedLeg, selectedSideReturn])
+
+  // Dynamic available Dimensions (matching subProduct + finish + leg + sideReturn)
+  const availableDimensions = useMemo(() => {
+    const matching = searchFilteredVariants.filter(
+      (pv) => matchSubProduct(pv) && matchFinish(pv) && matchLeg(pv) && matchSideReturn(pv)
+    )
+    const countsMap = new Map<string, number>()
+    for (const pv of matching) {
+      if (pv.dimensions && pv.dimensions !== "Standard Size") {
+        countsMap.set(pv.dimensions, (countsMap.get(pv.dimensions) || 0) + 1)
+      }
+    }
+    return Array.from(countsMap.entries())
+      .map(([value, count]) => ({ value, label: value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }))
+  }, [searchFilteredVariants, selectedSubProduct, selectedFinish, selectedLeg, selectedSideReturn])
+
+  // Dynamic available Finishes (matching subProduct + dimension + leg + sideReturn)
+  const availableFinishes = useMemo(() => {
+    const matching = searchFilteredVariants.filter(
+      (pv) => matchSubProduct(pv) && matchDimension(pv) && matchLeg(pv) && matchSideReturn(pv)
+    )
+    const countsMap = new Map<string, number>()
+    for (const pv of matching) {
+      if (pv.finish && pv.finish !== "Standard Finish") {
+        countsMap.set(pv.finish, (countsMap.get(pv.finish) || 0) + 1)
+      }
+    }
+    return Array.from(countsMap.entries())
+      .map(([value, count]) => ({ value, label: value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value))
+  }, [searchFilteredVariants, selectedSubProduct, selectedDimension, selectedLeg, selectedSideReturn])
+
+  // Dynamic available Leg Options (matching subProduct + dimension + finish + sideReturn)
+  const availableLegs = useMemo(() => {
+    const matching = searchFilteredVariants.filter(
+      (pv) => matchSubProduct(pv) && matchDimension(pv) && matchFinish(pv) && matchSideReturn(pv)
+    )
+    const countsMap = new Map<string, number>()
+    for (const pv of matching) {
+      if (pv.legs && pv.legs !== "Standard Frame") {
+        countsMap.set(pv.legs, (countsMap.get(pv.legs) || 0) + 1)
+      }
+    }
+    return Array.from(countsMap.entries())
+      .map(([value, count]) => ({ value, label: value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value))
+  }, [searchFilteredVariants, selectedSubProduct, selectedDimension, selectedFinish, selectedSideReturn])
+
+  // Dynamic available Side Returns (matching subProduct + dimension + finish + leg)
+  const availableSideReturns = useMemo(() => {
+    const matching = searchFilteredVariants.filter(
+      (pv) => matchSubProduct(pv) && matchDimension(pv) && matchFinish(pv) && matchLeg(pv)
+    )
+    const countsMap = new Map<string, number>()
+    for (const pv of matching) {
+      if (pv.sideReturn && pv.sideReturn !== "No Side Return") {
+        countsMap.set(pv.sideReturn, (countsMap.get(pv.sideReturn) || 0) + 1)
+      }
+    }
+    return Array.from(countsMap.entries())
+      .map(([value, count]) => ({ value, label: value, count }))
+      .sort((a, b) => a.value.localeCompare(b.value))
+  }, [searchFilteredVariants, selectedSubProduct, selectedDimension, selectedFinish, selectedLeg])
+
+  // Final filtered list of variants matching all currently active selection criteria
+  const finalFilteredVariants = useMemo(() => {
+    return searchFilteredVariants
+      .filter(
+        (pv) =>
+          matchSubProduct(pv) &&
+          matchDimension(pv) &&
+          matchFinish(pv) &&
+          matchLeg(pv) &&
+          matchSideReturn(pv)
+      )
+      .map((pv) => pv.variant)
+  }, [
+    searchFilteredVariants,
+    selectedSubProduct,
+    selectedDimension,
+    selectedFinish,
+    selectedLeg,
+    selectedSideReturn,
+  ])
+
+  // Auto-reset filter selections if they are no longer valid options in the newly filtered subset
+  useEffect(() => {
+    if (selectedSubProduct !== "all" && !availableSubProducts.some((o) => o.value === selectedSubProduct)) {
+      setSelectedSubProduct("all")
+    }
+    if (selectedDimension !== "all" && !availableDimensions.some((o) => o.value === selectedDimension)) {
+      setSelectedDimension("all")
+    }
+    if (selectedFinish !== "all" && !availableFinishes.some((o) => o.value === selectedFinish)) {
+      setSelectedFinish("all")
+    }
+    if (selectedLeg !== "all" && !availableLegs.some((o) => o.value === selectedLeg)) {
+      setSelectedLeg("all")
+    }
+    if (selectedSideReturn !== "all" && !availableSideReturns.some((o) => o.value === selectedSideReturn)) {
+      setSelectedSideReturn("all")
+    }
+  }, [
+    availableSubProducts,
+    availableDimensions,
+    availableFinishes,
+    availableLegs,
+    availableSideReturns,
+    selectedSubProduct,
+    selectedDimension,
+    selectedFinish,
+    selectedLeg,
+    selectedSideReturn,
+  ])
 
   if (!isOpen || !masterProduct) return null
 
@@ -527,7 +650,7 @@ export function VariantDrawerModal({
               </Badge>
               <Badge variant="secondary" className="font-semibold text-xs bg-muted border">
                 <LayoutGrid className="h-3 w-3 mr-1 text-primary" />
-                {subProductNames.length} Sub-Products / Workstation Models
+                {allSubProductNames.length} Sub-Products / Workstation Models
               </Badge>
               <Badge variant="secondary" className="font-bold text-xs bg-primary/10 text-primary border border-primary/20">
                 <Layers className="h-3 w-3 mr-1" />
@@ -623,24 +746,15 @@ export function VariantDrawerModal({
               </label>
               <select
                 value={selectedSubProduct}
-                onChange={(e) => {
-                  setSelectedSubProduct(e.target.value)
-                  setSelectedDimension("all")
-                  setSelectedFinish("all")
-                  setSelectedLeg("all")
-                  setSelectedSideReturn("all")
-                }}
+                onChange={(e) => setSelectedSubProduct(e.target.value)}
                 className="w-full h-9 text-xs font-bold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
               >
-                <option value="all">All Sub-Products ({variants.length})</option>
-                {subProductNames.map((subName) => {
-                  const count = subProductsMap.get(subName)?.length || 0
-                  return (
-                    <option key={subName} value={subName}>
-                      {subName} ({count})
-                    </option>
-                  )
-                })}
+                <option value="all">All Sub-Products ({availableSubProducts.length})</option>
+                {availableSubProducts.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} ({opt.count})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -654,10 +768,10 @@ export function VariantDrawerModal({
                 onChange={(e) => setSelectedDimension(e.target.value)}
                 className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
               >
-                <option value="all">All Dimensions ({attributeOptions.dimensions.length})</option>
-                {attributeOptions.dimensions.map((dim) => (
-                  <option key={dim} value={dim}>
-                    {dim}
+                <option value="all">All Dimensions ({availableDimensions.length})</option>
+                {availableDimensions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} ({opt.count})
                   </option>
                 ))}
               </select>
@@ -673,10 +787,10 @@ export function VariantDrawerModal({
                 onChange={(e) => setSelectedFinish(e.target.value)}
                 className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
               >
-                <option value="all">All Finishes ({attributeOptions.finishes.length})</option>
-                {attributeOptions.finishes.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
+                <option value="all">All Finishes ({availableFinishes.length})</option>
+                {availableFinishes.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} ({opt.count})
                   </option>
                 ))}
               </select>
@@ -692,10 +806,10 @@ export function VariantDrawerModal({
                 onChange={(e) => setSelectedLeg(e.target.value)}
                 className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
               >
-                <option value="all">All Leg Options ({attributeOptions.legs.length})</option>
-                {attributeOptions.legs.map((leg) => (
-                  <option key={leg} value={leg}>
-                    {leg}
+                <option value="all">All Leg Options ({availableLegs.length})</option>
+                {availableLegs.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} ({opt.count})
                   </option>
                 ))}
               </select>
@@ -711,10 +825,10 @@ export function VariantDrawerModal({
                 onChange={(e) => setSelectedSideReturn(e.target.value)}
                 className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
               >
-                <option value="all">All Side Returns ({attributeOptions.returns.length})</option>
-                {attributeOptions.returns.map((ret) => (
-                  <option key={ret} value={ret}>
-                    {ret}
+                <option value="all">All Side Returns ({availableSideReturns.length})</option>
+                {availableSideReturns.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} ({opt.count})
                   </option>
                 ))}
               </select>
@@ -877,7 +991,7 @@ export function VariantDrawerModal({
           {/* Variants Count Header */}
           <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
             <span>
-              Showing <strong className="text-foreground font-extrabold">{finalFilteredVariants.length}</strong> of {activeSubProductVariants.length} variations
+              Showing <strong className="text-foreground font-extrabold">{finalFilteredVariants.length}</strong> of {variants.length} variations
             </span>
             {selectedSubProduct !== "all" && (
               <span>Sub-Product: <strong className="text-foreground">{selectedSubProduct}</strong></span>
