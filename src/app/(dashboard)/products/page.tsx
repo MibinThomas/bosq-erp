@@ -38,7 +38,7 @@ import { toast } from "sonner"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2, ChevronRight, UserPlus, Layers, Eye, Camera } from "lucide-react"
-import { VariantDrawerModal } from "@/components/products/variant-drawer-modal"
+import { VariantDrawerModal, getSubProductName } from "@/components/products/variant-drawer-modal"
 
 interface Product {
   id: string
@@ -847,8 +847,8 @@ export default function ProductsPage() {
               // Total stock across variants
               const totalVariantStock = isMasterModel ? variantList.reduce((sum, v) => sum + (v.stock || 0), 0) : (product.stock || 0)
 
-              // Distinct sub-models list (e.g. High Back, Mid Back, Low Back)
-              const subModelNames = isMasterModel ? Array.from(new Set(variantList.map(v => v.modelName).filter(Boolean))) : []
+              // Distinct sub-models list (Level 2)
+              const subModelNames = isMasterModel ? Array.from(new Set(variantList.map(v => getSubProductName(v as any, product.productName)).filter(Boolean))) : []
 
               return (
                 <div 
@@ -880,7 +880,7 @@ export default function ProductsPage() {
                     {isMasterModel ? (
                       <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-extrabold text-xs shadow-sm flex items-center gap-1">
                         <Layers className="h-3.5 w-3.5" />
-                        {variantList.length} Variations
+                        {subModelNames.length} Models • {variantList.length} Variations
                       </Badge>
                     ) : (
                       <Badge variant={product.status === "ACTIVE" ? "default" : "destructive"} className="shadow-sm">
@@ -975,12 +975,17 @@ export default function ProductsPage() {
                       </p>
 
                       {subModelNames.length > 0 && (
-                        <div className="flex items-center gap-1 flex-wrap mt-1.5">
-                          {subModelNames.map(sm => (
-                            <Badge key={sm} variant="outline" className="text-[9px] py-0 px-1.5 font-medium">
+                        <div className="flex items-center gap-1 flex-wrap mt-2">
+                          {subModelNames.slice(0, 4).map(sm => (
+                            <Badge key={sm} variant="outline" className="text-[9px] py-0.5 px-1.5 font-bold bg-muted/40 border-primary/20 text-primary">
                               {sm}
                             </Badge>
                           ))}
+                          {subModelNames.length > 4 && (
+                            <span className="text-[10px] font-bold text-muted-foreground">
+                              +{subModelNames.length - 4} more models
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1058,7 +1063,7 @@ export default function ProductsPage() {
                   <TableHead>Code</TableHead>
                   <TableHead>Product Series</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Variations</TableHead>
+                  <TableHead>Sub-Products & Variations</TableHead>
                   <TableHead className="text-right">Price Range (AED)</TableHead>
                   <TableHead className="text-center">Total Stock</TableHead>
                   <TableHead>Status</TableHead>
@@ -1079,6 +1084,16 @@ export default function ProductsPage() {
                     : `AED ${minPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} - ${maxPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
                   
                   const totalVariantStock = isMasterModel ? variantList.reduce((sum, v) => sum + (v.stock || 0), 0) : (product.stock || 0)
+
+                  // Sub-products grouping (Level 2)
+                  const subProductsMap = new Map<string, typeof variantList>()
+                  if (isMasterModel) {
+                    for (const v of variantList) {
+                      const subName = getSubProductName(v as any, product.productName)
+                      if (!subProductsMap.has(subName)) subProductsMap.set(subName, [])
+                      subProductsMap.get(subName)!.push(v)
+                    }
+                  }
 
                   return (
                     <>
@@ -1117,7 +1132,7 @@ export default function ProductsPage() {
                         <TableCell>
                           {isMasterModel ? (
                             <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-bold">
-                              {variantList.length} Variants
+                              {subProductsMap.size} Models • {variantList.length} Variations
                             </Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs">Single Item</span>
@@ -1140,59 +1155,77 @@ export default function ProductsPage() {
                               variant="outline"
                               size="sm"
                               onClick={() => setSelectedMasterForVariants(product)}
-                              className="text-xs font-bold border-primary/20 text-primary hover:bg-primary/10"
+                              className="text-xs font-bold border-primary/20 text-primary hover:bg-primary/10 cursor-pointer"
                             >
-                              View Variations
+                              Select Variant
                             </Button>
                           )}
                         </TableCell>
                       </TableRow>
 
-                      {/* Expandable Sub-table for Master Model Variants */}
+                      {/* Expandable Sub-table for Master Model Variants grouped by Sub-Products */}
                       {isExpanded && isMasterModel && (
                         <TableRow key={`${product.id}-variants`} className="bg-muted/15 border-y">
                           <TableCell colSpan={10} className="p-4">
-                            <div className="bg-card border rounded-xl p-4 space-y-3">
+                            <div className="bg-card border rounded-xl p-4 space-y-4">
                               <div className="flex items-center justify-between">
                                 <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
                                   <Layers className="h-4 w-4 text-primary" />
-                                  Variations under {product.productName} ({variantList.length} items)
+                                  Sub-Products & Variations under {product.productName} ({subProductsMap.size} Sub-Products, {variantList.length} Items)
                                 </h4>
                               </div>
-                              <Table>
-                                <TableHeader className="bg-muted/40">
-                                  <TableRow className="text-xs">
-                                    <TableHead>SKU Code</TableHead>
-                                    <TableHead>Model / Title</TableHead>
-                                    <TableHead>Color</TableHead>
-                                    <TableHead className="text-right">Price (AED)</TableHead>
-                                    <TableHead className="text-center">Stock</TableHead>
-                                    <TableHead className="text-right">Action</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {variantList.map(v => (
-                                    <TableRow key={v.id} className="text-xs hover:bg-muted/30">
-                                      <TableCell className="font-mono font-bold text-primary">{v.productCode}</TableCell>
-                                      <TableCell className="font-semibold">{v.productName}</TableCell>
-                                      <TableCell>{v.availableColors || "-"}</TableCell>
-                                      <TableCell className="text-right font-mono font-bold">AED {v.unitPrice.toFixed(2)}</TableCell>
-                                      <TableCell className="text-center font-mono font-bold">{v.stock}</TableCell>
-                                      <TableCell className="text-right">
-                                        {hasQuoteAccess && (
-                                          <Button
-                                            size="sm"
-                                            onClick={() => addToQuoteCart(v)}
-                                            className="h-7 text-[11px] font-bold px-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90"
-                                          >
-                                            + Add to Quote
-                                          </Button>
-                                        )}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
+
+                              {Array.from(subProductsMap.entries()).map(([subName, items]) => (
+                                <div key={subName} className="border rounded-lg overflow-hidden bg-background">
+                                  <div className="bg-muted/40 px-3 py-2 border-b flex items-center justify-between">
+                                    <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
+                                      <Badge variant="outline" className="text-[10px] font-bold bg-primary/10 text-primary border-primary/20">
+                                        Sub-Product
+                                      </Badge>
+                                      {subName}
+                                    </span>
+                                    <span className="text-[11px] font-semibold text-muted-foreground">
+                                      {items.length} Variations
+                                    </span>
+                                  </div>
+                                  <Table>
+                                    <TableHeader className="bg-muted/20">
+                                      <TableRow className="text-xs">
+                                        <TableHead>SKU Code</TableHead>
+                                        <TableHead>Variant Name & Attributes</TableHead>
+                                        <TableHead>Color / Finish</TableHead>
+                                        <TableHead className="text-right">Price (AED)</TableHead>
+                                        <TableHead className="text-center">Stock</TableHead>
+                                        <TableHead className="text-right">Action</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {items.map(v => (
+                                        <TableRow key={v.id} className="text-xs hover:bg-muted/30">
+                                          <TableCell className="font-mono font-bold text-primary">{v.productCode}</TableCell>
+                                          <TableCell className="font-semibold">{v.productName}</TableCell>
+                                          <TableCell>{v.availableColors || "-"}</TableCell>
+                                          <TableCell className="text-right font-mono font-bold">
+                                            AED {(v.projectPrice || v.unitPrice || 0).toFixed(2)}
+                                          </TableCell>
+                                          <TableCell className="text-center font-mono font-bold">{v.stock}</TableCell>
+                                          <TableCell className="text-right">
+                                            {hasQuoteAccess && (
+                                              <Button
+                                                size="sm"
+                                                onClick={() => addToQuoteCart(v)}
+                                                className="h-7 text-[11px] font-bold px-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                                              >
+                                                + Add to Quote
+                                              </Button>
+                                            )}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              ))}
                             </div>
                           </TableCell>
                         </TableRow>

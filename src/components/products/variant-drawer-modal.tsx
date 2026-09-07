@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import {
   X,
   Package,
@@ -18,7 +18,11 @@ import {
   Camera,
   Upload,
   Loader2,
-  Trash2
+  Trash2,
+  Search,
+  SlidersHorizontal,
+  LayoutGrid,
+  CheckCircle2
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,6 +52,11 @@ export interface ProductVariantItem {
   parentProductId?: string | null
   modelCode?: string | null
   modelName?: string | null
+  tableTopFinish?: string | null
+  legType?: string | null
+  chairType?: string | null
+  storageOptions?: string | null
+  finishMaterial?: string | null
   variantAttributes?: any
   category?: {
     name: string
@@ -73,6 +82,72 @@ interface VariantDrawerModalProps {
   hasQuoteAccess?: boolean
 }
 
+// Helper to extract clean sub-product model name (Level 2)
+export function getSubProductName(v: ProductVariantItem, masterTitle: string): string {
+  if (v.modelName && v.modelName.trim() && v.modelName !== "Standard" && v.modelName !== masterTitle) {
+    return v.modelName.trim()
+  }
+
+  let name = (v.productName || "").trim()
+  // Remove dimension specs like 2000x750mm, 2000×750mm, 1800x800x750mm
+  name = name.replace(/\b\d{3,5}\s*[x×X]\s*\d{3,5}(\s*[x×X]\s*\d{3,5})?\s*(mm)?\b/gi, "").trim()
+
+  // Split at attribute delimiters
+  const parts = name.split(/\s+–\s+|\s+-\s+|,\s+|\s+\|\s+/)
+  let baseTitle = parts[0].trim()
+  baseTitle = baseTitle.replace(/,\s*.*$/, "").trim()
+
+  return baseTitle || masterTitle
+}
+
+// Helper to extract attribute values from variant title or fields
+export function extractVariantAttributes(v: ProductVariantItem) {
+  const name = v.productName || ""
+
+  // Dimensions
+  let dimensions = v.dimensions || ""
+  if (!dimensions) {
+    const dimMatch = name.match(/\b\d{3,5}\s*[x×X]\s*\d{3,5}(\s*[x×X]\s*\d{3,5})?\s*(mm)?\b/i)
+    if (dimMatch) dimensions = dimMatch[0].trim()
+  }
+
+  // Table Top Finish / Wood
+  let finish = v.tableTopFinish || v.finishMaterial || ""
+  if (!finish) {
+    if (/walnut/i.test(name)) finish = "Walnut Wood"
+    else if (/beech/i.test(name)) finish = "Beech Wood"
+    else if (/oak/i.test(name)) finish = "Natural Oak"
+    else if (/black/i.test(name) && /top|table|wood|finish/i.test(name)) finish = "Black Finish"
+    else if (/white/i.test(name) && /top|table|wood|finish/i.test(name)) finish = "White Finish"
+  }
+
+  // Leg Type / Color
+  let legs = v.legType || ""
+  if (!legs) {
+    if (/black legs/i.test(name)) legs = "Black Legs"
+    else if (/white legs/i.test(name)) legs = "White Legs"
+    else if (/silver legs|chrome/i.test(name)) legs = "Silver Legs"
+    else if (/loop leg/i.test(name)) legs = "Loop Legs"
+    else if (/timber leg/i.test(name)) legs = "Timber Legs"
+  }
+
+  // Side Return
+  let sideReturn = ""
+  const srMatch = name.match(/Side Return\s+\d{3,5}(x\d{3,5})?mm/i)
+  if (srMatch) sideReturn = srMatch[0].trim()
+
+  // Color
+  const color = v.availableColors || ""
+
+  return {
+    dimensions: dimensions || "Standard Size",
+    finish: finish || "Standard Finish",
+    legs: legs || "Standard Frame",
+    sideReturn: sideReturn || "No Side Return",
+    color: color || "Default Color",
+  }
+}
+
 export function VariantDrawerModal({
   masterProduct,
   isOpen,
@@ -87,7 +162,15 @@ export function VariantDrawerModal({
   canDeleteProduct = true,
   hasQuoteAccess = true,
 }: VariantDrawerModalProps) {
-  const [selectedModelFilter, setSelectedModelFilter] = useState<string>("all")
+  const [selectedSubProduct, setSelectedSubProduct] = useState<string>("all")
+  const [subProductSearch, setSubProductSearch] = useState<string>("")
+  
+  // Attribute Combination Filters
+  const [selectedDimension, setSelectedDimension] = useState<string>("all")
+  const [selectedFinish, setSelectedFinish] = useState<string>("all")
+  const [selectedLeg, setSelectedLeg] = useState<string>("all")
+  const [selectedSideReturn, setSelectedSideReturn] = useState<string>("all")
+
   const [editingStockId, setEditingStockId] = useState<string | null>(null)
   const [draftStockVal, setDraftStockVal] = useState<number>(0)
   const [savingStockId, setSavingStockId] = useState<string | null>(null)
@@ -108,6 +191,91 @@ export function VariantDrawerModal({
     stock: 0,
     description: "",
   })
+
+  // Inline Add Variant state
+  const [isAddingVariant, setIsAddingVariant] = useState(false)
+  const [isSubmittingNewVariant, setIsSubmittingNewVariant] = useState(false)
+  const [newVariantImageFile, setNewVariantImageFile] = useState<File | null>(null)
+  const [newVariantForm, setNewVariantForm] = useState({
+    productCode: "",
+    productName: "",
+    modelName: "Single Seater Workstation",
+    availableColors: "",
+    costPrice: 200,
+    unitPrice: 300,
+    projectPrice: 300,
+    stock: 10,
+    description: "",
+  })
+
+  // Compute Sub-Products (Level 2) and Variant Attributes (Level 3)
+  const variants = masterProduct?.variants || []
+  const masterTitle = masterProduct?.productName || "Product Series"
+
+  // Group variants by Sub-Product Title
+  const subProductsMap = useMemo(() => {
+    const map = new Map<string, ProductVariantItem[]>()
+    for (const v of variants) {
+      const subName = getSubProductName(v, masterTitle)
+      if (!map.has(subName)) map.set(subName, [])
+      map.get(subName)!.push(v)
+    }
+    return map
+  }, [variants, masterTitle])
+
+  const subProductNames = useMemo(() => Array.from(subProductsMap.keys()), [subProductsMap])
+
+  // Filter Sub-Products by search query
+  const filteredSubProductNames = useMemo(() => {
+    if (!subProductSearch.trim()) return subProductNames
+    const q = subProductSearch.toLowerCase().trim()
+    return subProductNames.filter(name => name.toLowerCase().includes(q))
+  }, [subProductNames, subProductSearch])
+
+  // Get active variant list based on selected Sub-Product
+  const activeSubProductVariants = useMemo(() => {
+    if (selectedSubProduct === "all") return variants
+    return subProductsMap.get(selectedSubProduct) || []
+  }, [selectedSubProduct, variants, subProductsMap])
+
+  // Extract distinct attribute values for active Sub-Product
+  const attributeOptions = useMemo(() => {
+    const dims = new Set<string>()
+    const finishes = new Set<string>()
+    const legs = new Set<string>()
+    const returns = new Set<string>()
+
+    for (const v of activeSubProductVariants) {
+      const attrs = extractVariantAttributes(v)
+      if (attrs.dimensions && attrs.dimensions !== "Standard Size") dims.add(attrs.dimensions)
+      if (attrs.finish && attrs.finish !== "Standard Finish") finishes.add(attrs.finish)
+      if (attrs.legs && attrs.legs !== "Standard Frame") legs.add(attrs.legs)
+      if (attrs.sideReturn && attrs.sideReturn !== "No Side Return") returns.add(attrs.sideReturn)
+    }
+
+    return {
+      dimensions: Array.from(dims).sort(),
+      finishes: Array.from(finishes).sort(),
+      legs: Array.from(legs).sort(),
+      returns: Array.from(returns).sort(),
+    }
+  }, [activeSubProductVariants])
+
+  // Filter active variants by attribute combination selection
+  const finalFilteredVariants = useMemo(() => {
+    return activeSubProductVariants.filter(v => {
+      const attrs = extractVariantAttributes(v)
+      if (selectedDimension !== "all" && attrs.dimensions !== selectedDimension) return false
+      if (selectedFinish !== "all" && attrs.finish !== selectedFinish) return false
+      if (selectedLeg !== "all" && attrs.legs !== selectedLeg) return false
+      if (selectedSideReturn !== "all" && attrs.sideReturn !== selectedSideReturn) return false
+      return true
+    })
+  }, [activeSubProductVariants, selectedDimension, selectedFinish, selectedLeg, selectedSideReturn])
+
+  if (!isOpen || !masterProduct) return null
+
+  const totalStock = variants.reduce((sum, v) => sum + (v.stock || 0), 0)
 
   const startEditingVariant = (variant: ProductVariantItem) => {
     if (onEditVariant) {
@@ -142,7 +310,7 @@ export function VariantDrawerModal({
         body: JSON.stringify({
           productCode: editVariantForm.productCode.trim(),
           productName: editVariantForm.productName.trim(),
-          categoryName: masterProduct.category?.name || "Chairs",
+          categoryName: masterProduct.category?.name || "Workstations",
           modelName: editVariantForm.modelName.trim() || null,
           availableColors: editVariantForm.availableColors.trim() || null,
           costPrice: cost,
@@ -188,15 +356,17 @@ export function VariantDrawerModal({
 
   const handleDeleteVariant = async (variantId: string, variantName: string) => {
     if (!confirm(`Are you sure you want to delete variant "${variantName}"?`)) return
-
     setDeletingVariantId(variantId)
+
     try {
       const res = await fetch(`/api/products/${variantId}`, {
         method: "DELETE",
       })
 
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to delete variant")
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || "Failed to delete variant")
+      }
 
       if (masterProduct && masterProduct.variants) {
         masterProduct.variants = masterProduct.variants.filter((v) => v.id !== variantId)
@@ -212,40 +382,6 @@ export function VariantDrawerModal({
       setDeletingVariantId(null)
     }
   }
-
-  // Inline Add Variant state
-  const [isAddingVariant, setIsAddingVariant] = useState(false)
-  const [isSubmittingNewVariant, setIsSubmittingNewVariant] = useState(false)
-  const [newVariantImageFile, setNewVariantImageFile] = useState<File | null>(null)
-  const [newVariantForm, setNewVariantForm] = useState({
-    productCode: "",
-    productName: "",
-    modelName: "High Back",
-    availableColors: "",
-    costPrice: 200,
-    unitPrice: 300,
-    projectPrice: 300,
-    stock: 10,
-    description: "",
-  })
-
-  if (!isOpen || !masterProduct) return null
-
-  const variants = masterProduct.variants || []
-  
-  // Extract distinct sub-models (e.g. High Back, Mid Back, Low Back)
-  const distinctModels = Array.from(
-    new Set(variants.map(v => v.modelName).filter(Boolean) as string[])
-  )
-
-  // Filter variants by selected sub-model
-  const filteredVariants = variants.filter(v => {
-    if (selectedModelFilter === "all") return true
-    return v.modelName === selectedModelFilter
-  })
-
-  // Total stock count across all variants
-  const totalStock = variants.reduce((sum, v) => sum + (v.stock || 0), 0)
 
   const handleStockSaveSubmit = async (productId: string) => {
     if (!onSaveStock) return
@@ -272,22 +408,16 @@ export function VariantDrawerModal({
       })
 
       const data = await res.json()
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "Failed to upload image")
-      }
+      if (!res.ok || !data.url) throw new Error(data.error || "Failed to upload image")
 
-      // Update variant in database
       const patchRes = await fetch(`/api/products/${variantId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageUrl: data.url }),
       })
 
-      if (!patchRes.ok) {
-        throw new Error("Failed to link image to product variant")
-      }
+      if (!patchRes.ok) throw new Error("Failed to link image to product variant")
 
-      // Update local variant object
       const vItem = variants.find((v) => v.id === variantId)
       if (vItem) vItem.imageUrl = data.url
 
@@ -316,9 +446,7 @@ export function VariantDrawerModal({
           body: formData,
         })
         const uploadData = await uploadRes.json()
-        if (uploadRes.ok && uploadData.url) {
-          imageUrl = uploadData.url
-        }
+        if (uploadRes.ok && uploadData.url) imageUrl = uploadData.url
       }
 
       const masterPrefix = masterProduct.productCode.replace("MASTER-", "").slice(0, 5)
@@ -334,7 +462,7 @@ export function VariantDrawerModal({
       const payload = {
         productCode: sku,
         productName: varName,
-        categoryName: masterProduct.category?.name || "Chairs",
+        categoryName: masterProduct.category?.name || "Workstations",
         parentProductId: masterProduct.id,
         isMaster: false,
         modelName: newVariantForm.modelName.trim() || null,
@@ -368,7 +496,7 @@ export function VariantDrawerModal({
       setNewVariantForm({
         productCode: "",
         productName: "",
-        modelName: "High Back",
+        modelName: "Single Seater Workstation",
         availableColors: "",
         costPrice: 200,
         unitPrice: 300,
@@ -387,30 +515,34 @@ export function VariantDrawerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-2 sm:p-4 md:p-6 animate-in fade-in duration-200 overflow-x-hidden">
-      <div className="relative w-full max-w-5xl max-h-[92vh] bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-4 md:p-6 animate-in fade-in duration-200 overflow-x-hidden">
+      <div className="relative w-full max-w-6xl max-h-[94vh] bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
         
-        {/* Modal Header */}
-        <div className="p-6 border-b bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
+        {/* Level 1: Main Product Header */}
+        <div className="p-5 sm:p-6 border-b bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-bold uppercase text-[10px] tracking-wider">
-                {masterProduct.category?.name || "Catalog Series"}
+                {masterProduct.category?.name || "Product Series"}
               </Badge>
-              <Badge variant="secondary" className="font-semibold text-xs">
-                <Layers className="h-3 w-3 mr-1 text-primary" />
-                {variants.length} {variants.length === 1 ? "Variant" : "Variants Configured"}
+              <Badge variant="secondary" className="font-semibold text-xs bg-muted border">
+                <LayoutGrid className="h-3 w-3 mr-1 text-primary" />
+                {subProductNames.length} Sub-Products / Workstation Models
+              </Badge>
+              <Badge variant="secondary" className="font-bold text-xs bg-primary/10 text-primary border border-primary/20">
+                <Layers className="h-3 w-3 mr-1" />
+                {variants.length} Total Variations
               </Badge>
             </div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
               {masterProduct.productName}
             </h2>
             <p className="text-xs text-muted-foreground">
-              Select and configure specific variations below for quotations or inventory management.
+              Select a sub-product workstation model below to choose your required attribute combination (dimensions, finish, legs, side return).
             </p>
           </div>
 
-          <div className="flex items-center gap-3 self-end sm:self-auto">
+          <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
             {canEditProduct && (
               <Button
                 onClick={() => setIsAddingVariant(!isAddingVariant)}
@@ -437,39 +569,180 @@ export function VariantDrawerModal({
           </div>
         </div>
 
-        {/* Sub-Model Filter Tabs */}
-        {distinctModels.length > 0 && (
-          <div className="px-6 py-3 border-b bg-muted/10 flex items-center gap-2 overflow-x-auto shrink-0">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider shrink-0 mr-1">
-              Sub-Models:
+        {/* Level 2: Sub-Products Navigation Bar */}
+        <div className="border-b bg-muted/10 p-3 sm:p-4 space-y-3 shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <LayoutGrid className="h-3.5 w-3.5 text-primary" />
+              Sub-Products / Models ({subProductNames.length}):
             </span>
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search sub-products (e.g. Single Seater, Ultra)..."
+                value={subProductSearch}
+                onChange={(e) => setSubProductSearch(e.target.value)}
+                className="h-8 text-xs pl-8 bg-background"
+              />
+            </div>
+          </div>
+
+          {/* Sub-Products Horizontal Scroll / Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 max-h-24 scrollbar-thin">
             <Button
-              variant={selectedModelFilter === "all" ? "default" : "outline"}
+              variant={selectedSubProduct === "all" ? "default" : "outline"}
               size="sm"
-              onClick={() => setSelectedModelFilter("all")}
-              className="h-7 text-xs rounded-full cursor-pointer"
+              onClick={() => {
+                setSelectedSubProduct("all")
+                setSelectedDimension("all")
+                setSelectedFinish("all")
+                setSelectedLeg("all")
+                setSelectedSideReturn("all")
+              }}
+              className="h-8 text-xs font-bold rounded-xl shrink-0 cursor-pointer"
             >
-              All ({variants.length})
+              All Sub-Products ({variants.length})
             </Button>
-            {distinctModels.map(model => {
-              const count = variants.filter(v => v.modelName === model).length
+
+            {filteredSubProductNames.map(subName => {
+              const items = subProductsMap.get(subName) || []
+              const isSelected = selectedSubProduct === subName
+
               return (
                 <Button
-                  key={model}
-                  variant={selectedModelFilter === model ? "default" : "outline"}
+                  key={subName}
+                  variant={isSelected ? "default" : "outline"}
                   size="sm"
-                  onClick={() => setSelectedModelFilter(model)}
-                  className="h-7 text-xs rounded-full cursor-pointer"
+                  onClick={() => {
+                    setSelectedSubProduct(subName)
+                    setSelectedDimension("all")
+                    setSelectedFinish("all")
+                    setSelectedLeg("all")
+                    setSelectedSideReturn("all")
+                  }}
+                  className={`h-8 text-xs font-bold rounded-xl shrink-0 cursor-pointer transition-all flex items-center gap-1.5 ${
+                    isSelected ? "shadow-md bg-primary text-primary-foreground" : "bg-card hover:bg-muted"
+                  }`}
                 >
-                  {model} ({count})
+                  <span>{subName}</span>
+                  <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted"}`}>
+                    {items.length}
+                  </Badge>
                 </Button>
               )
             })}
           </div>
-        )}
+        </div>
 
-        {/* Variants List Content */}
-        <div className="p-6 overflow-y-auto space-y-4 flex-1">
+        {/* Level 3: Attribute Combination Selector & Variant Grid */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
+          
+          {/* Active Sub-Product Banner & Attribute Combination Controls */}
+          {selectedSubProduct !== "all" && (
+            <div className="bg-muted/30 border rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between border-b pb-2 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase text-primary tracking-wide">Selected Sub-Product:</span>
+                  <h3 className="text-base font-extrabold text-foreground">{selectedSubProduct}</h3>
+                  <Badge variant="secondary" className="text-xs font-bold">
+                    {activeSubProductVariants.length} Variations Available
+                  </Badge>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedDimension("all")
+                    setSelectedFinish("all")
+                    setSelectedLeg("all")
+                    setSelectedSideReturn("all")
+                  }}
+                  className="text-xs text-muted-foreground hover:text-foreground h-7 cursor-pointer"
+                >
+                  Reset Combination Filters
+                </Button>
+              </div>
+
+              {/* Interactive Combination Attributes Pills */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                {/* Dimensions Filter */}
+                {attributeOptions.dimensions.length > 0 && (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">
+                      Dimensions / Size
+                    </label>
+                    <select
+                      value={selectedDimension}
+                      onChange={(e) => setSelectedDimension(e.target.value)}
+                      className="w-full h-8 text-xs font-semibold rounded-lg border bg-background px-2 focus:ring-1 focus:ring-primary cursor-pointer"
+                    >
+                      <option value="all">All Dimensions ({attributeOptions.dimensions.length})</option>
+                      {attributeOptions.dimensions.map(dim => (
+                        <option key={dim} value={dim}>{dim}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Table Top Finish / Wood Filter */}
+                {attributeOptions.finishes.length > 0 && (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">
+                      Table Top Finish / Wood
+                    </label>
+                    <select
+                      value={selectedFinish}
+                      onChange={(e) => setSelectedFinish(e.target.value)}
+                      className="w-full h-8 text-xs font-semibold rounded-lg border bg-background px-2 focus:ring-1 focus:ring-primary cursor-pointer"
+                    >
+                      <option value="all">All Finishes ({attributeOptions.finishes.length})</option>
+                      {attributeOptions.finishes.map(f => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Leg Color / Type Filter */}
+                {attributeOptions.legs.length > 0 && (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">
+                      Leg Type / Color
+                    </label>
+                    <select
+                      value={selectedLeg}
+                      onChange={(e) => setSelectedLeg(e.target.value)}
+                      className="w-full h-8 text-xs font-semibold rounded-lg border bg-background px-2 focus:ring-1 focus:ring-primary cursor-pointer"
+                    >
+                      <option value="all">All Leg Options ({attributeOptions.legs.length})</option>
+                      {attributeOptions.legs.map(leg => (
+                        <option key={leg} value={leg}>{leg}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Side Return Filter */}
+                {attributeOptions.returns.length > 0 && (
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">
+                      Side Return Option
+                    </label>
+                    <select
+                      value={selectedSideReturn}
+                      onChange={(e) => setSelectedSideReturn(e.target.value)}
+                      className="w-full h-8 text-xs font-semibold rounded-lg border bg-background px-2 focus:ring-1 focus:ring-primary cursor-pointer"
+                    >
+                      <option value="all">All Returns ({attributeOptions.returns.length})</option>
+                      {attributeOptions.returns.map(ret => (
+                        <option key={ret} value={ret}>{ret}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Add New Variant Form Card */}
           {isAddingVariant && (
@@ -499,33 +772,30 @@ export function VariantDrawerModal({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                {/* Sub-Model Name */}
                 <div className="space-y-1">
                   <label className="font-bold text-foreground block">
                     Sub-Model / Variant Type <span className="text-destructive">*</span>
                   </label>
                   <Input
-                    placeholder="e.g. High Back, Mid Back, Visitor"
+                    placeholder="e.g. Single Seater Workstation, Ultra Single Seater"
                     value={newVariantForm.modelName}
                     onChange={(e) => setNewVariantForm({ ...newVariantForm, modelName: e.target.value })}
                     className="h-8 text-xs bg-background"
                   />
                 </div>
 
-                {/* Colors / Finish */}
                 <div className="space-y-1">
                   <label className="font-bold text-foreground block">
                     Color / Finish
                   </label>
                   <Input
-                    placeholder="e.g. Black Leather, Cream, Tan Brown"
+                    placeholder="e.g. Walnut Wood / White Legs"
                     value={newVariantForm.availableColors}
                     onChange={(e) => setNewVariantForm({ ...newVariantForm, availableColors: e.target.value })}
                     className="h-8 text-xs bg-background"
                   />
                 </div>
 
-                {/* SKU Code (Optional) */}
                 <div className="space-y-1">
                   <label className="font-bold text-foreground block">
                     Product SKU (Optional)
@@ -538,20 +808,18 @@ export function VariantDrawerModal({
                   />
                 </div>
 
-                {/* Full Variant Name (Optional) */}
                 <div className="space-y-1 sm:col-span-2">
                   <label className="font-bold text-foreground block">
                     Variant Display Name (Optional)
                   </label>
                   <Input
-                    placeholder={`e.g. ${masterProduct.productName} ${newVariantForm.modelName || "High Back"} ${newVariantForm.availableColors ? `- ${newVariantForm.availableColors}` : ""}`}
+                    placeholder={`e.g. ${masterProduct.productName} ${newVariantForm.modelName || "Single Seater Workstation"}`}
                     value={newVariantForm.productName}
                     onChange={(e) => setNewVariantForm({ ...newVariantForm, productName: e.target.value })}
                     className="h-8 text-xs bg-background"
                   />
                 </div>
 
-                {/* Initial Stock */}
                 <div className="space-y-1">
                   <label className="font-bold text-foreground block">
                     Initial Stock Qty
@@ -565,7 +833,6 @@ export function VariantDrawerModal({
                   />
                 </div>
 
-                {/* Cost Price */}
                 <div className="space-y-1">
                   <label className="font-bold text-foreground block">
                     Cost Price (AED)
@@ -580,7 +847,6 @@ export function VariantDrawerModal({
                   />
                 </div>
 
-                {/* Project Price / Unit Price */}
                 <div className="space-y-1">
                   <label className="font-bold text-foreground block">
                     Project Price (AED)
@@ -594,39 +860,14 @@ export function VariantDrawerModal({
                     className="h-8 text-xs bg-background font-bold text-primary"
                   />
                 </div>
-
-                {/* Photo File Upload */}
-                <div className="space-y-1 sm:col-span-3">
-                  <label className="font-bold text-foreground block">
-                    Variant Image (Optional)
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) setNewVariantImageFile(file)
-                      }}
-                      className="h-9 text-xs bg-background cursor-pointer file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                    />
-                    {newVariantImageFile && (
-                      <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0">
-                        <Check className="h-3.5 w-3.5" /> File Selected
-                      </span>
-                    )}
-                  </div>
-                </div>
               </div>
 
-              {/* Form Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-primary/10">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setIsAddingVariant(false)}
                   className="text-xs h-8 rounded-lg cursor-pointer"
-                  disabled={isSubmittingNewVariant}
                 >
                   Cancel
                 </Button>
@@ -639,7 +880,7 @@ export function VariantDrawerModal({
                   {isSubmittingNewVariant ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Creating Variant...
+                      Creating...
                     </>
                   ) : (
                     <>
@@ -652,80 +893,73 @@ export function VariantDrawerModal({
             </div>
           )}
 
-          {filteredVariants.length === 0 ? (
-            <div className="py-12 text-center border border-dashed rounded-xl bg-muted/10">
-              <Package className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />
-              <p className="text-sm font-medium">No variants found under this filter.</p>
+          {/* Variants Count Header */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
+            <span>
+              Showing <strong className="text-foreground font-extrabold">{finalFilteredVariants.length}</strong> of {activeSubProductVariants.length} variations
+            </span>
+            {selectedSubProduct !== "all" && (
+              <span>Sub-Product: <strong className="text-foreground">{selectedSubProduct}</strong></span>
+            )}
+          </div>
+
+          {/* Empty State */}
+          {finalFilteredVariants.length === 0 ? (
+            <div className="text-center py-12 border border-dashed rounded-xl bg-muted/20 space-y-3">
+              <Package className="h-10 w-10 text-muted-foreground/40 mx-auto" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold text-foreground">No variations match the selected filters</p>
+                <p className="text-xs text-muted-foreground">Try resetting your combination filters or choosing another sub-product model.</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedSubProduct("all")
+                  setSelectedDimension("all")
+                  setSelectedFinish("all")
+                  setSelectedLeg("all")
+                  setSelectedSideReturn("all")
+                }}
+                className="text-xs rounded-xl border-primary/20 text-primary hover:bg-primary/10 cursor-pointer"
+              >
+                Reset All Filters
+              </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {filteredVariants.map((variant) => {
+            /* Variant Cards Grid */
+            <div className="space-y-3">
+              {finalFilteredVariants.map((variant) => {
+                const isEditingThisDetails = editingVariantDetailsId === variant.id
                 const isStockEditing = editingStockId === variant.id
-                const isDetailsEditing = editingVariantDetailsId === variant.id
                 const displayPrice = variant.projectPrice || variant.unitPrice || 0
+                const attrs = extractVariantAttributes(variant)
+                const subProductName = getSubProductName(variant, masterTitle)
 
-                if (isDetailsEditing) {
+                if (isEditingThisDetails) {
                   return (
                     <div
                       key={variant.id}
-                      className="bg-amber-500/5 border border-amber-500/30 rounded-xl p-5 space-y-4 shadow-md animate-in fade-in duration-200"
+                      className="border-2 border-amber-500/40 rounded-xl p-4 sm:p-5 bg-amber-500/5 space-y-4 shadow-md animate-in fade-in duration-150"
                     >
-                      <div className="flex items-center justify-between border-b border-amber-500/15 pb-3">
-                        <div className="flex items-center gap-2">
-                          <div className="h-7 w-7 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold text-xs">
-                            <Pencil className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <h3 className="text-sm font-bold text-foreground">
-                              Edit Variant Details: {variant.productName}
-                            </h3>
-                            <p className="text-[11px] text-muted-foreground">
-                              Modify Sub-Model, colors, SKU, name, prices, and stock quantity below.
-                            </p>
-                          </div>
-                        </div>
+                      <div className="flex items-center justify-between border-b border-amber-500/15 pb-2">
+                        <span className="font-bold text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                          <Pencil className="h-3.5 w-3.5" />
+                          Editing Variant: <strong className="font-mono">{variant.productCode}</strong>
+                        </span>
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
+                          size="sm"
                           onClick={() => setEditingVariantDetailsId(null)}
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
                         >
-                          <X className="h-4 w-4" />
+                          <X className="h-3.5 w-3.5" />
                         </Button>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                        {/* Sub-Model Name */}
                         <div className="space-y-1">
-                          <label className="font-bold text-foreground block">
-                            Sub-Model / Variant Type
-                          </label>
-                          <Input
-                            placeholder="e.g. High Back, Mid Back, Visitor"
-                            value={editVariantForm.modelName}
-                            onChange={(e) => setEditVariantForm({ ...editVariantForm, modelName: e.target.value })}
-                            className="h-8 text-xs bg-background"
-                          />
-                        </div>
-
-                        {/* Colors / Finish */}
-                        <div className="space-y-1">
-                          <label className="font-bold text-foreground block">
-                            Color / Finish
-                          </label>
-                          <Input
-                            placeholder="e.g. Black Leather, Cream"
-                            value={editVariantForm.availableColors}
-                            onChange={(e) => setEditVariantForm({ ...editVariantForm, availableColors: e.target.value })}
-                            className="h-8 text-xs bg-background"
-                          />
-                        </div>
-
-                        {/* Product SKU */}
-                        <div className="space-y-1">
-                          <label className="font-bold text-foreground block">
-                            Product SKU
-                          </label>
+                          <label className="font-bold text-foreground block">SKU Code</label>
                           <Input
                             value={editVariantForm.productCode}
                             onChange={(e) => setEditVariantForm({ ...editVariantForm, productCode: e.target.value })}
@@ -733,23 +967,35 @@ export function VariantDrawerModal({
                           />
                         </div>
 
-                        {/* Variant Display Name */}
                         <div className="space-y-1 sm:col-span-2">
-                          <label className="font-bold text-foreground block">
-                            Variant Display Name
-                          </label>
+                          <label className="font-bold text-foreground block">Product Name</label>
                           <Input
                             value={editVariantForm.productName}
                             onChange={(e) => setEditVariantForm({ ...editVariantForm, productName: e.target.value })}
+                            className="h-8 text-xs bg-background font-semibold"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-bold text-foreground block">Sub-Product Model</label>
+                          <Input
+                            value={editVariantForm.modelName}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, modelName: e.target.value })}
                             className="h-8 text-xs bg-background"
                           />
                         </div>
 
-                        {/* Stock Quantity */}
                         <div className="space-y-1">
-                          <label className="font-bold text-foreground block">
-                            Stock Quantity
-                          </label>
+                          <label className="font-bold text-foreground block">Color / Finish</label>
+                          <Input
+                            value={editVariantForm.availableColors}
+                            onChange={(e) => setEditVariantForm({ ...editVariantForm, availableColors: e.target.value })}
+                            className="h-8 text-xs bg-background"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="font-bold text-foreground block">Stock Quantity</label>
                           <Input
                             type="number"
                             min="0"
@@ -759,11 +1005,8 @@ export function VariantDrawerModal({
                           />
                         </div>
 
-                        {/* Cost Price */}
                         <div className="space-y-1">
-                          <label className="font-bold text-foreground block">
-                            Cost Price (AED)
-                          </label>
+                          <label className="font-bold text-foreground block">Cost Price (AED)</label>
                           <Input
                             type="number"
                             min="0"
@@ -774,11 +1017,8 @@ export function VariantDrawerModal({
                           />
                         </div>
 
-                        {/* Project Price */}
                         <div className="space-y-1">
-                          <label className="font-bold text-foreground block">
-                            Project Price (AED)
-                          </label>
+                          <label className="font-bold text-foreground block">Project Price (AED)</label>
                           <Input
                             type="number"
                             min="0"
@@ -788,22 +1028,8 @@ export function VariantDrawerModal({
                             className="h-8 text-xs bg-background font-bold text-primary"
                           />
                         </div>
-
-                        {/* Description */}
-                        <div className="space-y-1 sm:col-span-3">
-                          <label className="font-bold text-foreground block">
-                            Description
-                          </label>
-                          <Input
-                            value={editVariantForm.description}
-                            onChange={(e) => setEditVariantForm({ ...editVariantForm, description: e.target.value })}
-                            className="h-8 text-xs bg-background"
-                            placeholder="Optional product description..."
-                          />
-                        </div>
                       </div>
 
-                      {/* Form Buttons */}
                       <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-500/15">
                         <Button
                           variant="ghost"
@@ -862,7 +1088,6 @@ export function VariantDrawerModal({
                               <Package className="h-8 w-8 text-muted-foreground/40" />
                             )}
 
-                            {/* Image Upload Overlay Button */}
                             {canEditProduct && (
                               <label className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer text-[10px] font-bold gap-1 p-1 text-center select-none z-10">
                                 <Camera className="h-4 w-4 text-white" />
@@ -887,15 +1112,17 @@ export function VariantDrawerModal({
                           <span className="font-mono text-xs text-muted-foreground font-semibold px-2 py-0.5 rounded bg-muted">
                             {variant.productCode}
                           </span>
-                          {variant.modelName && (
-                            <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-                              {variant.modelName}
-                            </Badge>
+                          <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                            {subProductName}
+                          </Badge>
+                          {attrs.dimensions !== "Standard Size" && (
+                            <span className="text-[11px] font-medium text-foreground bg-muted/60 border px-2 py-0.5 rounded-md">
+                              {attrs.dimensions}
+                            </span>
                           )}
-                          {variant.availableColors && (
-                            <span className="text-[11px] font-medium text-foreground flex items-center gap-1 bg-muted/60 border px-2 py-0.5 rounded-md">
-                              <Palette className="h-3 w-3 text-primary" />
-                              {variant.availableColors}
+                          {attrs.sideReturn !== "No Side Return" && (
+                            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                              {attrs.sideReturn}
                             </span>
                           )}
                         </div>
@@ -904,11 +1131,25 @@ export function VariantDrawerModal({
                           {variant.productName}
                         </h4>
 
-                        {variant.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-1">
-                            {variant.description}
-                          </p>
-                        )}
+                        {/* Attribute Badges */}
+                        <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground pt-0.5">
+                          {attrs.finish !== "Standard Finish" && (
+                            <span className="bg-muted px-2 py-0.5 rounded border">
+                              Finish: <strong className="text-foreground font-semibold">{attrs.finish}</strong>
+                            </span>
+                          )}
+                          {attrs.legs !== "Standard Frame" && (
+                            <span className="bg-muted px-2 py-0.5 rounded border">
+                              Legs: <strong className="text-foreground font-semibold">{attrs.legs}</strong>
+                            </span>
+                          )}
+                          {attrs.color !== "Default Color" && (
+                            <span className="bg-muted px-2 py-0.5 rounded border flex items-center gap-1">
+                              <Palette className="h-3 w-3 text-primary" />
+                              <strong className="text-foreground font-semibold">{attrs.color}</strong>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -976,7 +1217,7 @@ export function VariantDrawerModal({
                         )}
                       </div>
 
-                      {/* Pricing Tiers Display */}
+                      {/* Pricing Display */}
                       <div className="text-right">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
                           Project Rate
@@ -986,7 +1227,7 @@ export function VariantDrawerModal({
                         </span>
                       </div>
 
-                      {/* Action Buttons: Edit, Add to Cart & Delete */}
+                      {/* Actions */}
                       <div className="flex items-center gap-2 shrink-0">
                         {canEditProduct && (
                           <Button
@@ -1006,7 +1247,7 @@ export function VariantDrawerModal({
                             className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow hover:shadow-md cursor-pointer flex items-center gap-1.5 h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl shrink-0 text-xs"
                           >
                             <ShoppingCart className="h-4 w-4" />
-                            <span>Add to Cart</span>
+                            <span>Add to Quote</span>
                           </Button>
                         )}
 
@@ -1039,7 +1280,7 @@ export function VariantDrawerModal({
         {/* Modal Footer */}
         <div className="p-4 border-t bg-muted/20 flex items-center justify-between shrink-0">
           <p className="text-xs text-muted-foreground">
-            Master SKU: <span className="font-mono font-bold">{masterProduct.productCode}</span>
+            Master SKU: <span className="font-mono font-bold text-foreground">{masterProduct.productCode}</span>
           </p>
           <Button variant="outline" onClick={onClose} className="rounded-xl">
             Close
