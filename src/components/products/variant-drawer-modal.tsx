@@ -720,55 +720,6 @@ export function VariantDrawerModal({
               </select>
             </div>
           </div>
-
-          {/* Quick Sub-Products Pill Tabs */}
-          <div className="pt-2 border-t flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 mr-1">
-              Quick Tabs:
-            </span>
-            <Button
-              variant={selectedSubProduct === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                setSelectedSubProduct("all")
-                setSelectedDimension("all")
-                setSelectedFinish("all")
-                setSelectedLeg("all")
-                setSelectedSideReturn("all")
-              }}
-              className="h-7 text-[11px] font-bold rounded-lg shrink-0 cursor-pointer"
-            >
-              All Sub-Products ({variants.length})
-            </Button>
-
-            {filteredSubProductNames.map((subName) => {
-              const items = subProductsMap.get(subName) || []
-              const isSelected = selectedSubProduct === subName
-
-              return (
-                <Button
-                  key={subName}
-                  variant={isSelected ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => {
-                    setSelectedSubProduct(subName)
-                    setSelectedDimension("all")
-                    setSelectedFinish("all")
-                    setSelectedLeg("all")
-                    setSelectedSideReturn("all")
-                  }}
-                  className={`h-7 text-[11px] font-bold rounded-lg shrink-0 cursor-pointer transition-all flex items-center gap-1.5 ${
-                    isSelected ? "shadow-md bg-primary text-primary-foreground" : "bg-card hover:bg-muted"
-                  }`}
-                >
-                  <span>{subName}</span>
-                  <Badge variant="secondary" className={`text-[9px] px-1 py-0 ${isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted"}`}>
-                    {items.length}
-                  </Badge>
-                </Button>
-              )
-            })}
-          </div>
         </div>
 
         {/* Level 3: Variant Grid */}
