@@ -25,6 +25,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
 export interface WorkstationModel {
+  seriesName?: string
   modelName: string
   categoryId: string
   categoryName: string
@@ -64,6 +65,7 @@ export function WorkstationConfigurator({
 }: WorkstationConfiguratorProps) {
   const [models, setModels] = useState<WorkstationModel[]>([])
   const [loadingModels, setLoadingModels] = useState(true)
+  const [selectedSeries, setSelectedSeries] = useState<string>("")
   const [selectedModelName, setSelectedModelName] = useState<string>("")
 
   // Attribute selections
@@ -90,8 +92,14 @@ export function WorkstationConfigurator({
         if (isMounted && data.success && Array.isArray(data.models)) {
           setModels(data.models)
           if (data.models.length > 0) {
-            const firstModel = data.models[0]
-            setSelectedModelName(firstModel.modelName)
+            const firstSeries = data.models[0].seriesName || data.models[0].categoryName || "General Catalog"
+            setSelectedSeries(firstSeries)
+            const firstSub = data.models.find(
+              (m: WorkstationModel) => (m.seriesName || m.categoryName || "General Catalog") === firstSeries
+            )
+            if (firstSub) {
+              setSelectedModelName(firstSub.modelName)
+            }
           }
         }
       })
@@ -108,10 +116,140 @@ export function WorkstationConfigurator({
     }
   }, [])
 
-  // Active Model object
+  // Derived Series List (Level 1)
+  const seriesList = useMemo(() => {
+    const set = new Set<string>()
+    models.forEach((m) => {
+      set.add(m.seriesName || m.categoryName || "General Catalog")
+    })
+    return Array.from(set).sort()
+  }, [models])
+
+  // Sub-Products available under selected Series (Level 2)
+  const availableSubProducts = useMemo(() => {
+    if (!selectedSeries) return models
+    return models.filter(
+      (m) => (m.seriesName || m.categoryName || "General Catalog") === selectedSeries
+    )
+  }, [models, selectedSeries])
+
+  // Active Sub-Product Model object
   const activeModel = useMemo(() => {
-    return models.find((m) => m.modelName === selectedModelName) || null
-  }, [models, selectedModelName])
+    if (!selectedModelName) return availableSubProducts[0] || models[0] || null
+    return (
+      availableSubProducts.find((m) => m.modelName === selectedModelName) ||
+      availableSubProducts[0] ||
+      null
+    )
+  }, [availableSubProducts, models, selectedModelName])
+
+  // Handle Main Series dropdown change
+  const handleSeriesChange = (val: string | null) => {
+    const newSeries = val || ""
+    setSelectedSeries(newSeries)
+    const subs = models.filter(
+      (m) => (m.seriesName || m.categoryName || "General Catalog") === newSeries
+    )
+    if (subs.length > 0) {
+      setSelectedModelName(subs[0].modelName)
+    } else {
+      setSelectedModelName("")
+    }
+  }
+
+  // Handle Sub-Product dropdown change
+  const handleModelChange = (val: string | null) => {
+    setSelectedModelName(val || "")
+  }
+
+  // Helper to filter valid combinations for dynamic attribute options
+  const getValidCombinationsExcluding = (excludeField: string) => {
+    if (!activeModel) return []
+    return activeModel.combinations.filter((c) => {
+      if (excludeField !== "color" && selectedColor && c.color && c.color !== selectedColor) return false
+      if (excludeField !== "chairType" && selectedChairType && c.chairType && c.chairType !== selectedChairType) return false
+      if (excludeField !== "legType" && selectedLegType && c.legType && c.legType !== selectedLegType) return false
+      if (excludeField !== "tableTop" && selectedTableTop && c.tableTopFinish && c.tableTopFinish !== selectedTableTop) return false
+      if (excludeField !== "dimension" && selectedDimension && c.dimensions && c.dimensions !== selectedDimension) return false
+      if (excludeField !== "storage" && selectedStorage && c.storageOptions && c.storageOptions !== selectedStorage) return false
+      if (excludeField !== "finish" && selectedFinish && c.finishMaterial && c.finishMaterial !== selectedFinish) return false
+      if (excludeField !== "warranty" && selectedWarranty && c.warranty && c.warranty !== selectedWarranty) return false
+      return true
+    })
+  }
+
+  // Dynamic available attribute options per selector
+  const availableColors = useMemo(() => {
+    if (!activeModel) return []
+    const combinations = getValidCombinationsExcluding("color")
+    const set = new Set<string>()
+    combinations.forEach((c) => { if (c.color) set.add(c.color) })
+    const res = Array.from(set).sort()
+    return res.length > 0 ? res : activeModel.colors
+  }, [activeModel, selectedChairType, selectedLegType, selectedTableTop, selectedDimension, selectedStorage, selectedFinish, selectedWarranty])
+
+  const availableChairTypes = useMemo(() => {
+    if (!activeModel) return []
+    const combinations = getValidCombinationsExcluding("chairType")
+    const set = new Set<string>()
+    combinations.forEach((c) => { if (c.chairType) set.add(c.chairType) })
+    const res = Array.from(set).sort()
+    return res.length > 0 ? res : activeModel.chairTypes
+  }, [activeModel, selectedColor, selectedLegType, selectedTableTop, selectedDimension, selectedStorage, selectedFinish, selectedWarranty])
+
+  const availableLegTypes = useMemo(() => {
+    if (!activeModel) return []
+    const combinations = getValidCombinationsExcluding("legType")
+    const set = new Set<string>()
+    combinations.forEach((c) => { if (c.legType) set.add(c.legType) })
+    const res = Array.from(set).sort()
+    return res.length > 0 ? res : activeModel.legTypes
+  }, [activeModel, selectedColor, selectedChairType, selectedTableTop, selectedDimension, selectedStorage, selectedFinish, selectedWarranty])
+
+  const availableTableTopFinishes = useMemo(() => {
+    if (!activeModel) return []
+    const combinations = getValidCombinationsExcluding("tableTop")
+    const set = new Set<string>()
+    combinations.forEach((c) => { if (c.tableTopFinish) set.add(c.tableTopFinish) })
+    const res = Array.from(set).sort()
+    return res.length > 0 ? res : activeModel.tableTopFinishes
+  }, [activeModel, selectedColor, selectedChairType, selectedLegType, selectedDimension, selectedStorage, selectedFinish, selectedWarranty])
+
+  const availableDimensions = useMemo(() => {
+    if (!activeModel) return []
+    const combinations = getValidCombinationsExcluding("dimension")
+    const set = new Set<string>()
+    combinations.forEach((c) => { if (c.dimensions) set.add(c.dimensions) })
+    const res = Array.from(set).sort()
+    return res.length > 0 ? res : activeModel.dimensions
+  }, [activeModel, selectedColor, selectedChairType, selectedLegType, selectedTableTop, selectedStorage, selectedFinish, selectedWarranty])
+
+  const availableStorageOptions = useMemo(() => {
+    if (!activeModel) return []
+    const combinations = getValidCombinationsExcluding("storage")
+    const set = new Set<string>()
+    combinations.forEach((c) => { if (c.storageOptions) set.add(c.storageOptions) })
+    const res = Array.from(set).sort()
+    return res.length > 0 ? res : activeModel.storageOptions
+  }, [activeModel, selectedColor, selectedChairType, selectedLegType, selectedTableTop, selectedDimension, selectedFinish, selectedWarranty])
+
+  const availableFinishMaterials = useMemo(() => {
+    if (!activeModel) return []
+    const combinations = getValidCombinationsExcluding("finish")
+    const set = new Set<string>()
+    combinations.forEach((c) => { if (c.finishMaterial) set.add(c.finishMaterial) })
+    const res = Array.from(set).sort()
+    return res.length > 0 ? res : activeModel.finishMaterials
+  }, [activeModel, selectedColor, selectedChairType, selectedLegType, selectedTableTop, selectedDimension, selectedStorage, selectedWarranty])
+
+  const availableWarranties = useMemo(() => {
+    if (!activeModel) return []
+    const combinations = getValidCombinationsExcluding("warranty")
+    const set = new Set<string>()
+    combinations.forEach((c) => { if (c.warranty) set.add(c.warranty) })
+    const res = Array.from(set).sort()
+    return res.length > 0 ? res : activeModel.warranties
+  }, [activeModel, selectedColor, selectedChairType, selectedLegType, selectedTableTop, selectedDimension, selectedStorage, selectedFinish])
 
   // Reset/Initialize attributes when active model changes
   useEffect(() => {
@@ -125,7 +263,56 @@ export function WorkstationConfigurator({
       setSelectedFinish(activeModel.finishMaterials[0] || "")
       setSelectedWarranty(activeModel.warranties[0] || "")
     }
-  }, [activeModel])
+  }, [activeModel?.modelName])
+
+  // Auto-adjust attribute selections if current selection is invalid
+  useEffect(() => {
+    if (availableColors.length > 0 && (!selectedColor || !availableColors.includes(selectedColor))) {
+      setSelectedColor(availableColors[0])
+    }
+  }, [availableColors])
+
+  useEffect(() => {
+    if (availableChairTypes.length > 0 && (!selectedChairType || !availableChairTypes.includes(selectedChairType))) {
+      setSelectedChairType(availableChairTypes[0])
+    }
+  }, [availableChairTypes])
+
+  useEffect(() => {
+    if (availableLegTypes.length > 0 && (!selectedLegType || !availableLegTypes.includes(selectedLegType))) {
+      setSelectedLegType(availableLegTypes[0])
+    }
+  }, [availableLegTypes])
+
+  useEffect(() => {
+    if (availableTableTopFinishes.length > 0 && (!selectedTableTop || !availableTableTopFinishes.includes(selectedTableTop))) {
+      setSelectedTableTop(availableTableTopFinishes[0])
+    }
+  }, [availableTableTopFinishes])
+
+  useEffect(() => {
+    if (availableDimensions.length > 0 && (!selectedDimension || !availableDimensions.includes(selectedDimension))) {
+      setSelectedDimension(availableDimensions[0])
+    }
+  }, [availableDimensions])
+
+  useEffect(() => {
+    if (availableStorageOptions.length > 0 && (!selectedStorage || !availableStorageOptions.includes(selectedStorage))) {
+      setSelectedStorage(availableStorageOptions[0])
+    }
+  }, [availableStorageOptions])
+
+  useEffect(() => {
+    if (availableFinishMaterials.length > 0 && (!selectedFinish || !availableFinishMaterials.includes(selectedFinish))) {
+      setSelectedFinish(availableFinishMaterials[0])
+    }
+  }, [availableFinishMaterials])
+
+  useEffect(() => {
+    if (availableWarranties.length > 0 && (!selectedWarranty || !availableWarranties.includes(selectedWarranty))) {
+      setSelectedWarranty(availableWarranties[0])
+    }
+  }, [availableWarranties])
 
   // Compute available combinations for active model
   const availableCombinations = useMemo(() => {
@@ -242,24 +429,49 @@ export function WorkstationConfigurator({
       </CardHeader>
 
       <CardContent className="p-4 sm:p-5 space-y-5">
-        {/* Step 1: Model Dropdown */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-            <Layers className="h-3.5 w-3.5 text-primary" />
-            Step 1: Select Product Model
-          </label>
-          <Select value={selectedModelName} onValueChange={(val) => setSelectedModelName(val || "")}>
-            <SelectTrigger className="h-10 text-xs sm:text-sm font-medium bg-background border-border/80">
-              <SelectValue placeholder="Select Product Model" />
-            </SelectTrigger>
-            <SelectContent>
-              {models.map((m) => (
-                <SelectItem key={m.modelName} value={m.modelName} className="text-xs font-medium cursor-pointer">
-                  {m.modelName} <span className="text-[10px] text-muted-foreground">({m.categoryName})</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Step 1: Select Main Product / Series & Choose Sub-Product */}
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Main Product / Series Dropdown */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Layers className="h-3.5 w-3.5 text-primary" />
+                Step 1: Select Main Series
+              </label>
+              <Select value={selectedSeries} onValueChange={handleSeriesChange}>
+                <SelectTrigger className="h-10 text-xs sm:text-sm font-medium bg-background border-border/80">
+                  <SelectValue placeholder="Select Main Series" />
+                </SelectTrigger>
+                <SelectContent>
+                  {seriesList.map((series) => (
+                    <SelectItem key={series} value={series} className="text-xs font-medium cursor-pointer">
+                      {series}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sub-Product / Model Dropdown */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <Package className="h-3.5 w-3.5 text-primary" />
+                Choose Sub-Product / Model
+              </label>
+              <Select value={selectedModelName} onValueChange={handleModelChange}>
+                <SelectTrigger className="h-10 text-xs sm:text-sm font-medium bg-background border-border/80">
+                  <SelectValue placeholder="Choose Sub-Product / Model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableSubProducts.map((m) => (
+                    <SelectItem key={m.modelName} value={m.modelName} className="text-xs font-medium cursor-pointer">
+                      {m.modelName} <span className="text-[10px] text-muted-foreground">({m.categoryName})</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         {/* Step 2: Attribute Dropdowns & Live Validation Grid */}
@@ -272,7 +484,7 @@ export function WorkstationConfigurator({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Color Selector */}
-              {activeModel.colors.length > 0 && (
+              {availableColors.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
                     <Palette className="h-3 w-3 text-primary" /> Color
@@ -282,7 +494,7 @@ export function WorkstationConfigurator({
                       <SelectValue placeholder="Select Color" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeModel.colors.map((color) => (
+                      {availableColors.map((color) => (
                         <SelectItem key={color} value={color} className="text-xs font-medium">
                           {color}
                         </SelectItem>
@@ -293,7 +505,7 @@ export function WorkstationConfigurator({
               )}
 
               {/* Chair / Backrest Type Selector */}
-              {activeModel.chairTypes.length > 0 && (
+              {availableChairTypes.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
                     <Armchair className="h-3 w-3 text-primary" /> Chair / Backrest Type
@@ -303,7 +515,7 @@ export function WorkstationConfigurator({
                       <SelectValue placeholder="Select Chair Type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeModel.chairTypes.map((ct) => (
+                      {availableChairTypes.map((ct) => (
                         <SelectItem key={ct} value={ct} className="text-xs font-medium">
                           {ct}
                         </SelectItem>
@@ -314,7 +526,7 @@ export function WorkstationConfigurator({
               )}
 
               {/* Leg Type Selector */}
-              {activeModel.legTypes.length > 0 && (
+              {availableLegTypes.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[11px] font-semibold text-muted-foreground block">Leg Type</span>
                   <Select value={selectedLegType} onValueChange={(val) => setSelectedLegType(val || "")}>
@@ -322,7 +534,7 @@ export function WorkstationConfigurator({
                       <SelectValue placeholder="Select Leg Type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeModel.legTypes.map((leg) => (
+                      {availableLegTypes.map((leg) => (
                         <SelectItem key={leg} value={leg} className="text-xs">
                           {leg}
                         </SelectItem>
@@ -333,7 +545,7 @@ export function WorkstationConfigurator({
               )}
 
               {/* Table Top Finish Selector */}
-              {activeModel.tableTopFinishes.length > 0 && (
+              {availableTableTopFinishes.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[11px] font-semibold text-muted-foreground block">Table Top Finish</span>
                   <Select value={selectedTableTop} onValueChange={(val) => setSelectedTableTop(val || "")}>
@@ -341,7 +553,7 @@ export function WorkstationConfigurator({
                       <SelectValue placeholder="Select Table Top" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeModel.tableTopFinishes.map((top) => (
+                      {availableTableTopFinishes.map((top) => (
                         <SelectItem key={top} value={top} className="text-xs">
                           {top}
                         </SelectItem>
@@ -352,7 +564,7 @@ export function WorkstationConfigurator({
               )}
 
               {/* Dimensions Selector */}
-              {activeModel.dimensions.length > 0 && (
+              {availableDimensions.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[11px] font-semibold text-muted-foreground block">Dimension</span>
                   <Select value={selectedDimension} onValueChange={(val) => setSelectedDimension(val || "")}>
@@ -360,7 +572,7 @@ export function WorkstationConfigurator({
                       <SelectValue placeholder="Select Dimension" />
                     </SelectTrigger>
                     <SelectContent font-mono>
-                      {activeModel.dimensions.map((dim) => (
+                      {availableDimensions.map((dim) => (
                         <SelectItem key={dim} value={dim} className="text-xs font-mono">
                           {dim}
                         </SelectItem>
@@ -371,7 +583,7 @@ export function WorkstationConfigurator({
               )}
 
               {/* Storage Options Selector (Optional) */}
-              {activeModel.storageOptions.length > 0 && (
+              {availableStorageOptions.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[11px] font-semibold text-muted-foreground block">Storage Options</span>
                   <Select value={selectedStorage} onValueChange={(val) => setSelectedStorage(val || "")}>
@@ -379,7 +591,7 @@ export function WorkstationConfigurator({
                       <SelectValue placeholder="Select Storage" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeModel.storageOptions.map((st) => (
+                      {availableStorageOptions.map((st) => (
                         <SelectItem key={st} value={st} className="text-xs">
                           {st}
                         </SelectItem>
@@ -390,7 +602,7 @@ export function WorkstationConfigurator({
               )}
 
               {/* Finish Material Selector (Optional) */}
-              {activeModel.finishMaterials.length > 0 && (
+              {availableFinishMaterials.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[11px] font-semibold text-muted-foreground block">Finish Material</span>
                   <Select value={selectedFinish} onValueChange={(val) => setSelectedFinish(val || "")}>
@@ -398,7 +610,7 @@ export function WorkstationConfigurator({
                       <SelectValue placeholder="Select Finish" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeModel.finishMaterials.map((fm) => (
+                      {availableFinishMaterials.map((fm) => (
                         <SelectItem key={fm} value={fm} className="text-xs">
                           {fm}
                         </SelectItem>
@@ -409,7 +621,7 @@ export function WorkstationConfigurator({
               )}
 
               {/* Warranty Selector */}
-              {activeModel.warranties.length > 0 && (
+              {availableWarranties.length > 0 && (
                 <div className="space-y-1">
                   <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
                     <ShieldCheck className="h-3 w-3 text-primary" /> Warranty
@@ -419,7 +631,7 @@ export function WorkstationConfigurator({
                       <SelectValue placeholder="Select Warranty" />
                     </SelectTrigger>
                     <SelectContent>
-                      {activeModel.warranties.map((w) => (
+                      {availableWarranties.map((w) => (
                         <SelectItem key={w} value={w} className="text-xs">
                           {w}
                         </SelectItem>

@@ -51,6 +51,58 @@ const getChairType = (p: any) => {
   return null
 }
 
+// Helper to extract Series Name (Level 1)
+const getSeriesName = (p: any) => {
+  if (p.parentProduct?.productName && p.parentProduct.productName.trim()) {
+    return p.parentProduct.productName.trim()
+  }
+  if (p.category?.name && p.category.name.trim()) {
+    return p.category.name.trim()
+  }
+  return "General Catalog"
+}
+
+// Helper to extract Sub-Product / Model Name (Level 2)
+const getSubProductName = (p: any, seriesName: string) => {
+  if (p.modelName && p.modelName.trim() && p.modelName.trim() !== "Standard" && p.modelName.trim() !== seriesName) {
+    return p.modelName.trim()
+  }
+
+  const code = (p.productCode || "").toUpperCase()
+  const name = p.productName.trim()
+  const lowerName = name.toLowerCase()
+
+  if (code.startsWith("ZENX-S") || lowerName.includes("single seater")) {
+    if (lowerName.includes("zen x")) return "Zen X Single Seater Workstation"
+    if (lowerName.includes("alpha")) return "Alpha Single Seater Workstation"
+  }
+  if (code.startsWith("ZENX-F2F") || code.startsWith("ZENX-2S") || lowerName.includes("2 seater") || lowerName.includes("face-to-face")) {
+    if (lowerName.includes("zen x")) return "Zen X Face-to-Face 2 Seater Workstation"
+    if (lowerName.includes("alpha")) return "Alpha 2 Seater Workstation"
+  }
+  if (code.startsWith("ZENX-4S") || lowerName.includes("4 seater")) {
+    if (lowerName.includes("zen x")) return "Zen X 4-Seater Workstation"
+    if (lowerName.includes("alpha")) return "Alpha 4-Seater Workstation"
+  }
+  if (code.startsWith("ZENX-6S") || lowerName.includes("6 seater")) {
+    if (lowerName.includes("zen x")) return "Zen X 6-Seater Workstation"
+    if (lowerName.includes("alpha")) return "Alpha 6-Seater Workstation"
+  }
+
+  // Strip dimension specs e.g. 2000x750mm or 1000 x 600 mm
+  let cleanName = name.replace(/\b\d{3,5}\s*[x×X]\s*\d{3,5}(\s*[x×X]\s*\d{3,5})?\s*(mm)?\b/gi, "").trim()
+
+  // Split at attribute delimiters
+  const parts = cleanName.split(/\s+–\s+|\s+-\s+|,\s+|\s+\|\s+/)
+  let baseTitle = parts[0].trim().replace(/,\s*.*$/, "").trim()
+
+  if (baseTitle && baseTitle !== seriesName && baseTitle.length > 2) {
+    return baseTitle
+  }
+
+  return cleanName || seriesName
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -93,42 +145,9 @@ export async function GET() {
     // Filter out top-level master container products that have no price/stock and have variants
     const targetProducts = products.filter(p => !p.isMaster)
 
-    // Helper to extract clean base model name from productName / productCode
-    const getModelName = (p: typeof products[0]) => {
-      if (p.parentProduct?.productName) {
-        return p.parentProduct.productName.trim()
-      }
-      if (p.modelName && p.modelName.trim()) {
-        return p.modelName.trim()
-      }
-      const code = (p.productCode || "").toUpperCase()
-      const name = p.productName.trim()
-      const lowerName = name.toLowerCase()
-
-      if (code.startsWith("ZENX-S") || lowerName.includes("single seater")) {
-        return "Zen X Single Seater Workstation"
-      }
-      if (code.startsWith("ZENX-F2F") || code.startsWith("ZENX-2S") || lowerName.includes("2 seater") || lowerName.includes("face-to-face")) {
-        return "Zen X Face-to-Face 2 Seater Workstation"
-      }
-      if (code.startsWith("ZENX-4S") || lowerName.includes("4 seater")) {
-        return "Zen X 4-Seater Workstation"
-      }
-      if (code.startsWith("ZENX-6S") || lowerName.includes("6 seater")) {
-        return "Zen X 6-Seater Workstation"
-      }
-
-      // General product name normalization: strip out hyphen/pipe delimiters and dimension strings
-      let cleanName = name
-        .split(/\s*[-–|]\s*/)[0]
-        .replace(/\b\d{3,4}\s*[x×]\s*\d{3,4}\s*(mm)?\b/gi, "")
-        .trim()
-
-      return cleanName || name
-    }
-
-    // Group products by model
+    // Group products by series and sub-product model
     const modelsMap: Record<string, {
+      seriesName: string
       modelName: string
       categoryId: string
       categoryName: string
@@ -156,10 +175,14 @@ export async function GET() {
     }> = {}
 
     for (const p of targetProducts) {
-      const modelName = getModelName(p)
-      if (!modelsMap[modelName]) {
-        modelsMap[modelName] = {
-          modelName,
+      const seriesName = getSeriesName(p)
+      const subProductName = getSubProductName(p, seriesName)
+      const mapKey = `${seriesName}:::${subProductName}`
+
+      if (!modelsMap[mapKey]) {
+        modelsMap[mapKey] = {
+          seriesName,
+          modelName: subProductName,
           categoryId: p.categoryId,
           categoryName: p.category?.name || "Catalog",
           colors: new Set<string>(),
@@ -174,7 +197,7 @@ export async function GET() {
         }
       }
 
-      const group = modelsMap[modelName]
+      const group = modelsMap[mapKey]
       const colorVal = getColor(p)
       const chairTypeVal = getChairType(p)
 
@@ -205,6 +228,7 @@ export async function GET() {
     // Convert Sets to Arrays for JSON response and sort configurable models to top
     const models = Object.values(modelsMap)
       .map((m) => ({
+        seriesName: m.seriesName,
         modelName: m.modelName,
         categoryId: m.categoryId,
         categoryName: m.categoryName,
