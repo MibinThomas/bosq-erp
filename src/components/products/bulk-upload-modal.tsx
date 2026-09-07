@@ -301,11 +301,11 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       { key: "finishMaterial", synonyms: ["product type", "producttype", "finish / material", "finish/material", "finish material", "finishmaterial"] },
       { key: "chairType", synonyms: ["chair type (for chairs)", "chair type", "chairtype"] },
       { key: "availableColors", synonyms: ["color (for chairs)", "color", "colors", "available color(s)", "available colors", "availablecolors"] },
-      { key: "tableTopFinish", synonyms: ["table top finish (for workstations)", "table top finish", "tabletop finish", "tabletopfinish"] },
-      { key: "legType", synonyms: ["leg type (for workstations)", "leg type", "legtype"] },
+      { key: "tableTopFinish", synonyms: ["table top finish / wood", "tabletop finish / wood", "table top finish (for workstations)", "table top finish", "tabletop finish", "tabletopfinish"] },
+      { key: "legType", synonyms: ["leg type / color", "legtype / color", "leg type (for workstations)", "leg type", "legtype"] },
       { key: "storageOptions", synonyms: ["storage options (for workstations)", "storage options", "storageoptions"] },
       { key: "specifications", synonyms: ["specifications / details", "specifications", "details", "specs", "specification", "technical"] },
-      { key: "dimensions", synonyms: ["dimensions", "dimension", "size"] },
+      { key: "dimensions", synonyms: ["dimensions / size", "dimensions/size", "dimensions", "dimension", "size"] },
       { key: "imageFilename", synonyms: ["image filename", "image", "photo", "filename", "imagename", "imagefilename", "picture"] },
       { key: "stock", synonyms: ["stock", "quantity", "qty", "stock level", "inventory", "stockquantity", "available"] }
     ]
