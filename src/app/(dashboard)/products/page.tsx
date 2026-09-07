@@ -922,28 +922,6 @@ export default function ProductsPage() {
                           </div>
                         )}
 
-                        {/* Quick Camera Upload Overlay */}
-                        {canEditProduct && (
-                          <label 
-                            className="absolute top-2 left-2 z-20 bg-black/70 hover:bg-primary text-white p-1.5 rounded-xl cursor-pointer transition-all opacity-0 group-hover/cardimg:opacity-100 flex items-center gap-1 text-[10px] font-bold shadow-md"
-                            onClick={(e) => e.stopPropagation()}
-                            title="Upload/change photo for this variation"
-                          >
-                            <Camera className="h-3.5 w-3.5" />
-                            <span>{activeImage ? "Edit Photo" : "Add Photo"}</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0]
-                                if (file && activeVariant?.id) {
-                                  handleUploadCardImage(activeVariant.id, file)
-                                }
-                              }}
-                            />
-                          </label>
-                        )}
                       </>
                     )}
                   </div>
@@ -1003,6 +981,22 @@ export default function ProductsPage() {
                       </div>
                       
                       <div className="flex items-center gap-2">
+                        {canEditProduct && (
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditingProduct(product)
+                              setIsEditOpen(true)
+                            }}
+                            className="border-muted-foreground/20 hover:border-primary/40 text-foreground text-xs font-bold shrink-0 cursor-pointer h-8 rounded-xl px-2.5 flex items-center gap-1 shadow-sm"
+                            title="Edit Master Product Details"
+                          >
+                            <Pencil className="h-3.5 w-3.5 text-primary" />
+                            <span>Edit Master</span>
+                          </Button>
+                        )}
                         {isMasterModel && (
                           <Button 
                             variant="outline"
@@ -1150,6 +1144,21 @@ export default function ProductsPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right flex items-center justify-end gap-2">
+                          {canEditProduct && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingProduct(product)
+                                setIsEditOpen(true)
+                              }}
+                              className="text-xs font-bold border-muted-foreground/20 text-foreground hover:border-primary/40 cursor-pointer"
+                              title="Edit Master Product Details"
+                            >
+                              <Pencil className="h-3.5 w-3.5 mr-1 text-primary" />
+                              Edit Master
+                            </Button>
+                          )}
                           {isMasterModel && (
                             <Button
                               variant="outline"
@@ -2287,6 +2296,18 @@ export default function ProductsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Master Product Modal */}
+      <EditProductModal
+        product={editingProduct}
+        isOpen={isEditOpen}
+        onClose={() => {
+          setIsEditOpen(false)
+          setEditingProduct(null)
+        }}
+        onSuccess={fetchProducts}
+        userRole={userRole}
+      />
+
       {/* Interactive Variant Drawer Modal */}
       <VariantDrawerModal
         masterProduct={selectedMasterForVariants as any}
@@ -2294,6 +2315,10 @@ export default function ProductsPage() {
         onClose={() => setSelectedMasterForVariants(null)}
         onAddToCart={(variant) => {
           addToQuoteCart(variant as any)
+        }}
+        onEditMasterProduct={(master) => {
+          setEditingProduct(master as any)
+          setIsEditOpen(true)
         }}
         onSaveStock={handleSaveStock}
         onImageUploaded={fetchProducts}

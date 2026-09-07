@@ -73,6 +73,7 @@ interface VariantDrawerModalProps {
   onClose: () => void
   onAddToCart: (variant: ProductVariantItem) => void
   onEditVariant?: (variant: ProductVariantItem) => void
+  onEditMasterProduct?: (masterProduct: ProductVariantItem) => void
   onSaveStock?: (productId: string, newStock: number) => Promise<void>
   onImageUploaded?: () => void
   onVariantAdded?: () => void
@@ -154,6 +155,7 @@ export function VariantDrawerModal({
   onClose,
   onAddToCart,
   onEditVariant,
+  onEditMasterProduct,
   onSaveStock,
   onImageUploaded,
   onVariantAdded,
@@ -666,6 +668,17 @@ export function VariantDrawerModal({
           </div>
 
           <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+            {canEditProduct && onEditMasterProduct && (
+              <Button
+                variant="outline"
+                onClick={() => onEditMasterProduct(masterProduct)}
+                className="border-primary/20 hover:border-primary/40 text-foreground font-bold text-xs rounded-xl h-9 px-3 flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title="Edit Master Product Details"
+              >
+                <Pencil className="h-4 w-4 text-primary" />
+                Edit Master
+              </Button>
+            )}
             {canEditProduct && (
               <Button
                 onClick={() => setIsAddingVariant(!isAddingVariant)}
