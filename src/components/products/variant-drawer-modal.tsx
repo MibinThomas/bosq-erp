@@ -568,27 +568,164 @@ export function VariantDrawerModal({
             </Button>
           </div>
         </div>
+        
+        {/* Level 2 & 3: Unified Filter Controls (Sub-Product Dropdown & Attribute Combination Dropdowns) */}
+        <div className="border-b bg-muted/10 p-4 space-y-4 shrink-0">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-extrabold uppercase text-primary tracking-wider flex items-center gap-1.5">
+                <SlidersHorizontal className="h-4 w-4" />
+                Filter Options:
+              </span>
+              <Badge variant="secondary" className="text-xs font-bold bg-background border">
+                {finalFilteredVariants.length} Variations Shown
+              </Badge>
+            </div>
 
-        {/* Level 2: Sub-Products Navigation Bar */}
-        <div className="border-b bg-muted/10 p-3 sm:p-4 space-y-3 shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <LayoutGrid className="h-3.5 w-3.5 text-primary" />
-              Sub-Products / Models ({subProductNames.length}):
-            </span>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search sub-products (e.g. Single Seater, Ultra)..."
-                value={subProductSearch}
-                onChange={(e) => setSubProductSearch(e.target.value)}
-                className="h-8 text-xs pl-8 bg-background"
-              />
+            <div className="flex items-center gap-3">
+              {(selectedSubProduct !== "all" || selectedDimension !== "all" || selectedFinish !== "all" || selectedLeg !== "all" || selectedSideReturn !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedSubProduct("all")
+                    setSelectedDimension("all")
+                    setSelectedFinish("all")
+                    setSelectedLeg("all")
+                    setSelectedSideReturn("all")
+                  }}
+                  className="text-xs font-bold text-muted-foreground hover:text-foreground h-8 cursor-pointer"
+                >
+                  Reset All Filters
+                </Button>
+              )}
+
+              <div className="relative w-48 sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search sub-products / SKUs..."
+                  value={subProductSearch}
+                  onChange={(e) => setSubProductSearch(e.target.value)}
+                  className="h-8 text-xs pl-8 bg-background"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Sub-Products Horizontal Scroll / Pills */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 max-h-24 scrollbar-thin">
+          {/* Unified Dropdowns Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            
+            {/* 1. Sub-Product / Model Dropdown Select */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-extrabold text-foreground block uppercase tracking-wider flex items-center gap-1">
+                <LayoutGrid className="h-3 w-3 text-primary" />
+                Sub-Product / Model
+              </label>
+              <select
+                value={selectedSubProduct}
+                onChange={(e) => {
+                  setSelectedSubProduct(e.target.value)
+                  setSelectedDimension("all")
+                  setSelectedFinish("all")
+                  setSelectedLeg("all")
+                  setSelectedSideReturn("all")
+                }}
+                className="w-full h-9 text-xs font-bold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
+              >
+                <option value="all">All Sub-Products ({variants.length})</option>
+                {subProductNames.map((subName) => {
+                  const count = subProductsMap.get(subName)?.length || 0
+                  return (
+                    <option key={subName} value={subName}>
+                      {subName} ({count})
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+
+            {/* 2. Dimensions / Size Dropdown */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-extrabold text-foreground block uppercase tracking-wider">
+                Dimensions / Size
+              </label>
+              <select
+                value={selectedDimension}
+                onChange={(e) => setSelectedDimension(e.target.value)}
+                className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
+              >
+                <option value="all">All Dimensions ({attributeOptions.dimensions.length})</option>
+                {attributeOptions.dimensions.map((dim) => (
+                  <option key={dim} value={dim}>
+                    {dim}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 3. Table Top Finish / Wood Dropdown */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-extrabold text-foreground block uppercase tracking-wider">
+                Table Top Finish / Wood
+              </label>
+              <select
+                value={selectedFinish}
+                onChange={(e) => setSelectedFinish(e.target.value)}
+                className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
+              >
+                <option value="all">All Finishes ({attributeOptions.finishes.length})</option>
+                {attributeOptions.finishes.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 4. Leg Type / Color Dropdown */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-extrabold text-foreground block uppercase tracking-wider">
+                Leg Type / Color
+              </label>
+              <select
+                value={selectedLeg}
+                onChange={(e) => setSelectedLeg(e.target.value)}
+                className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
+              >
+                <option value="all">All Leg Options ({attributeOptions.legs.length})</option>
+                {attributeOptions.legs.map((leg) => (
+                  <option key={leg} value={leg}>
+                    {leg}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 5. Side Return Option Dropdown */}
+            <div className="space-y-1">
+              <label className="text-[11px] font-extrabold text-foreground block uppercase tracking-wider">
+                Side Return Option
+              </label>
+              <select
+                value={selectedSideReturn}
+                onChange={(e) => setSelectedSideReturn(e.target.value)}
+                className="w-full h-9 text-xs font-semibold rounded-xl border bg-background px-3 focus:ring-2 focus:ring-primary cursor-pointer shadow-sm text-foreground"
+              >
+                <option value="all">All Side Returns ({attributeOptions.returns.length})</option>
+                {attributeOptions.returns.map((ret) => (
+                  <option key={ret} value={ret}>
+                    {ret}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Quick Sub-Products Pill Tabs */}
+          <div className="pt-2 border-t flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0 mr-1">
+              Quick Tabs:
+            </span>
             <Button
               variant={selectedSubProduct === "all" ? "default" : "outline"}
               size="sm"
@@ -599,12 +736,12 @@ export function VariantDrawerModal({
                 setSelectedLeg("all")
                 setSelectedSideReturn("all")
               }}
-              className="h-8 text-xs font-bold rounded-xl shrink-0 cursor-pointer"
+              className="h-7 text-[11px] font-bold rounded-lg shrink-0 cursor-pointer"
             >
               All Sub-Products ({variants.length})
             </Button>
 
-            {filteredSubProductNames.map(subName => {
+            {filteredSubProductNames.map((subName) => {
               const items = subProductsMap.get(subName) || []
               const isSelected = selectedSubProduct === subName
 
@@ -620,12 +757,12 @@ export function VariantDrawerModal({
                     setSelectedLeg("all")
                     setSelectedSideReturn("all")
                   }}
-                  className={`h-8 text-xs font-bold rounded-xl shrink-0 cursor-pointer transition-all flex items-center gap-1.5 ${
+                  className={`h-7 text-[11px] font-bold rounded-lg shrink-0 cursor-pointer transition-all flex items-center gap-1.5 ${
                     isSelected ? "shadow-md bg-primary text-primary-foreground" : "bg-card hover:bg-muted"
                   }`}
                 >
                   <span>{subName}</span>
-                  <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted"}`}>
+                  <Badge variant="secondary" className={`text-[9px] px-1 py-0 ${isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted"}`}>
                     {items.length}
                   </Badge>
                 </Button>
@@ -634,115 +771,8 @@ export function VariantDrawerModal({
           </div>
         </div>
 
-        {/* Level 3: Attribute Combination Selector & Variant Grid */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
-          
-          {/* Active Sub-Product Banner & Attribute Combination Controls */}
-          {selectedSubProduct !== "all" && (
-            <div className="bg-muted/30 border rounded-2xl p-4 space-y-3">
-              <div className="flex items-center justify-between border-b pb-2 flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-black uppercase text-primary tracking-wide">Selected Sub-Product:</span>
-                  <h3 className="text-base font-extrabold text-foreground">{selectedSubProduct}</h3>
-                  <Badge variant="secondary" className="text-xs font-bold">
-                    {activeSubProductVariants.length} Variations Available
-                  </Badge>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedDimension("all")
-                    setSelectedFinish("all")
-                    setSelectedLeg("all")
-                    setSelectedSideReturn("all")
-                  }}
-                  className="text-xs text-muted-foreground hover:text-foreground h-7 cursor-pointer"
-                >
-                  Reset Combination Filters
-                </Button>
-              </div>
-
-              {/* Interactive Combination Attributes Pills */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
-                {/* Dimensions Filter */}
-                {attributeOptions.dimensions.length > 0 && (
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">
-                      Dimensions / Size
-                    </label>
-                    <select
-                      value={selectedDimension}
-                      onChange={(e) => setSelectedDimension(e.target.value)}
-                      className="w-full h-8 text-xs font-semibold rounded-lg border bg-background px-2 focus:ring-1 focus:ring-primary cursor-pointer"
-                    >
-                      <option value="all">All Dimensions ({attributeOptions.dimensions.length})</option>
-                      {attributeOptions.dimensions.map(dim => (
-                        <option key={dim} value={dim}>{dim}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Table Top Finish / Wood Filter */}
-                {attributeOptions.finishes.length > 0 && (
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">
-                      Table Top Finish / Wood
-                    </label>
-                    <select
-                      value={selectedFinish}
-                      onChange={(e) => setSelectedFinish(e.target.value)}
-                      className="w-full h-8 text-xs font-semibold rounded-lg border bg-background px-2 focus:ring-1 focus:ring-primary cursor-pointer"
-                    >
-                      <option value="all">All Finishes ({attributeOptions.finishes.length})</option>
-                      {attributeOptions.finishes.map(f => (
-                        <option key={f} value={f}>{f}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Leg Color / Type Filter */}
-                {attributeOptions.legs.length > 0 && (
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">
-                      Leg Type / Color
-                    </label>
-                    <select
-                      value={selectedLeg}
-                      onChange={(e) => setSelectedLeg(e.target.value)}
-                      className="w-full h-8 text-xs font-semibold rounded-lg border bg-background px-2 focus:ring-1 focus:ring-primary cursor-pointer"
-                    >
-                      <option value="all">All Leg Options ({attributeOptions.legs.length})</option>
-                      {attributeOptions.legs.map(leg => (
-                        <option key={leg} value={leg}>{leg}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Side Return Filter */}
-                {attributeOptions.returns.length > 0 && (
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-muted-foreground block uppercase tracking-wider">
-                      Side Return Option
-                    </label>
-                    <select
-                      value={selectedSideReturn}
-                      onChange={(e) => setSelectedSideReturn(e.target.value)}
-                      className="w-full h-8 text-xs font-semibold rounded-lg border bg-background px-2 focus:ring-1 focus:ring-primary cursor-pointer"
-                    >
-                      <option value="all">All Returns ({attributeOptions.returns.length})</option>
-                      {attributeOptions.returns.map(ret => (
-                        <option key={ret} value={ret}>{ret}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+        {/* Level 3: Variant Grid */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">     
 
           {/* Add New Variant Form Card */}
           {isAddingVariant && (
