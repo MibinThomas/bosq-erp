@@ -148,7 +148,7 @@ export async function GET(
       itemNo: item.itemNo,
       description: item.description,
       productDescription: item.productDescription || item.product?.description || null,
-      specifications: item.specifications,
+      specifications: (item.specifications && item.specifications.trim()) ? item.specifications : (item.product?.specifications || null),
       productNotes: item.productNotes,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
@@ -160,6 +160,12 @@ export async function GET(
       dimensions: item.product?.dimensions || null,
       warranty: item.product?.warranty || null,
       batchHeading: item.batchHeading || null,
+      sku: item.product?.productCode || null,
+      availableColors: item.product?.availableColors || null,
+      tableTopFinish: item.product?.tableTopFinish || null,
+      legType: item.product?.legType || null,
+      storageOptions: item.product?.storageOptions || null,
+      finishMaterial: item.product?.finishMaterial || null,
     })))
 
     // Deduplicate / merge identical items

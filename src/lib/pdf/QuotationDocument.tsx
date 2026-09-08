@@ -27,6 +27,65 @@ const colors = {
   white: "#ffffff",
 }
 
+const htmlStylesheet = {
+  p: {
+    fontSize: 5.75,
+    color: "#444444",
+    lineHeight: 1.25,
+    marginTop: 0,
+    marginBottom: 1,
+    paddingLeft: 0,
+    marginLeft: 0,
+  },
+  ul: {
+    marginTop: 0,
+    marginBottom: 0,
+    paddingLeft: 0,
+    marginLeft: 0,
+  },
+  ol: {
+    marginTop: 0,
+    marginBottom: 0,
+    paddingLeft: 0,
+    marginLeft: 0,
+  },
+  li: {
+    fontSize: 5.75,
+    color: "#444444",
+    lineHeight: 1.25,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingLeft: 0,
+    marginLeft: 0,
+  },
+  b: {
+    fontWeight: "bold",
+    color: colors.primary,
+  },
+  strong: {
+    fontWeight: "bold",
+    color: colors.primary,
+  },
+  em: {
+    fontStyle: "italic",
+  },
+  i: {
+    fontStyle: "italic",
+  },
+  span: {
+    fontSize: 5.75,
+    lineHeight: 1.25,
+  },
+  div: {
+    fontSize: 5.75,
+    lineHeight: 1.25,
+    marginTop: 0,
+    marginBottom: 1,
+    paddingLeft: 0,
+    marginLeft: 0,
+  },
+}
+
 const styles = StyleSheet.create({
   page: {
     paddingBottom: 75, // Room for fixed absolute footer
@@ -169,61 +228,104 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     alignItems: "flex-start", // All columns start from top position
   },
-  colSlNo: { width: "4.5%", textAlign: "center", justifyContent: "flex-start" },
-  colDesc: { width: "33.5%", paddingRight: 8, justifyContent: "flex-start" },
-  colImage: { width: "38%", paddingHorizontal: 2, alignItems: "center", justifyContent: "flex-start" },
+  colSlNo: { width: "5%", textAlign: "center", justifyContent: "flex-start" },
+  colDesc: { width: "41%", paddingLeft: 6, paddingRight: 6, justifyContent: "flex-start" },
+  colImage: { width: "30%", paddingHorizontal: 4, alignItems: "center", justifyContent: "flex-start" },
   colQty: { width: "6%", textAlign: "center" },
   colPrice: { width: "9%", textAlign: "right" },
   colAmount: { width: "9%", textAlign: "right" },
 
   itemTitle: {
-    fontSize: 9.5,
+    fontSize: 9.25,
     fontWeight: "bold",
     color: colors.primary,
+    marginBottom: 2,
+    lineHeight: 1.25,
+  },
+  skuBadge: {
     marginBottom: 3,
-    lineHeight: 1.2,
-    maxLines: 2,
+    marginTop: 0,
+  },
+  skuText: {
+    fontSize: 6.0,
+    fontWeight: "bold",
+    color: "#555555",
+    letterSpacing: 0.3,
   },
   itemCategory: {
-    fontSize: 6.5,
+    fontSize: 6.0,
     fontWeight: "bold",
     color: "#1e3a8a", // Refined blue like catalog
     textTransform: "uppercase",
-    marginBottom: 3,
+    marginBottom: 2.5,
     letterSpacing: 0.8,
   },
   itemDescText: {
-    fontSize: 6.5,
+    fontSize: 5.75,
     color: "#444444",
     marginBottom: 3,
     lineHeight: 1.25,
     width: "100%",
   },
-  
-  // Dynamic attribute specification styles
-  specRow: {
-    flexDirection: "row",
-    fontSize: 6.5,
+  sectionSubHeading: {
+    fontSize: 6.0,
+    fontWeight: "bold",
     color: colors.primary,
+    textTransform: "uppercase",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E6E7E8",
+    paddingBottom: 1.5,
+    marginTop: 3,
     marginBottom: 2.5,
-    lineHeight: 1.35,
+    letterSpacing: 0.3,
+  },
+  specBlock: {
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  attrBlock: {
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  remarkBlock: {
+    marginTop: 3,
+    paddingTop: 2,
+    borderTopWidth: 0.5,
+    borderTopColor: "#E6E7E8",
+  },
+  specRow: {
+    marginBottom: 1,
   },
   specKey: {
     fontWeight: "bold",
-    width: 90,
-    fontSize: 6.5,
+    color: colors.primary,
+    fontSize: 5.75,
   },
   specValue: {
-    flex: 1,
     color: "#444444",
-    fontSize: 6.5,
+    fontSize: 5.75,
+  },
+  bulletChar: {
+    fontWeight: "bold",
+    color: colors.accent,
+    fontSize: 5.75,
+  },
+  attrKey: {
+    fontWeight: "bold",
+    color: "#1e3a8a",
+    fontSize: 5.75,
+  },
+  attrValue: {
+    color: "#231F20",
+    fontWeight: "medium",
+    fontSize: 5.75,
   },
 
   productImage: {
     width: "100%",
-    height: 175,
-    maxHeight: 185,
-    objectFit: "cover",
+    height: 145,
+    maxHeight: 160,
+    objectFit: "contain",
     objectPosition: "center",
     borderRadius: 2,
   },
@@ -436,6 +538,12 @@ export interface QuotationPdfItem {
   dimensions?: string | null
   warranty?: string | null
   batchHeading?: string | null
+  sku?: string | null
+  availableColors?: string | null
+  tableTopFinish?: string | null
+  legType?: string | null
+  storageOptions?: string | null
+  finishMaterial?: string | null
 }
 
 export interface AdditionalCharge {
@@ -696,138 +804,152 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       .trim();
   }
 
-  const parseSpecifications = (specs: string | null | undefined) => {
-    if (!specs) return [];
-    const rawText = sanitizeHtmlToText(specs);
-    const lines = rawText.split('\n').map(line => line.trim()).filter(line => line !== "");
-    const parsedSpecs: { key?: string; value: string }[] = [];
+  const parseSpecificationItems = (specs: string | null | undefined) => {
+    if (!specs || !specs.trim()) return []
+
+    let cleanText = specs.trim()
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<\/li>/gi, "\n")
+      .replace(/<li>/gi, "")
+      .replace(/<ul[^>]*>/gi, "")
+      .replace(/<\/ul>/gi, "")
+      .replace(/<ol[^>]*>/gi, "")
+      .replace(/<\/ol>/gi, "")
+
+    cleanText = cleanText
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+
+    const lines = cleanText
+      .split(/\r?\n/)
+      .map(line => line.replace(/<[^>]+>/g, "").trim())
+      .filter(Boolean)
+
+    const specList: { key?: string; value: string }[] = []
 
     lines.forEach((line) => {
-      if (/^product\s+specifications$/i.test(line)) {
-        return;
+      if (/^(product\s+specifications|configured\s+attributes|specifications|attributes)$/i.test(line)) {
+        return
       }
 
-      if (line.includes(",") && line.includes(":")) {
-        const parts = line.split(',');
-        let currentSpec: { key?: string; value: string } | null = null;
-        
-        parts.forEach((part) => {
-          const trimmed = part.trim();
-          if (trimmed.includes(":")) {
-            const colonIndex = trimmed.indexOf(":");
-            const rawKey = trimmed.substring(0, colonIndex).replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
-            const rawVal = trimmed.substring(colonIndex + 1).replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
-            
-            if (currentSpec) {
-              parsedSpecs.push(currentSpec);
-            }
-            currentSpec = { key: rawKey, value: rawVal };
-          } else {
-            if (currentSpec) {
-              currentSpec.value += ", " + trimmed;
-            } else {
-              const cleanVal = trimmed.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
-              if (cleanVal) parsedSpecs.push({ value: cleanVal });
-            }
-          }
-        });
-        if (currentSpec) {
-          parsedSpecs.push(currentSpec);
+      let cleanLine = line.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim()
+      if (!cleanLine || cleanLine === "-" || cleanLine.toLowerCase() === "not specified" || cleanLine.toLowerCase() === "none") {
+        return
+      }
+
+      let key: string | undefined
+      let val = cleanLine
+
+      if (cleanLine.includes(":")) {
+        const colonIdx = cleanLine.indexOf(":")
+        const rawK = cleanLine.substring(0, colonIdx).trim()
+        const rawV = cleanLine.substring(colonIdx + 1).trim()
+        if (rawK && rawV && rawK.length < 40) {
+          key = rawK
+          val = rawV
+        }
+      }
+
+      const kLower = (key || "").toLowerCase()
+      const vLower = val.toLowerCase()
+
+      if (
+        kLower.includes("availability") ||
+        kLower.includes("stock") ||
+        kLower.includes("remark") ||
+        kLower.includes("note") ||
+        kLower.includes("production time") ||
+        vLower.includes("availability:") ||
+        vLower.includes("stock status:")
+      ) {
+        return
+      }
+
+      if (key) {
+        if (!specList.some(s => s.key?.toLowerCase() === key.toLowerCase())) {
+          specList.push({ key, value: val })
         }
       } else {
-        if (line.includes(":")) {
-          const colonIndex = line.indexOf(":");
-          const rawKey = line.substring(0, colonIndex).replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
-          const rawVal = line.substring(colonIndex + 1).replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
-          parsedSpecs.push({ key: rawKey, value: rawVal });
-        } else {
-          const cleanVal = line.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim();
-          if (cleanVal) parsedSpecs.push({ value: cleanVal });
+        if (!specList.some(s => s.value.toLowerCase() === val.toLowerCase())) {
+          specList.push({ value: val })
         }
       }
-    });
+    })
 
-    return parsedSpecs.filter(spec => {
-      const val = spec.value.trim().toLowerCase();
-      if (!val || val === "-" || val === "not specified" || val === "none") {
-        return false;
-      }
-      return true;
-    });
+    return specList
   }
 
-  const renderSpecifications = (
-    specs: string | null | undefined,
-    productNotes?: string | null,
-    dimensions?: string | null,
-    warranty?: string | null
-  ) => {
-    const parsed = parseSpecifications(specs);
-    
-    // Filter out remarks from specifications list
-    const specsList = parsed.filter(s => s.key?.toLowerCase() !== "remarks");
-    const remarksFromSpecs = parsed.filter(s => s.key?.toLowerCase() === "remarks").map(s => s.value);
-    
-    const remarksLines = [...remarksFromSpecs];
-    if (productNotes) {
-      remarksLines.push(productNotes);
-    }
-
-    // Inject dimension and warranty dynamically if present
-    if (dimensions && dimensions.trim()) {
-      specsList.push({ key: "Dimension", value: dimensions.trim() });
-    }
-    if (warranty && warranty.trim()) {
-      specsList.push({ key: "Warranty", value: warranty.trim() });
-    }
-    
-    if (specsList.length === 0 && remarksLines.length === 0) return null;
+  const renderProductDetails = (item: QuotationPdfItem) => {
+    const specItems = parseSpecificationItems(item.specifications)
 
     return (
-      <View style={{ marginTop: 3 }}>
-        {specsList.length > 0 && (
-          <View style={{ marginBottom: 0 }}>
-            {specsList.map((spec, idx) => {
-              const isProdTime = spec.key?.toLowerCase() === "production time";
-              const textColor = isProdTime ? "#1e3a8a" : "#444444";
-              const keyColor = isProdTime ? "#1e3a8a" : colors.primary;
-              
-              const cleanKey = spec.key ? spec.key.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim() : "";
-              const cleanVal = spec.value ? spec.value.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim() : "";
-              if (!cleanVal) return null;
+      <View style={styles.colDesc}>
+        {/* Product Name */}
+        <Text style={styles.itemTitle}>{item.description}</Text>
+
+        {/* Category Name */}
+        {includeCategoryName !== false && item.categoryName ? (
+          <Text style={styles.itemCategory}>{item.categoryName}</Text>
+        ) : null}
+
+        {/* Product Description */}
+        {item.productDescription ? (
+          <Text style={styles.itemDescText}>
+            {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, ' ').trim()}
+          </Text>
+        ) : null}
+
+        {/* Product Specifications Section */}
+        {specItems.length > 0 && (
+          <View style={styles.specBlock}>
+            <Text style={styles.sectionSubHeading}>Product Specifications</Text>
+            {specItems.map((spec, idx) => {
+              const isWarranty = spec.key?.toLowerCase() === "warranty"
+
+              if (spec.key) {
+                return (
+                  <View key={`spec-${idx}`} style={{ flexDirection: "row", marginBottom: 0, paddingLeft: 0, alignItems: "flex-start" }}>
+                    <Text style={{ fontSize: 5.75, lineHeight: 1.25 }}>
+                      <Text style={[styles.specKey, isWarranty ? { color: colors.accent } : {}]}>
+                        {spec.key}:{" "}
+                      </Text>
+                      <Text style={[styles.specValue, isWarranty ? { fontWeight: "bold" } : {}]}>
+                        {spec.value}
+                      </Text>
+                    </Text>
+                  </View>
+                )
+              }
 
               return (
-                <View key={`spec-${idx}`} style={{ marginBottom: 1.5 }}>
-                  <Text style={{ fontSize: 6.0, lineHeight: 1.35, color: textColor }}>
-                    {cleanKey ? (
-                      <Text style={{ fontWeight: "bold", color: keyColor }}>{cleanKey}: </Text>
-                    ) : null}
-                    <Text style={{ color: textColor }}>{cleanVal}</Text>
+                <View key={`spec-${idx}`} style={{ flexDirection: "row", marginBottom: 0, paddingLeft: 0, alignItems: "flex-start" }}>
+                  <Text style={{ fontSize: 5.75, fontWeight: "bold", color: colors.accent, width: 7 }}>•</Text>
+                  <Text style={{ fontSize: 5.75, color: "#444444", lineHeight: 1.25, flex: 1 }}>
+                    {spec.value}
                   </Text>
                 </View>
-              );
+              )
             })}
           </View>
         )}
-        
-        {remarksLines.length > 0 && (
-          <View style={{ marginTop: 2 }}>
-            {remarksLines.map((r, i) => {
-              const cleanRemark = r ? r.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim() : "";
-              if (!cleanRemark) return null;
-              return (
-                <View key={`remark-${i}`} style={{ marginBottom: 1.5 }}>
-                  <Text style={{ fontSize: 6.0, lineHeight: 1.35, color: colors.secondary }}>
-                    <Text style={{ fontWeight: "bold", color: colors.accent }}>Remarks: </Text>
-                    <Text>{cleanRemark}</Text>
-                  </Text>
-                </View>
-              );
-            })}
+
+        {/* Special Notes / Remarks */}
+        {item.productNotes && item.productNotes.trim() ? (
+          <View style={styles.remarkBlock}>
+            <Text style={{ fontSize: 5.75, lineHeight: 1.25 }}>
+              <Text style={{ fontWeight: "bold", color: colors.primary }}>Remarks: </Text>
+              <Text style={{ color: "#444444" }}>{item.productNotes.trim()}</Text>
+            </Text>
           </View>
-        )}
+        ) : null}
       </View>
-    );
+    )
   }
 
   // Deduplicate / merge identical items in items array to prevent duplicate product cards on PDF
@@ -1088,61 +1210,38 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                       </View>
                       {group.items.slice(0, 1).map((item, index) => {
                         itemCounter++;
-                        const hasItemDiscount = Number(item.discount || 0) > 0 || (item.quantity > 0 && Math.abs((item.unitPrice * item.quantity) - item.amount) > 0.01);
                         const effectiveUnitPrice = item.quantity > 0 ? item.amount / item.quantity : item.unitPrice;
                         return (
                           <View key="first" style={[styles.tableRow, group.items.length === 1 ? { paddingVertical: 10 } : {}]}>
                             {/* S.No */}
-                            <Text style={[styles.colSlNo, { fontSize: 8, fontWeight: "bold", color: colors.primary }]}>
+                            <Text style={[styles.colSlNo, { fontSize: 8.5, fontWeight: "bold", color: colors.primary, paddingTop: 2 }]}>
                               {itemCounter}
                             </Text>
 
-                            {/* Description */}
-                            <View style={styles.colDesc}>
-                              {/* 1. Product Name */}
-                              <Text style={styles.itemTitle}>{item.description}</Text>
-                              
-                              {/* 2. Product Type / Category */}
-                              {includeCategoryName !== false && item.categoryName && (
-                                <Text style={styles.itemCategory}>{item.categoryName}</Text>
-                              )}
-
-                              {/* 2.5 Chair Type (if applicable) */}
-                              {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
-                                <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
-                                  <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
-                                  <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
-                                </View>
-                              )}
-
-                              {/* 3. Product Description */}
-                              {item.productDescription && (
-                                <Text style={styles.itemDescText}>
-                                  {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
-                                </Text>
-                              )}
-
-                              {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
-                              {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
-                            </View>
+                            {/* Description Column */}
+                            {renderProductDetails(item)}
 
                             {/* Product Image */}
                             <View style={styles.colImage}>
                               {item.imageUrl ? (
                                 <PdfImage src={item.imageUrl} style={styles.productImage} />
                               ) : (
-                                <View style={{ width: "100%", height: 140, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                                <View style={{ width: "100%", height: 120, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
                                   <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                                 </View>
                               )}
                             </View>
 
                             {/* Qty, Price, Total */}
-                            <Text style={styles.colQty}>{item.quantity && item.quantity > 0 ? item.quantity : ""}</Text>
-                            <Text style={styles.colPrice}>
+                            <Text style={[styles.colQty, { fontSize: 8.5, fontWeight: "bold", color: colors.primary, paddingTop: 2 }]}>
+                              {item.quantity && item.quantity > 0 ? item.quantity : ""}
+                            </Text>
+                            <Text style={[styles.colPrice, { fontSize: 8.5, color: colors.primary, paddingTop: 2 }]}>
                               {formatItemPrice(effectiveUnitPrice)}
                             </Text>
-                            <Text style={styles.colAmount}>{formatItemPrice(item.amount)}</Text>
+                            <Text style={[styles.colAmount, { fontSize: 8.5, fontWeight: "bold", color: colors.primary, paddingTop: 2 }]}>
+                              {formatItemPrice(item.amount)}
+                            </Text>
                           </View>
                         );
                       })}
@@ -1151,61 +1250,38 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                     {/* Render the remaining items individually, each wrapped in wrap={false} */}
                     {group.items.slice(1).map((item, index) => {
                       itemCounter++;
-                      const hasItemDiscount = Number(item.discount || 0) > 0 || (item.quantity > 0 && Math.abs((item.unitPrice * item.quantity) - item.amount) > 0.01);
                       const effectiveUnitPrice = item.quantity > 0 ? item.amount / item.quantity : item.unitPrice;
                       return (
                         <View key={index + 1} style={[styles.tableRow, { borderTopWidth: 0 }]} wrap={false}>
                           {/* S.No */}
-                          <Text style={[styles.colSlNo, { fontSize: 8, fontWeight: "bold", color: colors.primary }]}>
+                          <Text style={[styles.colSlNo, { fontSize: 8.5, fontWeight: "bold", color: colors.primary, paddingTop: 2 }]}>
                             {itemCounter}
                           </Text>
 
-                          {/* Description */}
-                          <View style={styles.colDesc}>
-                            {/* 1. Product Name */}
-                            <Text style={styles.itemTitle}>{item.description}</Text>
-                            
-                            {/* 2. Product Type / Category */}
-                            {includeCategoryName !== false && item.categoryName && (
-                              <Text style={styles.itemCategory}>{item.categoryName}</Text>
-                            )}
-
-                            {/* 2.5 Chair Type (if applicable) */}
-                            {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
-                              <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
-                                <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
-                                <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
-                              </View>
-                            )}
-
-                            {/* 3. Product Description */}
-                            {item.productDescription && (
-                              <Text style={styles.itemDescText}>
-                                {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
-                              </Text>
-                            )}
-
-                            {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
-                            {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
-                          </View>
+                          {/* Description Column */}
+                          {renderProductDetails(item)}
 
                           {/* Product Image */}
                           <View style={styles.colImage}>
                             {item.imageUrl ? (
                               <PdfImage src={item.imageUrl} style={styles.productImage} />
                             ) : (
-                              <View style={{ width: "100%", height: 140, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                              <View style={{ width: "100%", height: 120, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
                                 <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                               </View>
                             )}
                           </View>
 
                           {/* Qty, Price, Total */}
-                          <Text style={styles.colQty}>{item.quantity && item.quantity > 0 ? item.quantity : ""}</Text>
-                          <Text style={styles.colPrice}>
+                          <Text style={[styles.colQty, { fontSize: 8.5, fontWeight: "bold", color: colors.primary, paddingTop: 2 }]}>
+                            {item.quantity && item.quantity > 0 ? item.quantity : ""}
+                          </Text>
+                          <Text style={[styles.colPrice, { fontSize: 8.5, color: colors.primary, paddingTop: 2 }]}>
                             {formatItemPrice(effectiveUnitPrice)}
                           </Text>
-                          <Text style={styles.colAmount}>{formatItemPrice(item.amount)}</Text>
+                          <Text style={[styles.colAmount, { fontSize: 8.5, fontWeight: "bold", color: colors.primary, paddingTop: 2 }]}>
+                            {formatItemPrice(item.amount)}
+                          </Text>
                         </View>
                       );
                     })}
@@ -1214,61 +1290,38 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                   /* No section heading, render all items individually with wrap={false} */
                   group.items.map((item, index) => {
                     itemCounter++;
-                    const hasItemDiscount = Number(item.discount || 0) > 0 || (item.quantity > 0 && Math.abs((item.unitPrice * item.quantity) - item.amount) > 0.01);
                     const effectiveUnitPrice = item.quantity > 0 ? item.amount / item.quantity : item.unitPrice;
                     return (
                       <View key={index} style={[styles.tableRow, group.items.length === 1 ? { paddingVertical: 10 } : {}]} wrap={false}>
                         {/* S.No */}
-                        <Text style={[styles.colSlNo, { fontSize: 8, fontWeight: "bold", color: colors.primary }]}>
+                        <Text style={[styles.colSlNo, { fontSize: 8.5, fontWeight: "bold", color: colors.primary, paddingTop: 2 }]}>
                           {itemCounter}
                         </Text>
 
-                        {/* Description */}
-                        <View style={styles.colDesc}>
-                          {/* 1. Product Name */}
-                          <Text style={styles.itemTitle}>{item.description}</Text>
-                          
-                          {/* 2. Product Type / Category */}
-                          {includeCategoryName !== false && item.categoryName && (
-                            <Text style={styles.itemCategory}>{item.categoryName}</Text>
-                          )}
-
-                          {/* 2.5 Chair Type (if applicable) */}
-                          {(item.categoryName?.toLowerCase() === "chair" || item.categoryName?.toLowerCase() === "chairs") && item.chairType && (
-                            <View style={{ flexDirection: "row", marginTop: 0, marginBottom: 2, fontSize: 6.5 }}>
-                              <Text style={{ fontWeight: "bold", color: colors.primary }}>Chair Type: </Text>
-                              <Text style={{ color: "#444444", marginLeft: 3 }}>{item.chairType}</Text>
-                            </View>
-                          )}
-
-                          {/* 3. Product Description */}
-                          {item.productDescription && (
-                            <Text style={styles.itemDescText}>
-                              {sanitizeHtmlToText(item.productDescription).replace(/\n+/g, '\n').trim()}
-                            </Text>
-                          )}
-
-                          {/* 4, 5, 6. Specs, Prod Time, Remarks, Dimension, Warranty */}
-                          {renderSpecifications(item.specifications, item.productNotes, item.dimensions, item.warranty)}
-                        </View>
+                        {/* Description Column */}
+                        {renderProductDetails(item)}
 
                         {/* Product Image */}
                         <View style={styles.colImage}>
                           {item.imageUrl ? (
                             <PdfImage src={item.imageUrl} style={styles.productImage} />
                           ) : (
-                            <View style={{ width: "100%", height: 140, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
+                            <View style={{ width: "100%", height: 120, border: "1px dashed #E6E7E8", borderRadius: 4, alignItems: "center", justifyContent: "center" }}>
                               <Text style={{ fontSize: 7, color: colors.lightText }}>No Image Available</Text>
                             </View>
                           )}
                         </View>
 
                         {/* Qty, Price, Total */}
-                        <Text style={styles.colQty}>{item.quantity && item.quantity > 0 ? item.quantity : ""}</Text>
-                        <Text style={styles.colPrice}>
+                        <Text style={[styles.colQty, { fontSize: 8.5, fontWeight: "bold", color: colors.primary, paddingTop: 2 }]}>
+                          {item.quantity && item.quantity > 0 ? item.quantity : ""}
+                        </Text>
+                        <Text style={[styles.colPrice, { fontSize: 8.5, color: colors.primary, paddingTop: 2 }]}>
                           {formatItemPrice(effectiveUnitPrice)}
                         </Text>
-                        <Text style={styles.colAmount}>{formatItemPrice(item.amount)}</Text>
+                        <Text style={[styles.colAmount, { fontSize: 8.5, fontWeight: "bold", color: colors.primary, paddingTop: 2 }]}>
+                          {formatItemPrice(item.amount)}
+                        </Text>
                       </View>
                     );
                   })
