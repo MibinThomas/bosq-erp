@@ -1138,7 +1138,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                             </View>
 
                             {/* Qty, Price, Total */}
-                            <Text style={styles.colQty}>{item.quantity}</Text>
+                            <Text style={styles.colQty}>{item.quantity && item.quantity > 0 ? item.quantity : ""}</Text>
                             <Text style={styles.colPrice}>
                               {formatItemPrice(effectiveUnitPrice)}
                             </Text>
@@ -1201,7 +1201,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                           </View>
 
                           {/* Qty, Price, Total */}
-                          <Text style={styles.colQty}>{item.quantity}</Text>
+                          <Text style={styles.colQty}>{item.quantity && item.quantity > 0 ? item.quantity : ""}</Text>
                           <Text style={styles.colPrice}>
                             {formatItemPrice(effectiveUnitPrice)}
                           </Text>
@@ -1264,7 +1264,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                         </View>
 
                         {/* Qty, Price, Total */}
-                        <Text style={styles.colQty}>{item.quantity}</Text>
+                        <Text style={styles.colQty}>{item.quantity && item.quantity > 0 ? item.quantity : ""}</Text>
                         <Text style={styles.colPrice}>
                           {formatItemPrice(effectiveUnitPrice)}
                         </Text>
