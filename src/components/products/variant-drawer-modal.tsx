@@ -23,7 +23,8 @@ import {
   SlidersHorizontal,
   LayoutGrid,
   CheckCircle2,
-  Ruler
+  Ruler,
+  ChevronsUpDown
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,6 +32,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 
 export interface ProductVariantItem {
   id: string
@@ -236,6 +240,21 @@ export function VariantDrawerModal({
       }
     })
   }, [masterProduct, masterTitle])
+
+  const [isSubProductPopoverOpen, setIsSubProductPopoverOpen] = useState(false)
+
+  // Map each sub-product model name to its thumbnail image (first matching variant image)
+  const subProductImageMap = useMemo(() => {
+    const map = new Map<string, string | null>()
+    for (const pv of parsedVariants) {
+      if (pv.subProduct && !map.has(pv.subProduct)) {
+        if (pv.variant.imageUrl) {
+          map.set(pv.subProduct, pv.variant.imageUrl)
+        }
+      }
+    }
+    return map
+  }, [parsedVariants])
 
   // Distinct sub-product names count for header badge
   const allSubProductNames = useMemo(() => {
@@ -776,30 +795,151 @@ export function VariantDrawerModal({
           {/* Unified Dropdowns Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             
-            {/* 1. Sub-Product / Model Dropdown Select */}
+            {/* 1. Sub-Product / Model Popover Combobox Dropdown */}
             <div className="space-y-1">
               <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
                 <LayoutGrid className="h-3 w-3 text-primary" />
                 Sub-Product / Model
               </label>
-              <Select value={selectedSubProduct} onValueChange={(val) => setSelectedSubProduct(val || "all")}>
-                <SelectTrigger className="w-full h-9 text-xs font-bold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
-                  <SelectValue placeholder="All Sub-Products" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60 bg-card border rounded-xl shadow-xl z-50">
-                  <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
-                    All Sub-Products ({allSubProductNames.length})
-                  </SelectItem>
-                  {availableSubProducts.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-medium cursor-pointer">
-                      <span className="flex items-center justify-between w-full gap-2">
-                        <span className="truncate">{opt.label}</span>
-                        <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={isSubProductPopoverOpen} onOpenChange={setIsSubProductPopoverOpen}>
+                <PopoverTrigger 
+                  className="w-full h-9 text-xs font-bold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary flex items-center justify-between gap-2 overflow-hidden transition-colors"
+                  aria-expanded={isSubProductPopoverOpen}
+                >
+                  <span className="truncate flex items-center gap-1.5 min-w-0">
+                    {selectedSubProduct === "all" ? (
+                      <span>All Sub-Products ({allSubProductNames.length})</span>
+                    ) : (
+                      <>
+                        <span className="truncate">{selectedSubProduct}</span>
+                        {(() => {
+                          const item = availableSubProducts.find(s => s.value === selectedSubProduct)
+                          return item ? (
+                            <Badge variant="secondary" className="text-[10px] font-mono font-bold bg-primary/10 text-primary border-primary/20 shrink-0">
+                              {item.count}
+                            </Badge>
+                          ) : null
+                        })()}
+                      </>
+                    )}
+                  </span>
+                  <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-60 text-muted-foreground" />
+                </PopoverTrigger>
+                
+                <PopoverContent 
+                  className="w-[340px] sm:w-[440px] p-0 rounded-2xl shadow-2xl border bg-card text-card-foreground z-[65]" 
+                  align="start"
+                >
+                  <Command filter={(value, search) => {
+                    if (value.toLowerCase().includes(search.toLowerCase())) return 1
+                    return 0
+                  }}>
+                    <CommandInput placeholder="Search workstation models..." className="h-10 text-xs px-3" />
+                    <CommandList className="max-h-76 overflow-y-auto p-2 space-y-1">
+                      <CommandEmpty className="p-4 text-center text-xs text-muted-foreground">
+                        No workstation models match your search.
+                      </CommandEmpty>
+                      
+                      <CommandGroup>
+                        {/* Option: All Sub-Products */}
+                        <CommandItem
+                          value="all All Sub-Products"
+                          onSelect={() => {
+                            setSelectedSubProduct("all")
+                            setIsSubProductPopoverOpen(false)
+                          }}
+                          className={cn(
+                            "p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 mb-1",
+                            selectedSubProduct === "all" 
+                              ? "bg-primary/10 border-primary/40 text-primary font-bold shadow-xs" 
+                              : "border-border/40 hover:bg-muted/60 dark:hover:bg-muted/30 text-foreground"
+                          )}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                              <LayoutGrid className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-bold text-xs leading-snug">All Sub-Products</span>
+                              <span className="text-[10px] text-muted-foreground">Show all models in series</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant="secondary" className="text-[10px] font-mono font-bold bg-muted text-muted-foreground">
+                              {allSubProductNames.length} models
+                            </Badge>
+                            <Check className={cn("h-4 w-4 text-primary", selectedSubProduct === "all" ? "opacity-100" : "opacity-0")} />
+                          </div>
+                        </CommandItem>
+
+                        {/* Model Cards */}
+                        {availableSubProducts.map((opt) => {
+                          const isSelected = selectedSubProduct === opt.value
+                          const img = subProductImageMap.get(opt.value) || masterProduct?.imageUrl
+
+                          return (
+                            <CommandItem
+                              key={opt.value}
+                              value={opt.value}
+                              onSelect={() => {
+                                setSelectedSubProduct(opt.value)
+                                setIsSubProductPopoverOpen(false)
+                              }}
+                              className={cn(
+                                "p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 my-1",
+                                isSelected
+                                  ? "bg-primary/10 border-primary/40 text-primary font-bold shadow-xs"
+                                  : "border-border/40 hover:bg-muted/60 dark:hover:bg-muted/30 text-foreground"
+                              )}
+                            >
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                {/* Model Thumbnail */}
+                                <div className="h-10 w-10 border rounded-lg bg-white dark:bg-muted/50 overflow-hidden shrink-0 flex items-center justify-center shadow-2xs">
+                                  {img ? (
+                                    <img
+                                      src={img.startsWith("http") || img.startsWith("/") ? img : `/${img}`}
+                                      alt={opt.label}
+                                      className="h-full w-full object-contain p-0.5"
+                                    />
+                                  ) : (
+                                    <Package className="h-5 w-5 text-muted-foreground/50" />
+                                  )}
+                                </div>
+                                
+                                {/* Model Title & Specs */}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="font-bold text-xs leading-snug break-words whitespace-normal text-foreground" title={opt.label}>
+                                    {opt.label}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                                    {masterProduct?.productCode}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Variant Count & Selection Indicator */}
+                              <div className="flex items-center gap-2 shrink-0">
+                                <Badge 
+                                  variant="secondary" 
+                                  className={cn(
+                                    "text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border",
+                                    isSelected 
+                                      ? "bg-primary text-primary-foreground border-primary" 
+                                      : "bg-primary/10 text-primary border-primary/20"
+                                  )}
+                                >
+                                  {opt.count} {opt.count === 1 ? "var" : "vars"}
+                                </Badge>
+                                <Check className={cn("h-4 w-4 text-primary shrink-0", isSelected ? "opacity-100" : "opacity-0")} />
+                              </div>
+                            </CommandItem>
+                          )
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* 2. Dimensions / Size Dropdown */}
@@ -812,7 +952,7 @@ export function VariantDrawerModal({
                 <SelectTrigger className="w-full h-9 text-xs font-semibold font-mono rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
                   <SelectValue placeholder="All Dimensions" />
                 </SelectTrigger>
-                <SelectContent className="max-h-60 bg-card border rounded-xl shadow-xl z-50">
+                <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
                   <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
                     All Dimensions ({availableDimensions.length})
                   </SelectItem>
@@ -838,7 +978,7 @@ export function VariantDrawerModal({
                 <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
                   <SelectValue placeholder="All Finishes" />
                 </SelectTrigger>
-                <SelectContent className="max-h-60 bg-card border rounded-xl shadow-xl z-50">
+                <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
                   <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
                     All Finishes ({availableFinishes.length})
                   </SelectItem>
@@ -864,7 +1004,7 @@ export function VariantDrawerModal({
                 <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
                   <SelectValue placeholder="All Leg Options" />
                 </SelectTrigger>
-                <SelectContent className="max-h-60 bg-card border rounded-xl shadow-xl z-50">
+                <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
                   <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
                     All Leg Options ({availableLegs.length})
                   </SelectItem>
@@ -890,7 +1030,7 @@ export function VariantDrawerModal({
                 <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
                   <SelectValue placeholder="All Side Returns" />
                 </SelectTrigger>
-                <SelectContent className="max-h-60 bg-card border rounded-xl shadow-xl z-50">
+                <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
                   <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
                     All Side Returns ({availableSideReturns.length})
                   </SelectItem>
