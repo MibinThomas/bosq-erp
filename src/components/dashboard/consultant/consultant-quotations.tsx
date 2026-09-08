@@ -149,19 +149,12 @@ export function ConsultantQuotations({ quotations }: { quotations: any[] }) {
                             </Link>
                           )}
                           {q.pdfUrl && (
-                            q.status !== "DRAFT" ? (
-                              <a href={q.pdfUrl} target="_blank" rel="noopener noreferrer">
-                                <DropdownMenuItem className="flex items-center text-blue-600 focus:text-blue-600 focus:bg-blue-50 cursor-pointer">
-                                  <Download className="mr-2 h-4 w-4 text-blue-600" />
-                                  Download PDF
-                                </DropdownMenuItem>
-                              </a>
-                            ) : (
-                              <DropdownMenuItem disabled title="Download PDF is disabled for Draft quotations" className="flex items-center text-slate-400 opacity-40 cursor-not-allowed">
-                                <Download className="mr-2 h-4 w-4 text-slate-400" />
-                                Download PDF (Draft)
+                            <a href={q.pdfUrl} target="_blank" rel="noopener noreferrer">
+                              <DropdownMenuItem className="flex items-center text-blue-600 focus:text-blue-600 focus:bg-blue-50 cursor-pointer">
+                                <Download className="mr-2 h-4 w-4 text-blue-600" />
+                                {q.status === "DRAFT" ? "Download PDF (Draft)" : "Download PDF"}
                               </DropdownMenuItem>
-                            )
+                            </a>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>

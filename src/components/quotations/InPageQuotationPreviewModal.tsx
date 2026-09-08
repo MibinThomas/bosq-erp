@@ -91,49 +91,25 @@ export function InPageQuotationPreviewModal({
                   <RefreshCw className="h-3.5 w-3.5" /> Refresh
                 </Button>
 
-                {isDraft ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled
-                    className="h-8 text-xs font-semibold border-slate-800 bg-slate-900 text-slate-500 opacity-40 cursor-not-allowed"
-                    title="Opening PDF in new tab is disabled for Draft quotations"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5 mr-1 text-slate-600" /> Open in New Tab
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => window.open(pdfUrl || "", "_blank")}
-                    className="h-8 text-xs font-semibold border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer"
-                    title="Open PDF in new browser window"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5 mr-1 text-slate-400" /> Open in New Tab
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(pdfUrl || "", "_blank")}
+                  className="h-8 text-xs font-semibold border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer"
+                  title="Open PDF in new browser window"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 mr-1 text-slate-400" /> Open in New Tab
+                </Button>
 
-                {isDraft ? (
-                  <Button
-                    size="sm"
-                    variant="default"
-                    disabled
-                    className="h-8 text-xs font-bold bg-slate-800 text-slate-500 border border-slate-700 opacity-40 cursor-not-allowed shadow-none"
-                    title="Download PDF is disabled for Draft quotations"
-                  >
-                    <Download className="h-3.5 w-3.5 mr-1 text-slate-600" /> Download PDF (Draft)
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="default"
-                    onClick={() => window.open(downloadUrl || "", "_blank")}
-                    className="h-8 text-xs font-bold bg-orange-600 hover:bg-orange-500 text-white cursor-pointer shadow-sm"
-                    title="Download Quotation PDF"
-                  >
-                    <Download className="h-3.5 w-3.5 mr-1" /> Download PDF
-                  </Button>
-                )}
+                <Button
+                  size="sm"
+                  variant="default"
+                  onClick={() => window.open(downloadUrl || "", "_blank")}
+                  className="h-8 text-xs font-bold bg-orange-600 hover:bg-orange-500 text-white cursor-pointer shadow-sm"
+                  title={isDraft ? "Download Draft Quotation PDF" : "Download Quotation PDF"}
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" /> {isDraft ? "Download PDF (Draft)" : "Download PDF"}
+                </Button>
               </>
             )}
 

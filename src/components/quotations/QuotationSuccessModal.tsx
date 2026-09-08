@@ -125,33 +125,19 @@ export function QuotationSuccessModal({
           </Button>
 
           <div className="grid grid-cols-2 gap-2">
-            {quotation.status !== "DRAFT" ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const pdfPath = quotation.pdfUrl || `/api/quotations/${quotation.id}/pdf`
-                  window.open(pdfPath, "_blank")
-                }}
-                className="text-xs h-9 font-medium flex items-center justify-center gap-1.5 border-border hover:bg-muted cursor-pointer"
-              >
-                <FileText className="h-3.5 w-3.5 text-orange-600" />
-                <span>Download PDF</span>
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled
-                title="Download PDF is disabled for Draft quotations"
-                className="text-xs h-9 font-medium flex items-center justify-center gap-1.5 border-border opacity-40 cursor-not-allowed"
-              >
-                <FileText className="h-3.5 w-3.5 text-slate-400" />
-                <span>Download PDF (Draft)</span>
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const pdfPath = quotation.pdfUrl || `/api/quotations/${quotation.id}/pdf`
+                window.open(pdfPath, "_blank")
+              }}
+              className="text-xs h-9 font-medium flex items-center justify-center gap-1.5 border-border hover:bg-muted cursor-pointer"
+            >
+              <FileText className="h-3.5 w-3.5 text-orange-600" />
+              <span>{quotation.status === "DRAFT" ? "Download PDF (Draft)" : "Download PDF"}</span>
+            </Button>
 
             <Button
               type="button"

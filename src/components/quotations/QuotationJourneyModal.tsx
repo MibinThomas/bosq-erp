@@ -321,15 +321,9 @@ export function QuotationJourneyModal({
                     </div>
 
                     <div className="flex flex-wrap gap-2.5">
-                      {activeQuotation.status !== "DRAFT" ? (
-                        <Button size="sm" variant="default" className="text-xs font-semibold cursor-pointer" onClick={() => window.open(`/api/quotations/${activeQuotation.id}/pdf`, "_blank")}>
-                          <FileDown className="mr-2 h-4 w-4" /> Download PDF
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="outline" disabled className="text-xs font-semibold opacity-40 cursor-not-allowed" title="Download PDF is disabled for Draft quotations">
-                          <FileDown className="mr-2 h-4 w-4" /> Download PDF (Draft)
-                        </Button>
-                      )}
+                      <Button size="sm" variant="default" className="text-xs font-semibold cursor-pointer" onClick={() => window.open(`/api/quotations/${activeQuotation.id}/pdf`, "_blank")}>
+                        <FileDown className="mr-2 h-4 w-4" /> {activeQuotation.status === "DRAFT" ? "Download PDF (Draft)" : "Download PDF"}
+                      </Button>
                       {data.quotation.sharepointUrl && (
                         <Button size="sm" variant="outline" className="text-xs font-semibold cursor-pointer text-yellow-700 hover:text-yellow-800 hover:bg-yellow-50 border-yellow-200" onClick={() => window.open(data.quotation.sharepointUrl!, "_blank")}>
                           <FolderOpen className="mr-2 h-4 w-4" /> SharePoint
