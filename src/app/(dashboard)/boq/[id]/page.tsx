@@ -371,7 +371,7 @@ const BatchHeadingInput: React.FC<BatchHeadingInputProps> = ({ value, onChange }
 
   return (
     <Input
-      placeholder="e.g. MD Cabin, Reception Area, Meeting Room (Leave empty to ungroup)"
+      placeholder="Enter the Section Heading"
       value={localValue}
       onChange={(e) => setLocalValue(e.target.value)}
       onBlur={() => {
@@ -590,7 +590,7 @@ function NewBOQForm() {
 
   const [costingModalItem, setCostingModalItem] = useState<any>(null)
   const [batches, setBatches] = useState<{ id: string; name: string }[]>([
-    { id: "default", name: "General Items" }
+    { id: "default", name: "" }
   ])
   const [draggedBatchId, setDraggedBatchId] = useState<string | null>(null)
   const [dragOverBatchId, setDragOverBatchId] = useState<string | null>(null)
@@ -1075,15 +1075,8 @@ function NewBOQForm() {
   const watchSegment = form.watch("customerSegment") || "Project"
 
   const handleAddBatch = () => {
-    const newName = `Section ${batches.length + 1}`
-    let finalName = newName
-    let counter = 1
-    while (batches.some((b) => b.name.toLowerCase() === finalName.toLowerCase())) {
-      finalName = `Section ${batches.length + 1} (${counter})`
-      counter++
-    }
-    setBatches([...batches, { id: Math.random().toString(), name: finalName }])
-    toast.success(`Created section "${finalName}"`)
+    setBatches([...batches, { id: Math.random().toString(), name: "" }])
+    toast.success("Created new section")
   }
 
   const handleRenameBatch = (batchId: string, newName: string) => {

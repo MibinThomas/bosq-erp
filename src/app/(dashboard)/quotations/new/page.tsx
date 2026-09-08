@@ -458,7 +458,7 @@ const BatchHeadingInput: React.FC<BatchHeadingInputProps> = ({ value, onChange }
   return (
     <Input
       ref={inputRef}
-      placeholder="e.g. Executive Cabin, Conference Room, Main Office (Leave blank for default section)"
+      placeholder="Enter the Section Heading"
       value={localValue}
       onChange={(e) => {
         const val = e.target.value
@@ -1859,7 +1859,7 @@ function NewQuotationForm() {
   const [uploadingImage, setUploadingImage] = useState(false)
 
   const [batches, setBatches] = useState<{ id: string; name: string }[]>([
-    { id: "default", name: "General Items" }
+    { id: "default", name: "" }
   ])
   const [draggedBatchId, setDraggedBatchId] = useState<string | null>(null)
   const [dragOverBatchId, setDragOverBatchId] = useState<string | null>(null)
@@ -2803,7 +2803,7 @@ function NewQuotationForm() {
   }
 
   const handleAddBatch = (afterIndex?: number) => {
-    const newBatchName = `Section ${batches.length + 1}`
+    const newBatchName = ""
     const newBatchId = Math.random().toString()
     const newBatch = { id: newBatchId, name: newBatchName }
 
