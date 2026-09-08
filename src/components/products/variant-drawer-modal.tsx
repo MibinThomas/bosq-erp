@@ -84,6 +84,8 @@ interface VariantDrawerModalProps {
   canEditProduct?: boolean
   canDeleteProduct?: boolean
   hasQuoteAccess?: boolean
+  onOpenCart?: () => void
+  quoteCartCount?: number
 }
 
 // Helper to extract clean sub-product model name (Level 2)
@@ -166,6 +168,8 @@ export function VariantDrawerModal({
   canEditProduct = true,
   canDeleteProduct = true,
   hasQuoteAccess = true,
+  onOpenCart,
+  quoteCartCount,
 }: VariantDrawerModalProps) {
   const [selectedSubProduct, setSelectedSubProduct] = useState<string>("all")
   const [subProductSearch, setSubProductSearch] = useState<string>("")
@@ -697,6 +701,24 @@ export function VariantDrawerModal({
                 {totalStock} units
               </span>
             </div>
+
+            {hasQuoteAccess && onOpenCart && (
+              <Button
+                variant="outline"
+                onClick={onOpenCart}
+                className="border-primary/20 hover:border-primary/40 hover:bg-primary/5 text-foreground font-bold text-xs rounded-xl h-9 px-3 flex items-center gap-2 relative shadow-sm cursor-pointer"
+                title="View Quote Compilation Cart"
+              >
+                <ShoppingCart className="h-4 w-4 text-primary" />
+                <span className="hidden sm:inline">Quote Cart</span>
+                {quoteCartCount !== undefined && quoteCartCount > 0 && (
+                  <span className="bg-primary text-primary-foreground text-[10px] font-extrabold h-5 w-5 rounded-full flex items-center justify-center shadow shadow-primary/30">
+                    {quoteCartCount}
+                  </span>
+                )}
+              </Button>
+            )}
+
             <Button
               variant="ghost"
               size="icon"

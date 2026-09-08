@@ -420,6 +420,7 @@ export default function ProductsPage() {
     }
     saveCartToStorage(updatedCart)
     toast.success(`Added "${product.productName}" to Quote Cart!`)
+    setIsCartOpen(true)
   }
 
   const addToQuoteCartWithQuantity = (product: Product, quantity: number) => {
@@ -435,6 +436,7 @@ export default function ProductsPage() {
     saveCartToStorage(updatedCart)
     toast.success(`Added ${qty}x "${product.productName}" to Quote Cart!`)
     setIsDetailOpen(false)
+    setIsCartOpen(true)
   }
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -1682,7 +1684,7 @@ export default function ProductsPage() {
 
       {/* Quote Cart Drawer */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[70] overflow-hidden animate-in fade-in duration-200">
           {/* Backdrop overlay */}
           <div 
             className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
@@ -2327,6 +2329,8 @@ export default function ProductsPage() {
         canEditProduct={canEditProduct}
         canDeleteProduct={canDeleteProduct}
         hasQuoteAccess={hasQuoteAccess}
+        onOpenCart={() => setIsCartOpen(true)}
+        quoteCartCount={quoteCart.reduce((sum, item) => sum + item.quantity, 0)}
       />
     </div>
   )
