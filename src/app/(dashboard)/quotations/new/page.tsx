@@ -378,14 +378,17 @@ ProductSearchSelect.displayName = "ProductSearchSelect"
 
 interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "onChange" | "value"> {
   value: string | number
+  name?: string
   onChange: (value: string) => void
 }
 
+let globalActiveInputName: string | null = null
+let globalActiveCursorPos: number | null = null
+
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ value, onChange, onBlur, onFocus, onKeyDown, type: _unusedType, ...props }, ref) => {
+  ({ value, name, onChange, onBlur, onFocus, onKeyDown, type: _unusedType, ...props }, ref) => {
     const internalRef = React.useRef<HTMLInputElement | null>(null)
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
-    const isFocusedRef = React.useRef(false)
 
     const setRef = React.useCallback(
       (node: HTMLInputElement | null) => {
@@ -399,35 +402,73 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       [ref]
     )
 
-    // Synchronize external value into local state ONLY when NOT focused in DOM
+    // Listen for global pointerdown to know when user manually clicks outside
     React.useEffect(() => {
-      const isFocused = isFocusedRef.current || (internalRef.current && document.activeElement === internalRef.current)
+      const handleGlobalPointerDown = (e: PointerEvent) => {
+        if (internalRef.current && !internalRef.current.contains(e.target as Node)) {
+          if (name && globalActiveInputName === name) {
+            globalActiveInputName = null
+            globalActiveCursorPos = null
+          }
+        }
+      }
+      window.addEventListener("pointerdown", handleGlobalPointerDown, { capture: true })
+      return () => {
+        window.removeEventListener("pointerdown", handleGlobalPointerDown, { capture: true })
+      }
+    }, [name])
+
+    // Synchronize external value into local state ONLY when NOT focused
+    React.useEffect(() => {
+      const isFocused = (name && globalActiveInputName === name) || (internalRef.current && document.activeElement === internalRef.current)
       if (!isFocused) {
         setLocalVal(String(value ?? ""))
       }
-    }, [value])
+    }, [value, name])
+
+    // Synchronously restore focus and selection caret after ANY DOM reconciliation / re-render / node replacement
+    React.useLayoutEffect(() => {
+      if (name && globalActiveInputName === name && internalRef.current) {
+        if (document.activeElement !== internalRef.current) {
+          internalRef.current.focus()
+          if (globalActiveCursorPos !== null) {
+            try {
+              internalRef.current.setSelectionRange(globalActiveCursorPos, globalActiveCursorPos)
+            } catch (err) {}
+          }
+        }
+      }
+    })
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const newVal = e.target.value
+      const cursorPos = e.target.selectionStart
       setLocalVal(newVal)
+
+      if (name) {
+        globalActiveInputName = name
+        globalActiveCursorPos = cursorPos
+      }
+
       onChange(newVal)
 
-      // Maintain focus on this input element across parent state re-renders
-      const inputEl = internalRef.current
-      if (inputEl) {
-        isFocusedRef.current = true
-        if (document.activeElement !== inputEl) {
-          requestAnimationFrame(() => {
-            if (inputEl && isFocusedRef.current) {
-              inputEl.focus()
-            }
-          })
+      // Fallback async focus restoration in case of delayed DOM updates
+      setTimeout(() => {
+        if (name && globalActiveInputName === name && internalRef.current && document.activeElement !== internalRef.current) {
+          internalRef.current.focus()
+          if (globalActiveCursorPos !== null) {
+            try {
+              internalRef.current.setSelectionRange(globalActiveCursorPos, globalActiveCursorPos)
+            } catch (err) {}
+          }
         }
-      }
+      }, 0)
     }
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-      isFocusedRef.current = true
+      if (name) {
+        globalActiveInputName = name
+      }
       if (e.target.value === "0" || e.target.value === "0.00" || e.target.value === "0.0") {
         try {
           e.target.select()
@@ -437,17 +478,23 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     }
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      isFocusedRef.current = false
-      onChange(localVal)
-      if (onBlur) onBlur(e)
+      if (name && globalActiveInputName !== name) {
+        onChange(localVal)
+        if (onBlur) onBlur(e)
+      }
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === "Enter") {
-        e.preventDefault()
-        isFocusedRef.current = false
-        onChange(localVal)
-        e.currentTarget.blur()
+      if (e.key === "Enter" || e.key === "Tab") {
+        globalActiveInputName = null
+        globalActiveCursorPos = null
+        if (e.key === "Enter") {
+          e.preventDefault()
+          onChange(localVal)
+          e.currentTarget.blur()
+        }
+      } else if (name) {
+        globalActiveInputName = name
       }
       if (onKeyDown) onKeyDown(e)
     }
@@ -457,6 +504,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         ref={setRef}
         type="text"
         inputMode="decimal"
+        name={name}
         value={localVal}
         onChange={handleChange}
         onFocus={handleFocus}
@@ -1331,6 +1379,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormLabel className="text-[11px] font-semibold text-muted-foreground">Qty</FormLabel>
                   <FormControl>
                     <NumericInput
+                      name={field.name}
                       type="number"
                       disabled={isItemLocked}
                       className="h-8 text-xs font-mono text-center bg-background"
@@ -1351,6 +1400,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormLabel className="text-[11px] font-semibold text-muted-foreground">Base AED</FormLabel>
                   <FormControl>
                     <NumericInput
+                      name={field.name}
                       disabled={isItemLocked || isCostingLockedForIDC || currentPriceSource === "standard"}
                       className="h-8 text-xs font-mono bg-background"
                       value={field.value}
@@ -1376,6 +1426,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin %</FormLabel>
                   <FormControl>
                     <NumericInput
+                      name={field.name}
                       disabled={isItemLocked}
                       className="h-8 text-xs font-mono text-center bg-background"
                       value={field.value}
@@ -1404,6 +1455,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormLabel className="text-[11px] font-semibold text-muted-foreground">Unit AED</FormLabel>
                   <FormControl>
                     <NumericInput
+                      name={field.name}
                       disabled={isItemLocked || isCostingLockedForIDC}
                       className="h-8 text-xs font-mono bg-background font-bold text-primary"
                       value={field.value}
@@ -1447,6 +1499,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <FormControl>
                     <div className="relative">
                       <NumericInput
+                        name={field.name}
                         disabled={isItemLocked}
                         className="h-8 text-xs font-mono bg-background pr-6"
                         value={field.value}
@@ -4955,6 +5008,7 @@ function NewQuotationForm() {
                                       <div className="relative flex items-center">
                                         <span className="absolute left-3 text-[10px] font-bold text-muted-foreground font-mono z-10 pointer-events-none">AED</span>
                                         <NumericInput
+                                          name={field.name}
                                           placeholder="0.00"
                                           className="h-9 pl-10 pr-3 font-mono text-right text-xs font-bold bg-background w-full"
                                           value={field.value}
@@ -5061,6 +5115,7 @@ function NewQuotationForm() {
                                         <span className="absolute left-3 text-[10px] font-bold text-muted-foreground font-mono z-10 pointer-events-none">AED</span>
                                       )}
                                       <NumericInput
+                                        name={field.name}
                                         placeholder={watchSpecialDiscountType === "FIXED" ? "e.g. 500" : "e.g. 5"}
                                         className={cn(
                                           "h-9 font-mono text-xs font-bold bg-background w-full",
