@@ -41,13 +41,13 @@ const htmlStylesheet = {
     marginTop: 0,
     marginBottom: 0,
     paddingLeft: 0,
-    marginLeft: 0,
+    marginLeft: -10,
   },
   ol: {
     marginTop: 0,
     marginBottom: 0,
     paddingLeft: 0,
-    marginLeft: 0,
+    marginLeft: -10,
   },
   li: {
     fontSize: 5.75,
