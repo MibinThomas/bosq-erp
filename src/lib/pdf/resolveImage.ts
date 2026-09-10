@@ -1,9 +1,20 @@
 import fs from "fs";
 import path from "path";
 
+const imageCache = new Map<string, string | null>()
+
 export async function resolveImageUrl(url: string | null | undefined): Promise<string | null> {
   if (!url) return null;
-  
+  if (imageCache.has(url)) {
+    return imageCache.get(url) || null;
+  }
+
+  const result = await internalResolveImageUrl(url);
+  imageCache.set(url, result);
+  return result;
+}
+
+async function internalResolveImageUrl(url: string): Promise<string | null> {
   // Handle Base64 Data URIs natively
   if (url.startsWith("data:")) {
     if (url.startsWith("data:image/webp") || url.startsWith("data:image/svg+xml")) {
@@ -24,7 +35,7 @@ export async function resolveImageUrl(url: string | null | undefined): Promise<s
   if (url.startsWith("http://") || url.startsWith("https://")) {
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3500)
+      const timeoutId = setTimeout(() => controller.abort(), 2500)
       const res = await fetch(url, { signal: controller.signal })
       clearTimeout(timeoutId)
 
@@ -49,7 +60,7 @@ export async function resolveImageUrl(url: string | null | undefined): Promise<s
     } catch (e) {
       console.error("Failed to fetch/process external image:", url, e);
     }
-    return url; // Final fallback, though unlikely to render if fetch failed
+    return url; // Final fallback
   }
   
   // Local images (/uploads/...)
@@ -76,3 +87,4 @@ export async function resolveImageUrl(url: string | null | undefined): Promise<s
   }
   return null;
 }
+

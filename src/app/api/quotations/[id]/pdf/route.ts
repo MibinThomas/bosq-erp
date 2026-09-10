@@ -14,6 +14,7 @@ import { generateCode128DataUri } from "@/lib/pdf/barcode"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
+export const maxDuration = 60 // Allow up to 60 seconds on Vercel Serverless
 
 export async function GET(
   request: Request,
@@ -22,39 +23,49 @@ export async function GET(
   try {
     const { id } = await params
 
-    const logoBase64 = await getLogoBase64()
-    const aynMuskLogoBase64 = await getAynMuskLogoBase64()
-    const companySealBase64 = await getCompanySealBase64()
-    const watermarkBase64 = await getWatermarkBase64()
-    const promotionalImageBase64 = await getPromotionalImageBase64()
-    const systemSettings = await getSettings(["company_bank_details", "company_disclaimer_title", "company_disclaimer"])
-
-    // Fetch the quotation with all relations
-    const quotation = await prisma.quotation.findFirst({
-      where: {
-        OR: [
-          { id: id },
-          { quotationNumber: id }
-        ]
-      },
-      include: {
-        client: true,
-        preparedBy: true,
-        items: {
-          orderBy: [
-            { sortOrder: "asc" },
-            { itemNo: "asc" }
-          ],
-          include: {
-            product: {
-              include: {
-                category: true
+    const [
+      logoBase64,
+      aynMuskLogoBase64,
+      companySealBase64,
+      watermarkBase64,
+      promotionalImageBase64,
+      systemSettings,
+      companySettings,
+      quotation
+    ] = await Promise.all([
+      getLogoBase64(),
+      getAynMuskLogoBase64(),
+      getCompanySealBase64(),
+      getWatermarkBase64(),
+      getPromotionalImageBase64(),
+      getSettings(["company_bank_details", "company_disclaimer_title", "company_disclaimer"]),
+      getSettings(["company_name", "company_address", "company_trn"]),
+      prisma.quotation.findFirst({
+        where: {
+          OR: [
+            { id: id },
+            { quotationNumber: id }
+          ]
+        },
+        include: {
+          client: true,
+          preparedBy: true,
+          items: {
+            orderBy: [
+              { sortOrder: "asc" },
+              { itemNo: "asc" }
+            ],
+            include: {
+              product: {
+                include: {
+                  category: true
+                }
               }
             }
           }
-        }
-      },
-    })
+        },
+      })
+    ])
 
     if (!quotation) {
       return new Response("Quotation not found", { status: 404 })
@@ -190,12 +201,6 @@ export async function GET(
         docItems.push({ ...item })
       }
     })
-
-    const companySettings = await getSettings([
-      "company_name",
-      "company_address",
-      "company_trn"
-    ])
 
     // Process selectedMaterials swatches for PDF
     const rawSelectedMaterials = Array.isArray((quotation as any).selectedMaterials)
