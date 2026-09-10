@@ -35,12 +35,21 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
     }
     const userId = (session.user as any).id
-    const canView = await hasPermission(userId, "SETTINGS", "view")
-    if (!canView) {
-      return NextResponse.json({ error: "Forbidden: You do not have permission to view settings" }, { status: 403 })
-    }
+    const userRole = (session.user as any).role || ""
+    const isMasterAdmin = ["SUPER_ADMIN", "ADMIN"].includes(userRole)
+
+    const canViewFullSettings = isMasterAdmin || (await hasPermission(userId, "SETTINGS", "view"))
 
     const settings = await getSettings(SETTING_KEYS)
+
+    if (!canViewFullSettings) {
+      delete settings.sharepoint_client_secret
+      delete settings.sharepoint_client_id
+      delete settings.sharepoint_tenant_id
+      delete settings.sharepoint_site_id
+      delete settings.sharepoint_drive_id
+    }
+
     return NextResponse.json(settings)
   } catch (error) {
     console.error("GET /api/settings/system failed:", error)

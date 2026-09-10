@@ -3068,12 +3068,12 @@ function NewQuotationForm() {
 
       let targetUrl = ""
       let method = ""
-      let sendIsRevision = false
+      const isFinalized = existingQuote && existingQuote.status !== "DRAFT"
 
       if (autoSavedQuoteId) {
         targetUrl = `/api/quotations/${autoSavedQuoteId}`
         method = "PUT"
-        sendIsRevision = false
+        sendIsRevision = isFinalized
       } else if (existingQuote && existingQuote.status === "DRAFT") {
         targetUrl = `/api/quotations/${existingQuote.id}`
         method = "PUT"
