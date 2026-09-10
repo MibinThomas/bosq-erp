@@ -49,12 +49,18 @@ export async function getWatermarkBase64(): Promise<string> {
   if (watermarkBase64Cache) return watermarkBase64Cache
 
   try {
-    const watermarkPath = path.join(process.cwd(), "public", "assets", "images", "Watermark2.svg")
-    if (fs.existsSync(watermarkPath)) {
-      const fileBuffer = fs.readFileSync(watermarkPath)
-      const sharp = (await import("sharp")).default
-      const pngBuffer = await sharp(fileBuffer).png().toBuffer()
-      watermarkBase64Cache = `data:image/png;base64,${pngBuffer.toString("base64")}`
+    const pngWatermarkPath = path.join(process.cwd(), "public", "assets", "images", "Watermark2.png")
+    if (fs.existsSync(pngWatermarkPath)) {
+      const fileBuffer = fs.readFileSync(pngWatermarkPath)
+      watermarkBase64Cache = `data:image/png;base64,${fileBuffer.toString("base64")}`
+    } else {
+      const watermarkPath = path.join(process.cwd(), "public", "assets", "images", "Watermark2.svg")
+      if (fs.existsSync(watermarkPath)) {
+        const fileBuffer = fs.readFileSync(watermarkPath)
+        const sharp = (await import("sharp")).default
+        const pngBuffer = await sharp(fileBuffer).png().toBuffer()
+        watermarkBase64Cache = `data:image/png;base64,${pngBuffer.toString("base64")}`
+      }
     }
   } catch (err) {
     console.error("Failed to generate watermark in cache:", err)
