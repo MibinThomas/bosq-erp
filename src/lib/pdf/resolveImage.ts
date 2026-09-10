@@ -1,17 +1,21 @@
 import fs from "fs";
 import path from "path";
 
-const imageCache = new Map<string, string | null>()
+const imageCache = new Map<string, Promise<string | null>>()
 
-export async function resolveImageUrl(url: string | null | undefined): Promise<string | null> {
-  if (!url) return null;
+export function resolveImageUrl(url: string | null | undefined): Promise<string | null> {
+  if (!url) return Promise.resolve(null);
   if (imageCache.has(url)) {
-    return imageCache.get(url) || null;
+    return imageCache.get(url)!;
   }
 
-  const result = await internalResolveImageUrl(url);
-  imageCache.set(url, result);
-  return result;
+  const promise = internalResolveImageUrl(url).catch((err) => {
+    console.error("Image resolution error:", err);
+    return null;
+  });
+
+  imageCache.set(url, promise);
+  return promise;
 }
 
 async function internalResolveImageUrl(url: string): Promise<string | null> {
@@ -22,7 +26,7 @@ async function internalResolveImageUrl(url: string): Promise<string | null> {
         const base64Data = url.split(",")[1];
         const buffer = Buffer.from(base64Data, "base64");
         const sharp = (await import("sharp")).default;
-        const convertedBuffer = await sharp(buffer).png().toBuffer();
+        const convertedBuffer = await sharp(buffer).resize({ width: 600, height: 600, fit: "inside" }).png({ compressionLevel: 1 }).toBuffer();
         return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
       } catch (e) {
         console.error("Failed to convert data URI image:", e);
@@ -35,7 +39,7 @@ async function internalResolveImageUrl(url: string): Promise<string | null> {
   if (url.startsWith("http://") || url.startsWith("https://")) {
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 2500)
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
       const res = await fetch(url, { signal: controller.signal })
       clearTimeout(timeoutId)
 
@@ -47,7 +51,7 @@ async function internalResolveImageUrl(url: string): Promise<string | null> {
         // @react-pdf/renderer does not support WEBP, convert it
         if (contentType.includes('webp') || url.toLowerCase().endsWith('.webp')) {
           const sharp = (await import("sharp")).default;
-          const convertedBuffer = await sharp(fileBuffer).png().toBuffer();
+          const convertedBuffer = await sharp(fileBuffer).resize({ width: 600, height: 600, fit: "inside" }).png({ compressionLevel: 1 }).toBuffer();
           return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
         }
         
@@ -74,7 +78,7 @@ async function internalResolveImageUrl(url: string): Promise<string | null> {
         // @react-pdf/renderer does not support WEBP, automatically convert it
         if (ext === "webp") {
           const sharp = (await import("sharp")).default;
-          const convertedBuffer = await sharp(fileBuffer).png().toBuffer();
+          const convertedBuffer = await sharp(fileBuffer).resize({ width: 600, height: 600, fit: "inside" }).png({ compressionLevel: 1 }).toBuffer();
           return `data:image/png;base64,${convertedBuffer.toString("base64")}`;
         }
         
@@ -87,4 +91,5 @@ async function internalResolveImageUrl(url: string): Promise<string | null> {
   }
   return null;
 }
+
 
