@@ -29,11 +29,9 @@ const colors = {
 
 const htmlStylesheet = {
   p: {
-    fontSize: 5.75,
     color: "#444444",
-    lineHeight: 1.25,
     marginTop: 0,
-    marginBottom: 1,
+    marginBottom: 2,
     paddingLeft: 0,
     marginLeft: 0,
   },
@@ -50,11 +48,9 @@ const htmlStylesheet = {
     marginLeft: -10,
   },
   li: {
-    fontSize: 5.75,
     color: "#444444",
-    lineHeight: 1.25,
     marginTop: 0,
-    marginBottom: 0,
+    marginBottom: 1,
     paddingLeft: 0,
     marginLeft: 0,
   },
@@ -72,14 +68,26 @@ const htmlStylesheet = {
   i: {
     fontStyle: "italic",
   },
-  span: {
-    lineHeight: 1.25,
+  u: {
+    textDecoration: "underline",
   },
+  s: {
+    textDecoration: "line-through",
+  },
+  strike: {
+    textDecoration: "line-through",
+  },
+  del: {
+    textDecoration: "line-through",
+  },
+  mark: {
+    backgroundColor: "#fde047",
+  },
+  span: {},
   div: {
-    fontSize: 5.75,
-    lineHeight: 1.25,
+    color: "#444444",
     marginTop: 0,
-    marginBottom: 1,
+    marginBottom: 2,
     paddingLeft: 0,
     marginLeft: 0,
   },
@@ -946,7 +954,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Product Specifications Section */}
         {specHtml ? (
-          <View style={styles.specBlock}>
+          <View style={[styles.specBlock, { fontSize: 5.75 }]}>
             <Text style={styles.sectionSubHeading}>Product Specifications</Text>
             <Html stylesheet={htmlStylesheet}>{specHtml}</Html>
           </View>
