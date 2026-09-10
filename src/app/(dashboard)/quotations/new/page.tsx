@@ -3068,6 +3068,7 @@ function NewQuotationForm() {
 
       let targetUrl = ""
       let method = ""
+      let sendIsRevision = false
       const isFinalized = existingQuote && existingQuote.status !== "DRAFT"
 
       if (autoSavedQuoteId) {
