@@ -832,6 +832,10 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     }
 
     let html = trimmed
+    // Preserve empty paragraph line breaks from Quill editor
+    html = html.replace(/<p><br\s*\/?>\s*<\/p>/gi, '<p>&nbsp;</p>')
+    html = html.replace(/<p>\s*<\/p>/gi, '<p>&nbsp;</p>')
+
     // Convert <mark> tags to span with inline background-color
     html = html.replace(/<mark([^>]*)>/gi, '<span style="background-color: #fde047;"$1>')
     html = html.replace(/<\/mark>/gi, '</span>')
@@ -954,7 +958,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Product Specifications Section */}
         {specHtml ? (
-          <View style={[styles.specBlock, { fontSize: 5.75 }]}>
+          <View style={[styles.specBlock, { fontSize: 6.5 }]}>
             <Text style={styles.sectionSubHeading}>Product Specifications</Text>
             <Html stylesheet={htmlStylesheet}>{specHtml}</Html>
           </View>
