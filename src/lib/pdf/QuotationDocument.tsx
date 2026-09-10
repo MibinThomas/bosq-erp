@@ -849,6 +849,30 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       "ql-color-white": "#ffffff",
     }
 
+    const quillFontMap: Record<string, string> = {
+      "ql-font-arial": "Helvetica",
+      "ql-font-calibri": "Helvetica",
+      "ql-font-helvetica": "Helvetica",
+      "ql-font-times-new-roman": "Times-Roman",
+      "ql-font-poppins": "Helvetica",
+      "ql-font-roboto": "Helvetica",
+    }
+
+    const fontFamilyPdfMap: Record<string, string> = {
+      "arial": "Helvetica",
+      "calibri": "Helvetica",
+      "helvetica": "Helvetica",
+      "times-new-roman": "Times-Roman",
+      "times new roman": "Times-Roman",
+      "times": "Times-Roman",
+      "poppins": "Helvetica",
+      "roboto": "Helvetica",
+      "serif": "Times-Roman",
+      "sans-serif": "Helvetica",
+      "monospace": "Courier",
+      "courier": "Courier",
+    }
+
     // Convert Quill utility classes into inline CSS styles so react-pdf-html applies them
     html = html.replace(/class=["']([^"']+)["']/gi, (fullMatch, classAttr) => {
       const classes = classAttr.split(/\s+/)
@@ -857,12 +881,24 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       classes.forEach((cls: string) => {
         if (quillBgMap[cls]) inlineStyles.push(`background-color: ${quillBgMap[cls]};`)
         if (quillColorMap[cls]) inlineStyles.push(`color: ${quillColorMap[cls]};`)
+        if (quillFontMap[cls]) inlineStyles.push(`font-family: ${quillFontMap[cls]};`)
+        if (cls.startsWith("ql-size-")) {
+          const sz = cls.replace("ql-size-", "")
+          inlineStyles.push(`font-size: ${sz};`)
+        }
       })
 
       if (inlineStyles.length > 0) {
         return `style="${inlineStyles.join(" ")}"`
       }
       return fullMatch
+    })
+
+    // Map font-family in inline style="..." attributes for @react-pdf/renderer font compatibility
+    html = html.replace(/font-family:\s*['"]?([^;'"]+)['"]?/gi, (match, fontName) => {
+      const cleanFont = fontName.trim().toLowerCase()
+      const pdfFont = fontFamilyPdfMap[cleanFont] || "Helvetica"
+      return `font-family: ${pdfFont}`
     })
 
     return html
