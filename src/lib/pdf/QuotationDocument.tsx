@@ -804,21 +804,40 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       .trim();
   }
 
-  const parseSpecificationItems = (specs: string | null | undefined) => {
-    if (!specs || !specs.trim()) return []
+  interface InlineSegment {
+    text: string
+    bold?: boolean
+    italic?: boolean
+    underline?: boolean
+    strikethrough?: boolean
+    backgroundColor?: string
+    color?: string
+  }
 
-    let cleanText = specs.trim()
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/p>/gi, "\n")
-      .replace(/<\/div>/gi, "\n")
-      .replace(/<\/li>/gi, "\n")
-      .replace(/<li>/gi, "")
-      .replace(/<ul[^>]*>/gi, "")
-      .replace(/<\/ul>/gi, "")
-      .replace(/<ol[^>]*>/gi, "")
-      .replace(/<\/ol>/gi, "")
+  interface ParsedSpecLine {
+    isBullet: boolean
+    segments: InlineSegment[]
+  }
 
-    cleanText = cleanText
+  const normalizeBgColor = (colorStr: string | undefined): string | undefined => {
+    if (!colorStr) return undefined
+    const c = colorStr.trim().toLowerCase()
+    if (
+      c === "yellow" ||
+      c === "ql-bg-yellow" ||
+      c === "rgb(255, 255, 0)" ||
+      c === "rgb(255,255,0)" ||
+      c === "#ffff00" ||
+      c === "#fde047" ||
+      c === "#fef08a"
+    ) {
+      return "#fde047"
+    }
+    return colorStr.trim()
+  }
+
+  const parseInlineHtml = (html: string): InlineSegment[] => {
+    const cleanHtml = html
       .replace(/&nbsp;/g, " ")
       .replace(/&amp;/g, "&")
       .replace(/&lt;/g, "<")
@@ -826,67 +845,237 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
 
-    const lines = cleanText
-      .split(/\r?\n/)
-      .map(line => line.replace(/<[^>]+>/g, "").trim())
-      .filter(Boolean)
+    const segments: InlineSegment[] = []
+    const tagRegex = /<\/?([a-z0-9]+)([^>]*)>/gi
+    let lastIndex = 0
 
-    const specList: { key?: string; value: string }[] = []
+    const styleStack: Array<{
+      tag: string
+      bold?: boolean
+      italic?: boolean
+      underline?: boolean
+      strikethrough?: boolean
+      backgroundColor?: string
+      color?: string
+    }> = []
 
-    lines.forEach((line) => {
-      if (/^(product\s+specifications|configured\s+attributes|specifications|attributes)$/i.test(line)) {
-        return
+    const getCurrentStyle = () => {
+      let bold = false
+      let italic = false
+      let underline = false
+      let strikethrough = false
+      let backgroundColor: string | undefined = undefined
+      let color: string | undefined = undefined
+
+      styleStack.forEach((s) => {
+        if (s.bold) bold = true
+        if (s.italic) italic = true
+        if (s.underline) underline = true
+        if (s.strikethrough) strikethrough = true
+        if (s.backgroundColor) backgroundColor = s.backgroundColor
+        if (s.color) color = s.color
+      })
+
+      return { bold, italic, underline, strikethrough, backgroundColor, color }
+    }
+
+    const quillBgMap: Record<string, string> = {
+      "ql-bg-yellow": "#fde047",
+      "ql-bg-orange": "#fed7aa",
+      "ql-bg-red": "#fca5a5",
+      "ql-bg-green": "#bbf7d0",
+      "ql-bg-blue": "#bfdbfe",
+      "ql-bg-purple": "#e9d5ff",
+      "ql-bg-black": "#e2e8f0",
+    }
+
+    const quillColorMap: Record<string, string> = {
+      "ql-color-red": "#dc2626",
+      "ql-color-orange": "#ea580c",
+      "ql-color-yellow": "#ca8a04",
+      "ql-color-green": "#16a34a",
+      "ql-color-blue": "#2563eb",
+      "ql-color-purple": "#9333ea",
+      "ql-color-white": "#ffffff",
+    }
+
+    let match: RegExpExecArray | null
+    while ((match = tagRegex.exec(cleanHtml)) !== null) {
+      const textBefore = cleanHtml.substring(lastIndex, match.index)
+      if (textBefore) {
+        segments.push({
+          text: textBefore,
+          ...getCurrentStyle(),
+        })
       }
 
-      let cleanLine = line.replace(/^([•\-\*\s]|\d+\.)\s*/, "").trim()
-      if (!cleanLine || cleanLine === "-" || cleanLine.toLowerCase() === "not specified" || cleanLine.toLowerCase() === "none") {
-        return
-      }
+      const fullTag = match[0]
+      const tagName = match[1].toLowerCase()
+      const attrString = match[2] || ""
+      const isClosing = fullTag.startsWith("</")
 
-      let key: string | undefined
-      let val = cleanLine
+      if (!isClosing) {
+        const newStyle: {
+          tag: string
+          bold?: boolean
+          italic?: boolean
+          underline?: boolean
+          strikethrough?: boolean
+          backgroundColor?: string
+          color?: string
+        } = { tag: tagName }
 
-      if (cleanLine.includes(":")) {
-        const colonIdx = cleanLine.indexOf(":")
-        const rawK = cleanLine.substring(0, colonIdx).trim()
-        const rawV = cleanLine.substring(colonIdx + 1).trim()
-        if (rawK && rawV && rawK.length < 40) {
-          key = rawK
-          val = rawV
+        if (tagName === "b" || tagName === "strong") newStyle.bold = true
+        if (tagName === "i" || tagName === "em") newStyle.italic = true
+        if (tagName === "u") newStyle.underline = true
+        if (tagName === "s" || tagName === "strike" || tagName === "del") newStyle.strikethrough = true
+        if (tagName === "mark") newStyle.backgroundColor = "#fde047"
+
+        // Check class attribute
+        const classMatch = attrString.match(/class=["']([^"']+)["']/i)
+        if (classMatch) {
+          const classes = classMatch[1].split(/\s+/)
+          classes.forEach((cls) => {
+            if (quillBgMap[cls]) newStyle.backgroundColor = quillBgMap[cls]
+            if (quillColorMap[cls]) newStyle.color = quillColorMap[cls]
+          })
         }
-      }
 
-      const kLower = (key || "").toLowerCase()
-      const vLower = val.toLowerCase()
+        // Check style attribute
+        const styleMatch = attrString.match(/style=["']([^"']+)["']/i)
+        if (styleMatch) {
+          const styleAttr = styleMatch[1]
 
-      if (
-        kLower.includes("availability") ||
-        kLower.includes("stock") ||
-        kLower.includes("remark") ||
-        kLower.includes("note") ||
-        kLower.includes("production time") ||
-        vLower.includes("availability:") ||
-        vLower.includes("stock status:")
-      ) {
-        return
-      }
-
-      if (key) {
-        if (!specList.some(s => s.key?.toLowerCase() === key.toLowerCase())) {
-          specList.push({ key, value: val })
+          const bgMatch = styleAttr.match(/(?:background-color|background):\s*([^;]+)/i)
+          if (bgMatch) {
+            newStyle.backgroundColor = normalizeBgColor(bgMatch[1].trim())
+          }
+          const colorMatch = styleAttr.match(/(?:^|;|\s)color:\s*([^;]+)/i)
+          if (colorMatch) {
+            newStyle.color = colorMatch[1].trim()
+          }
+          if (/font-weight:\s*(bold|[6-9]00)/i.test(styleAttr)) {
+            newStyle.bold = true
+          }
+          if (/font-style:\s*italic/i.test(styleAttr)) {
+            newStyle.italic = true
+          }
+          if (/text-decoration:\s*([^\s;]+)/i.test(styleAttr)) {
+            const decMatch = styleAttr.match(/text-decoration:\s*([^\s;]+)/i)
+            if (decMatch) {
+              const dec = decMatch[1].toLowerCase()
+              if (dec.includes("underline")) newStyle.underline = true
+              if (dec.includes("line-through")) newStyle.strikethrough = true
+            }
+          }
         }
+
+        styleStack.push(newStyle)
       } else {
-        if (!specList.some(s => s.value.toLowerCase() === val.toLowerCase())) {
-          specList.push({ value: val })
+        for (let i = styleStack.length - 1; i >= 0; i--) {
+          if (styleStack[i].tag === tagName) {
+            styleStack.splice(i, 1)
+            break
+          }
         }
+      }
+
+      lastIndex = tagRegex.lastIndex
+    }
+
+    const remainingText = cleanHtml.substring(lastIndex)
+    if (remainingText) {
+      segments.push({
+        text: remainingText,
+        ...getCurrentStyle(),
+      })
+    }
+
+    return segments
+  }
+
+  const parseRichTextSpecifications = (rawHtml: string | null | undefined): ParsedSpecLine[] => {
+    if (!rawHtml || !rawHtml.trim()) return []
+
+    // Replace block-ending tags with newlines
+    let html = rawHtml
+      .replace(/<\/(p|li|div|h[1-6])>/gi, "\n")
+      .replace(/<br\s*\/?>/gi, "\n")
+
+    const rawBlocks = html.split(/\r?\n/)
+    const rawLines: string[] = []
+
+    rawBlocks.forEach((block) => {
+      const trimmed = block.trim()
+      if (!trimmed) return
+
+      // Split block by semicolons (;) when semicolon separates specification items
+      // e.g. "Table top: ...; Modesty Panel: ...;" -> ["Table top: ...", "Modesty Panel: ..."]
+      if (trimmed.includes(";")) {
+        const parts = trimmed.split(/;(?:\s*|$)/)
+        parts.forEach((part) => {
+          const pTrimmed = part.trim()
+          if (pTrimmed) rawLines.push(pTrimmed)
+        })
+      } else {
+        rawLines.push(trimmed)
       }
     })
 
-    return specList
+    const results: ParsedSpecLine[] = []
+
+    rawLines.forEach((rawLine) => {
+      const textContent = rawLine.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim()
+      if (!textContent || textContent === "-" || textContent.toLowerCase() === "not specified" || textContent.toLowerCase() === "none") {
+        return
+      }
+
+      if (/^(product\s+specifications|configured\s+attributes|specifications|attributes)$/i.test(textContent)) {
+        return
+      }
+
+      let cleanLineHtml = rawLine.trim()
+      cleanLineHtml = cleanLineHtml
+        .replace(/^<li[^>]*>/i, "")
+        .replace(/^([•\-\*\s]|\d+\.)\s*/, "")
+        .trim()
+
+      const segments = parseInlineHtml(cleanLineHtml)
+      if (segments.length > 0) {
+        results.push({ isBullet: true, segments })
+      }
+    })
+
+    return results
   }
 
   const renderProductDetails = (item: QuotationPdfItem) => {
-    const specItems = parseSpecificationItems(item.specifications)
+    const specLines = parseRichTextSpecifications(item.specifications)
+
+    const renderInlineSegments = (segments: InlineSegment[]) => {
+      return segments.map((seg, idx) => {
+        const segStyle: any = {}
+        if (seg.bold) segStyle.fontWeight = "bold"
+        if (seg.italic) segStyle.fontStyle = "italic"
+        if (seg.underline && seg.strikethrough) segStyle.textDecoration = "underline line-through"
+        else if (seg.underline) segStyle.textDecoration = "underline"
+        else if (seg.strikethrough) segStyle.textDecoration = "line-through"
+        
+        if (seg.backgroundColor) {
+          segStyle.backgroundColor = seg.backgroundColor
+          segStyle.color = seg.color || "#000000"
+          segStyle.paddingHorizontal = 1
+        } else if (seg.color) {
+          segStyle.color = seg.color
+        }
+
+        return (
+          <Text key={idx} style={segStyle}>
+            {seg.text}
+          </Text>
+        )
+      })
+    }
 
     return (
       <View style={styles.colDesc}>
@@ -906,36 +1095,19 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         ) : null}
 
         {/* Product Specifications Section */}
-        {specItems.length > 0 && (
+        {specLines.length > 0 && (
           <View style={styles.specBlock}>
             <Text style={styles.sectionSubHeading}>Product Specifications</Text>
-            {specItems.map((spec, idx) => {
-              const isWarranty = spec.key?.toLowerCase() === "warranty"
-
-              if (spec.key) {
-                return (
-                  <View key={`spec-${idx}`} style={{ flexDirection: "row", marginBottom: 0, paddingLeft: 0, alignItems: "flex-start" }}>
-                    <Text style={{ fontSize: 5.75, lineHeight: 1.25 }}>
-                      <Text style={[styles.specKey, isWarranty ? { color: colors.accent } : {}]}>
-                        {spec.key}:{" "}
-                      </Text>
-                      <Text style={[styles.specValue, isWarranty ? { fontWeight: "bold" } : {}]}>
-                        {spec.value}
-                      </Text>
-                    </Text>
-                  </View>
-                )
-              }
-
-              return (
-                <View key={`spec-${idx}`} style={{ flexDirection: "row", marginBottom: 0, paddingLeft: 0, alignItems: "flex-start" }}>
+            {specLines.map((line, idx) => (
+              <View key={`spec-${idx}`} style={{ flexDirection: "row", marginBottom: 1, alignItems: "flex-start" }}>
+                {line.isBullet && (
                   <Text style={{ fontSize: 5.75, fontWeight: "bold", color: colors.accent, width: 7 }}>•</Text>
-                  <Text style={{ fontSize: 5.75, color: "#444444", lineHeight: 1.25, flex: 1 }}>
-                    {spec.value}
-                  </Text>
-                </View>
-              )
-            })}
+                )}
+                <Text style={{ fontSize: 5.75, color: "#333333", lineHeight: 1.25, flex: 1 }}>
+                  {renderInlineSegments(line.segments)}
+                </Text>
+              </View>
+            ))}
           </View>
         )}
 

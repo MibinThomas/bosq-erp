@@ -83,6 +83,7 @@ import { ImageCropper } from "@/components/ui/image-cropper"
 import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
 import { QuotationSuccessModal } from "@/components/quotations/QuotationSuccessModal"
 import { InPageQuotationPreviewModal } from "@/components/quotations/InPageQuotationPreviewModal"
+import { QuotationFloatingToggles } from "@/components/quotations/QuotationFloatingToggles"
 import { usePageHeader } from "@/components/providers/PageHeaderContext"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
@@ -2241,6 +2242,9 @@ function NewQuotationForm() {
   const [previewQuoteData, setPreviewQuoteData] = useState<any>(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
 
+  // Collapsible Terms & Disclaimers State (Collapsed by default)
+  const [isTermsCollapsed, setIsTermsCollapsed] = useState(true)
+
   const handleRequestAccess = async (clientId: string, clientName: string, notes?: string) => {
     try {
       const res = await fetch("/api/clients/access-requests", {
@@ -4120,33 +4124,28 @@ function NewQuotationForm() {
                   />
                 </div>
 
-                {/* Sales Representative Details Section */}
-                <div className="space-y-4 pt-4 border-t">
-                  <FormField
-                    control={form.control}
-                    name="includeSalesAgent"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground">
-                            Include Sales Representative Info on Exported PDF
-                          </FormLabel>
-                          <p className="text-[11px] text-muted-foreground">
-                            Toggle to specify sales agent contact info on quotation header/footer.
-                          </p>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
+                {/* Floating Action Buttons for Quotation Options */}
+                <QuotationFloatingToggles
+                  values={{
+                    includeSalesAgent: form.watch("includeSalesAgent") ?? false,
+                    includeCompanySeal: form.watch("includeCompanySeal") ?? false,
+                    includeCategoryName: form.watch("includeCategoryName") ?? true,
+                    includeSectionHeadings: form.watch("includeSectionHeadings") ?? true,
+                    includeMaterialsFinishes: form.watch("includeMaterialsFinishes") ?? false,
+                  }}
+                  onChange={(key, val) => {
+                    form.setValue(key, val, { shouldDirty: true, shouldValidate: true })
+                  }}
+                />
 
-                  {form.watch("includeSalesAgent") && (
+                {/* Sales Representative Details Section */}
+                {form.watch("includeSalesAgent") && (
+                  <div className="space-y-4 pt-4 border-t">
                     <div className="p-4 rounded-xl border bg-card space-y-4 animate-in fade-in duration-200">
+                      <h4 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
+                        <User className="h-4 w-4 text-blue-500" />
+                        Sales Representative Contact Information
+                      </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
@@ -4220,109 +4219,11 @@ function NewQuotationForm() {
                         </Button>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {/* Company Seal Toggle Section */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
-                  <FormField
-                    control={form.control}
-                    name="includeCompanySeal"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
-                        <div className="space-y-0.5 pr-2">
-                          <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground">
-                            Include Company Seal on Quotation
-                          </FormLabel>
-                          <p className="text-[11px] text-muted-foreground">
-                            Toggle to show or hide the company seal in the quotation preview and exported PDF.
-                          </p>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value ?? false}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="includeCategoryName"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
-                        <div className="space-y-0.5 pr-2">
-                          <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground">
-                            Show Product Category on Quotation
-                          </FormLabel>
-                          <p className="text-[11px] text-muted-foreground">
-                            Toggle to show or hide product category badges (e.g. PREMIUM CHAIRS) on preview and PDF.
-                          </p>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value ?? true}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="includeSectionHeadings"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
-                        <div className="space-y-0.5 pr-2">
-                          <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground flex items-center gap-2">
-                            <Layers className="h-4 w-4 text-primary" />
-                            Enable Section Headings on Quotation
-                          </FormLabel>
-                          <p className="text-[11px] text-muted-foreground">
-                            Toggle to enable or disable grouping products into section headings (e.g. Section 1, Section 2) in the editor, preview, and PDF.
-                          </p>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value ?? true}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Materials & Finishes Toggle & Selector Section */}
-                <div className="space-y-4 pt-4 border-t">
-                  <FormField
-                    control={form.control}
-                    name="includeMaterialsFinishes"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border p-3.5 bg-muted/20">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-xs sm:text-sm font-semibold cursor-pointer text-foreground flex items-center gap-2">
-                            <Palette className="h-4 w-4 text-orange-500" />
-                            Include Materials & Finishes Schedule
-                          </FormLabel>
-                          <p className="text-[11px] text-muted-foreground">
-                            Default: OFF. When enabled, selected material swatch details will be appended as a dedicated Materials & Finishes Schedule in the PDF.
-                          </p>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value ?? false}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  {watchIncludeMaterialsFinishes && (
+                {/* Materials & Finishes Selector Section */}
+                {watchIncludeMaterialsFinishes && (
                     <div className="p-4 rounded-xl border border-orange-500/30 bg-orange-500/5 space-y-4 animate-in fade-in duration-200">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div>
@@ -4411,7 +4312,6 @@ function NewQuotationForm() {
                       )}
                     </div>
                   )}
-                </div>
               </CardContent>
             </Card>
 
@@ -4747,190 +4647,223 @@ function NewQuotationForm() {
             })()}
 
             {/* CARD 3: Disclaimers & Terms & Conditions Manager */}
-            <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">
-              <CardHeader className="bg-muted/30 border-b py-3 px-4 sm:px-6">
-                <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <SlidersHorizontal className="h-4 w-4 text-primary" />
-                  3. Disclaimers & Quotation Terms
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-6 space-y-6">
-                {/* Quotation Disclaimers Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between border-b pb-2">
-                    <h4 className="text-xs font-semibold text-foreground uppercase">Quotation Disclaimers</h4>
-                    <span className="text-[11px] text-muted-foreground">Appears above Terms on exported PDF</span>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="md:col-span-1">
-                      <FormField
-                        control={form.control}
-                        name="disclaimerTitle"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold text-foreground">Heading Title</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g. Disclaimers" className="bg-background text-xs h-9" {...field} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <FormField
-                        control={form.control}
-                        name="disclaimer"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold text-foreground">Disclaimer Content (Optional)</FormLabel>
-                            <FormControl>
-                              <Textarea rows={2} placeholder="Enter disclaimers... Leave empty to omit" className="bg-background text-xs" {...field} />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
+            <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden transition-all duration-200">
+              <CardHeader
+                className="bg-muted/30 border-b py-3 px-4 sm:px-6 cursor-pointer select-none hover:bg-muted/50 transition-colors flex flex-row items-center justify-between gap-3"
+                onClick={() => setIsTermsCollapsed(!isTermsCollapsed)}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <SlidersHorizontal className="h-4 w-4 text-primary" />
+                    3. Disclaimers & Quotation Terms
+                  </CardTitle>
+                  <Badge variant="outline" className="text-[10px] font-mono font-medium bg-background border-border text-muted-foreground">
+                    {watchTermsConditions?.length || 0} Terms
+                  </Badge>
                 </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] text-muted-foreground font-medium hidden sm:inline">
+                    {isTermsCollapsed ? "Click to expand & edit" : "Click to collapse"}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer p-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsTermsCollapsed(!isTermsCollapsed)
+                    }}
+                    title={isTermsCollapsed ? "Expand Disclaimers & Terms" : "Collapse Disclaimers & Terms"}
+                  >
+                    {isTermsCollapsed ? (
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                    ) : (
+                      <ChevronUp className="h-4 w-4 transition-transform duration-200" />
+                    )}
+                  </Button>
+                </div>
+              </CardHeader>
 
-                {/* Quotation Terms & Conditions Section */}
-                <div className="space-y-3 pt-4 border-t">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b pb-2">
-                    <div>
-                      <h4 className="text-xs font-semibold text-foreground uppercase">Terms & Conditions</h4>
-                      <p className="text-[11px] text-muted-foreground">
-                        Customize, reorder, or add custom terms for this quotation. Order below will be reflected on PDF.
-                      </p>
+              {!isTermsCollapsed && (
+                <CardContent className="p-4 sm:p-6 space-y-6 animate-in fade-in duration-200">
+                  {/* Quotation Disclaimers Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b pb-2">
+                      <h4 className="text-xs font-semibold text-foreground uppercase">Quotation Disclaimers</h4>
+                      <span className="text-[11px] text-muted-foreground">Appears above Terms on exported PDF</span>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="md:col-span-1">
+                        <FormField
+                          control={form.control}
+                          name="disclaimerTitle"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-semibold text-foreground">Heading Title</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g. Disclaimers" className="bg-background text-xs h-9" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <FormField
+                          control={form.control}
+                          name="disclaimer"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-semibold text-foreground">Disclaimer Content (Optional)</FormLabel>
+                              <FormControl>
+                                <Textarea rows={2} placeholder="Enter disclaimers... Leave empty to omit" className="bg-background text-xs" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quotation Terms & Conditions Section */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b pb-2">
+                      <div>
+                        <h4 className="text-xs font-semibold text-foreground uppercase">Terms & Conditions</h4>
+                        <p className="text-[11px] text-muted-foreground">
+                          Customize, reorder, or add custom terms for this quotation. Order below will be reflected on PDF.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleResetTermsToDefault}
+                        className="text-xs h-8 flex items-center gap-1.5 cursor-pointer shrink-0 bg-background"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Reset to Defaults
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      {watchTermsConditions && watchTermsConditions.length > 0 ? (
+                        watchTermsConditions.map((termRaw, termIdx) => {
+                          const isHighlighted = termRaw.includes("[HIGHLIGHT]")
+                          const cleanTermText = termRaw.replace(/\[HIGHLIGHT\]\s*/g, "")
+
+                          return (
+                            <div 
+                              key={termIdx} 
+                              className={cn(
+                                "flex items-start gap-2 bg-card border rounded-xl p-3 shadow-2xs transition-all",
+                                isHighlighted 
+                                  ? "bg-amber-500/10 border-amber-500/50 dark:bg-amber-950/30 shadow-xs" 
+                                  : "hover:border-primary/40"
+                              )}
+                            >
+                              {/* Reorder Buttons */}
+                              <div className="flex flex-col gap-1 pt-1 shrink-0">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  disabled={termIdx === 0}
+                                  onClick={() => handleMoveTerm(termIdx, -1)}
+                                  className="h-6 w-6 text-muted-foreground hover:bg-muted cursor-pointer disabled:opacity-30"
+                                  title="Move Up"
+                                >
+                                  <ChevronUp className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  disabled={termIdx === watchTermsConditions.length - 1}
+                                  onClick={() => handleMoveTerm(termIdx, 1)}
+                                  className="h-6 w-6 text-muted-foreground hover:bg-muted cursor-pointer disabled:opacity-30"
+                                  title="Move Down"
+                                >
+                                  <ChevronDown className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+
+                              <span className="text-xs font-bold text-muted-foreground pt-2.5 w-6 text-center shrink-0 font-mono">
+                                {(termIdx + 1).toString().padStart(2, '0')}.
+                              </span>
+
+                              <div className="flex-1 space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  {isHighlighted ? (
+                                    <Badge variant="outline" className="bg-amber-500 text-white border-amber-600 text-[10px] font-bold py-0.5 px-2 flex items-center gap-1 shadow-2xs">
+                                      <Sparkles className="h-3 w-3 fill-white" /> Highlighted Clause
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-[10px] text-muted-foreground font-medium">Standard Clause</span>
+                                  )}
+
+                                  <Button
+                                    type="button"
+                                    variant={isHighlighted ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handleToggleHighlightTerm(termIdx)}
+                                    className={cn(
+                                      "h-6 px-2 text-[10px] font-semibold flex items-center gap-1 shrink-0 cursor-pointer transition-all",
+                                      isHighlighted 
+                                        ? "bg-amber-500 hover:bg-amber-600 text-white shadow-2xs border-amber-600" 
+                                        : "text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 hover:border-amber-400"
+                                    )}
+                                    title={isHighlighted ? "Remove highlight" : "Highlight this point"}
+                                  >
+                                    <Sparkles className={cn("h-3 w-3", isHighlighted ? "fill-white text-white" : "text-amber-500")} />
+                                    {isHighlighted ? "Highlighted" : "Highlight"}
+                                  </Button>
+                                </div>
+
+                                <Textarea
+                                  value={cleanTermText}
+                                  rows={2}
+                                  onChange={(e) => handleEditTerm(termIdx, e.target.value)}
+                                  placeholder="e.g. Validity: Valid for 30 days..."
+                                  className={cn(
+                                    "bg-background text-xs min-h-[48px] leading-relaxed transition-all",
+                                    isHighlighted && "border-amber-500/60 bg-amber-50/50 dark:bg-amber-950/30 font-normal"
+                                  )}
+                                />
+                              </div>
+
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveTerm(termIdx)}
+                                className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer mt-1"
+                                title="Remove term"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
+                          No terms added. Click "Add Term" below to add custom terms.
+                        </div>
+                      )}
+                    </div>
+
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={handleResetTermsToDefault}
-                      className="text-xs h-8 flex items-center gap-1.5 cursor-pointer shrink-0 bg-background"
+                      onClick={handleAddTerm}
+                      className="text-xs h-8 flex items-center gap-1.5 cursor-pointer mt-2 bg-background"
                     >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Reset to Defaults
+                      <Plus className="h-3.5 w-3.5" /> Add Term / Condition
                     </Button>
                   </div>
-
-                  <div className="space-y-2">
-                    {watchTermsConditions && watchTermsConditions.length > 0 ? (
-                      watchTermsConditions.map((termRaw, termIdx) => {
-                        const isHighlighted = termRaw.includes("[HIGHLIGHT]")
-                        const cleanTermText = termRaw.replace(/\[HIGHLIGHT\]\s*/g, "")
-
-                        return (
-                          <div 
-                            key={termIdx} 
-                            className={cn(
-                              "flex items-start gap-2 bg-card border rounded-xl p-3 shadow-2xs transition-all",
-                              isHighlighted 
-                                ? "bg-amber-500/10 border-amber-500/50 dark:bg-amber-950/30 shadow-xs" 
-                                : "hover:border-primary/40"
-                            )}
-                          >
-                            {/* Reorder Buttons */}
-                            <div className="flex flex-col gap-1 pt-1 shrink-0">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                disabled={termIdx === 0}
-                                onClick={() => handleMoveTerm(termIdx, -1)}
-                                className="h-6 w-6 text-muted-foreground hover:bg-muted cursor-pointer disabled:opacity-30"
-                                title="Move Up"
-                              >
-                                <ChevronUp className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                disabled={termIdx === watchTermsConditions.length - 1}
-                                onClick={() => handleMoveTerm(termIdx, 1)}
-                                className="h-6 w-6 text-muted-foreground hover:bg-muted cursor-pointer disabled:opacity-30"
-                                title="Move Down"
-                              >
-                                <ChevronDown className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-
-                            <span className="text-xs font-bold text-muted-foreground pt-2.5 w-6 text-center shrink-0 font-mono">
-                              {(termIdx + 1).toString().padStart(2, '0')}.
-                            </span>
-
-                            <div className="flex-1 space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                {isHighlighted ? (
-                                  <Badge variant="outline" className="bg-amber-500 text-white border-amber-600 text-[10px] font-bold py-0.5 px-2 flex items-center gap-1 shadow-2xs">
-                                    <Sparkles className="h-3 w-3 fill-white" /> Highlighted Clause
-                                  </Badge>
-                                ) : (
-                                  <span className="text-[10px] text-muted-foreground font-medium">Standard Clause</span>
-                                )}
-
-                                <Button
-                                  type="button"
-                                  variant={isHighlighted ? "default" : "outline"}
-                                  size="sm"
-                                  onClick={() => handleToggleHighlightTerm(termIdx)}
-                                  className={cn(
-                                    "h-6 px-2 text-[10px] font-semibold flex items-center gap-1 shrink-0 cursor-pointer transition-all",
-                                    isHighlighted 
-                                      ? "bg-amber-500 hover:bg-amber-600 text-white shadow-2xs border-amber-600" 
-                                      : "text-muted-foreground hover:text-amber-600 hover:bg-amber-500/10 hover:border-amber-400"
-                                  )}
-                                  title={isHighlighted ? "Remove highlight" : "Highlight this point"}
-                                >
-                                  <Sparkles className={cn("h-3 w-3", isHighlighted ? "fill-white text-white" : "text-amber-500")} />
-                                  {isHighlighted ? "Highlighted" : "Highlight"}
-                                </Button>
-                              </div>
-
-                              <Textarea
-                                value={cleanTermText}
-                                rows={2}
-                                onChange={(e) => handleEditTerm(termIdx, e.target.value)}
-                                placeholder="e.g. Validity: Valid for 30 days..."
-                                className={cn(
-                                  "bg-background text-xs min-h-[48px] leading-relaxed transition-all",
-                                  isHighlighted && "border-amber-500/60 bg-amber-50/50 dark:bg-amber-950/30 font-normal"
-                                )}
-                              />
-                            </div>
-
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveTerm(termIdx)}
-                              className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer mt-1"
-                              title="Remove term"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )
-                      })
-                    ) : (
-                      <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
-                        No terms added. Click "Add Term" below to add custom terms.
-                      </div>
-                    )}
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddTerm}
-                    className="text-xs h-8 flex items-center gap-1.5 cursor-pointer mt-2 bg-background"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Add Term / Condition
-                  </Button>
-                </div>
-              </CardContent>
+                </CardContent>
+              )}
             </Card>
 
             {/* CARD 4: Additional Costs & Financial Summary */}
