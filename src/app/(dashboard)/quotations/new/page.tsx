@@ -385,12 +385,24 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
   ({ value, onChange, onBlur, onFocus, onKeyDown, type: _unusedType, ...props }, ref) => {
     const internalRef = React.useRef<HTMLInputElement | null>(null)
     const [localVal, setLocalVal] = React.useState<string>(String(value ?? ""))
+    const isFocusedRef = React.useRef(false)
 
-    React.useImperativeHandle(ref, () => internalRef.current!, [])
+    const setRef = React.useCallback(
+      (node: HTMLInputElement | null) => {
+        internalRef.current = node
+        if (typeof ref === "function") {
+          ref(node)
+        } else if (ref && "current" in ref) {
+          (ref as React.MutableRefObject<HTMLInputElement | null>).current = node
+        }
+      },
+      [ref]
+    )
 
-    // Synchronize external value into local state ONLY when NOT actively focused in the DOM
+    // Synchronize external value into local state ONLY when NOT focused in DOM
     React.useEffect(() => {
-      if (document.activeElement !== internalRef.current) {
+      const isFocused = isFocusedRef.current || (internalRef.current && document.activeElement === internalRef.current)
+      if (!isFocused) {
         setLocalVal(String(value ?? ""))
       }
     }, [value])
@@ -399,9 +411,23 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       const newVal = e.target.value
       setLocalVal(newVal)
       onChange(newVal)
+
+      // Maintain focus on this input element across parent state re-renders
+      const inputEl = internalRef.current
+      if (inputEl) {
+        isFocusedRef.current = true
+        if (document.activeElement !== inputEl) {
+          requestAnimationFrame(() => {
+            if (inputEl && isFocusedRef.current) {
+              inputEl.focus()
+            }
+          })
+        }
+      }
     }
 
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+      isFocusedRef.current = true
       if (e.target.value === "0" || e.target.value === "0.00" || e.target.value === "0.0") {
         try {
           e.target.select()
@@ -411,6 +437,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     }
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+      isFocusedRef.current = false
       onChange(localVal)
       if (onBlur) onBlur(e)
     }
@@ -418,6 +445,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Enter") {
         e.preventDefault()
+        isFocusedRef.current = false
         onChange(localVal)
         e.currentTarget.blur()
       }
@@ -426,7 +454,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 
     return (
       <Input
-        ref={internalRef}
+        ref={setRef}
         type="text"
         inputMode="decimal"
         value={localVal}
@@ -2406,7 +2434,7 @@ function NewQuotationForm() {
               orderedBatchNames.push("General Items")
             }
 
-            setBatches(orderedBatchNames.map(name => ({ id: Math.random().toString(), name })))
+            setBatches(orderedBatchNames.map((name, idx) => ({ id: `batch_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${idx}`, name })))
 
             let activeTerms: string[] = []
             if (Array.isArray(activeData.termsConditions) && activeData.termsConditions.length > 0) {
@@ -2599,7 +2627,7 @@ function NewQuotationForm() {
           orderedCartBatches.push("General Items")
         }
 
-        setBatches(orderedCartBatches.map(name => ({ id: Math.random().toString(), name })))
+        setBatches(orderedCartBatches.map((name, idx) => ({ id: `batch_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${idx}`, name })))
 
         form.reset({
           clientId: data.clientId,
