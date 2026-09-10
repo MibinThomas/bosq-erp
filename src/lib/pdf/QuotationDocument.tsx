@@ -73,7 +73,6 @@ const htmlStylesheet = {
     fontStyle: "italic",
   },
   span: {
-    fontSize: 5.75,
     lineHeight: 1.25,
   },
   div: {
@@ -873,32 +872,53 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       "courier": "Courier",
     }
 
-    // Convert Quill utility classes into inline CSS styles so react-pdf-html applies them
-    html = html.replace(/class=["']([^"']+)["']/gi, (fullMatch, classAttr) => {
-      const classes = classAttr.split(/\s+/)
+    // Parse HTML tags to merge Quill class attributes and existing style attributes into a single style attribute
+    html = html.replace(/<([a-z0-9]+)([^>]*)>/gi, (fullTag, tagName, attrString) => {
+      let styleAttr = ""
+      const styleMatch = attrString.match(/style=["']([^"']+)["']/i)
+      if (styleMatch) {
+        styleAttr = styleMatch[1]
+      }
+
+      const classMatch = attrString.match(/class=["']([^"']+)["']/i)
       const inlineStyles: string[] = []
 
-      classes.forEach((cls: string) => {
-        if (quillBgMap[cls]) inlineStyles.push(`background-color: ${quillBgMap[cls]};`)
-        if (quillColorMap[cls]) inlineStyles.push(`color: ${quillColorMap[cls]};`)
-        if (quillFontMap[cls]) inlineStyles.push(`font-family: ${quillFontMap[cls]};`)
-        if (cls.startsWith("ql-size-")) {
-          const sz = cls.replace("ql-size-", "")
-          inlineStyles.push(`font-size: ${sz};`)
-        }
-      })
-
-      if (inlineStyles.length > 0) {
-        return `style="${inlineStyles.join(" ")}"`
+      if (classMatch) {
+        const classes = classMatch[1].split(/\s+/)
+        classes.forEach((cls: string) => {
+          if (quillBgMap[cls]) inlineStyles.push(`background-color: ${quillBgMap[cls]}`)
+          if (quillColorMap[cls]) inlineStyles.push(`color: ${quillColorMap[cls]}`)
+          if (quillFontMap[cls]) inlineStyles.push(`font-family: ${quillFontMap[cls]}`)
+          if (cls.startsWith("ql-size-")) {
+            const sz = cls.replace("ql-size-", "")
+            inlineStyles.push(`font-size: ${sz}`)
+          }
+        })
       }
-      return fullMatch
-    })
 
-    // Map font-family in inline style="..." attributes for @react-pdf/renderer font compatibility
-    html = html.replace(/font-family:\s*['"]?([^;'"]+)['"]?/gi, (match, fontName) => {
-      const cleanFont = fontName.trim().toLowerCase()
-      const pdfFont = fontFamilyPdfMap[cleanFont] || "Helvetica"
-      return `font-family: ${pdfFont}`
+      let combinedStyle = styleAttr
+      if (inlineStyles.length > 0) {
+        combinedStyle = (combinedStyle ? combinedStyle.trim().replace(/;?$/, "; ") : "") + inlineStyles.join("; ")
+      }
+
+      // Remove existing class and style attributes from attrString
+      let cleanAttrs = attrString
+        .replace(/class=["']([^"']+)["']/gi, "")
+        .replace(/style=["']([^"']+)["']/gi, "")
+        .trim()
+
+      if (combinedStyle) {
+        // Map font-family in combinedStyle for PDF renderer compatibility
+        combinedStyle = combinedStyle.replace(/font-family:\s*['"]?([^;'"]+)['"]?/gi, (_, fontName) => {
+          const cleanFont = fontName.trim().toLowerCase()
+          const pdfFont = fontFamilyPdfMap[cleanFont] || "Helvetica"
+          return `font-family: ${pdfFont}`
+        })
+
+        cleanAttrs = (cleanAttrs ? cleanAttrs + " " : "") + `style="${combinedStyle}"`
+      }
+
+      return `<${tagName}${cleanAttrs ? " " + cleanAttrs : ""}>`
     })
 
     return html
