@@ -42,14 +42,14 @@ const htmlStylesheet = {
     marginTop: 0,
     marginBottom: 0,
     paddingLeft: 0,
-    marginLeft: -10,
+    marginLeft: -24,
     textAlign: "left",
   },
   ol: {
     marginTop: 0,
     marginBottom: 0,
     paddingLeft: 0,
-    marginLeft: -10,
+    marginLeft: -24,
     textAlign: "left",
   },
   li: {
