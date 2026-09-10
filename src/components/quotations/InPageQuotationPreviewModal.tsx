@@ -37,13 +37,59 @@ export function InPageQuotationPreviewModal({
   loading = false,
   status = "DRAFT",
 }: InPageQuotationPreviewModalProps) {
-  const [iframeKey, setIframeKey] = useState(0)
-
-  if (!open) return null
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  const [fetchingPdf, setFetchingPdf] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   const isDraft = !status || status.toUpperCase() === "DRAFT" || status.toUpperCase() === "DRAFT_PDF"
   const pdfUrl = quoteId ? `/api/quotations/${quoteId}/pdf?preview=true` : null
   const downloadUrl = quoteId ? `/api/quotations/${quoteId}/pdf` : null
+
+  React.useEffect(() => {
+    let active = true
+    let currentObjectUrl: string | null = null
+
+    if (open && quoteId) {
+      setFetchingPdf(true)
+      setPdfError(null)
+
+      fetch(`/api/quotations/${quoteId}/pdf?preview=true&_k=${reloadKey}`)
+        .then(async (res) => {
+          if (!active) return
+          if (!res.ok) {
+            const errText = await res.text().catch(() => "")
+            throw new Error(errText || `Server responded with status ${res.status}`)
+          }
+          const blob = await res.blob()
+          if (!active) return
+          currentObjectUrl = URL.createObjectURL(blob)
+          setBlobUrl(currentObjectUrl)
+        })
+        .catch((err) => {
+          if (!active) return
+          console.error("PDF preview fetch error:", err)
+          setPdfError(err.message || "Failed to load PDF preview")
+        })
+        .finally(() => {
+          if (active) setFetchingPdf(false)
+        })
+    } else {
+      setBlobUrl(null)
+      setPdfError(null)
+    }
+
+    return () => {
+      active = false
+      if (currentObjectUrl) {
+        URL.revokeObjectURL(currentObjectUrl)
+      }
+    }
+  }, [open, quoteId, reloadKey])
+
+  if (!open) return null
+
+  const isCompiling = loading || fetchingPdf
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,11 +130,12 @@ export function InPageQuotationPreviewModal({
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => setIframeKey((prev) => prev + 1)}
+                  onClick={() => setReloadKey((prev) => prev + 1)}
+                  disabled={isCompiling}
                   className="h-8 text-xs text-slate-300 hover:text-white hover:bg-slate-800 cursor-pointer hidden sm:flex items-center gap-1"
                   title="Reload PDF Preview"
                 >
-                  <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                  <RefreshCw className={`h-3.5 w-3.5 ${isCompiling ? "animate-spin" : ""}`} /> Refresh
                 </Button>
 
                 <Button
@@ -128,19 +175,47 @@ export function InPageQuotationPreviewModal({
 
         {/* Modal PDF Viewer Body */}
         <div className="flex-1 w-full h-full bg-slate-900 relative flex flex-col items-center justify-center overflow-hidden">
-          {loading || !quoteId ? (
+          {isCompiling ? (
             <div className="py-20 flex flex-col items-center justify-center space-y-3 text-slate-300">
               <Loader2 className="h-9 w-9 animate-spin text-orange-500" />
               <p className="text-xs font-semibold text-slate-300">Compiling official quotation PDF layout...</p>
               <p className="text-[11px] text-slate-500">Preparing quotation preview, line items, and styling</p>
             </div>
+          ) : pdfError ? (
+            <div className="p-8 text-center flex flex-col items-center justify-center space-y-4 max-w-md bg-slate-950 border border-slate-800 rounded-2xl">
+              <div className="p-3 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                <FileText className="h-8 w-8" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-slate-200">Unable to Render PDF Preview</h3>
+                <p className="text-xs text-slate-400 font-mono bg-slate-900 p-2 rounded border border-slate-800 overflow-x-auto text-left max-h-24">
+                  {pdfError}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setReloadKey((prev) => prev + 1)}
+                className="bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold gap-1.5"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Retry Preview
+              </Button>
+            </div>
+          ) : blobUrl ? (
+            <object
+              data={`${blobUrl}#toolbar=${isDraft ? 0 : 1}&navpanes=0&view=FitH`}
+              type="application/pdf"
+              className="w-full h-full rounded-b-2xl bg-white"
+            >
+              <iframe
+                src={`${blobUrl}#toolbar=${isDraft ? 0 : 1}&navpanes=0&view=FitH`}
+                className="w-full h-full border-none rounded-b-2xl bg-white"
+                title="Quotation PDF Preview"
+              />
+            </object>
           ) : (
-            <iframe
-              key={iframeKey}
-              src={`${pdfUrl}#toolbar=${isDraft ? 0 : 1}&navpanes=0&view=FitH`}
-              className="w-full h-full border-none rounded-b-2xl bg-white"
-              title="Quotation PDF Preview"
-            />
+            <div className="py-20 flex flex-col items-center justify-center text-slate-400">
+              <p className="text-xs">No quotation PDF available for preview.</p>
+            </div>
           )}
         </div>
       </DialogContent>

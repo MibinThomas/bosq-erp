@@ -23,7 +23,11 @@ export async function resolveImageUrl(url: string | null | undefined): Promise<s
   // External images (HTTP/HTTPS)
   if (url.startsWith("http://") || url.startsWith("https://")) {
     try {
-      const res = await fetch(url);
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 3500)
+      const res = await fetch(url, { signal: controller.signal })
+      clearTimeout(timeoutId)
+
       if (res.ok) {
         const arrayBuffer = await res.arrayBuffer();
         let fileBuffer = Buffer.from(arrayBuffer);

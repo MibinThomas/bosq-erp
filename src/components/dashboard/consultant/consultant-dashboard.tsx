@@ -70,16 +70,16 @@ export function ConsultantDashboard() {
     const t = Date.now()
     try {
       const [summaryRes, overviewRes, chartsRes, activityRes] = await Promise.all([
-        fetch(`/api/dashboard/consultant/summary?${qs}&_t=${t}`, { cache: "no-store" }),
-        fetch(`/api/dashboard/consultant/overview?${qs}&_t=${t}`, { cache: "no-store" }),
-        fetch(`/api/dashboard/consultant/charts?${qs}&_t=${t}`, { cache: "no-store" }),
-        fetch(`/api/dashboard/consultant/activity?${qs}&_t=${t}`, { cache: "no-store" })
+        fetch(`/api/dashboard/consultant/summary?${qs}&_t=${t}`, { cache: "no-store" }).catch(() => null),
+        fetch(`/api/dashboard/consultant/overview?${qs}&_t=${t}`, { cache: "no-store" }).catch(() => null),
+        fetch(`/api/dashboard/consultant/charts?${qs}&_t=${t}`, { cache: "no-store" }).catch(() => null),
+        fetch(`/api/dashboard/consultant/activity?${qs}&_t=${t}`, { cache: "no-store" }).catch(() => null)
       ])
 
-      if (summaryRes.ok) setSummaryData(await summaryRes.json())
-      if (overviewRes.ok) setOverviewData(await overviewRes.json())
-      if (chartsRes.ok) setChartData(await chartsRes.json())
-      if (activityRes.ok) setActivityData(await activityRes.json())
+      if (summaryRes?.ok) setSummaryData(await summaryRes.json())
+      if (overviewRes?.ok) setOverviewData(await overviewRes.json())
+      if (chartsRes?.ok) setChartData(await chartsRes.json())
+      if (activityRes?.ok) setActivityData(await activityRes.json())
     } catch (error) {
       console.error("Failed to fetch consultant dashboard data:", error)
     } finally {
