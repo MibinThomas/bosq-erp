@@ -958,7 +958,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Product Specifications Section */}
         {specHtml ? (
-          <View style={[styles.specBlock, { fontSize: 6.5 }]}>
+          <View style={[styles.specBlock, { fontSize: 5.75 }]}>
             <Text style={styles.sectionSubHeading}>Product Specifications</Text>
             <Html stylesheet={htmlStylesheet}>{specHtml}</Html>
           </View>

@@ -22,8 +22,12 @@ export const FONT_FAMILIES = [
 ]
 
 export const FONT_SIZES = [
+  "6pt",
+  "7pt",
   "8pt",
+  "9pt",
   "10pt",
+  "11pt",
   "12pt",
   "14pt",
   "16pt",

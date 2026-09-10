@@ -220,15 +220,35 @@ input[type="number"] {
 .ql-snow .ql-picker.ql-size .ql-picker-label::before {
   content: 'Font Size';
 }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="6pt"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="6pt"]::before {
+  content: '6pt';
+  font-size: 6pt;
+}
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="7pt"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="7pt"]::before {
+  content: '7pt';
+  font-size: 7pt;
+}
 .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="8pt"]::before,
 .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="8pt"]::before {
   content: '8pt';
   font-size: 8pt;
 }
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="9pt"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="9pt"]::before {
+  content: '9pt';
+  font-size: 9pt;
+}
 .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="10pt"]::before,
 .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="10pt"]::before {
   content: '10pt';
   font-size: 10pt;
+}
+.ql-snow .ql-picker.ql-size .ql-picker-label[data-value="11pt"]::before,
+.ql-snow .ql-picker.ql-size .ql-picker-item[data-value="11pt"]::before {
+  content: '11pt';
+  font-size: 11pt;
 }
 .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="12pt"]::before,
 .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="12pt"]::before {
