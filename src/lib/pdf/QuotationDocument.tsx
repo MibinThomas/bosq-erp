@@ -29,30 +29,38 @@ const colors = {
 
 const htmlStylesheet = {
   p: {
+    fontSize: 5.75,
     color: "#444444",
+    lineHeight: 1.25,
     marginTop: 0,
     marginBottom: 2,
     paddingLeft: 0,
     marginLeft: 0,
+    textAlign: "left",
   },
   ul: {
     marginTop: 0,
     marginBottom: 0,
     paddingLeft: 0,
     marginLeft: -10,
+    textAlign: "left",
   },
   ol: {
     marginTop: 0,
     marginBottom: 0,
     paddingLeft: 0,
     marginLeft: -10,
+    textAlign: "left",
   },
   li: {
+    fontSize: 5.75,
     color: "#444444",
+    lineHeight: 1.25,
     marginTop: 0,
     marginBottom: 1,
     paddingLeft: 0,
     marginLeft: 0,
+    textAlign: "left",
   },
   b: {
     fontWeight: "bold",
@@ -83,14 +91,25 @@ const htmlStylesheet = {
   mark: {
     backgroundColor: "#fde047",
   },
-  span: {},
+  span: {
+    fontSize: 5.75,
+    lineHeight: 1.25,
+    textAlign: "left",
+  },
   div: {
+    fontSize: 5.75,
     color: "#444444",
+    lineHeight: 1.25,
     marginTop: 0,
     marginBottom: 2,
     paddingLeft: 0,
     marginLeft: 0,
+    textAlign: "left",
   },
+  h1: { fontSize: 6.0, fontWeight: "bold", color: colors.primary, textTransform: "uppercase", marginTop: 3, marginBottom: 2.5, textAlign: "left" },
+  h2: { fontSize: 6.0, fontWeight: "bold", color: colors.primary, textTransform: "uppercase", marginTop: 3, marginBottom: 2.5, textAlign: "left" },
+  h3: { fontSize: 6.0, fontWeight: "bold", color: colors.primary, textTransform: "uppercase", marginTop: 3, marginBottom: 2.5, textAlign: "left" },
+  h4: { fontSize: 6.0, fontWeight: "bold", color: colors.primary, textTransform: "uppercase", marginTop: 2, marginBottom: 1.5, textAlign: "left" },
 }
 
 const styles = StyleSheet.create({
@@ -835,6 +854,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     // Preserve empty paragraph line breaks from Quill editor
     html = html.replace(/<p><br\s*\/?>\s*<\/p>/gi, '<p>&nbsp;</p>')
     html = html.replace(/<p>\s*<\/p>/gi, '<p>&nbsp;</p>')
+
+    // Strip any saved font-size declarations from inline style attributes to enforce consistent typography with Description text
+    html = html.replace(/font-size:\s*[^;"]+;?/gi, '')
 
     // Convert <mark> tags to span with inline background-color
     html = html.replace(/<mark([^>]*)>/gi, '<span style="background-color: #fde047;"$1>')
