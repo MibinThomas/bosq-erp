@@ -50,6 +50,7 @@ import {
   Copy
 } from "lucide-react"
 import { toast } from "sonner"
+import { safeCopyToClipboard } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -1130,8 +1131,8 @@ export default function AccessControlPage() {
                   {newUserPassword && (
                     <button
                       type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(newUserPassword)
+                      onClick={async () => {
+                        await safeCopyToClipboard(newUserPassword)
                         toast.success("Initial password copied to clipboard!")
                       }}
                       className="text-[10px] font-bold text-rose-600 hover:underline flex items-center gap-1 cursor-pointer"
@@ -1386,8 +1387,8 @@ export default function AccessControlPage() {
                         {editUserPassword && (
                           <button
                             type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(editUserPassword)
+                            onClick={async () => {
+                              await safeCopyToClipboard(editUserPassword)
                               toast.success("Password copied to clipboard!")
                             }}
                             className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
@@ -1417,8 +1418,8 @@ export default function AccessControlPage() {
                             <button
                               type="button"
                               title="Copy password to clipboard"
-                              onClick={() => {
-                                navigator.clipboard.writeText(editUserPassword)
+                              onClick={async () => {
+                                await safeCopyToClipboard(editUserPassword)
                                 toast.success("Password copied to clipboard!")
                               }}
                               className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
@@ -1463,8 +1464,8 @@ export default function AccessControlPage() {
                       <Button
                         type="button"
                         size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(editUserPassword)
+                        onClick={async () => {
+                          await safeCopyToClipboard(editUserPassword)
                           toast.success("Password copied to clipboard!")
                         }}
                         className="h-8 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center gap-1.5 cursor-pointer shadow-2xs"
@@ -1607,8 +1608,8 @@ export default function AccessControlPage() {
                   {resetTempPassword && (
                     <button
                       type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(resetTempPassword)
+                      onClick={async () => {
+                        await safeCopyToClipboard(resetTempPassword)
                         toast.success("Temporary password copied to clipboard!")
                       }}
                       className="text-[10px] font-bold text-emerald-600 hover:underline flex items-center gap-1 cursor-pointer"

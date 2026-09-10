@@ -69,6 +69,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { safeCopyToClipboard } from "@/lib/utils"
 
 interface UserRecord {
   id: string
@@ -883,8 +884,8 @@ export default function UserManagementPage() {
                   />
                   <button
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(formPassword)
+                    onClick={async () => {
+                      await safeCopyToClipboard(formPassword)
                       toast.success("Password copied to clipboard!")
                     }}
                     className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"

@@ -33,7 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { cn, safeCopyToClipboard } from "@/lib/utils"
 
 export interface WorkstationModel {
   seriesName?: string
@@ -714,8 +714,8 @@ export function WorkstationConfigurator({
     return activeProductPayload.unitPrice || 0
   }, [activeProductPayload, watchSegment])
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
+  const copyToClipboard = async (text: string) => {
+    await safeCopyToClipboard(text)
     setCopiedSku(true)
     toast.success("SKU copied to clipboard!")
     setTimeout(() => setCopiedSku(false), 2000)
