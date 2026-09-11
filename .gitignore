@@ -52,3 +52,6 @@ claude.md
 
 # uploads fallback
 /public/uploads/
+
+# scratch directory
+/scratch/

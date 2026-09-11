@@ -858,8 +858,14 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     // Strip any saved font-size declarations from inline style attributes to enforce consistent typography with Description text
     html = html.replace(/font-size:\s*[^;"]+;?/gi, '')
 
-    // Convert <mark> tags to span with inline background-color
-    html = html.replace(/<mark([^>]*)>/gi, '<span style="background-color: #fde047;"$1>')
+    // Convert <mark> tags to span with inline background-color safely
+    html = html.replace(/<mark\b([^>]*)>/gi, (_, attrs) => {
+      const trimmedAttrs = attrs ? attrs.trim() : ""
+      if (/style=["']/i.test(trimmedAttrs)) {
+        return `<span ${trimmedAttrs.replace(/style=["']([^"']+)["']/i, 'style="background-color: #fde047; $1"')}>`
+      }
+      return `<span style="background-color: #fde047;"${trimmedAttrs ? " " + trimmedAttrs : ""}>`
+    })
     html = html.replace(/<\/mark>/gi, '</span>')
 
     const quillBgMap: Record<string, string> = {
@@ -870,6 +876,19 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       "ql-bg-blue": "#bfdbfe",
       "ql-bg-purple": "#e9d5ff",
       "ql-bg-black": "#e2e8f0",
+      "ql-bg-white": "#ffffff",
+      "ql-bg-grey": "#e2e8f0",
+      "ql-bg-gray": "#e2e8f0",
+      "highlight": "#fde047",
+      "highlighted": "#fde047",
+      "bg-yellow": "#fde047",
+      "bg-yellow-100": "#fef9c3",
+      "bg-yellow-200": "#fef08a",
+      "bg-yellow-300": "#fde047",
+      "bg-orange-100": "#ffedd5",
+      "bg-red-100": "#fee2e2",
+      "bg-green-100": "#dcfce7",
+      "bg-blue-100": "#dbeafe",
     }
 
     const quillColorMap: Record<string, string> = {

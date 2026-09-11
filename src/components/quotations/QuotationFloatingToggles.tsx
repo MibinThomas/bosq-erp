@@ -102,7 +102,7 @@ export function QuotationFloatingToggles({
   values,
   onChange,
 }: QuotationFloatingTogglesProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [activeHoverKey, setActiveHoverKey] = useState<string | null>(null)
 
   const activeCount = toggleDefinitions.filter(
