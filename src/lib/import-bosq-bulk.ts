@@ -8,6 +8,48 @@ export interface ImportResult {
   errors: string[]
 }
 
+export function formatSpecificationsText(rawSpecs?: string | null): string | null {
+  if (!rawSpecs || !rawSpecs.trim()) return null
+
+  const trimmed = rawSpecs.trim()
+  if (trimmed === "-" || trimmed.toLowerCase() === "none" || trimmed.toLowerCase() === "not specified") {
+    return null
+  }
+
+  if (/<(ul|ol|li)\b[^>]*>/i.test(trimmed)) {
+    return trimmed
+  }
+
+  let cleaned = trimmed
+    .replace(/^<(p|div)[^>]*>/i, "")
+    .replace(/<\/(p|div)>$/i, "")
+    .replace(/&nbsp;/gi, " ")
+    .trim()
+
+  cleaned = cleaned.replace(/\.\s+(?=[A-Z][a-zA-Z0-9\s_\-]{1,25}:)/g, "; ")
+
+  const rawItems = cleaned
+    .split(/;|\r?\n|\|/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && s !== "-" && s.toLowerCase() !== "none" && s.toLowerCase() !== "not specified")
+    .filter((s) => !/^(product\s+specifications|configured\s+attributes|specifications|attributes)$/i.test(s))
+
+  if (rawItems.length === 0) return null
+
+  const listElements = rawItems.map((item) => {
+    const colonIndex = item.indexOf(":")
+    if (colonIndex > 0 && colonIndex < item.length - 1) {
+      const key = item.substring(0, colonIndex).trim()
+      const val = item.substring(colonIndex + 1).trim()
+      const formattedKey = key.charAt(0).toUpperCase() + key.slice(1)
+      return `<li><strong>${formattedKey}:</strong> ${val}</li>`
+    }
+    return `<li>${item}</li>`
+  })
+
+  return `<ul>${listElements.join("")}</ul>`
+}
+
 const inferCategoryName = (categoryFromCsv?: string, productName?: string, productCode?: string): string => {
   const cleanCat = (categoryFromCsv || "").trim()
   if (cleanCat && cleanCat.toLowerCase() !== "chairs" && cleanCat.toLowerCase() !== "general") {
@@ -163,7 +205,7 @@ export async function importBosqBulkData(filePath: string = "public/uploads/bosq
       const primaryImage = coverImage || (galleryImages.length > 0 ? galleryImages[0] : null)
 
       // Specifications & description
-      const specs = v.details ? String(v.details).trim() : null
+      const specs = formatSpecificationsText(v.details ? String(v.details).trim() : null)
       const desc = v.additional_details ? String(v.additional_details).trim() : v.description ? String(v.description).trim() : null
 
       const variantAttributes = {

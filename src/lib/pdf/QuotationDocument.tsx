@@ -838,16 +838,37 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
       return ""
     }
 
-    // If input is legacy plain text or semi-colon separated string without any HTML tags
-    if (!/<[a-z][\s\S]*>/i.test(trimmed)) {
-      const items = trimmed
-        .split(/;|\r?\n/)
+    // If input is plain text or lacks list markup (ul, ol, li), format into structured bullet list
+    if (!/<(ul|ol|li)\b[^>]*>/i.test(trimmed)) {
+      let cleaned = trimmed
+        .replace(/^<(p|div)[^>]*>/i, "")
+        .replace(/<\/(p|div)>$/i, "")
+        .replace(/&nbsp;/gi, " ")
+        .trim()
+
+      // Pre-split on period followed by space and a Key label (e.g. ". Remarks:")
+      cleaned = cleaned.replace(/\.\s+(?=[A-Z][a-zA-Z0-9\s_\-]{1,25}:)/g, "; ")
+
+      const rawItems = cleaned
+        .split(/;|\r?\n|\|/)
         .map((s) => s.trim())
         .filter((s) => s.length > 0 && s !== "-" && s.toLowerCase() !== "none" && s.toLowerCase() !== "not specified")
         .filter((s) => !/^(product\s+specifications|configured\s+attributes|specifications|attributes)$/i.test(s))
 
-      if (items.length === 0) return ""
-      return `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`
+      if (rawItems.length === 0) return ""
+
+      const listElements = rawItems.map((item) => {
+        const colonIndex = item.indexOf(":")
+        if (colonIndex > 0 && colonIndex < item.length - 1) {
+          const key = item.substring(0, colonIndex).trim()
+          const val = item.substring(colonIndex + 1).trim()
+          const formattedKey = key.charAt(0).toUpperCase() + key.slice(1)
+          return `<li><strong>${formattedKey}:</strong> ${val}</li>`
+        }
+        return `<li>${item}</li>`
+      })
+
+      return `<ul>${listElements.join("")}</ul>`
     }
 
     let html = trimmed
