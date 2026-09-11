@@ -35,6 +35,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import RichTextEditor from "@/components/ui/rich-text-editor"
 
 export interface ProductVariantItem {
   id: string
@@ -203,6 +204,7 @@ export function VariantDrawerModal({
     projectPrice: 0,
     stock: 0,
     description: "",
+    specifications: "",
   })
 
   // Inline Add Variant state
@@ -219,6 +221,7 @@ export function VariantDrawerModal({
     projectPrice: 300,
     stock: 10,
     description: "",
+    specifications: "",
   })
 
   // Compute Sub-Products (Level 2) and Variant Attributes (Level 3)
@@ -444,6 +447,7 @@ export function VariantDrawerModal({
       projectPrice: variant.projectPrice || variant.unitPrice || 0,
       stock: variant.stock || 0,
       description: variant.description || "",
+      specifications: variant.specifications || "",
     })
   }
 
@@ -472,6 +476,7 @@ export function VariantDrawerModal({
           specialPrice: cost || project,
           stock: editVariantForm.stock || 0,
           description: editVariantForm.description.trim() || null,
+          specifications: editVariantForm.specifications.trim() || null,
           status: "ACTIVE",
         }),
       })
@@ -490,6 +495,7 @@ export function VariantDrawerModal({
             stock: editVariantForm.stock,
             projectPrice: project,
             unitPrice: project,
+            specifications: editVariantForm.specifications.trim() || null,
           }
         }
       }
@@ -627,6 +633,7 @@ export function VariantDrawerModal({
         stock: newVariantForm.stock || 0,
         imageUrl: imageUrl || masterProduct.imageUrl || null,
         description: newVariantForm.description || `${masterProduct.productName} Series ${newVariantForm.modelName}`,
+        specifications: newVariantForm.specifications.trim() || masterProduct.specifications || null,
       }
 
       const res = await fetch("/api/products", {
@@ -654,6 +661,7 @@ export function VariantDrawerModal({
         projectPrice: 300,
         stock: 10,
         description: "",
+        specifications: "",
       })
 
       if (onVariantAdded) onVariantAdded()
@@ -1180,6 +1188,20 @@ export function VariantDrawerModal({
                     className="text-xs bg-background resize-none"
                   />
                 </div>
+
+                <div className="space-y-1.5 sm:col-span-3">
+                  <label className="font-bold text-foreground block flex items-center justify-between">
+                    <span>Product Specifications</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      Rich text formatting (headings, bullet points, highlights) for PDF & quotation preview
+                    </span>
+                  </label>
+                  <RichTextEditor
+                    value={newVariantForm.specifications}
+                    onChange={(val) => setNewVariantForm({ ...newVariantForm, specifications: val })}
+                    placeholder="E.g. Headrest: 3D Adjustable; Back Frame: Mesh PP+GF; Armrest: 4D PU..."
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t">
@@ -1362,6 +1384,20 @@ export function VariantDrawerModal({
                             className="text-xs bg-background resize-none"
                           />
                         </div>
+
+                        <div className="space-y-1.5 sm:col-span-3">
+                          <label className="font-bold text-foreground block flex items-center justify-between">
+                            <span>Product Specifications</span>
+                            <span className="text-[10px] text-muted-foreground font-normal">
+                              Rich text formatting (headings, bullet points, highlights) for PDF & quotation preview
+                            </span>
+                          </label>
+                          <RichTextEditor
+                            value={editVariantForm.specifications}
+                            onChange={(val) => setEditVariantForm({ ...editVariantForm, specifications: val })}
+                            placeholder="E.g. Headrest: 3D Adjustable; Back Frame: Mesh PP+GF; Armrest: 4D PU..."
+                          />
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-end gap-2 pt-2 border-t border-amber-500/15">
@@ -1469,6 +1505,13 @@ export function VariantDrawerModal({
                           <p className="text-[11px] text-muted-foreground line-clamp-1 italic bg-muted/30 px-2 py-0.5 rounded border border-border/40 max-w-xl">
                             "{variant.description}"
                           </p>
+                        )}
+
+                        {variant.specifications && (
+                          <div className="text-[11px] text-muted-foreground bg-muted/20 px-2.5 py-1.5 rounded-lg border border-border/40 max-w-2xl space-y-1">
+                            <span className="font-bold text-[9px] uppercase tracking-wider text-primary/80 block">Variant Specifications:</span>
+                            <div className="prose prose-xs dark:prose-invert max-w-none text-[11px] leading-relaxed [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&>p]:m-0" dangerouslySetInnerHTML={{ __html: variant.specifications }} />
+                          </div>
                         )}
 
                         {/* Attribute Badges */}
