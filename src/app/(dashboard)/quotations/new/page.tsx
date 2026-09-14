@@ -3440,20 +3440,26 @@ function NewQuotationForm() {
     }
   }
 
-  const isDraftRevision = existingQuote && existingQuote.status === "DRAFT" && (!!existingQuote.parentId || (existingQuote.revisionNumber || 1) > 1)
+  const isDraftRevision = existingQuote && existingQuote.status === "DRAFT" && (!!existingQuote.parentId || (existingQuote.revisionNumber || 0) > 0 || (existingQuote.quotationNumber && existingQuote.quotationNumber.includes("-")))
   const isFinalizedQuote = existingQuote && existingQuote.status !== "DRAFT"
   const isRevisionMode = isRevision || (isFinalizedQuote && !isEdit) || isDraftRevision
 
   const targetRevNo = useMemo(() => {
     if (!existingQuote) return 1
-    if (isFinalizedQuote) return (existingQuote.revisionNumber || 1) + 1
-    if (isDraftRevision) return existingQuote.revisionNumber || 1
+    const currentRevNo = existingQuote.revisionNumber || 0
+    if (isFinalizedQuote) {
+      const isBaseQuote = !existingQuote.parentId && currentRevNo <= 1 && !existingQuote.quotationNumber?.includes("-")
+      return isBaseQuote ? 1 : currentRevNo + 1
+    }
+    if (isDraftRevision) {
+      return currentRevNo > 0 ? currentRevNo : 1
+    }
     return 1
   }, [existingQuote, isFinalizedQuote, isDraftRevision])
 
   const isEditingDraft = isEdit || (existingQuote && existingQuote.status === "DRAFT" && !isDraftRevision)
-  const headerTitle = isRevisionMode ? "Revise Quotation" : isEdit ? (existingQuote?.status !== "DRAFT" ? "Edit Quotation" : "Update Draft Quotation") : isCopy ? "Copy Quotation" : "Create Quotation"
-  const primaryButtonText = isRevisionMode ? `Save Revision #${targetRevNo}` : isEdit ? (existingQuote?.status !== "DRAFT" ? "Update Quotation" : "Update Draft") : "Create Quotation"
+  const headerTitle = isRevisionMode ? "Revise Quotation" : isEdit && isFinalizedQuote ? "Edit Quotation" : isCopy ? "Copy Quotation" : "Create Quotation"
+  const primaryButtonText = isRevisionMode ? `Create Revision ${targetRevNo}` : isFinalizedQuote ? "Update Quotation" : "Create Quotation"
   const watchIncludeSectionHeadings = useWatch({ control: form.control, name: "includeSectionHeadings" }) ?? true
 
   const { grandTotal: calculatedGrandTotal } = useQuotationFinancials(form.control)
