@@ -2809,8 +2809,8 @@ function NewQuotationForm() {
     }
   }
 
-  const handleProductSelect = (index: number, productId: string) => {
-    const prod = products.find((p) => p.id === productId)
+  const handleProductSelect = (index: number, productId: string, overrideProd?: any) => {
+    const prod = overrideProd || products.find((p) => p.id === productId)
     if (!prod) return
 
     let basePrice = prod.unitPrice
@@ -2819,39 +2819,56 @@ function NewQuotationForm() {
     else if (watchSegment === "Project") basePrice = prod.projectPrice ?? prod.unitPrice
     else if (watchSegment === "Special") basePrice = prod.specialPrice ?? prod.unitPrice
 
-    const currentItem = form.getValues(`items.${index}`)
+    const currentItem = form.getValues(`items.${index}`) || {}
 
-    form.setValue(`items.${index}.productId`, prod.id)
-    form.setValue(`items.${index}.priceSource`, "standard")
-    form.setValue(`items.${index}.description`, prod.productName)
-    form.setValue(`items.${index}.specifications`, prod.specifications || "")
-    form.setValue(`items.${index}.customImageUrl`, prod.imageUrl || "")
-    form.setValue(`items.${index}.basePrice`, basePrice)
+    // Dynamic specification construction if plain specs empty but attributes present
+    let specs = prod.specifications || ""
+    if (!specs && (prod.dimensions || prod.tableTopFinish || prod.legType || prod.availableColors || prod.chairType)) {
+      const parts: string[] = []
+      if (prod.dimensions) parts.push(`Dimensions: ${prod.dimensions}`)
+      if (prod.tableTopFinish) parts.push(`Top Finish: ${prod.tableTopFinish}`)
+      if (prod.legType) parts.push(`Leg Frame: ${prod.legType}`)
+      if (prod.availableColors) parts.push(`Color: ${prod.availableColors}`)
+      if (prod.chairType) parts.push(`Type: ${prod.chairType}`)
+      if (prod.storageOptions) parts.push(`Storage: ${prod.storageOptions}`)
+      if (prod.finishMaterial) parts.push(`Finish: ${prod.finishMaterial}`)
+      if (prod.warranty) parts.push(`Warranty: ${prod.warranty}`)
+      specs = parts.join("; ")
+    }
+
+    form.setValue(`items.${index}.productId`, prod.id, { shouldValidate: true, shouldDirty: true })
+    form.setValue(`items.${index}.priceSource`, "standard", { shouldValidate: true, shouldDirty: true })
+    form.setValue(`items.${index}.description`, prod.productName, { shouldValidate: true, shouldDirty: true })
+    form.setValue(`items.${index}.specifications`, specs, { shouldValidate: true, shouldDirty: true })
+    form.setValue(`items.${index}.customImageUrl`, prod.imageUrl || "", { shouldValidate: true, shouldDirty: true })
+    form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
 
     const marginVal = Number(currentItem.margin) || 0
     const marginMultiplier = 1 + marginVal / 100
     const calculatedUnitPrice = Number((basePrice * marginMultiplier).toFixed(2))
 
-    form.setValue(`items.${index}.unitPrice`, calculatedUnitPrice)
-    form.setValue(`items.${index}.manualMargin`, marginVal)
-    form.setValue(`items.${index}.productDescription`, prod.description || prod.specifications || "")
+    form.setValue(`items.${index}.unitPrice`, calculatedUnitPrice, { shouldValidate: true, shouldDirty: true })
+    form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: true, shouldDirty: true })
+    form.setValue(`items.${index}.productDescription`, prod.description || specs || "", { shouldValidate: true, shouldDirty: true })
 
-    if (prod.category?.name) {
-      form.setValue(`items.${index}.categoryName`, prod.category.name)
+    const category = prod.category?.name || prod.categoryName
+    if (category) {
+      form.setValue(`items.${index}.categoryName`, category, { shouldValidate: true, shouldDirty: true })
     }
     if (prod.chairType) {
-      form.setValue(`items.${index}.chairType`, prod.chairType)
+      form.setValue(`items.${index}.chairType`, prod.chairType, { shouldValidate: true, shouldDirty: true })
     }
   }
 
   const handleVariantSelect = (index: number, variantProduct: any) => {
+    if (!variantProduct) return
     setProducts((prev) => {
       if (!prev.some((p) => p.id === variantProduct.id)) {
         return [...prev, variantProduct]
       }
       return prev
     })
-    handleProductSelect(index, variantProduct.id)
+    handleProductSelect(index, variantProduct.id, variantProduct)
   }
 
   const handleDuplicateItem = (index: number) => {
