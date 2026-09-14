@@ -786,8 +786,8 @@ export async function PUT(
       return NextResponse.json(confirmedQuotation)
     }
 
-    // Check if target quotation is finalized (status !== "DRAFT")
-    if (existingQuotation.status !== "DRAFT" && !body.isRevision && logUserRole !== "SUPER_ADMIN") {
+    // Check if target quotation is finalized (status !== "DRAFT") and not an update request
+    if (existingQuotation.status !== "DRAFT" && !body.isRevision && !body.isUpdate && logUserRole !== "SUPER_ADMIN") {
       return NextResponse.json(
         { error: `Quotation ${existingQuotation.quotationNumber} is finalized and locked from direct editing. Please create a Revision to modify this quotation.` },
         { status: 400 }
@@ -1319,17 +1319,10 @@ export async function PUT(
       return NextResponse.json(updatedQuotation)
     }
 
-    // CASE 3: DIRECT UPDATE OF CURRENT DRAFT
+    // CASE 3: DIRECT UPDATE OF CURRENT QUOTATION
     if (body.isUpdate === true) {
       if (!(await canManageQuotationSeries())) {
         return NextResponse.json({ error: "Unauthorized: You can only update your own or assigned quotations" }, { status: 403 })
-      }
-
-      if (existingQuotation.status !== "DRAFT" && logUserRole !== "SUPER_ADMIN") {
-        return NextResponse.json(
-          { error: `Quotation ${existingQuotation.quotationNumber} is locked from direct editing. Please create a Revision to modify this quotation.` },
-          { status: 400 }
-        )
       }
 
       const {

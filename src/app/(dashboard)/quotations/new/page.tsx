@@ -2477,14 +2477,8 @@ function NewQuotationForm() {
               setIsRevision(true)
               setIsEdit(false)
             } else if (editId) {
-              if (activeData.status !== "DRAFT" && userRole !== "SUPER_ADMIN") {
-                toast.info(`Quotation ${activeData.quotationNumber} is created and locked from direct editing. Opening Revision mode...`)
-                setIsRevision(true)
-                setIsEdit(false)
-              } else {
-                setIsEdit(true)
-                setIsRevision(false)
-              }
+              setIsEdit(true)
+              setIsRevision(false)
             } else if (copyId) {
               setIsCopy(true)
               setIsEdit(false)
@@ -3005,16 +2999,19 @@ function NewQuotationForm() {
       let method = "POST"
       let sendIsRevision = false
 
-      // Send isRevision = true ONLY when explicitly creating a new revision (isRevisionMode active and not a draft save)
-      const isRevisionSubmission = isRevisionMode && resolvedStatus !== "DRAFT"
+      // Send isRevision = true ONLY when explicitly creating a new revision (isRevision === true and !isEdit)
+      const isRevisionSubmission = isRevision && !isEdit
 
-      if (isRevisionSubmission && existingQuote) {
-        url = `/api/quotations/${existingQuote.id}`
+      if (isRevisionSubmission) {
+        url = `/api/quotations/${existingQuote?.id || targetId}`
         method = "PUT"
         sendIsRevision = true
-      } else if (existingQuote || targetId) {
-        const updateTargetId = targetId || existingQuote?.id
-        url = `/api/quotations/${updateTargetId}`
+      } else if (existingQuote) {
+        url = `/api/quotations/${existingQuote.id}`
+        method = "PUT"
+        sendIsRevision = false
+      } else if (targetId) {
+        url = `/api/quotations/${targetId}`
         method = "PUT"
         sendIsRevision = false
       }
@@ -3188,11 +3185,16 @@ function NewQuotationForm() {
       let targetUrl = ""
       let method = ""
       let sendIsRevision = false
-
-      const targetQuoteId = autoSavedQuoteId || existingQuote?.id
-
-      if (targetQuoteId) {
-        targetUrl = `/api/quotations/${targetQuoteId}`
+      if (autoSavedQuoteId) {
+        targetUrl = `/api/quotations/${autoSavedQuoteId}`
+        method = "PUT"
+        sendIsRevision = false
+      } else if (isRevision && existingQuote && !autoSavedQuoteId) {
+        targetUrl = `/api/quotations/${existingQuote.id}`
+        method = "PUT"
+        sendIsRevision = true
+      } else if (existingQuote) {
+        targetUrl = `/api/quotations/${existingQuote.id}`
         method = "PUT"
         sendIsRevision = false
       } else {
