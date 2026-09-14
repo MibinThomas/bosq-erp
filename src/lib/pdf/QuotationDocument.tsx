@@ -252,11 +252,11 @@ const styles = StyleSheet.create({
     borderBottomColor: "#fab48a", // Custom orange separator
     paddingTop: 10,
     paddingBottom: 12,
-    alignItems: "flex-start", // All columns start from top position
+    alignItems: "stretch", // Stretch column height to match row
   },
   colSlNo: { width: "5%", textAlign: "center", justifyContent: "flex-start" },
   colDesc: { width: "41%", paddingLeft: 6, paddingRight: 6, justifyContent: "flex-start" },
-  colImage: { width: "30%", paddingHorizontal: 4, alignItems: "center", justifyContent: "flex-start" },
+  colImage: { width: "30%", paddingHorizontal: 4, alignItems: "center", justifyContent: "center", alignSelf: "center" },
   colQty: { width: "6%", textAlign: "center" },
   colPrice: { width: "9%", textAlign: "right" },
   colAmount: { width: "9%", textAlign: "right" },
