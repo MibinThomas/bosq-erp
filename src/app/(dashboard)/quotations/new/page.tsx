@@ -848,7 +848,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   handleDuplicateItem: (index: number) => void
   handleMoveItem: (index: number, direction: -1 | 1, batchName: string) => void
   remove: (index: number) => void
-  handleProductSelect: (index: number, productId: string) => void
+  handleProductSelect: (index: number, productId: string, overrideProd?: any) => void
   handleVariantSelect?: (index: number, variantProduct: any) => void
   fieldsLength: number
   isConfiguratorEnabled?: boolean
@@ -1136,7 +1136,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               if (handleVariantSelect) {
                 handleVariantSelect(index, variantProduct)
               } else {
-                handleProductSelect(index, variantProduct.id)
+                handleProductSelect(index, variantProduct.id, variantProduct)
               }
               setSelectionMode("search")
             }}
@@ -2887,6 +2887,10 @@ function NewQuotationForm() {
       return prev
     })
     handleProductSelect(index, variantProduct.id, variantProduct)
+    lastSavedDataRef.current = ""
+    setTimeout(() => {
+      handleAutoSave()
+    }, 50)
   }
 
   const handleDuplicateItem = (index: number) => {
@@ -3262,6 +3266,7 @@ function NewQuotationForm() {
         }
         setLastAutoSavedAt(new Date())
         lastSavedDataRef.current = dataString
+        return result
       }
     } catch (error) {
       console.error("Auto-save failed:", error)
@@ -3332,11 +3337,9 @@ function NewQuotationForm() {
     setLoadingPreview(true)
     setIsInPagePreviewOpen(true)
     try {
-      let targetQuoteId = existingQuote?.id || autoSavedQuoteId || searchParams.get("editId") || searchParams.get("reviseId")
-      
-      // Save current draft state so PDF renders exact up-to-date inputs
-      await handleAutoSave()
-      targetQuoteId = autoSavedQuoteId || (form.getValues() as any)?.id || targetQuoteId
+      lastSavedDataRef.current = ""
+      const savedQuote = await handleAutoSave()
+      const targetQuoteId = savedQuote?.id || autoSavedQuoteId || existingQuote?.id || searchParams.get("editId") || searchParams.get("reviseId")
 
       if (targetQuoteId) {
         const res = await fetch(`/api/quotations/${targetQuoteId}`)
@@ -3499,7 +3502,7 @@ function NewQuotationForm() {
                     ? `Editing Draft for Revision #${targetRevNo} (${existingQuote?.quotationNumber})`
                     : `Revision #${targetRevNo} for ${existingQuote?.quotationNumber}`)
                 : isEditingDraft
-                  ? `Editing Quotation Draft ${existingQuote?.quotationNumber}`
+                  ? `Editing Quotation Draft ${existingQuote?.quotationNumber ? (existingQuote.quotationNumber.includes("(Draft)") ? existingQuote.quotationNumber : `${existingQuote.quotationNumber} (Draft)`) : ""}`
                   : isCopy
                     ? `Copy of ${existingQuote?.quotationNumber}`
                     : "Select a client, build custom catalog line items, and generate a quotation PDF."}

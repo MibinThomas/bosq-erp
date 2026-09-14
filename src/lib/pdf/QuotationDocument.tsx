@@ -1169,7 +1169,16 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
                   <View style={styles.metaRowRight}>
                     <Text style={styles.metaKeyRight}>Quotation #:</Text>
-                    <Text style={styles.metaValueRight}>{(quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim()}</Text>
+                    <Text style={styles.metaValueRight}>
+                      {(() => {
+                        const cleanNo = (quotationNumber || "").replace(/\s+Copy.*$/gi, "").trim();
+                        const isDraftStatus = !status || status.toUpperCase() === "DRAFT" || status.toUpperCase() === "DRAFT_PDF";
+                        if (isDraftStatus) {
+                          return cleanNo && !cleanNo.toLowerCase().includes("draft") ? `${cleanNo} (Draft)` : cleanNo || "Draft";
+                        }
+                        return cleanNo.replace(/\s*\(Draft\)/gi, "").trim();
+                      })()}
+                    </Text>
                   </View>
 
                   <View style={styles.metaRowRight}>

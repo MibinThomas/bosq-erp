@@ -105,7 +105,7 @@ export function InPageQuotationPreviewModal({
                 <span>Quotation PDF Preview</span>
                 {quotationNumber && (
                   <Badge variant="outline" className="font-mono text-xs font-semibold bg-slate-800 border-slate-700 text-slate-200">
-                    {quotationNumber}
+                    {isDraft && !quotationNumber.toLowerCase().includes("draft") ? `${quotationNumber} (Draft)` : quotationNumber.replace(/\s*\(Draft\)/gi, "").trim()}
                   </Badge>
                 )}
                 {isDraft ? (
