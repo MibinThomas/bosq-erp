@@ -3005,19 +3005,16 @@ function NewQuotationForm() {
       let method = "POST"
       let sendIsRevision = false
 
-      // Send isRevision = true ONLY when revising an existing finalized quotation (status !== "DRAFT")
-      const isRevisionSubmission = !!existingQuote && existingQuote.status !== "DRAFT" && !isEdit
+      // Send isRevision = true ONLY when explicitly creating a new revision (isRevisionMode active and not a draft save)
+      const isRevisionSubmission = isRevisionMode && resolvedStatus !== "DRAFT"
 
-      if (isRevisionSubmission) {
+      if (isRevisionSubmission && existingQuote) {
         url = `/api/quotations/${existingQuote.id}`
         method = "PUT"
         sendIsRevision = true
-      } else if (isEdit && existingQuote) {
-        url = `/api/quotations/${existingQuote.id}`
-        method = "PUT"
-        sendIsRevision = false
-      } else if (targetId) {
-        url = `/api/quotations/${targetId}`
+      } else if (existingQuote || targetId) {
+        const updateTargetId = targetId || existingQuote?.id
+        url = `/api/quotations/${updateTargetId}`
         method = "PUT"
         sendIsRevision = false
       }
@@ -3191,20 +3188,13 @@ function NewQuotationForm() {
       let targetUrl = ""
       let method = ""
       let sendIsRevision = false
-      const isFinalized = existingQuote && existingQuote.status !== "DRAFT"
 
-      if (autoSavedQuoteId) {
-        targetUrl = `/api/quotations/${autoSavedQuoteId}`
-        method = "PUT"
-        sendIsRevision = isFinalized
-      } else if (existingQuote && existingQuote.status === "DRAFT") {
-        targetUrl = `/api/quotations/${existingQuote.id}`
+      const targetQuoteId = autoSavedQuoteId || existingQuote?.id
+
+      if (targetQuoteId) {
+        targetUrl = `/api/quotations/${targetQuoteId}`
         method = "PUT"
         sendIsRevision = false
-      } else if (existingQuote && existingQuote.status !== "DRAFT") {
-        targetUrl = `/api/quotations/${existingQuote.id}`
-        method = "PUT"
-        sendIsRevision = true
       } else {
         targetUrl = "/api/quotations"
         method = "POST"
