@@ -1065,14 +1065,15 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   // Group items by batchHeading dynamically, preserving relative order of appearance
   const groupedSections: { heading: string | null; items: QuotationPdfItem[] }[] = [];
   uniquePdfItems.forEach((item) => {
-    const heading = item.batchHeading ? item.batchHeading.trim() : null;
+    const rawHeading = item.batchHeading ? item.batchHeading.trim() : "";
+    const heading = (rawHeading && rawHeading.toLowerCase() !== "general items") ? rawHeading : null;
     const existingSection = groupedSections.find(
       (s) => (s.heading === null && heading === null) || (s.heading !== null && heading !== null && s.heading.toLowerCase() === heading.toLowerCase())
     );
     if (existingSection) {
       existingSection.items.push(item);
     } else {
-      groupedSections.push({ heading: item.batchHeading ? item.batchHeading.trim() : null, items: [item] });
+      groupedSections.push({ heading, items: [item] });
     }
   });
 

@@ -535,7 +535,7 @@ const BatchHeadingInput: React.FC<BatchHeadingInputProps> = ({ value, onChange }
   return (
     <Input
       ref={inputRef}
-      placeholder="Enter the Section Heading"
+      placeholder="Enter Section Heading"
       value={localValue}
       onChange={(e) => {
         const val = e.target.value
@@ -770,9 +770,10 @@ function BatchSectionSubtotal({ control, batchName, fields }: { control: any; ba
 
   const itemsInBatch = fields.filter((_, idx) => {
     const itemVal = watchItems[idx]
-    const itemBatch = itemVal?.batchHeading || ""
-    if (batchName === "General Items") {
-      return !itemBatch || itemBatch === "General Items"
+    const itemBatch = (itemVal?.batchHeading || "").trim()
+    const isGeneralBatch = !batchName || batchName.trim().toLowerCase() === "general items"
+    if (isGeneralBatch) {
+      return !itemBatch || itemBatch.toLowerCase() === "general items"
     }
     return itemBatch === batchName
   })
@@ -861,14 +862,15 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   const isCostedByEstimator = currentItemVal.costingStatus === "COSTING_COMPLETED" || !!currentItemVal.costingCompletedAt
   const isCostingLockedForIDC = isIDC && isCostedByEstimator
   const itemBatch = (currentItemVal.batchHeading || "").trim()
-  const isGeneral = !itemBatch || itemBatch === "General Items"
-  const batchExists = (batches || []).some(b => b.name === itemBatch || (isGeneral && b.name === "General Items"))
+  const isGeneral = !itemBatch || itemBatch.toLowerCase() === "general items"
+  const batchExists = (batches || []).some(b => b.name === itemBatch || (isGeneral && (!b.name || b.name.toLowerCase() === "general items")))
 
   let belongsToBatch = false
   if (batchExists) {
-    belongsToBatch = itemBatch === batchName || (isGeneral && batchName === "General Items")
+    belongsToBatch = itemBatch === batchName || (isGeneral && (!batchName || batchName.toLowerCase() === "general items"))
   } else {
-    belongsToBatch = batchName === (batches && batches[0]?.name) || batchName === "General Items"
+    const firstBatchName = batches && batches[0]?.name
+    belongsToBatch = batchName === firstBatchName || (isGeneral && (!batchName || batchName.toLowerCase() === "general items"))
   }
   if (!belongsToBatch) return null
 
@@ -894,8 +896,9 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
     return watchAllItems
       .map((item: any, idx: number) => ({ item, idx }))
       .filter(({ item }: any) => {
-        const b = item?.batchHeading || ""
-        return batchName === "General Items" ? (!b || b === "General Items") : b === batchName
+        const b = (item?.batchHeading || "").trim()
+        const isGeneralBatch = !batchName || batchName.trim().toLowerCase() === "general items"
+        return isGeneralBatch ? (!b || b.toLowerCase() === "general items") : b === batchName
       })
       .map(({ idx }: any) => idx)
   }, [watchAllItems, batchName])
@@ -1913,22 +1916,30 @@ function NewQuotationForm() {
     const targetBatch = batches.find(b => b.id === batchId)
     if (!targetBatch) return
 
+    const isTargetGeneral = !targetBatch.name || targetBatch.name.trim().toLowerCase() === "general items"
     const currentItems = form.getValues("items") || []
-    const itemsInBatch = currentItems.filter(item => (item.batchHeading || "General Items") === targetBatch.name)
+    const itemsInBatch = currentItems.filter(item => {
+      const h = (item.batchHeading || "").trim()
+      return isTargetGeneral ? (!h || h.toLowerCase() === "general items") : h === targetBatch.name
+    })
 
     if (itemsInBatch.length > 0) {
+      const sectionLabel = targetBatch.name.trim() ? `section "${targetBatch.name}"` : "this section"
       const confirmDelete = window.confirm(
-        `Are you sure you want to delete section "${targetBatch.name}" along with its ${itemsInBatch.length} product(s)?`
+        `Are you sure you want to delete ${sectionLabel} along with its ${itemsInBatch.length} product(s)?`
       )
       if (!confirmDelete) return
     }
 
-    const updatedItems = currentItems.filter(item => (item.batchHeading || "General Items") !== targetBatch.name)
+    const updatedItems = currentItems.filter(item => {
+      const h = (item.batchHeading || "").trim()
+      return isTargetGeneral ? (h && h.toLowerCase() !== "general items") : h !== targetBatch.name
+    })
     form.setValue("items", updatedItems, { shouldDirty: true, shouldValidate: true })
 
     const updatedBatches = batches.filter(b => b.id !== batchId)
     setBatches(updatedBatches)
-    toast.success(`Section "${targetBatch.name}" deleted.`)
+    toast.success(targetBatch.name.trim() ? `Section "${targetBatch.name}" deleted.` : "Section deleted.")
   }
 
   const [users, setUsers] = useState<any[]>([])
@@ -2077,8 +2088,9 @@ function NewQuotationForm() {
 
     const currentItems = [...form.getValues("items")]
     const draggedItem = { ...currentItems[draggedIndex] }
-    const oldBatchHeading = draggedItem.batchHeading || "General Items"
-    const newBatchHeading = targetBatchName ? (targetBatchName === "General Items" ? "" : targetBatchName) : draggedItem.batchHeading
+    const oldBatchHeading = (draggedItem.batchHeading || "").trim()
+    const isTargetGeneral = !targetBatchName || targetBatchName.trim().toLowerCase() === "general items"
+    const newBatchHeading = targetBatchName ? (isTargetGeneral ? "" : targetBatchName) : draggedItem.batchHeading
 
     draggedItem.batchHeading = newBatchHeading
 
@@ -2095,9 +2107,9 @@ function NewQuotationForm() {
     form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
     handleDragEnd()
 
-    const formattedTargetName = targetBatchName || "General Items"
+    const formattedTargetName = targetBatchName ? targetBatchName.trim() : ""
     if (oldBatchHeading !== formattedTargetName) {
-      toast.success(`Moved product to section "${formattedTargetName}"`)
+      toast.success(formattedTargetName ? `Moved product to section "${formattedTargetName}"` : `Moved product to section`)
     }
   }
 
@@ -2106,8 +2118,9 @@ function NewQuotationForm() {
     if (index < 0 || index >= currentItems.length) return
 
     const isItemInBatch = (item: any, bName: string) => {
-      const b = item?.batchHeading || ""
-      return bName === "General Items" ? (!b || b === "General Items") : b === bName
+      const b = (item?.batchHeading || "").trim()
+      const isGeneralBatch = !bName || bName.trim().toLowerCase() === "general items"
+      return isGeneralBatch ? (!b || b.toLowerCase() === "general items") : b === bName
     }
 
     const sectionIndices = currentItems
@@ -2156,8 +2169,9 @@ function NewQuotationForm() {
     if (draggedIndex !== null) {
       const currentItems = [...form.getValues("items")]
       const draggedItem = { ...currentItems[draggedIndex] }
-      const oldBatchHeading = draggedItem.batchHeading || "General Items"
-      const newBatchHeading = dropBatchName === "General Items" ? "" : dropBatchName
+      const oldBatchHeading = (draggedItem.batchHeading || "").trim()
+      const isDropGeneral = !dropBatchName || dropBatchName.trim().toLowerCase() === "general items"
+      const newBatchHeading = isDropGeneral ? "" : dropBatchName
 
       draggedItem.batchHeading = newBatchHeading
 
@@ -2167,8 +2181,8 @@ function NewQuotationForm() {
       // Find the last item belonging to dropBatchName
       let lastItemIndex = -1
       currentItems.forEach((item, idx) => {
-        const itemBatch = item.batchHeading || "General Items"
-        if ((dropBatchName === "General Items" && (!item.batchHeading || item.batchHeading === "General Items")) || itemBatch === dropBatchName) {
+        const itemBatch = (item.batchHeading || "").trim()
+        if ((isDropGeneral && (!itemBatch || itemBatch.toLowerCase() === "general items")) || itemBatch === dropBatchName) {
           lastItemIndex = idx
         }
       })
@@ -2183,7 +2197,7 @@ function NewQuotationForm() {
       handleDragEnd()
 
       if (oldBatchHeading !== dropBatchName) {
-        toast.success(`Moved product to section "${dropBatchName}"`)
+        toast.success(dropBatchName.trim() ? `Moved product to section "${dropBatchName}"` : "Moved product to section")
       }
       return
     }
@@ -2211,11 +2225,21 @@ function NewQuotationForm() {
     const reorderedItems: any[] = []
 
     updatedBatches.forEach(b => {
-      const itemsInBatch = currentItems.filter(item => (item.batchHeading || "General Items") === b.name)
+      const isBGeneral = !b.name || b.name.trim().toLowerCase() === "general items"
+      const itemsInBatch = currentItems.filter(item => {
+        const h = (item.batchHeading || "").trim()
+        return isBGeneral ? (!h || h.toLowerCase() === "general items") : h === b.name
+      })
       reorderedItems.push(...itemsInBatch)
     })
 
-    const unassignedItems = currentItems.filter(item => !updatedBatches.some(b => b.name === (item.batchHeading || "General Items")))
+    const unassignedItems = currentItems.filter(item => {
+      const h = (item.batchHeading || "").trim()
+      return !updatedBatches.some(b => {
+        const isBGeneral = !b.name || b.name.trim().toLowerCase() === "general items"
+        return isBGeneral ? (!h || h.toLowerCase() === "general items") : h === b.name
+      })
+    })
     reorderedItems.push(...unassignedItems)
 
     form.setValue("items", reorderedItems, { shouldDirty: true, shouldValidate: true })
@@ -2478,13 +2502,13 @@ function NewQuotationForm() {
             const orderedBatchNames: string[] = []
             ;(activeData.items || []).forEach((item: any) => {
               const b = (item.batchHeading || "").trim()
-              const name = !b || b === "General Items" ? "General Items" : b
+              const name = (!b || b.toLowerCase() === "general items") ? "" : b
               if (!orderedBatchNames.includes(name)) {
                 orderedBatchNames.push(name)
               }
             })
             if (orderedBatchNames.length === 0) {
-              orderedBatchNames.push("General Items")
+              orderedBatchNames.push("")
             }
 
             setBatches(orderedBatchNames.map((name, idx) => ({ id: `batch_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${idx}`, name })))
@@ -2671,13 +2695,13 @@ function NewQuotationForm() {
         const orderedCartBatches: string[] = []
         ;(data.items || []).forEach((item: any) => {
           const b = (item.batchHeading || "").trim()
-          const name = !b || b === "General Items" ? "General Items" : b
+          const name = (!b || b.toLowerCase() === "general items") ? "" : b
           if (!orderedCartBatches.includes(name)) {
             orderedCartBatches.push(name)
           }
         })
         if (orderedCartBatches.length === 0) {
-          orderedCartBatches.push("General Items")
+          orderedCartBatches.push("")
         }
 
         setBatches(orderedCartBatches.map((name, idx) => ({ id: `batch_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${idx}`, name })))
@@ -4486,8 +4510,9 @@ function NewQuotationForm() {
 
                                 fields.forEach((_, idx) => {
                                   const currentHeading = form.getValues(`items.${idx}.batchHeading`)
-                                  if ((oldName === "General Items" && !currentHeading) || currentHeading === oldName) {
-                                    form.setValue(`items.${idx}.batchHeading`, val)
+                                  const isOldGeneral = !oldName || oldName.trim().toLowerCase() === "general items"
+                                  if ((isOldGeneral && (!currentHeading || currentHeading.trim().toLowerCase() === "general items")) || currentHeading === oldName) {
+                                    form.setValue(`items.${idx}.batchHeading`, val, { shouldDirty: true })
                                   }
                                 })
                               }}
