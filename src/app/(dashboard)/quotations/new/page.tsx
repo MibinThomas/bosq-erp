@@ -1081,27 +1081,14 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           <div className="flex items-center gap-1.5">
             <Button
               type="button"
-              variant={selectionMode === "search" ? "default" : "ghost"}
+              variant={selectionMode === "configurator" ? "default" : "outline"}
               size="sm"
-              onClick={() => setSelectionMode("search")}
-              className={cn(
-                "h-8 text-xs px-3 font-semibold transition-all cursor-pointer",
-                selectionMode === "search" ? "bg-background text-foreground shadow-xs border" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Search className="h-3.5 w-3.5 mr-1.5" />
-              Standard Catalog Search
-            </Button>
-            <Button
-              type="button"
-              variant={selectionMode === "configurator" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setSelectionMode("configurator")}
+              onClick={() => setSelectionMode(selectionMode === "configurator" ? "search" : "configurator")}
               className={cn(
                 "h-8 text-xs px-3.5 font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
                 selectionMode === "configurator"
                   ? "bg-primary text-primary-foreground shadow-xs border-primary"
-                  : "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+                  : "bg-background text-primary border-primary/30 hover:bg-primary/10"
               )}
             >
               <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
@@ -2473,6 +2460,9 @@ function NewQuotationForm() {
           if (fetchRes.ok) {
             const activeData = await fetchRes.json()
             setExistingQuote(activeData)
+            if (activeData.notes || activeData.revisionNotes) {
+              setRevisionNotes(activeData.notes || activeData.revisionNotes || "")
+            }
             if (reviseId) {
               setIsRevision(true)
               setIsEdit(false)
@@ -3179,12 +3169,12 @@ function NewQuotationForm() {
     const currentData = form.getValues()
     if (!currentData.clientId || currentData.items.length === 0) return
 
-    const dataString = JSON.stringify(currentData)
+    const { isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes } = autoSaveStateRef.current
+    const dataString = JSON.stringify({ ...currentData, revisionNotes })
     if (dataString === lastSavedDataRef.current) return
 
     setIsAutoSaving(true)
     try {
-      const { isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes } = autoSaveStateRef.current
 
       let targetUrl = ""
       let method = ""
@@ -3420,6 +3410,21 @@ function NewQuotationForm() {
       }
     }
   }, [form])
+
+  useEffect(() => {
+    if (autoSaveTimerRef.current) {
+      clearTimeout(autoSaveTimerRef.current)
+    }
+    autoSaveTimerRef.current = setTimeout(() => {
+      handleAutoSave()
+    }, 3000)
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current)
+      }
+    }
+  }, [revisionNotes])
 
   const handleRequestAccessSubmit = async () => {
     if (!requestAccessClient) return
