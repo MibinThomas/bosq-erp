@@ -4597,7 +4597,7 @@ function NewQuotationForm() {
                           onClick={() => handleAddItemToBatch(batch.name)}
                           className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted"
                         >
-                          <Plus className="h-3.5 w-3.5" /> Add Product to {batch.name}
+                          <Plus className="h-3.5 w-3.5" /> {watchIncludeSectionHeadings && batch.name ? `Add Product to ${batch.name}` : "Add Product"}
                         </Button>
                       </div>
                     </div>
@@ -4605,17 +4605,19 @@ function NewQuotationForm() {
                 })}
 
                 {/* Bottom Add Section Action Block */}
-                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleAddBatch()}
-                    className="w-full sm:w-auto px-6 h-9 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer border-dashed border-primary/50 text-primary hover:bg-primary/10 transition-colors"
-                  >
-                    <Plus className="h-4 w-4" /> Add New Section
-                  </Button>
-                </div>
+                {watchIncludeSectionHeadings && (
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddBatch()}
+                      className="w-full sm:w-auto px-6 h-9 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer border-dashed border-primary/50 text-primary hover:bg-primary/10 transition-colors"
+                    >
+                      <Plus className="h-4 w-4" /> Add New Section
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
