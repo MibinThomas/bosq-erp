@@ -32,7 +32,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { cn, formatImageUrl } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import RichTextEditor from "@/components/ui/rich-text-editor"
@@ -223,6 +223,14 @@ export function VariantDrawerModal({
     description: "",
     specifications: "",
   })
+
+  // Track broken/404 image URLs to gracefully fallback to Package icon
+  const [failedImageUrls, setFailedImageUrls] = useState<Record<string, boolean>>({})
+
+  const handleImageError = (url?: string | null) => {
+    if (!url) return
+    setFailedImageUrls((prev) => ({ ...prev, [url]: true }))
+  }
 
   // Compute Sub-Products (Level 2) and Variant Attributes (Level 3)
   const variants = masterProduct?.variants || []
@@ -577,6 +585,9 @@ export function VariantDrawerModal({
 
       const vItem = variants.find((v) => v.id === variantId)
       if (vItem) vItem.imageUrl = data.url
+      if (data.url) {
+        setFailedImageUrls((prev) => ({ ...prev, [data.url]: false }))
+      }
 
       toast.success("Variant image updated successfully!")
       if (onImageUploaded) onImageUploaded()
@@ -903,15 +914,20 @@ export function VariantDrawerModal({
                               <div className="flex items-center gap-3 min-w-0 flex-1">
                                 {/* Model Thumbnail */}
                                 <div className="h-10 w-10 border rounded-lg bg-white dark:bg-muted/50 overflow-hidden shrink-0 flex items-center justify-center shadow-2xs">
-                                  {img ? (
-                                    <img
-                                      src={img.startsWith("http") || img.startsWith("/") ? img : `/${img}`}
-                                      alt={opt.label}
-                                      className="h-full w-full object-contain p-0.5"
-                                    />
-                                  ) : (
-                                    <Package className="h-5 w-5 text-muted-foreground/50" />
-                                  )}
+                                  {(() => {
+                                    const formattedImg = formatImageUrl(img)
+                                    const isFailed = formattedImg ? failedImageUrls[formattedImg] : true
+                                    return formattedImg && !isFailed ? (
+                                      <img
+                                        src={formattedImg}
+                                        alt={opt.label}
+                                        className="h-full w-full object-contain p-0.5"
+                                        onError={() => handleImageError(formattedImg)}
+                                      />
+                                    ) : (
+                                      <Package className="h-5 w-5 text-muted-foreground/50" />
+                                    )
+                                  })()}
                                 </div>
                                 
                                 {/* Model Title & Specs */}
@@ -1447,33 +1463,41 @@ export function VariantDrawerModal({
                             <span className="text-[9px] font-bold">Uploading...</span>
                           </div>
                         ) : (
-                          <>
-                            {variant.imageUrl ? (
-                              <img
-                                src={variant.imageUrl.startsWith("http") || variant.imageUrl.startsWith("/") ? variant.imageUrl : `/${variant.imageUrl}`}
-                                alt={variant.productName}
-                                className="h-full w-full object-cover object-center group-hover/img:scale-105 transition-transform"
-                              />
-                            ) : (
-                              <Package className="h-8 w-8 text-muted-foreground/40" />
-                            )}
+                          (() => {
+                            const formattedUrl = formatImageUrl(variant.imageUrl)
+                            const isFailed = formattedUrl ? failedImageUrls[formattedUrl] : true
 
-                            {canEditProduct && (
-                              <label className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer text-[10px] font-bold gap-1 p-1 text-center select-none z-10">
-                                <Camera className="h-4 w-4 text-white" />
-                                <span>{variant.imageUrl ? "Change" : "Add Image"}</span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0]
-                                    if (file) handleImageUpload(variant.id, file)
-                                  }}
-                                />
-                              </label>
-                            )}
-                          </>
+                            return (
+                              <>
+                                {formattedUrl && !isFailed ? (
+                                  <img
+                                    src={formattedUrl}
+                                    alt={variant.productName}
+                                    className="h-full w-full object-cover object-center group-hover/img:scale-105 transition-transform"
+                                    onError={() => handleImageError(formattedUrl)}
+                                  />
+                                ) : (
+                                  <Package className="h-8 w-8 text-muted-foreground/40" />
+                                )}
+
+                                {canEditProduct && (
+                                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer text-[10px] font-bold gap-1 p-1 text-center select-none z-10">
+                                    <Camera className="h-4 w-4 text-white" />
+                                    <span>{formattedUrl && !isFailed ? "Change" : "Add Image"}</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0]
+                                        if (file) handleImageUpload(variant.id, file)
+                                      }}
+                                    />
+                                  </label>
+                                )}
+                              </>
+                            )
+                          })()
                         )}
                       </div>
 

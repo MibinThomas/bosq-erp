@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { X, ShoppingCart, Plus, Minus, Package, ShieldCheck, Wrench, Palette, Target, ZoomIn, ChevronLeft, ChevronRight, Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { formatImageUrl } from "@/lib/utils"
 
 interface Product {
   id: string
@@ -65,6 +66,12 @@ export function ProductDetailsModal({
       document.body.style.overflow = ""
     }
   }, [isOpen])
+
+  const [detailFailedImages, setDetailFailedImages] = useState<Record<string, boolean>>({})
+  const handleDetailImageError = (url?: string | null) => {
+    if (!url) return
+    setDetailFailedImages((prev) => ({ ...prev, [url]: true }))
+  }
 
   // Reset local state when modal opens for a new product
   useEffect(() => {
@@ -249,19 +256,26 @@ export function ProductDetailsModal({
                 )}
 
                 {/* Primary Display Image */}
-                {galleryImages.length > 0 ? (
-                  <img 
-                    src={galleryImages[activeImgIndex]} 
-                    alt={product.productName} 
-                    className="object-contain max-h-full max-w-full p-6 transition-transform duration-500 hover:scale-105 filter drop-shadow-md cursor-zoom-in"
-                    onClick={() => setIsZoomed(true)}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                    <Package className="h-16 w-16 stroke-[1.2] text-muted-foreground/40" />
-                    <span className="text-xs uppercase tracking-widest font-bold text-muted-foreground/60">No Image</span>
-                  </div>
-                )}
+                {(() => {
+                  const rawUrl = galleryImages[activeImgIndex]
+                  const formatted = formatImageUrl(rawUrl)
+                  const isFailed = formatted ? detailFailedImages[formatted] : true
+
+                  return formatted && !isFailed ? (
+                    <img 
+                      src={formatted} 
+                      alt={product.productName} 
+                      className="object-contain max-h-full max-w-full p-6 transition-transform duration-500 hover:scale-105 filter drop-shadow-md cursor-zoom-in"
+                      onClick={() => setIsZoomed(true)}
+                      onError={() => handleDetailImageError(formatted)}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Package className="h-16 w-16 stroke-[1.2] text-muted-foreground/40" />
+                      <span className="text-xs uppercase tracking-widest font-bold text-muted-foreground/60">No Image</span>
+                    </div>
+                  )
+                })()}
 
                 {/* Next/Prev Navigation Buttons */}
                 {galleryImages.length > 1 && (
@@ -286,17 +300,31 @@ export function ProductDetailsModal({
               {/* Interactive Thumbnail Carousel */}
               {galleryImages.length > 1 && (
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {galleryImages.map((img, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setActiveImgIndex(idx)}
-                      className={`w-16 h-16 border rounded-xl overflow-hidden bg-slate-50/50 p-1 flex items-center justify-center transition-all cursor-pointer ${
-                        idx === activeImgIndex ? 'border-[#F17423] ring-1 ring-[#F17423]/50' : 'border-slate-100 hover:border-slate-355'
-                      }`}
-                    >
-                      <img src={img} alt={`thumbnail-${idx}`} className="object-contain max-h-full max-w-full" />
-                    </button>
-                  ))}
+                  {galleryImages.map((img, idx) => {
+                    const formatted = formatImageUrl(img)
+                    const isFailed = formatted ? detailFailedImages[formatted] : true
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setActiveImgIndex(idx)}
+                        className={`w-16 h-16 border rounded-xl overflow-hidden bg-slate-50/50 p-1 flex items-center justify-center transition-all cursor-pointer ${
+                          idx === activeImgIndex ? 'border-[#F17423] ring-1 ring-[#F17423]/50' : 'border-slate-100 hover:border-slate-355'
+                        }`}
+                      >
+                        {formatted && !isFailed ? (
+                          <img
+                            src={formatted}
+                            alt={`thumbnail-${idx}`}
+                            className="object-contain max-h-full max-w-full"
+                            onError={() => handleDetailImageError(formatted)}
+                          />
+                        ) : (
+                          <Package className="h-6 w-6 text-muted-foreground/40" />
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
 

@@ -9,7 +9,7 @@ import {
 import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { useRouter } from "next/navigation"
 import { ProductDetailsModal } from "@/components/products/product-details-modal"
-import { cn } from "@/lib/utils"
+import { cn, formatImageUrl } from "@/lib/utils"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 import { Button } from "@/components/ui/button"
@@ -126,6 +126,12 @@ export default function ProductsPage() {
     } finally {
       setUploadingCardImgId(null)
     }
+  }
+
+  const [cardFailedImages, setCardFailedImages] = useState<Record<string, boolean>>({})
+  const handleCardImageError = (url?: string | null) => {
+    if (!url) return
+    setCardFailedImages((prev) => ({ ...prev, [url]: true }))
   }
 
   // Inline Stock Edit states
@@ -911,18 +917,23 @@ export default function ProductsPage() {
                       </div>
                     ) : (
                       <>
-                        {activeImage ? (
-                          <img 
-                            src={activeImage.startsWith("http") || activeImage.startsWith("/") ? activeImage : `/${activeImage}`} 
-                            alt={product.productName} 
-                            className="object-contain max-h-full max-w-full transition-transform duration-300 group-hover:scale-105" 
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
-                            <Package className="h-10 w-10 stroke-[1.5]" />
-                            <span className="text-[10px] uppercase tracking-wider font-semibold">No Image</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const formatted = formatImageUrl(activeImage)
+                          const isFailed = formatted ? cardFailedImages[formatted] : true
+                          return formatted && !isFailed ? (
+                            <img 
+                              src={formatted} 
+                              alt={product.productName} 
+                              className="object-contain max-h-full max-w-full transition-transform duration-300 group-hover:scale-105" 
+                              onError={() => handleCardImageError(formatted)}
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
+                              <Package className="h-10 w-10 stroke-[1.5]" />
+                              <span className="text-[10px] uppercase tracking-wider font-semibold">No Image</span>
+                            </div>
+                          )
+                        })()}
 
                       </>
                     )}
@@ -1744,11 +1755,20 @@ export default function ProductsPage() {
                         return (
                           <div key={prod.id} className="flex gap-4 p-3 border rounded-xl bg-muted/10 hover:bg-muted/20 transition-all items-start group">
                             <div className="h-12 w-12 border rounded-lg bg-white overflow-hidden shrink-0 flex items-center justify-center shadow-inner">
-                              {prod.imageUrl ? (
-                                <img src={prod.imageUrl} alt={prod.productName} className="object-contain h-full w-full" />
-                              ) : (
-                                <Package className="h-5 w-5 text-muted-foreground" />
-                              )}
+                              {(() => {
+                                const formatted = formatImageUrl(prod.imageUrl)
+                                const isFailed = formatted ? cardFailedImages[formatted] : true
+                                return formatted && !isFailed ? (
+                                  <img 
+                                    src={formatted} 
+                                    alt={prod.productName} 
+                                    className="object-contain h-full w-full" 
+                                    onError={() => handleCardImageError(formatted)}
+                                  />
+                                ) : (
+                                  <Package className="h-5 w-5 text-muted-foreground" />
+                                )
+                              })()}
                             </div>
                             <div className="flex-1 min-w-0">
                               <span className="text-[9px] font-mono text-muted-foreground uppercase bg-secondary/80 px-1.5 py-0.2 rounded border">

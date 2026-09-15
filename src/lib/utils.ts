@@ -55,3 +55,23 @@ export async function safeCopyToClipboard(text: string): Promise<boolean> {
   return false
 }
 
+/**
+ * Safely formats and normalizes an image URL or base64 data string.
+ * Supports absolute URLs, base64 data strings, blob URLs, and relative path URLs.
+ */
+export function formatImageUrl(url?: string | null): string | null {
+  if (!url || typeof url !== "string") return null
+  const trimmed = url.trim()
+  if (!trimmed) return null
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("blob:") ||
+    trimmed.startsWith("/")
+  ) {
+    return trimmed
+  }
+  return `/${trimmed}`
+}
+
