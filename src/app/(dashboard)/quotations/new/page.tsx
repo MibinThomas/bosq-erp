@@ -972,12 +972,12 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           >
             <GripVertical className="h-4 w-4" />
           </span>
-          <Badge 
-            className="font-mono text-sm sm:text-base font-black px-3 py-1 bg-amber-500 text-slate-950 dark:bg-amber-400 dark:text-slate-950 border border-amber-600/40 shadow-xs shrink-0 tracking-tight flex items-center justify-center min-w-[40px]"
+          <span 
+            className="font-mono text-xl sm:text-2xl font-black text-red-600 dark:text-red-500 shrink-0 tracking-tight flex items-center justify-center px-1 py-0.5 select-none"
             title={`Product Line Item #${index + 1}`}
           >
             #{index + 1}
-          </Badge>
+          </span>
 
           {/* Move Up / Move Down Arrow Controls */}
           <div className="flex items-center gap-0.5 bg-muted/40 border border-border/80 rounded-lg p-0.5 shrink-0">
