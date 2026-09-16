@@ -5230,44 +5230,7 @@ function NewQuotationForm() {
                           )}
                         />
 
-                        {/* VAT Toggle Checkbox Option */}
-                        <FormField
-                          control={form.control}
-                          name="vatMode"
-                          render={({ field }) => {
-                            const isVatIncluded = field.value !== "INCLUDING"
-                            return (
-                              <FormItem className="flex items-center justify-between p-3 rounded-xl border bg-muted/20 border-border/80 mt-3">
-                                <div className="flex items-center gap-2.5">
-                                  <input
-                                    type="checkbox"
-                                    id="vat-mode-checkbox-left"
-                                    checked={isVatIncluded}
-                                    onChange={(e) => field.onChange(e.target.checked ? "EXCLUDING" : "INCLUDING")}
-                                    className="h-4.5 w-4.5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer accent-primary shrink-0"
-                                  />
-                                  <div>
-                                    <FormLabel htmlFor="vat-mode-checkbox-left" className="text-xs font-bold text-foreground cursor-pointer block">
-                                      Include 5% VAT in Quotation
-                                    </FormLabel>
-                                    <span className="text-[11px] text-muted-foreground block">
-                                      {isVatIncluded ? "Standard 5% VAT applied to quotation" : "VAT removed (0% VAT / Exempt)"}
-                                    </span>
-                                  </div>
-                                </div>
-                                <Badge 
-                                  variant={isVatIncluded ? "default" : "outline"} 
-                                  className={cn(
-                                    "text-[10px] font-bold px-2.5 py-0.5 shrink-0", 
-                                    isVatIncluded ? "bg-emerald-600 text-white border-emerald-600" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300"
-                                  )}
-                                >
-                                  {isVatIncluded ? "5% VAT Applied" : "0% VAT (Exempt)"}
-                                </Badge>
-                              </FormItem>
-                            )
-                          }}
-                        />
+
                       </div>
                     </div>
                   </div>
