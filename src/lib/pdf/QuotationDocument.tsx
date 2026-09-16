@@ -1628,15 +1628,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
                 </>
               )}
 
-              {vatMode === "EXCLUDING" && (
+              {vatMode === "EXCLUDING" && (vatAmount ?? 0) > 0 && (
                 <View style={[styles.financialRow, { borderBottomWidth: 0 }]}>
                   <Text style={styles.financialLabel}>VAT (5%)</Text>
-                  <Text style={styles.financialValue}>AED {formatCurrency(vatAmount)}</Text>
-                </View>
-              )}
-              {vatMode === "INCLUDING" && (
-                <View style={[styles.financialRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.financialLabel}>VAT (5%) Included in Price</Text>
                   <Text style={styles.financialValue}>AED {formatCurrency(vatAmount)}</Text>
                 </View>
               )}

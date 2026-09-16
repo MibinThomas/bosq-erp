@@ -213,7 +213,7 @@ export async function GET(
       paymentTerms: quotation.paymentTerms || "50% Advance, 50% on Delivery",
       deliveryDate: quotation.deliveryDate ? quotation.deliveryDate.toISOString().split("T")[0] : "TBD",
       subtotal: quotation.subtotal,
-      vatAmount: quotation.vatAmount,
+      vatAmount: quotation.vatMode === "INCLUDING" ? 0 : quotation.vatAmount,
       deliveryCharge: quotation.deliveryCharge,
       grandTotal: quotation.grandTotal,
       preparedBy: quotation.preparedBy?.name || "Sales Executive",

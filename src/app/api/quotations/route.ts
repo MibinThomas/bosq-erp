@@ -620,7 +620,7 @@ export async function POST(request: Request) {
     let grandTotal = 0
 
     if (resolvedVatMode === "INCLUDING") {
-      vatAmount = (taxableAmount * 0.05) / 1.05
+      vatAmount = 0
       grandTotal = Math.round(taxableAmount)
     } else {
       vatAmount = taxableAmount * 0.05
