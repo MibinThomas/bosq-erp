@@ -933,7 +933,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           >
             <GripVertical className="h-4 w-4" />
           </span>
-          <Badge variant="outline" className="font-mono text-xs font-bold bg-muted/40">
+          <Badge 
+            className="font-mono text-sm sm:text-base font-black px-3 py-1 bg-amber-500 text-slate-950 dark:bg-amber-400 dark:text-slate-950 border border-amber-600/40 shadow-xs shrink-0 tracking-tight flex items-center justify-center min-w-[40px]"
+            title={`Product Line Item #${index + 1}`}
+          >
             #{index + 1}
           </Badge>
 
@@ -971,7 +974,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* Add to Costing Action Button */}
+          {/* Add to Costing Action Button & Status Badges */}
           {!currentItemVal.costingStatus || currentItemVal.costingStatus === "NOT_REQUIRED" || currentItemVal.costingStatus === "NONE" ? (
             <Button
               type="button"
@@ -982,48 +985,45 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 form.setValue(`items.${index}.costingStatus`, "ADDED_FOR_COSTING", { shouldDirty: true })
                 toast.success(`Item #${index + 1} added to Costing Queue.`)
               }}
-              className="h-6 px-2 text-[11px] font-semibold border-amber-400 text-amber-800 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 cursor-pointer flex items-center gap-1 shrink-0"
-              title="Mark this line item for Cost Estimator pricing"
+              className="h-7 px-2.5 text-xs font-semibold border-amber-500 text-amber-900 bg-amber-50 hover:bg-amber-100 hover:border-amber-600 dark:bg-amber-950/50 dark:text-amber-200 dark:border-amber-600 dark:hover:bg-amber-900/80 cursor-pointer flex items-center gap-1.5 shrink-0 shadow-2xs transition-all duration-150"
+              title="Click to add this line item for Cost Estimator pricing"
             >
-              <Calculator className="h-3 w-3 text-amber-600" />
+              <Calculator className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               <span>+ Add to Costing</span>
             </Button>
-          ) : null}
-
-          {/* Add for Costing Action & Status Badges */}
-          {currentItemVal.costingStatus === "ADDED_FOR_COSTING" ? (
-            <Badge 
+          ) : currentItemVal.costingStatus === "ADDED_FOR_COSTING" ? (
+            <Button
+              type="button"
               variant="outline"
-              className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-300 text-[11px] font-semibold py-0.5 px-2 flex items-center gap-1 cursor-pointer"
+              size="sm"
+              disabled={isItemLocked}
               onClick={() => {
                 form.setValue(`items.${index}.costingStatus`, "NOT_REQUIRED", { shouldDirty: true })
                 toast.info(`Item #${index + 1} removed from costing queue.`)
               }}
-              title="Click to remove from costing queue"
+              className="h-7 px-2.5 text-xs font-semibold border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 cursor-pointer flex items-center gap-1.5 shrink-0 shadow-2xs transition-all duration-150"
+              title="Item added to Costing Queue. Click to remove."
             >
-              <Clock className="h-3 w-3 text-amber-600" /> Added for Costing
-            </Badge>
+              <Check className="h-3.5 w-3.5 stroke-[2.5]" />
+              <span>Added to Costing</span>
+            </Button>
           ) : currentItemVal.costingStatus === "PENDING_COSTING" ? (
-            <Badge className="bg-amber-500 text-white font-semibold text-[11px] py-0.5 px-2 flex items-center gap-1">
-              <Clock className="h-3 w-3 animate-pulse" /> Pending Costing
+            <Badge className="bg-amber-500 text-white font-semibold text-xs py-1 px-2.5 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 animate-pulse" /> Pending Costing
             </Badge>
           ) : currentItemVal.costingStatus === "COSTING_IN_PROGRESS" ? (
-            <Badge className="bg-blue-600 text-white font-semibold text-[11px] py-0.5 px-2 flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" /> Costing In Progress
+            <Badge className="bg-blue-600 text-white font-semibold text-xs py-1 px-2.5 flex items-center gap-1.5">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Costing In Progress
             </Badge>
           ) : currentItemVal.costingStatus === "COSTING_COMPLETED" || isCostedByEstimator ? (
-            <Badge className="bg-emerald-600 text-white font-semibold text-[11px] py-0.5 px-2.5 flex items-center gap-1">
-              <Check className="h-3 w-3 stroke-[3]" /> Costing Completed by {currentItemVal.estimator?.name || "Estimator"}
+            <Badge className="bg-emerald-600 text-white font-semibold text-xs py-1 px-2.5 flex items-center gap-1.5">
+              <Check className="h-3.5 w-3.5 stroke-[3]" /> Costing Completed by {currentItemVal.estimator?.name || "Estimator"}
             </Badge>
-          ) : currentPriceSource === "standard" ? (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-300 text-[11px] font-semibold py-0.5 px-2 flex items-center gap-1">
-              <Tag className="h-3 w-3 text-blue-500" /> Price from Catalog
-            </Badge>
-          ) : (
+          ) : currentPriceSource !== "standard" && currentPriceSource ? (
             <Badge variant="outline" className="bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-300 text-[11px] font-semibold py-0.5 px-2 flex items-center gap-1">
               <User className="h-3 w-3 text-purple-500" /> Provided by {currentItemVal.consultantName || "Interior Design Consultant"}
             </Badge>
-          )}
+          ) : null}
 
           {isItemLocked && (
             <Badge variant="outline" className="bg-slate-100 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 text-[11px] font-semibold py-0.5 px-2 flex items-center gap-1 shrink-0">
@@ -1171,10 +1171,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 name={`items.${index}.categoryName`}
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-[11px] font-medium text-muted-foreground">Category</FormLabel>
+                    <FormLabel className="text-xs font-bold text-foreground">Category</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value || "Chairs"} disabled={isItemLocked}>
                       <FormControl>
-                        <SelectTrigger className="h-8 text-xs bg-background" disabled={isItemLocked}>
+                        <SelectTrigger className="h-9 text-xs font-medium bg-background" disabled={isItemLocked}>
                           <SelectValue placeholder="Category" />
                         </SelectTrigger>
                       </FormControl>
@@ -1194,10 +1194,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   name={`items.${index}.chairType`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[11px] font-medium text-muted-foreground">Chair Type</FormLabel>
+                      <FormLabel className="text-xs font-bold text-foreground">Chair Type</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || ""} disabled={isItemLocked}>
                         <FormControl>
-                          <SelectTrigger className="h-8 text-xs bg-background" disabled={isItemLocked}>
+                          <SelectTrigger className="h-9 text-xs font-medium bg-background" disabled={isItemLocked}>
                             <SelectValue placeholder="Type" />
                           </SelectTrigger>
                         </FormControl>
@@ -1223,8 +1223,8 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-2.5 bg-muted/10">
                   <div className="space-y-0.5 flex-1 pr-2">
-                    <FormLabel className="text-xs font-semibold text-foreground block">Save to Product Catalog</FormLabel>
-                    <span className="text-[10px] text-muted-foreground block leading-tight">
+                    <FormLabel className="text-xs font-bold text-foreground block">Save to Product Catalog</FormLabel>
+                    <span className="text-[11px] text-muted-foreground block leading-tight">
                       Add this custom product to the product catalog upon saving.
                     </span>
                   </div>
@@ -1247,14 +1247,14 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             render={({ field }) => (
               <FormItem>
                 <div className="flex items-center justify-between">
-                  <FormLabel className="text-xs font-semibold text-foreground">Detailed Product Description</FormLabel>
-                  <span className="text-[10px] text-muted-foreground font-normal">Appears in PDF & Preview</span>
+                  <FormLabel className="text-xs font-bold text-foreground">Detailed Product Description</FormLabel>
+                  <span className="text-[11px] text-muted-foreground font-medium">Appears in PDF & Preview</span>
                 </div>
                 <FormControl>
                   <Textarea
                     disabled={isItemLocked}
                     placeholder="Enter detailed product description (e.g. materials, mechanism, finish, fabric, warranty...)"
-                    className="min-h-[75px] text-xs bg-background leading-relaxed"
+                    className="min-h-[75px] text-xs bg-background leading-relaxed font-normal"
                     {...field}
                     value={field.value || ""}
                   />
@@ -1270,7 +1270,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             name={`items.${index}.productNotes`}
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs font-semibold text-foreground">Special Notes</FormLabel>
+                <FormLabel className="text-xs font-bold text-foreground">Special Notes</FormLabel>
                 <FormControl>
                   <Textarea
                     disabled={isItemLocked}
@@ -1287,7 +1287,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
         </div>
 
         {/* Right Side: Pricing & Margins Grid Controls */}
-        <div className="lg:col-span-6 space-y-3 bg-muted/20 p-3.5 rounded-xl border border-border/60">
+        <div className="lg:col-span-6 space-y-3 bg-muted/40 dark:bg-slate-900/40 p-4 rounded-xl border border-border shadow-2xs">
           {/* Estimator Costing Lock Banner & Final Price Audit for Costed Items */}
           {isCostedByEstimator && (
             <div className="bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 p-3 rounded-xl space-y-2 text-xs text-emerald-900 dark:text-emerald-200">
@@ -1296,30 +1296,30 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   <Check className="h-4 w-4 text-emerald-600 shrink-0 stroke-[3]" />
                   Costing Completed by {currentItemVal.estimator?.name || "Estimator"}
                 </span>
-                <Badge variant="outline" className="text-[10px] bg-emerald-100 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 font-bold border-emerald-300">
+                <Badge variant="outline" className="text-[11px] bg-emerald-100 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 font-bold border-emerald-300">
                   Final Estimated Price: AED {formatCurrency(unitPriceNum)}
                 </Badge>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono pt-1.5 border-t border-emerald-300/40">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono pt-1.5 border-t border-emerald-300/40">
                 <div>
-                  <span className="text-muted-foreground block text-[9px] uppercase font-sans">Base Unit Cost</span>
+                  <span className="text-muted-foreground block text-[10px] uppercase font-sans font-bold">Base Unit Cost</span>
                   <span className="font-bold text-foreground">AED {formatCurrency(currentItemVal.unitCost || currentItemVal.basePrice || (unitPriceNum / (1 + (currentItemVal.margin || 0) / 100)))}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[9px] uppercase font-sans">Margin %</span>
+                  <span className="text-muted-foreground block text-[10px] uppercase font-sans font-bold">Margin %</span>
                   <span className="font-bold text-teal-600 dark:text-teal-400">{(currentItemVal.margin || 0).toFixed(1)}%</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[9px] uppercase font-sans">Final Selling Price</span>
+                  <span className="text-muted-foreground block text-[10px] uppercase font-sans font-bold">Final Selling Price</span>
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">AED {formatCurrency(unitPriceNum)}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[9px] uppercase font-sans">Line Total ({qtyNum} Qty)</span>
+                  <span className="text-muted-foreground block text-[10px] uppercase font-sans font-bold">Line Total ({qtyNum} Qty)</span>
                   <span className="font-bold text-emerald-700 dark:text-emerald-300">AED {formatCurrency(lineTotal)}</span>
                 </div>
               </div>
               {currentItemVal.estimatorNotes && (
-                <div className="text-[11px] text-muted-foreground italic pt-1 border-t border-emerald-300/40">
+                <div className="text-xs text-muted-foreground italic pt-1 border-t border-emerald-300/40">
                   <span className="font-semibold not-italic">Estimator Note:</span> "{currentItemVal.estimatorNotes}"
                 </div>
               )}
@@ -1328,7 +1328,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
 
           {/* Price Source Toggle */}
           <div className="flex items-center justify-between border-b pb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span className="text-xs font-bold uppercase tracking-wider text-foreground">
               Pricing Mode
             </span>
             <div className="flex items-center gap-2">
@@ -1341,7 +1341,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                   form.setValue(`items.${index}.priceSource`, "standard")
                   if (currentProductId) handleProductSelect(index, currentProductId)
                 }}
-                className="h-6 text-[10px] px-2 cursor-pointer"
+                className="h-6.5 text-[11px] px-2.5 font-bold cursor-pointer"
               >
                 Standard Price
               </Button>
@@ -1351,7 +1351,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 size="sm"
                 disabled={isItemLocked || isCostingLockedForIDC}
                 onClick={() => form.setValue(`items.${index}.priceSource`, "manual")}
-                className="h-6 text-[10px] px-2 cursor-pointer"
+                className="h-6.5 text-[11px] px-2.5 font-bold cursor-pointer"
               >
                 Manual Override
               </Button>
@@ -1359,20 +1359,20 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           </div>
 
           {/* 6-Column Pricing Fields */}
-          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-1">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 pt-1">
             {/* Quantity */}
             <FormField
               control={control}
               name={`items.${index}.quantity`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-[11px] font-semibold text-muted-foreground">Qty</FormLabel>
+                  <FormLabel className="text-xs font-bold text-foreground text-center block">Qty</FormLabel>
                   <FormControl>
                     <NumericInput
                       name={field.name}
                       type="number"
                       disabled={isItemLocked}
-                      className="h-8 text-xs font-mono text-center bg-background"
+                      className="h-9 text-xs sm:text-sm font-mono font-bold text-center bg-background"
                       value={field.value}
                       onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
                     />
@@ -1387,12 +1387,12 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               name={`items.${index}.basePrice`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-[11px] font-semibold text-muted-foreground">Base AED</FormLabel>
+                  <FormLabel className="text-xs font-bold text-foreground text-center block">Base AED</FormLabel>
                   <FormControl>
                     <NumericInput
                       name={field.name}
                       disabled={isItemLocked || isCostingLockedForIDC || currentPriceSource === "standard"}
-                      className="h-8 text-xs font-mono bg-background"
+                      className="h-9 text-xs sm:text-sm font-mono font-semibold bg-background"
                       value={field.value}
                       onChange={(val) => {
                         const bPrice = val === "" ? 0 : Number(val)
@@ -1413,12 +1413,12 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               name={`items.${index}.margin`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-[11px] font-semibold text-muted-foreground">Margin %</FormLabel>
+                  <FormLabel className="text-xs font-bold text-foreground text-center block">Margin %</FormLabel>
                   <FormControl>
                     <NumericInput
                       name={field.name}
                       disabled={isItemLocked}
-                      className="h-8 text-xs font-mono text-center bg-background"
+                      className="h-9 text-xs sm:text-sm font-mono font-bold text-center bg-background"
                       value={field.value}
                       onChange={(val) => {
                         const marginVal = val === "" ? 0 : Number(val)
@@ -1442,12 +1442,12 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               name={`items.${index}.unitPrice`}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-[11px] font-semibold text-muted-foreground">Unit AED</FormLabel>
+                  <FormLabel className="text-xs font-bold text-primary text-center block">Unit AED</FormLabel>
                   <FormControl>
                     <NumericInput
                       name={field.name}
                       disabled={isItemLocked || isCostingLockedForIDC}
-                      className="h-8 text-xs font-mono bg-background font-bold text-primary"
+                      className="h-9 text-xs sm:text-sm font-mono bg-background font-bold text-primary border-primary/40"
                       value={field.value}
                       onChange={(val) => {
                         const uPrice = val === "" ? 0 : Number(val)
@@ -1472,7 +1472,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center justify-between">
-                    <FormLabel className="text-[11px] font-semibold text-muted-foreground">Discount</FormLabel>
+                    <FormLabel className="text-xs font-bold text-foreground">Discount</FormLabel>
                     <button
                       type="button"
                       disabled={isItemLocked}
@@ -1480,7 +1480,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                         const nextType = currentDiscountType === "PERCENTAGE" ? "AMOUNT" : "PERCENTAGE"
                         form.setValue(`items.${index}.discountType`, nextType)
                       }}
-                      className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="text-[11px] text-primary hover:underline font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Toggle between % and AED discount"
                     >
                       {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
@@ -1491,11 +1491,11 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                       <NumericInput
                         name={field.name}
                         disabled={isItemLocked}
-                        className="h-8 text-xs font-mono bg-background pr-6"
+                        className="h-9 text-xs sm:text-sm font-mono bg-background pr-7"
                         value={field.value}
                         onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
                       />
-                      <span className="absolute right-1.5 top-2 text-[9px] font-bold text-muted-foreground pointer-events-none">
+                      <span className="absolute right-2 top-2.5 text-[10px] font-bold text-muted-foreground pointer-events-none">
                         {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
                       </span>
                     </div>
@@ -1506,8 +1506,8 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
 
             {/* Total Amount */}
             <div className="col-span-2 sm:col-span-1">
-              <label className="text-[11px] font-semibold text-muted-foreground block">Total AED</label>
-              <div className="h-8 flex flex-col justify-center items-end px-2 bg-background border rounded-md font-mono text-xs font-bold text-foreground">
+              <label className="text-xs font-bold text-primary text-center block">Total AED</label>
+              <div className="h-9 flex flex-col justify-center items-end px-2.5 bg-primary/10 border-2 border-primary/30 rounded-md font-mono text-xs sm:text-sm font-black text-primary shadow-2xs">
                 <span>{discValNum > 0 ? Math.round(lineTotal).toLocaleString("en-US") : formatCurrency(lineTotal)}</span>
               </div>
             </div>
@@ -1522,7 +1522,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           name={`items.${index}.specifications`}
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-[11px] font-semibold text-muted-foreground">Product Specifications (Formatted text on PDF)</FormLabel>
+              <FormLabel className="text-xs font-bold text-foreground">Product Specifications (Formatted text on PDF)</FormLabel>
               <FormControl>
                 <RichTextEditor
                   disabled={isItemLocked}
@@ -2614,8 +2614,8 @@ function NewQuotationForm() {
                   discountType: "PERCENTAGE",
                   margin: marginVal,
                   manualMargin: marginVal,
-                  customImageUrl: item.customImageUrl || "",
-                  productDescription: item.productDescription || item.product?.description || "",
+                  customImageUrl: item.customImageUrl || item.imageUrl || item.product?.imageUrl || (item.product as any)?.customImageUrl || "",
+                  productDescription: item.productDescription || item.product?.description || item.specifications || "",
                   categoryName: item.categoryName || item.product?.category?.name || "Chairs",
                   chairType: item.chairType || item.product?.chairType || "",
                   batchHeading: item.batchHeading || "",
@@ -3071,26 +3071,8 @@ function NewQuotationForm() {
         })
       }
 
-      // Deduplicate / merge identical item entries
-      const deduplicatedFormattedItems: typeof formattedItems = []
-      formattedItems.forEach((item) => {
-        const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.productId || item.description || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}`
-        const existingIdx = deduplicatedFormattedItems.findIndex((d) => {
-          const dKey = `${(d.batchHeading || "").trim().toLowerCase()}|${(d.productId || d.description || "").trim().toLowerCase()}|${d.unitPrice}|${(d.specifications || "").trim()}`
-          return dKey === itemKey
-        })
-
-        if (existingIdx > -1) {
-          const existing = deduplicatedFormattedItems[existingIdx]
-          const mergedQty = existing.quantity + item.quantity
-          deduplicatedFormattedItems[existingIdx] = {
-            ...existing,
-            quantity: mergedQty,
-          }
-        } else {
-          deduplicatedFormattedItems.push({ ...item })
-        }
-      })
+      // Preserve all user-added quotation line items as distinct items
+      const deduplicatedFormattedItems = formattedItems
 
       const cleanAdditionalCharges = (data.additionalCharges || [])
         .filter((c: any) => (c.name && c.name.trim()) || (c.amount !== "" && Number(c.amount) > 0) || (c.notes && c.notes.trim()))

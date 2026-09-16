@@ -1039,28 +1039,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
     )
   }
 
-  // Deduplicate / merge identical items in items array to prevent duplicate product cards on PDF
-  const uniquePdfItems: QuotationPdfItem[] = []
-  items.forEach((item) => {
-    const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.description || "").trim().toLowerCase()}|${(item.categoryName || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}`
-    const existingIndex = uniquePdfItems.findIndex((u) => {
-      const uKey = `${(u.batchHeading || "").trim().toLowerCase()}|${(u.description || "").trim().toLowerCase()}|${(u.categoryName || "").trim().toLowerCase()}|${u.unitPrice}|${(u.specifications || "").trim()}`
-      return uKey === itemKey
-    })
-
-    if (existingIndex > -1) {
-      const existing = uniquePdfItems[existingIndex]
-      const mergedQty = existing.quantity + item.quantity
-      const mergedAmount = existing.amount + item.amount
-      uniquePdfItems[existingIndex] = {
-        ...existing,
-        quantity: mergedQty,
-        amount: mergedAmount,
-      }
-    } else {
-      uniquePdfItems.push({ ...item })
-    }
-  })
+  // Preserve all quotation items without deduplicating
+  const uniquePdfItems = items
 
   // Group items by batchHeading dynamically, preserving relative order of appearance
   const groupedSections: { heading: string | null; items: QuotationPdfItem[] }[] = [];

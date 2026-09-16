@@ -469,9 +469,9 @@ export function QuotationCostingWorkspaceModal({
               }
 
               const qty = item.quantity || 1
-              const cleanedSpecs = cleanHtmlText(item.specifications)
-              const cleanedDescription = cleanHtmlText(item.productDescription || item.productNotes)
-              const productImg = item.imageUrl || item.customImageUrl || item.product?.imageUrl
+              const cleanedSpecs = cleanHtmlText(item.specifications || item.productDescription || (item.product as any)?.specifications)
+              const cleanedDescription = cleanHtmlText(item.productDescription || item.description || item.productNotes || (item.product as any)?.description)
+              const productImg = item.imageUrl || item.customImageUrl || item.product?.imageUrl || (item.product as any)?.customImageUrl || null
               const modelCode = item.product?.sku || item.description
 
               // Calculations via Engine

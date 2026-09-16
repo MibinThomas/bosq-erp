@@ -165,7 +165,7 @@ export async function GET(
       unitPrice: item.unitPrice,
       discount: item.discount,
       amount: item.amount,
-      imageUrl: await resolveImageUrl(item.customImageUrl || item.product?.imageUrl),
+      imageUrl: await resolveImageUrl(item.customImageUrl || (item as any).imageUrl || item.product?.imageUrl || (item.product as any)?.customImageUrl || null),
       categoryName: item.categoryName || item.product?.category?.name || "OFFICE FURNITURE",
       chairType: item.chairType || item.product?.chairType || null,
       dimensions: item.product?.dimensions || null,
@@ -179,28 +179,8 @@ export async function GET(
       finishMaterial: item.product?.finishMaterial || null,
     })))
 
-    // Deduplicate / merge identical items
-    const docItems: typeof rawDocItems = []
-    rawDocItems.forEach((item) => {
-      const itemKey = `${(item.batchHeading || "").trim().toLowerCase()}|${(item.description || "").trim().toLowerCase()}|${item.unitPrice}|${(item.specifications || "").trim()}|${(item.productDescription || "").trim().toLowerCase()}`
-      const existingIdx = docItems.findIndex((d) => {
-        const dKey = `${(d.batchHeading || "").trim().toLowerCase()}|${(d.description || "").trim().toLowerCase()}|${d.unitPrice}|${(d.specifications || "").trim()}|${(d.productDescription || "").trim().toLowerCase()}`
-        return dKey === itemKey
-      })
-
-      if (existingIdx > -1) {
-        const existing = docItems[existingIdx]
-        const mergedQty = existing.quantity + item.quantity
-        const mergedAmt = existing.amount + item.amount
-        docItems[existingIdx] = {
-          ...existing,
-          quantity: mergedQty,
-          amount: mergedAmt,
-        }
-      } else {
-        docItems.push({ ...item })
-      }
-    })
+    // Preserve all distinct line items on PDF
+    const docItems = rawDocItems
 
     // Process selectedMaterials swatches for PDF
     const rawSelectedMaterials = Array.isArray((quotation as any).selectedMaterials)

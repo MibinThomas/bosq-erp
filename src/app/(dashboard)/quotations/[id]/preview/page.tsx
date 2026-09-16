@@ -240,7 +240,7 @@ export default function QuotationHtmlPreviewPage() {
       const marginPct = Number(qItem.marginPercentage ?? matchedBoqItem?.marginPercentage ?? qItem.margin ?? 0)
       const negotiationPct = Number((qItem as any).negotiationPct ?? 0)
 
-      const imageUrl = qItem.customImageUrl || qItem.product?.imageUrl || null
+      const imageUrl = qItem.customImageUrl || (qItem as any).imageUrl || qItem.product?.imageUrl || (qItem.product as any)?.customImageUrl || null
 
       return {
         ...qItem,
