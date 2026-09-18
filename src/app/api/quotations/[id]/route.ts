@@ -12,6 +12,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
+import { cleanHtmlText } from "@/lib/utils"
 
 // Get single quotation with items and revisions history
 export async function GET(
@@ -932,7 +933,9 @@ export async function PUT(
           imageUrl: resolvedImage,
           categoryName: item.categoryName || matchedProd?.category?.name || "OFFICE FURNITURE",
           chairType: item.chairType || matchedProd?.chairType || null,
-          productDescription: item.productDescription || matchedProd?.description || null,
+          productDescription: item.productDescription !== undefined && item.productDescription !== null
+            ? cleanHtmlText(item.productDescription)
+            : (matchedProd?.description ? cleanHtmlText(matchedProd.description) : null),
           dimensions: matchedProd?.dimensions || null,
           warranty: matchedProd?.warranty || null,
           batchHeading: item.batchHeading || null,
@@ -1428,7 +1431,9 @@ export async function PUT(
           imageUrl: resolvedImage,
           categoryName: item.categoryName || matchedProd?.category?.name || "OFFICE FURNITURE",
           chairType: item.chairType || matchedProd?.chairType || null,
-          productDescription: item.productDescription || matchedProd?.description || null,
+          productDescription: item.productDescription !== undefined && item.productDescription !== null
+            ? cleanHtmlText(item.productDescription)
+            : (matchedProd?.description ? cleanHtmlText(matchedProd.description) : null),
           dimensions: matchedProd?.dimensions || null,
           warranty: matchedProd?.warranty || null,
           batchHeading: item.batchHeading || null,

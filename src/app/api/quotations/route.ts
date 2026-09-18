@@ -14,6 +14,7 @@ import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 import { hasPermission } from "@/lib/rbac"
 import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
+import { cleanHtmlText } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -561,7 +562,9 @@ export async function POST(request: Request) {
         imageUrl: resolvedImage,
         categoryName: item.categoryName || matchedProd?.category?.name || "OFFICE FURNITURE",
         chairType: item.chairType || matchedProd?.chairType || null,
-        productDescription: item.productDescription || matchedProd?.description || null,
+        productDescription: item.productDescription !== undefined && item.productDescription !== null
+          ? cleanHtmlText(item.productDescription)
+          : (matchedProd?.description ? cleanHtmlText(matchedProd.description) : null),
         dimensions: matchedProd?.dimensions || null,
         warranty: matchedProd?.warranty || null,
         batchHeading: item.batchHeading || null,

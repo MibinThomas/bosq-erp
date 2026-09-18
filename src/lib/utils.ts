@@ -75,3 +75,42 @@ export function formatImageUrl(url?: string | null): string | null {
   return `/${trimmed}`
 }
 
+/**
+ * Safely strips HTML markup and decodes common HTML entities into clean plain text bullet points.
+ * Useful for textareas and text fields where raw HTML tags should not be shown.
+ */
+export function cleanHtmlText(htmlStr?: string | null): string {
+  if (!htmlStr || typeof htmlStr !== "string") return ""
+  if (!/<[a-z][\s\S]*>/i.test(htmlStr) && !/&[a-z0-9]+;/i.test(htmlStr)) {
+    return htmlStr.trim()
+  }
+
+  let text = htmlStr
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/h[1-6]>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&rsquo;/gi, "'")
+    .replace(/&lsquo;/gi, "'")
+    .replace(/&rdquo;/gi, '"')
+    .replace(/&ldquo;/gi, '"')
+    .replace(/&mdash;/gi, "—")
+    .replace(/&ndash;/gi, "–")
+    .replace(/&bull;/gi, "•")
+    .replace(/\n\s*\n\s*\n+/g, "\n\n")
+    .trim()
+
+  return text
+}
+
+

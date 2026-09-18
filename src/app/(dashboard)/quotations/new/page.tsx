@@ -73,7 +73,7 @@ import {
 } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { cn, isManagerOrAdminRole } from "@/lib/utils"
+import { cn, isManagerOrAdminRole, cleanHtmlText } from "@/lib/utils"
 import { toast } from "sonner"
 import { QuickAddProductModal } from "@/components/products/quick-add-product-modal"
 import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
@@ -2654,7 +2654,9 @@ function NewQuotationForm() {
                   margin: marginVal,
                   manualMargin: marginVal,
                   customImageUrl: item.customImageUrl || item.imageUrl || item.product?.imageUrl || (item.product as any)?.customImageUrl || "",
-                  productDescription: item.productDescription || item.product?.description || item.specifications || "",
+                  productDescription: item.productDescription !== undefined && item.productDescription !== null && item.productDescription !== ""
+                    ? cleanHtmlText(item.productDescription)
+                    : cleanHtmlText(item.product?.description || item.specifications || ""),
                   categoryName: item.categoryName || item.product?.category?.name || "Chairs",
                   chairType: item.chairType || item.product?.chairType || "",
                   batchHeading: item.batchHeading || "",
@@ -2754,7 +2756,7 @@ function NewQuotationForm() {
             margin: 0,
             manualMargin: "",
             customImageUrl: item.customImageUrl || "",
-            productDescription: item.productDescription || item.shortDescription || item.description || "",
+            productDescription: cleanHtmlText(item.productDescription || item.shortDescription || item.description || ""),
             categoryName: item.categoryName || "Chairs",
             chairType: item.chairType || "",
             batchHeading: item.batchHeading || "",
@@ -2896,7 +2898,7 @@ function NewQuotationForm() {
 
     form.setValue(`items.${index}.unitPrice`, calculatedUnitPrice, { shouldValidate: true, shouldDirty: true })
     form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: true, shouldDirty: true })
-    form.setValue(`items.${index}.productDescription`, prod.description || specs || "", { shouldValidate: true, shouldDirty: true })
+    form.setValue(`items.${index}.productDescription`, cleanHtmlText(prod.description || specs || ""), { shouldValidate: true, shouldDirty: true })
 
     const category = prod.category?.name || prod.categoryName
     if (category) {
