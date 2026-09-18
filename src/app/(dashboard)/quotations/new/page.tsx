@@ -87,6 +87,7 @@ import { QuotationFloatingToggles } from "@/components/quotations/QuotationFloat
 import { usePageHeader } from "@/components/providers/PageHeaderContext"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Image as ImageIcon, UploadCloud } from "lucide-react"
 import {
   Dialog,
@@ -866,6 +867,8 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   handleVariantSelect,
   fieldsLength,
   isConfiguratorEnabled,
+  isSelected,
+  handleToggleSelectItem,
 }: {
   index: number
   fieldItem: any
@@ -891,6 +894,8 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   handleVariantSelect?: (index: number, variantProduct: any) => void
   fieldsLength: number
   isConfiguratorEnabled?: boolean
+  isSelected?: boolean
+  handleToggleSelectItem?: (index: number) => void
 }) {
   const [selectionMode, setSelectionMode] = useState<"search" | "configurator">("search")
   const canUseConfigurator = true
@@ -951,7 +956,8 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
       onDragOver={(e) => !isItemLocked && handleDragOver(e, index)}
       onDrop={(e) => !isItemLocked && handleDrop(e, index, batchName)}
       className={cn(
-        "p-4 sm:p-5 rounded-xl border bg-card shadow-2xs space-y-4 transition-colors duration-150 hover:border-primary/40",
+        "p-4 sm:p-5 rounded-xl border bg-card shadow-2xs space-y-4 transition-all duration-150 hover:border-primary/40",
+        isSelected && "border-primary/80 bg-primary/5 ring-1 ring-primary/30 shadow-xs",
         dragOverIndex === index && "border-primary border-dashed bg-primary/10 shadow-md ring-2 ring-primary/30",
         draggedIndex === index && "opacity-40 border-primary border-dashed",
         isItemLocked && "border-amber-400/60 bg-amber-500/5 dark:bg-amber-950/20"
@@ -960,6 +966,12 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
       {/* Item Header Row */}
       <div className="flex items-center justify-between border-b pb-3 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
+          <Checkbox
+            checked={!!isSelected}
+            onCheckedChange={() => handleToggleSelectItem?.(index)}
+            className="h-4 w-4 rounded border-primary/50 text-primary cursor-pointer shrink-0"
+            title={isSelected ? "Unselect product" : "Select product for bulk action or group drag"}
+          />
           <span
             draggable={!isItemLocked}
             onDragStart={(e) => !isItemLocked && handleDragStart(e, index)}
@@ -968,7 +980,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               "drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted",
               isItemLocked && "opacity-40 cursor-not-allowed"
             )}
-            title={isItemLocked ? "Product is locked during costing" : "Drag item to reorder or move across sections"}
+            title={isItemLocked ? "Product is locked during costing" : "Drag item or group to reorder across sections"}
           >
             <GripVertical className="h-4 w-4" />
           </span>
@@ -2068,6 +2080,100 @@ function NewQuotationForm() {
     }
   }, [draggedIndex, draggedBatchId])
 
+  const [selectedItemIndices, setSelectedItemIndices] = useState<number[]>([])
+
+  const handleToggleSelectItem = (index: number) => {
+    setSelectedItemIndices((prev) =>
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+    )
+  }
+
+  const handleToggleSelectBatch = (bName: string) => {
+    const watchAllItems = form.getValues("items") || []
+    const isItemInBatch = (item: any, name: string) => {
+      const b = (item?.batchHeading || "").trim()
+      const isGeneralBatch = !name || name.trim().toLowerCase() === "general items"
+      return isGeneralBatch ? (!b || b.toLowerCase() === "general items") : b === name
+    }
+
+    const batchIndices = watchAllItems
+      .map((item: any, idx: number) => ({ item, idx }))
+      .filter(({ item }: any) => isItemInBatch(item, bName))
+      .map(({ idx }: any) => idx)
+
+    const allSelected = batchIndices.length > 0 && batchIndices.every((idx: number) => selectedItemIndices.includes(idx))
+
+    if (allSelected) {
+      setSelectedItemIndices((prev) => prev.filter((idx) => !batchIndices.includes(idx)))
+    } else {
+      setSelectedItemIndices((prev) => Array.from(new Set([...prev, ...batchIndices])))
+    }
+  }
+
+  const isBatchAllSelected = (bName: string) => {
+    const watchAllItems = form.getValues("items") || []
+    const isItemInBatch = (item: any, name: string) => {
+      const b = (item?.batchHeading || "").trim()
+      const isGeneralBatch = !name || name.trim().toLowerCase() === "general items"
+      return isGeneralBatch ? (!b || b.toLowerCase() === "general items") : b === name
+    }
+
+    const batchIndices = watchAllItems
+      .map((item: any, idx: number) => ({ item, idx }))
+      .filter(({ item }: any) => isItemInBatch(item, bName))
+      .map(({ idx }: any) => idx)
+
+    if (batchIndices.length === 0) return false
+    return batchIndices.every((idx: number) => selectedItemIndices.includes(idx))
+  }
+
+  const handleBulkMoveToSection = (targetBatchName: string) => {
+    if (selectedItemIndices.length === 0) return
+    const currentItems = [...form.getValues("items")]
+    const isGeneral = !targetBatchName || targetBatchName.trim().toLowerCase() === "general items"
+    const newHeading = isGeneral ? "" : targetBatchName
+
+    selectedItemIndices.forEach((idx) => {
+      if (currentItems[idx]) {
+        currentItems[idx].batchHeading = newHeading
+      }
+    })
+
+    form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
+    toast.success(targetBatchName.trim() ? `Moved ${selectedItemIndices.length} items to "${targetBatchName}"` : `Moved ${selectedItemIndices.length} items`)
+    setSelectedItemIndices([])
+  }
+
+  const handleBulkDuplicate = () => {
+    if (selectedItemIndices.length === 0) return
+    const currentItems = form.getValues("items") || []
+    const sortedIndices = [...selectedItemIndices].sort((a, b) => a - b)
+    const itemsToDuplicate = sortedIndices.map((idx) => ({ ...currentItems[idx] }))
+
+    const updatedItems = [...currentItems, ...itemsToDuplicate]
+    form.setValue("items", updatedItems, { shouldDirty: true, shouldValidate: true })
+    toast.success(`Duplicated ${itemsToDuplicate.length} selected items`)
+    setSelectedItemIndices([])
+  }
+
+  const handleBulkDelete = () => {
+    if (selectedItemIndices.length === 0) return
+    const currentItems = form.getValues("items") || []
+    if (currentItems.length <= selectedItemIndices.length) {
+      toast.error("At least one quotation line item must remain.")
+      return
+    }
+
+    const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedItemIndices.length} selected product(s)?`)
+    if (!confirmDelete) return
+
+    const sortedIndices = new Set(selectedItemIndices)
+    const updatedItems = currentItems.filter((_, idx) => !sortedIndices.has(idx))
+    form.setValue("items", updatedItems, { shouldDirty: true, shouldValidate: true })
+    toast.info(`Deleted ${selectedItemIndices.length} selected products`)
+    setSelectedItemIndices([])
+  }
+
   const [autoSavedQuoteId, setAutoSavedQuoteId] = useState<string | null>(null)
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<Date | null>(null)
   const [isAutoSaving, setIsAutoSaving] = useState(false)
@@ -2111,7 +2217,6 @@ function NewQuotationForm() {
     e.preventDefault()
     e.stopPropagation()
 
-    // Handle file drop directly on the item card container
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFile = e.dataTransfer.files[0]
       if (droppedFile && (droppedFile.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(droppedFile.name))) {
@@ -2140,29 +2245,37 @@ function NewQuotationForm() {
     }
 
     const currentItems = [...form.getValues("items")]
-    const draggedItem = { ...currentItems[draggedIndex] }
-    const oldBatchHeading = (draggedItem.batchHeading || "").trim()
     const isTargetGeneral = !targetBatchName || targetBatchName.trim().toLowerCase() === "general items"
-    const newBatchHeading = targetBatchName ? (isTargetGeneral ? "" : targetBatchName) : draggedItem.batchHeading
+    const newBatchHeading = targetBatchName ? (isTargetGeneral ? "" : targetBatchName) : ""
 
-    draggedItem.batchHeading = newBatchHeading
+    const isMultiDrag = selectedItemIndices.includes(draggedIndex) && selectedItemIndices.length > 1
+    const movingIndices = isMultiDrag ? [...selectedItemIndices].sort((a, b) => a - b) : [draggedIndex]
 
-    currentItems.splice(draggedIndex, 1)
+    const movedItems = movingIndices.map((idx) => {
+      const itemCopy = { ...currentItems[idx] }
+      if (targetBatchName !== undefined) {
+        itemCopy.batchHeading = newBatchHeading
+      }
+      return itemCopy
+    })
 
-    // Calculate insertion index
+    const remainingItems = currentItems.filter((_, idx) => !movingIndices.includes(idx))
+
     let insertIndex = dropIndex
-    if (draggedIndex < dropIndex) {
-      insertIndex = Math.max(0, dropIndex - 1)
+    if (insertIndex > remainingItems.length) {
+      insertIndex = remainingItems.length
     }
-    
-    currentItems.splice(insertIndex, 0, draggedItem)
 
-    form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
+    remainingItems.splice(insertIndex, 0, ...movedItems)
+
+    form.setValue("items", remainingItems, { shouldDirty: true, shouldValidate: true })
     handleDragEnd()
 
     const formattedTargetName = targetBatchName ? targetBatchName.trim() : ""
-    if (oldBatchHeading !== formattedTargetName) {
-      toast.success(formattedTargetName ? `Moved product to section "${formattedTargetName}"` : `Moved product to section`)
+    if (isMultiDrag) {
+      toast.success(`Reordered ${movedItems.length} selected products`)
+    } else {
+      toast.success(formattedTargetName ? `Moved product to section "${formattedTargetName}"` : `Moved product`)
     }
   }
 
@@ -2221,19 +2334,22 @@ function NewQuotationForm() {
     // 1. Handle item drop onto section container
     if (draggedIndex !== null) {
       const currentItems = [...form.getValues("items")]
-      const draggedItem = { ...currentItems[draggedIndex] }
-      const oldBatchHeading = (draggedItem.batchHeading || "").trim()
       const isDropGeneral = !dropBatchName || dropBatchName.trim().toLowerCase() === "general items"
       const newBatchHeading = isDropGeneral ? "" : dropBatchName
 
-      draggedItem.batchHeading = newBatchHeading
+      const isMultiDrag = selectedItemIndices.includes(draggedIndex) && selectedItemIndices.length > 1
+      const movingIndices = isMultiDrag ? [...selectedItemIndices].sort((a, b) => a - b) : [draggedIndex]
 
-      // Remove item from old position
-      currentItems.splice(draggedIndex, 1)
+      const movedItems = movingIndices.map((idx) => {
+        const itemCopy = { ...currentItems[idx] }
+        itemCopy.batchHeading = newBatchHeading
+        return itemCopy
+      })
 
-      // Find the last item belonging to dropBatchName
+      const remainingItems = currentItems.filter((_, idx) => !movingIndices.includes(idx))
+
       let lastItemIndex = -1
-      currentItems.forEach((item, idx) => {
+      remainingItems.forEach((item, idx) => {
         const itemBatch = (item.batchHeading || "").trim()
         if ((isDropGeneral && (!itemBatch || itemBatch.toLowerCase() === "general items")) || itemBatch === dropBatchName) {
           lastItemIndex = idx
@@ -2241,15 +2357,17 @@ function NewQuotationForm() {
       })
 
       if (lastItemIndex !== -1) {
-        currentItems.splice(lastItemIndex + 1, 0, draggedItem)
+        remainingItems.splice(lastItemIndex + 1, 0, ...movedItems)
       } else {
-        currentItems.push(draggedItem)
+        remainingItems.push(...movedItems)
       }
 
-      form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
+      form.setValue("items", remainingItems, { shouldDirty: true, shouldValidate: true })
       handleDragEnd()
 
-      if (oldBatchHeading !== dropBatchName) {
+      if (isMultiDrag) {
+        toast.success(`Moved ${movedItems.length} selected products to section "${dropBatchName.trim() || 'General Items'}"`)
+      } else {
         toast.success(dropBatchName.trim() ? `Moved product to section "${dropBatchName}"` : "Moved product to section")
       }
       return
@@ -4562,6 +4680,16 @@ function NewQuotationForm() {
                               onChange={(val) => handleRenameBatch(batch.id, val)}
                             />
                           </div>
+                          <div className="flex items-center gap-1.5 shrink-0 pl-1" title="Select all products in this section">
+                            <Checkbox
+                              checked={isBatchAllSelected(batch.name)}
+                              onCheckedChange={() => handleToggleSelectBatch(batch.name)}
+                              className="h-4 w-4 rounded border-primary/50 text-primary cursor-pointer"
+                            />
+                            <span className="text-[11px] font-medium text-muted-foreground select-none cursor-pointer" onClick={() => handleToggleSelectBatch(batch.name)}>
+                              Select Section
+                            </span>
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
@@ -4622,6 +4750,8 @@ function NewQuotationForm() {
                             handleVariantSelect={handleVariantSelect}
                             fieldsLength={fields.length}
                             isConfiguratorEnabled={isConfiguratorEnabled}
+                            isSelected={selectedItemIndices.includes(index)}
+                            handleToggleSelectItem={handleToggleSelectItem}
                           />
                         ))}
                       </div>
@@ -5260,9 +5390,47 @@ function NewQuotationForm() {
                 </div>
               </CardContent>
             </Card>
-          </form>
-        </Form>
-      )}
+
+          {selectedItemIndices.length > 0 && (
+            <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 backdrop-blur text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5">
+              <div className="flex items-center gap-2 pr-3 border-r border-slate-700">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                <span className="text-xs font-bold font-mono">{selectedItemIndices.length} Selected</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select onValueChange={(val) => {
+                  if (typeof val === "string") handleBulkMoveToSection(val)
+                }}>
+                  <SelectTrigger className="h-8 text-xs bg-slate-800 text-white border-slate-600 hover:bg-slate-700 w-44">
+                    <SelectValue placeholder="Move to Section..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 text-white border-slate-700">
+                    {batches.map((b) => (
+                      <SelectItem key={b.id} value={b.name || "General Items"} className="text-xs focus:bg-slate-700 focus:text-white">
+                        {b.name.trim() || "General Items"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button type="button" size="sm" variant="ghost" onClick={handleBulkDuplicate} className="h-8 text-xs text-slate-200 hover:bg-slate-800 hover:text-white">
+                  <Copy className="h-3.5 w-3.5 mr-1.5" /> Duplicate
+                </Button>
+
+                <Button type="button" size="sm" variant="ghost" onClick={handleBulkDelete} className="h-8 text-xs text-red-400 hover:bg-red-500/20 hover:text-red-300">
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete ({selectedItemIndices.length})
+                </Button>
+              </div>
+
+              <Button type="button" size="icon" variant="ghost" onClick={() => setSelectedItemIndices([])} className="h-7 w-7 rounded-full text-slate-400 hover:bg-slate-800 hover:text-white">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </form>
+      </Form>
+    )}
 
       {/* STICKY FLOATING ACTION DOCK (MOBILE & DESKTOP) */}
       <StickyFooterToolbar
