@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import prisma from "@/lib/prisma"
 import { verifyPassword } from "@/lib/auth"
+import crypto from "crypto"
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -60,22 +61,41 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       if (user) {
+        // Initial login event: generate a new unique session token
+        const newSessionToken = crypto.randomUUID()
+        try {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { activeSessionToken: newSessionToken }
+          })
+        } catch (e) {
+          console.error("Error setting activeSessionToken on user login:", e)
+        }
         token.id = user.id
         token.role = (user as any).role
         token.picture = user.image
+        token.sessionToken = newSessionToken
+        delete token.error
       }
       
-      // Dynamically query database to ensure role/details updates are synced instantly
-      if (token.id) {
+      // Dynamically query database to ensure role/details updates and enforce single active session
+      if (token.id && !user) {
         try {
           const dbUser = await prisma.user.findUnique({
             where: { id: token.id as string },
-            select: { role: true, name: true, image: true }
+            select: { role: true, name: true, image: true, activeSessionToken: true, isActive: true }
           })
-          if (dbUser) {
+
+          if (!dbUser || dbUser.isActive === false) {
+            token.error = "SESSION_TERMINATED"
+          } else if (dbUser.activeSessionToken && dbUser.activeSessionToken !== token.sessionToken) {
+            console.warn(`[NextAuth] Session terminated for user ${token.id}: activeSessionToken mismatch (logged in on another device)`)
+            token.error = "SESSION_TERMINATED"
+          } else {
             token.role = dbUser.role
             token.name = dbUser.name
             token.picture = dbUser.image
+            delete token.error
           }
         } catch (e) {
           console.error("Error fetching user in NextAuth jwt callback:", e)
@@ -95,6 +115,9 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name;
         session.user.image = token.picture as string | null | undefined;
       }
+      if (token.error) {
+        (session as any).error = token.error
+      }
       return session
     }
   },
@@ -107,3 +130,4 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
 }
+

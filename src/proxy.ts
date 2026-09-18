@@ -8,6 +8,17 @@ export default withAuth(
     const role = token?.role as string
     const userId = token?.id as string
 
+    // Check if session has been terminated due to a new login elsewhere
+    if (token?.error === "SESSION_TERMINATED") {
+      if (path.startsWith("/api/")) {
+        return new NextResponse(
+          JSON.stringify({ error: "Session terminated because your account was logged into from another device." }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        )
+      }
+      return NextResponse.redirect(new URL("/login?reason=session_terminated", req.url))
+    }
+
     // Super Admin bypasses all access control checks
     if (role === "SUPER_ADMIN") {
       return NextResponse.next()
@@ -45,7 +56,7 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token }) => !!token && token.error !== "SESSION_TERMINATED",
     },
     pages: {
       signIn: "/login",

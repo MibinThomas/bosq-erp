@@ -25,6 +25,7 @@ model User {
   employeeId    String?
   territories   String?
   status        String    @default("Active")
+  activeSessionToken String?
   deletedAt     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

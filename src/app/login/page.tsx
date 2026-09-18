@@ -2,8 +2,8 @@
 
 export const dynamic = "force-dynamic"
 
-import React, { useState } from "react"
-import { useRouter } from "next/navigation"
+import React, { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,11 +30,16 @@ import {
   Layers,
   FileSpreadsheet,
   KeyRound,
-  Send
+  Send,
+  AlertTriangle
 } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const reason = searchParams.get("reason")
+  const isSessionTerminated = reason === "session_terminated"
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -45,6 +50,15 @@ export default function LoginPage() {
   const [resetEmail, setResetEmail] = useState("")
   const [resetNotes, setResetNotes] = useState("")
   const [submittingReset, setSubmittingReset] = useState(false)
+
+  useEffect(() => {
+    if (isSessionTerminated) {
+      toast.error("Your previous session was terminated because your account was logged into from another device or browser.", {
+        duration: 8000,
+        id: "login-session-terminated-toast"
+      })
+    }
+  }, [isSessionTerminated])
 
   const handleRequestPasswordReset = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -216,6 +230,19 @@ export default function LoginPage() {
 
           <div className="w-full max-w-md mx-auto space-y-8 my-auto">
             
+            {/* Session Displaced Alert Banner */}
+            {isSessionTerminated && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium flex items-start gap-3 shadow-xl backdrop-blur-md">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="font-bold block text-amber-200 text-sm">Session Terminated</span>
+                  <p className="text-slate-300 leading-relaxed">
+                    Your previous session was automatically logged out because your account was logged into from another browser or device.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Form Title Header */}
             <div className="space-y-2">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.04] border border-white/[0.08] text-[11px] font-semibold text-slate-300 uppercase tracking-wider">

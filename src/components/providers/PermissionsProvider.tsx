@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import SessionWatcher from "@/components/auth/SessionWatcher"
 
 interface PermissionsContextType {
   profile: any
@@ -70,7 +71,9 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
 
   return (
     <PermissionsContext.Provider value={{ profile, loading, hasPermission }}>
+      <SessionWatcher />
       {children}
     </PermissionsContext.Provider>
   )
 }
+
