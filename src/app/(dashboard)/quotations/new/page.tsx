@@ -1968,6 +1968,33 @@ function NewQuotationForm() {
     toast.success(targetBatch.name.trim() ? `Section "${targetBatch.name}" deleted.` : "Section deleted.")
   }
 
+  const handleRenameBatch = (batchId: string, newName: string) => {
+    setBatches((prevBatches) => {
+      const targetBatch = prevBatches.find((b) => b.id === batchId)
+      if (!targetBatch) return prevBatches
+
+      const oldName = targetBatch.name
+      const normalizedOld = (oldName || "").trim().toLowerCase()
+      const isOldGeneral = !normalizedOld || normalizedOld === "general items"
+
+      const currentItems = form.getValues("items") || []
+      currentItems.forEach((item: any, idx: number) => {
+        const currentHeading = (item?.batchHeading || "").trim()
+        const normalizedCurrent = currentHeading.toLowerCase()
+        const isCurrentGeneral = !normalizedCurrent || normalizedCurrent === "general items"
+
+        if (
+          (isOldGeneral && isCurrentGeneral) ||
+          (!isOldGeneral && (normalizedCurrent === normalizedOld || currentHeading === oldName))
+        ) {
+          form.setValue(`items.${idx}.batchHeading`, newName, { shouldDirty: true, shouldValidate: true })
+        }
+      })
+
+      return prevBatches.map((b) => (b.id === batchId ? { ...b, name: newName } : b))
+    })
+  }
+
   const [users, setUsers] = useState<any[]>([])
   const [userPermissions, setUserPermissions] = useState<any>(null)
   const [canCreateClient, setCanCreateClient] = useState<boolean>(false)
@@ -2656,7 +2683,7 @@ function NewQuotationForm() {
                   customImageUrl: item.customImageUrl || item.imageUrl || item.product?.imageUrl || (item.product as any)?.customImageUrl || "",
                   productDescription: item.productDescription !== undefined && item.productDescription !== null && item.productDescription !== ""
                     ? cleanHtmlText(item.productDescription)
-                    : cleanHtmlText(item.product?.description || item.specifications || ""),
+                    : cleanHtmlText(item.product?.description || ""),
                   categoryName: item.categoryName || item.product?.category?.name || "Chairs",
                   chairType: item.chairType || item.product?.chairType || "",
                   batchHeading: item.batchHeading || "",
@@ -2756,7 +2783,7 @@ function NewQuotationForm() {
             margin: 0,
             manualMargin: "",
             customImageUrl: item.customImageUrl || "",
-            productDescription: cleanHtmlText(item.productDescription || item.shortDescription || item.description || ""),
+            productDescription: cleanHtmlText(item.productDescription || item.shortDescription || ""),
             categoryName: item.categoryName || "Chairs",
             chairType: item.chairType || "",
             batchHeading: item.batchHeading || "",
@@ -2898,7 +2925,7 @@ function NewQuotationForm() {
 
     form.setValue(`items.${index}.unitPrice`, calculatedUnitPrice, { shouldValidate: true, shouldDirty: true })
     form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: true, shouldDirty: true })
-    form.setValue(`items.${index}.productDescription`, cleanHtmlText(prod.description || specs || ""), { shouldValidate: true, shouldDirty: true })
+    form.setValue(`items.${index}.productDescription`, cleanHtmlText(prod.description || ""), { shouldValidate: true, shouldDirty: true })
 
     const category = prod.category?.name || prod.categoryName
     if (category) {
@@ -4532,19 +4559,7 @@ function NewQuotationForm() {
                           <div className="max-w-md flex-1">
                             <BatchHeadingInput
                               value={batch.name}
-                              onChange={(val) => {
-                                const oldName = batch.name
-                                const updatedBatches = batches.map(b => b.id === batch.id ? { ...b, name: val } : b)
-                                setBatches(updatedBatches)
-
-                                fields.forEach((_, idx) => {
-                                  const currentHeading = form.getValues(`items.${idx}.batchHeading`)
-                                  const isOldGeneral = !oldName || oldName.trim().toLowerCase() === "general items"
-                                  if ((isOldGeneral && (!currentHeading || currentHeading.trim().toLowerCase() === "general items")) || currentHeading === oldName) {
-                                    form.setValue(`items.${idx}.batchHeading`, val, { shouldDirty: true })
-                                  }
-                                })
-                              }}
+                              onChange={(val) => handleRenameBatch(batch.id, val)}
                             />
                           </div>
                         </div>

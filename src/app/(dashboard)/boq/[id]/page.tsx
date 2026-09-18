@@ -1080,23 +1080,29 @@ function NewBOQForm() {
   }
 
   const handleRenameBatch = (batchId: string, newName: string) => {
-    if (!newName.trim()) return
-    if (batches.some((b) => b.id !== batchId && b.name.toLowerCase() === newName.trim().toLowerCase())) {
-      toast.error("A section with this name already exists!")
-      return
-    }
+    setBatches((prevBatches) => {
+      const targetBatch = prevBatches.find((b) => b.id === batchId)
+      if (!targetBatch) return prevBatches
 
-    const oldBatch = batches.find((b) => b.id === batchId)
-    if (!oldBatch) return
-    const oldName = oldBatch.name
+      const oldName = targetBatch.name
+      const normalizedOld = (oldName || "").trim().toLowerCase()
+      const isOldGeneral = !normalizedOld || normalizedOld === "general items"
 
-    setBatches(batches.map((b) => (b.id === batchId ? { ...b, name: newName.trim() } : b)))
+      const currentItems = form.getValues("items") || []
+      currentItems.forEach((item: any, idx: number) => {
+        const currentHeading = (item?.batchHeading || "").trim()
+        const normalizedCurrent = currentHeading.toLowerCase()
+        const isCurrentGeneral = !normalizedCurrent || normalizedCurrent === "general items"
 
-    const currentItems = form.getValues("items") || []
-    currentItems.forEach((item, index) => {
-      if (item.batchHeading === oldName) {
-        form.setValue(`items.${index}.batchHeading`, newName.trim(), { shouldDirty: true, shouldValidate: true })
-      }
+        if (
+          (isOldGeneral && isCurrentGeneral) ||
+          (!isOldGeneral && (normalizedCurrent === normalizedOld || currentHeading === oldName))
+        ) {
+          form.setValue(`items.${idx}.batchHeading`, newName, { shouldDirty: true, shouldValidate: true })
+        }
+      })
+
+      return prevBatches.map((b) => (b.id === batchId ? { ...b, name: newName } : b))
     })
   }
 
