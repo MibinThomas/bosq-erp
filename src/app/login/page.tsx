@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -34,7 +34,7 @@ import {
   AlertTriangle
 } from "lucide-react"
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const reason = searchParams.get("reason")
@@ -460,3 +460,16 @@ export default function LoginPage() {
     </div>
   )
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen w-full bg-slate-950 text-slate-100 flex items-center justify-center font-sans">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
+  )
+}
+
