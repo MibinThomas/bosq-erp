@@ -38,7 +38,8 @@ export async function GET(
     }
 
     // Authorization checks
-    if (["SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(logUserRole)) {
+    const isUnrestricted = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"].includes(logUserRole)
+    if (!isUnrestricted) {
       const rootId = quotation.parentId || quotation.id
       const rootQuotation = quotation.parentId
         ? await prisma.quotation.findUnique({ where: { id: rootId } })
@@ -50,14 +51,48 @@ export async function GET(
         rootQuotation?.preparedById === logUserId ||
         rootQuotation?.salesAgentId === logUserId
 
-      const assignmentCount = await prisma.clientAssignment.count({
-        where: { clientId: quotation.clientId, userId: logUserId }
-      })
-      const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
-        where: { clientId: quotation.clientId, userId: logUserId, status: "Approved" }
-      })
+      let hasAccess = isOwnerOrCreator
 
-      const hasAccess = isOwnerOrCreator || assignmentCount > 0 || !!hasApprovedRequest
+      if (!hasAccess) {
+        const quotationAssignment = await prisma.quotationAssignment.findFirst({
+          where: {
+            quotationId: { in: [quotation.id, rootId] },
+            userId: logUserId
+          }
+        })
+        if (quotationAssignment) {
+          hasAccess = true
+        }
+      }
+
+      if (!hasAccess && quotation.clientId) {
+        const clientAssignment = await prisma.clientAssignment.findFirst({
+          where: { clientId: quotation.clientId, userId: logUserId }
+        })
+        if (clientAssignment) {
+          hasAccess = true
+        }
+
+        if (!hasAccess) {
+          const client = await prisma.client.findUnique({
+            where: { id: quotation.clientId },
+            select: { salespersonId: true }
+          })
+          if (client?.salespersonId === logUserId) {
+            hasAccess = true
+          }
+        }
+
+        if (!hasAccess) {
+          const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
+            where: { clientId: quotation.clientId, userId: logUserId, status: "Approved" }
+          })
+          if (hasApprovedRequest) {
+            hasAccess = true
+          }
+        }
+      }
+
       if (!hasAccess) {
         return NextResponse.json(
           { error: "Forbidden: You do not have access to view this quotation" },

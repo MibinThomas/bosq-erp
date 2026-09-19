@@ -114,9 +114,19 @@ export function QuotationJourneyModal({
   useEffect(() => {
     if (quotationId && open) {
       setLoading(true)
-      fetch(`/api/quotations/${quotationId}/journey`)
-        .then(res => {
-          if (!res.ok) throw new Error("Failed to load journey")
+      fetch(`/api/quotations/${encodeURIComponent(quotationId)}/journey`)
+        .then(async (res) => {
+          if (!res.ok) {
+            let errorMsg = `Failed to load journey (Error ${res.status})`
+            try {
+              const contentType = res.headers.get("content-type") || ""
+              if (contentType.includes("application/json")) {
+                const errData = await res.json()
+                if (errData?.error) errorMsg = errData.error
+              }
+            } catch (_) {}
+            throw new Error(errorMsg)
+          }
           return res.json()
         })
         .then(resData => {
@@ -124,7 +134,7 @@ export function QuotationJourneyModal({
           setError(null)
         })
         .catch(err => {
-          setError(err.message)
+          setError(err.message || "An error occurred while loading the quotation journey")
           setData(null)
         })
         .finally(() => setLoading(false))
@@ -148,7 +158,7 @@ export function QuotationJourneyModal({
 
       // Re-fetch journey data to refresh entire UI
       if (quotationId) {
-        const journeyRes = await fetch(`/api/quotations/${quotationId}/journey`)
+        const journeyRes = await fetch(`/api/quotations/${encodeURIComponent(quotationId)}/journey`)
         if (journeyRes.ok) {
           const journeyData = await journeyRes.json()
           setData(journeyData)
@@ -188,7 +198,7 @@ export function QuotationJourneyModal({
       toast.success("Revision renamed successfully!")
       setRenameRevision(null)
       if (quotationId) {
-        const journeyRes = await fetch(`/api/quotations/${quotationId}/journey`)
+        const journeyRes = await fetch(`/api/quotations/${encodeURIComponent(quotationId)}/journey`)
         if (journeyRes.ok) setData(await journeyRes.json())
       }
       if (onConfirmed) onConfirmed()
@@ -215,7 +225,7 @@ export function QuotationJourneyModal({
       toast.success("Revision deleted successfully!")
       setDeleteRevisionItem(null)
       if (quotationId) {
-        const journeyRes = await fetch(`/api/quotations/${quotationId}/journey`)
+        const journeyRes = await fetch(`/api/quotations/${encodeURIComponent(quotationId)}/journey`)
         if (journeyRes.ok) setData(await journeyRes.json())
       }
       if (onConfirmed) onConfirmed()
@@ -240,7 +250,7 @@ export function QuotationJourneyModal({
       toast.success(`Created copy "${newQuote.quotationNumber}"!`)
 
       if (quotationId) {
-        const journeyRes = await fetch(`/api/quotations/${quotationId}/journey`)
+        const journeyRes = await fetch(`/api/quotations/${encodeURIComponent(quotationId)}/journey`)
         if (journeyRes.ok) setData(await journeyRes.json())
       }
       if (onConfirmed) onConfirmed()
