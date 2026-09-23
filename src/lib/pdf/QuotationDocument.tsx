@@ -840,18 +840,32 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
     // If input is plain text or lacks list markup (ul, ol, li), format into structured bullet list
     if (!/<(ul|ol|li)\b[^>]*>/i.test(trimmed)) {
-      let cleaned = trimmed
-        .replace(/^<(p|div)[^>]*>/i, "")
-        .replace(/<\/(p|div)>$/i, "")
-        .replace(/&nbsp;/gi, " ")
-        .trim()
+      let rawSegments: string[] = []
 
-      // Pre-split on period followed by space and a Key label (e.g. ". Remarks:")
-      cleaned = cleaned.replace(/\.\s+(?=[A-Z][a-zA-Z0-9\s_\-]{1,25}:)/g, "; ")
+      // If text has paragraph (<p>) or line break (<br>) tags, extract lines from tags
+      if (/<(p|br|div)\b[^>]*>/i.test(trimmed)) {
+        const textWithNewlines = trimmed
+          .replace(/<br\s*\/?>/gi, "\n")
+          .replace(/<\/(p|div)>/gi, "\n")
+          .replace(/<p[^>]*>/gi, "")
+          .replace(/<div[^>]*>/gi, "")
 
-      const rawItems = cleaned
-        .split(/;|\r?\n|\|/)
-        .map((s) => s.trim())
+        rawSegments = textWithNewlines.split(/\r?\n/)
+      } else {
+        // Pre-split on period followed by space and a Key label (e.g. ". Remarks:")
+        const preSplit = trimmed.replace(/\.\s+(?=[A-Z][a-zA-Z0-9\s_\-]{1,25}:)/g, "; ")
+        rawSegments = preSplit.split(/;|\r?\n|\|/)
+      }
+
+      const rawItems = rawSegments
+        .map((s) => {
+          // Strip any residual HTML tags and leading bullet characters
+          const cleanText = s
+            .replace(/<[^>]+>/g, "")
+            .replace(/^[\s•\-\*\u2022\u2023\u25E6\u2043\u2219]+/, "")
+            .trim()
+          return cleanText
+        })
         .filter((s) => s.length > 0 && s !== "-" && s.toLowerCase() !== "none" && s.toLowerCase() !== "not specified")
         .filter((s) => !/^(product\s+specifications|configured\s+attributes|specifications|attributes)$/i.test(s))
 

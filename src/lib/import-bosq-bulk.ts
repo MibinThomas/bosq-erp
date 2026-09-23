@@ -20,17 +20,29 @@ export function formatSpecificationsText(rawSpecs?: string | null): string | nul
     return trimmed
   }
 
-  let cleaned = trimmed
-    .replace(/^<(p|div)[^>]*>/i, "")
-    .replace(/<\/(p|div)>$/i, "")
-    .replace(/&nbsp;/gi, " ")
-    .trim()
+  let rawSegments: string[] = []
 
-  cleaned = cleaned.replace(/\.\s+(?=[A-Z][a-zA-Z0-9\s_\-]{1,25}:)/g, "; ")
+  if (/<(p|br|div)\b[^>]*>/i.test(trimmed)) {
+    const textWithNewlines = trimmed
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div)>/gi, "\n")
+      .replace(/<p[^>]*>/gi, "")
+      .replace(/<div[^>]*>/gi, "")
 
-  const rawItems = cleaned
-    .split(/;|\r?\n|\|/)
-    .map((s) => s.trim())
+    rawSegments = textWithNewlines.split(/\r?\n/)
+  } else {
+    const preSplit = trimmed.replace(/\.\s+(?=[A-Z][a-zA-Z0-9\s_\-]{1,25}:)/g, "; ")
+    rawSegments = preSplit.split(/;|\r?\n|\|/)
+  }
+
+  const rawItems = rawSegments
+    .map((s) => {
+      const cleanText = s
+        .replace(/<[^>]+>/g, "")
+        .replace(/^[\s•\-\*\u2022\u2023\u25E6\u2043\u2219]+/, "")
+        .trim()
+      return cleanText
+    })
     .filter((s) => s.length > 0 && s !== "-" && s.toLowerCase() !== "none" && s.toLowerCase() !== "not specified")
     .filter((s) => !/^(product\s+specifications|configured\s+attributes|specifications|attributes)$/i.test(s))
 

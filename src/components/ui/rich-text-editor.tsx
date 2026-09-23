@@ -39,6 +39,112 @@ const formats = [
   "list",
 ]
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
+function sanitizePastedContent(html?: string | null, plainText?: string | null): string {
+  // If plainText only or html is empty
+  if (!html || !html.trim()) {
+    if (!plainText || !plainText.trim()) return ""
+    const normalized = plainText.replace(/\r\n/g, "\n").trim()
+    const lines = normalized.split("\n")
+
+    let inList: "ul" | "ol" | null = null
+    let result = ""
+
+    lines.forEach((line) => {
+      const trimmedLine = line.trim()
+      if (!trimmedLine) {
+        if (inList) {
+          result += `</${inList}>`
+          inList = null
+        }
+        return
+      }
+
+      // Check for bullet points (•, -, *, etc.)
+      const bulletMatch = trimmedLine.match(/^([•\-\*]|[\u2022\u2023\u25E6\u2043\u2219])\s*(.+)/)
+      const numMatch = trimmedLine.match(/^(\d+[\.\)])\s*(.+)/)
+
+      if (bulletMatch) {
+        if (inList === "ol") {
+          result += "</ol>"
+          inList = null
+        }
+        if (!inList) {
+          result += "<ul>"
+          inList = "ul"
+        }
+        result += `<li>${escapeHtml(bulletMatch[2])}</li>`
+      } else if (numMatch) {
+        if (inList === "ul") {
+          result += "</ul>"
+          inList = null
+        }
+        if (!inList) {
+          result += "<ol>"
+          inList = "ol"
+        }
+        result += `<li>${escapeHtml(numMatch[2])}</li>`
+      } else {
+        if (inList) {
+          result += `</${inList}>`
+          inList = null
+        }
+        result += `<p>${escapeHtml(trimmedLine)}</p>`
+      }
+    })
+
+    if (inList) {
+      result += `</${inList}>`
+    }
+
+    return result || `<p>${escapeHtml(normalized)}</p>`
+  }
+
+  // HTML content exists (from Word, Excel, Web)
+  let clean = html
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<xml[^>]*>[\s\S]*?<\/xml>/gi, "")
+    .replace(/<meta[^>]*>/gi, "")
+    .replace(/<link[^>]*>/gi, "")
+
+  // Convert Word MsoListParagraph into <li> elements
+  clean = clean.replace(/<p[^>]*class=["']?[^"']*MsoListParagraph[^"']*["']?[^>]*>[\s\S]*?<\/p>/gi, (match) => {
+    const text = match.replace(/<[^>]+>/g, "").replace(/^[\s•\-\*\d\.\)]+/, "").trim()
+    return `<li>${escapeHtml(text)}</li>`
+  })
+
+  // Strip Word mso- inline styles, font-family, font-size while preserving basic formatting
+  clean = clean.replace(/style=["']([^"']+)["']/gi, (full, styleStr) => {
+    const keptStyles: string[] = []
+    const styles = styleStr.split(";")
+    styles.forEach((s: string) => {
+      const [key, val] = s.split(":").map((part) => part?.trim())
+      if (!key || !val) return
+      const lKey = key.toLowerCase()
+      if (lKey === "color" || lKey === "background-color" || lKey === "font-weight" || lKey === "text-decoration") {
+        keptStyles.push(`${lKey}: ${val}`)
+      }
+    })
+    return keptStyles.length > 0 ? `style="${keptStyles.join("; ")}"` : ""
+  })
+
+  // Wrap loose <li> items in <ul> if needed
+  if (/<li\b/i.test(clean) && !/<(ul|ol)\b/i.test(clean)) {
+    clean = `<ul>${clean}</ul>`
+  }
+
+  return clean
+}
+
 const RichTextEditor = ({
   value,
   onChange,
@@ -53,34 +159,38 @@ const RichTextEditor = ({
     (e: React.ClipboardEvent<HTMLDivElement>) => {
       if (isReadOnly) return
 
+      const html = e.clipboardData.getData("text/html")
       const plainText = e.clipboardData.getData("text/plain")
-      if (!plainText) return
+
+      if (!html && !plainText) return
 
       e.preventDefault()
       e.stopPropagation()
+
+      const sanitizedHtml = sanitizePastedContent(html, plainText)
 
       // Attempt to retrieve Quill instance directly from the DOM container element
       const targetEl = e.target as HTMLElement
       const containerEl = targetEl.closest?.(".ql-container") as any
       const quill = containerEl?.__quill
 
-      if (quill) {
+      if (quill && sanitizedHtml) {
         const range = quill.getSelection(true)
-        if (range) {
-          if (range.length > 0) {
-            quill.deleteText(range.index, range.length, "user")
-          }
-          quill.insertText(range.index, plainText, "user")
-          // Enforce Normal Text style on inserted plain text lines
-          quill.formatLine(range.index, plainText.length, "header", false, "user")
-          quill.setSelection(range.index + plainText.length, 0, "user")
-          return
+        const index = range ? range.index : quill.getLength()
+        if (range && range.length > 0) {
+          quill.deleteText(range.index, range.length, "user")
         }
+        quill.clipboard.dangerouslyPasteHTML(index, sanitizedHtml, "user")
+        return
       }
 
-      // Fallback native plain text insertion for contenteditable
+      // Fallback native insertion for contenteditable
       try {
-        document.execCommand("insertText", false, plainText)
+        if (sanitizedHtml) {
+          document.execCommand("insertHTML", false, sanitizedHtml)
+        } else if (plainText) {
+          document.execCommand("insertText", false, plainText)
+        }
       } catch (err) {
         console.warn("Plain text paste fallback failed:", err)
       }

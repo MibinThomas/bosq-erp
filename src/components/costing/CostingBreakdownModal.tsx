@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   Info
 } from "lucide-react"
+import { cleanHtmlText } from "@/lib/utils"
 
 export interface CostingItemData {
   id?: string
@@ -197,8 +198,8 @@ export function CostingBreakdownModal({
           <div className="space-y-1 flex-1 min-w-0">
             <div className="font-bold text-foreground text-sm leading-tight">{item.description}</div>
             {item.specifications && (
-              <div className="text-muted-foreground line-clamp-2 text-[11px]" title={item.specifications}>
-                {item.specifications}
+              <div className="text-muted-foreground line-clamp-3 text-[11px] whitespace-pre-line" title={cleanHtmlText(item.specifications)}>
+                {cleanHtmlText(item.specifications)}
               </div>
             )}
             <div className="flex items-center gap-4 text-muted-foreground pt-1 text-[11px] font-mono">

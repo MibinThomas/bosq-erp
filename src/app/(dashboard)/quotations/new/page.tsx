@@ -5820,7 +5820,7 @@ function NewQuotationForm() {
                         )}
                       </div>
                       {item.specifications && (
-                        <p className="text-[11px] text-muted-foreground truncate">{item.specifications}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{cleanHtmlText(item.specifications)}</p>
                       )}
                       <div className="text-[11px] text-muted-foreground font-mono">
                         Qty: {item.quantity} | Unit Price: AED {(item.unitPrice || 0).toLocaleString()}
