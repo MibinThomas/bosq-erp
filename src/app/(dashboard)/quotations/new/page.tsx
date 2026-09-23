@@ -38,6 +38,7 @@ import {
   RotateCcw,
   Palette,
   Calculator,
+  FolderKanban,
   MessageSquare,
   Tag,
   User,
@@ -869,6 +870,9 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   isConfiguratorEnabled,
   isSelected,
   handleToggleSelectItem,
+  isFirstInSection,
+  isLastInSection,
+  onOpenCreateSection,
 }: {
   index: number
   fieldItem: any
@@ -896,6 +900,9 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   isConfiguratorEnabled?: boolean
   isSelected?: boolean
   handleToggleSelectItem?: (index: number) => void
+  isFirstInSection?: boolean
+  isLastInSection?: boolean
+  onOpenCreateSection?: (index: number) => void
 }) {
   const [selectionMode, setSelectionMode] = useState<"search" | "configurator">("search")
   const canUseConfigurator = true
@@ -906,17 +913,6 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   const isCostedByEstimator = currentItemVal.costingStatus === "COSTING_COMPLETED" || !!currentItemVal.costingCompletedAt
   const isCostingLockedForIDC = isIDC && isCostedByEstimator
   const itemBatch = (currentItemVal.batchHeading || "").trim()
-  const isGeneral = !itemBatch || itemBatch.toLowerCase() === "general items"
-  const batchExists = (batches || []).some(b => b.name === itemBatch || (isGeneral && (!b.name || b.name.toLowerCase() === "general items")))
-
-  let belongsToBatch = false
-  if (batchExists) {
-    belongsToBatch = itemBatch === batchName || (isGeneral && (!batchName || batchName.toLowerCase() === "general items"))
-  } else {
-    const firstBatchName = batches && batches[0]?.name
-    belongsToBatch = batchName === firstBatchName || (isGeneral && (!batchName || batchName.toLowerCase() === "general items"))
-  }
-  if (!belongsToBatch) return null
 
   const currentProductId = currentItemVal.productId
   const currentUnitPrice = currentItemVal.unitPrice
@@ -935,22 +931,6 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   const netUnitPrice = Math.max(0, unitPriceNum - discPerUnit)
   const lineTotal = qtyNum * netUnitPrice
 
-  const watchAllItems = useWatch({ control, name: "items" }) || []
-  const sectionItemIndices = useMemo(() => {
-    return watchAllItems
-      .map((item: any, idx: number) => ({ item, idx }))
-      .filter(({ item }: any) => {
-        const b = (item?.batchHeading || "").trim()
-        const isGeneralBatch = !batchName || batchName.trim().toLowerCase() === "general items"
-        return isGeneralBatch ? (!b || b.toLowerCase() === "general items") : b === batchName
-      })
-      .map(({ idx }: any) => idx)
-  }, [watchAllItems, batchName])
-
-  const posInSection = sectionItemIndices.indexOf(index)
-  const isFirstInSection = posInSection <= 0
-  const isLastInSection = posInSection === -1 || posInSection >= sectionItemIndices.length - 1
-
   return (
     <div
       onDragOver={(e) => !isItemLocked && handleDragOver(e, index)}
@@ -965,7 +945,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
     >
       {/* Item Header Row */}
       <div className="flex items-center justify-between border-b pb-3 gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Checkbox
             checked={!!isSelected}
             onCheckedChange={() => handleToggleSelectItem?.(index)}
@@ -1015,6 +995,36 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             >
               <ChevronDown className="h-3.5 w-3.5" />
             </Button>
+          </div>
+
+          {/* Assign to Section Dropdown */}
+          <div className="flex items-center gap-1.5 bg-muted/40 border border-border/80 rounded-lg px-2 py-0.5 shrink-0" title="Assign item to a quotation section">
+            <FolderKanban className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="text-[11px] font-semibold text-muted-foreground hidden sm:inline">Section:</span>
+            <select
+              disabled={isItemLocked}
+              value={itemBatch || "General Items"}
+              onChange={(e) => {
+                const selected = e.target.value
+                if (selected === "__CREATE_NEW_SECTION__") {
+                  onOpenCreateSection?.(index)
+                } else {
+                  const targetVal = selected === "General Items" ? "" : selected
+                  form.setValue(`items.${index}.batchHeading`, targetVal, { shouldDirty: true, shouldValidate: true })
+                  toast.success(`Moved Item #${index + 1} to section "${selected}"`)
+                }
+              }}
+              className="text-xs font-bold bg-transparent text-foreground focus:outline-none cursor-pointer border-none py-0.5 max-w-[130px] sm:max-w-[170px] truncate"
+            >
+              {(batches || []).map((b: any) => (
+                <option key={b.id} value={b.name || "General Items"}>
+                  {b.name || "General Items"}
+                </option>
+              ))}
+              <option value="__CREATE_NEW_SECTION__" className="font-bold text-primary">
+                + Create New Section...
+              </option>
+            </select>
           </div>
 
           {includeCategoryName && currentItemVal.categoryName && (
@@ -2019,6 +2029,42 @@ function NewQuotationForm() {
   const [batches, setBatches] = useState<{ id: string; name: string }[]>([
     { id: "default", name: "" }
   ])
+  const [isCreateSectionModalOpen, setIsCreateSectionModalOpen] = useState(false)
+  const [newSectionInputName, setNewSectionInputName] = useState("")
+  const [sectionCreateTargetIndex, setSectionCreateTargetIndex] = useState<number | null>(null)
+
+  const handleConfirmCreateSection = () => {
+    const trimmed = newSectionInputName.trim()
+    if (!trimmed) {
+      toast.error("Please enter a section name.")
+      return
+    }
+
+    const existingMatch = batches.find((b) => b.name.toLowerCase() === trimmed.toLowerCase())
+    let targetSectionName = trimmed
+
+    if (existingMatch) {
+      targetSectionName = existingMatch.name
+    } else {
+      const newBatch = { id: `batch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`, name: trimmed }
+      setBatches((prev) => [...prev, newBatch])
+    }
+
+    if (sectionCreateTargetIndex !== null && sectionCreateTargetIndex >= 0) {
+      form.setValue(`items.${sectionCreateTargetIndex}.batchHeading`, targetSectionName === "General Items" ? "" : targetSectionName, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+      toast.success(`Assigned Item #${sectionCreateTargetIndex + 1} to section "${targetSectionName}".`)
+    } else {
+      toast.success(`Created section "${targetSectionName}".`)
+    }
+
+    setIsCreateSectionModalOpen(false)
+    setNewSectionInputName("")
+    setSectionCreateTargetIndex(null)
+  }
+
   const [draggedBatchId, setDraggedBatchId] = useState<string | null>(null)
   const [dragOverBatchId, setDragOverBatchId] = useState<string | null>(null)
 
@@ -2934,6 +2980,44 @@ function NewQuotationForm() {
     name: "items",
     control: form.control,
   })
+
+  const watchAllItemsForGrouping = form.watch("items") || []
+
+  const groupedItemsByBatch = useMemo(() => {
+    const map: Record<string, { fieldItem: any; originalIndex: number }[]> = {}
+
+    // Initialize map entry for all active batches
+    batches.forEach((b) => {
+      const key = (b.name || "").trim() || "General Items"
+      map[key] = []
+    })
+
+    fields.forEach((fieldItem, idx) => {
+      const itemVal = watchAllItemsForGrouping[idx] || fieldItem
+      const itemBatch = (itemVal?.batchHeading || "").trim()
+      const isGeneral = !itemBatch || itemBatch.toLowerCase() === "general items"
+
+      let targetBatchName = "General Items"
+      if (!isGeneral) {
+        const match = batches.find((b) => (b.name || "").trim() === itemBatch)
+        if (match) {
+          targetBatchName = match.name || "General Items"
+        } else if (batches.length > 0) {
+          targetBatchName = batches[0].name || "General Items"
+        }
+      } else if (batches.length > 0) {
+        const generalMatch = batches.find((b) => !b.name || b.name.trim().toLowerCase() === "general items")
+        targetBatchName = generalMatch ? (generalMatch.name || "General Items") : (batches[0].name || "General Items")
+      }
+
+      if (!map[targetBatchName]) {
+        map[targetBatchName] = []
+      }
+      map[targetBatchName].push({ fieldItem, originalIndex: idx })
+    })
+
+    return map
+  }, [fields, watchAllItemsForGrouping, batches])
 
   const { fields: additionalFields, append: appendAdditional, remove: removeAdditional } = useFieldArray({
     name: "additionalCharges",
@@ -4723,37 +4807,56 @@ function NewQuotationForm() {
 
                       {/* Line Item Cards in Section */}
                       <div className="space-y-4">
-                        {fields.map((fieldItem, index) => (
-                          <QuotationItemCard
-                            key={fieldItem.id}
-                            index={index}
-                            fieldItem={fieldItem}
-                            control={form.control}
-                            form={form}
-                            batchName={batch.name}
-                            batches={batches}
-                            products={products}
-                            watchSegment={watchCustomerSegment}
-                            dbCategories={dbCategories}
-                            userRole={userRole}
-                            isRevision={isRevision}
-                            draggedIndex={draggedIndex}
-                            dragOverIndex={dragOverIndex}
-                            handleDragStart={handleDragStart}
-                            handleDragOver={handleDragOver}
-                            handleDrop={handleDrop}
-                            handleDragEnd={handleDragEnd}
-                            handleDuplicateItem={handleDuplicateItem}
-                            handleMoveItem={handleMoveItem}
-                            remove={remove}
-                            handleProductSelect={handleProductSelect}
-                            handleVariantSelect={handleVariantSelect}
-                            fieldsLength={fields.length}
-                            isConfiguratorEnabled={isConfiguratorEnabled}
-                            isSelected={selectedItemIndices.includes(index)}
-                            handleToggleSelectItem={handleToggleSelectItem}
-                          />
-                        ))}
+                        {(() => {
+                          const bKey = (batch.name || "").trim() || "General Items"
+                          const sectionItems = groupedItemsByBatch[bKey] || []
+
+                          if (sectionItems.length === 0) {
+                            return (
+                              <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
+                                No products in this section. Click "+ Add Item" or assign products here using the Section dropdown on any item.
+                              </div>
+                            )
+                          }
+
+                          return sectionItems.map(({ fieldItem, originalIndex }, pos) => (
+                            <QuotationItemCard
+                              key={fieldItem.id}
+                              index={originalIndex}
+                              fieldItem={fieldItem}
+                              control={form.control}
+                              form={form}
+                              batchName={batch.name}
+                              batches={batches}
+                              products={products}
+                              watchSegment={watchCustomerSegment}
+                              dbCategories={dbCategories}
+                              userRole={userRole}
+                              isRevision={isRevision}
+                              isFirstInSection={pos === 0}
+                              isLastInSection={pos === sectionItems.length - 1}
+                              draggedIndex={draggedIndex}
+                              dragOverIndex={dragOverIndex}
+                              handleDragStart={handleDragStart}
+                              handleDragOver={handleDragOver}
+                              handleDrop={handleDrop}
+                              handleDragEnd={handleDragEnd}
+                              handleDuplicateItem={handleDuplicateItem}
+                              handleMoveItem={handleMoveItem}
+                              remove={remove}
+                              handleProductSelect={handleProductSelect}
+                              handleVariantSelect={handleVariantSelect}
+                              fieldsLength={fields.length}
+                              isConfiguratorEnabled={isConfiguratorEnabled}
+                              isSelected={selectedItemIndices.includes(originalIndex)}
+                              handleToggleSelectItem={handleToggleSelectItem}
+                              onOpenCreateSection={(itemIdx) => {
+                                setSectionCreateTargetIndex(itemIdx)
+                                setIsCreateSectionModalOpen(true)
+                              }}
+                            />
+                          ))
+                        })()}
                       </div>
 
                       {/* Section Bottom Action Controls */}
@@ -5904,6 +6007,64 @@ function NewQuotationForm() {
                   <span>Send Revision Request</span>
                 </>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal for Creating New Section Inline from Item Card Dropdown */}
+      <Dialog open={isCreateSectionModalOpen} onOpenChange={setIsCreateSectionModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <FolderKanban className="h-5 w-5 text-primary" />
+              Create New Section
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Enter a section heading name to organize items in your quotation (e.g., Executive Office, Meeting Room 1, Workstations).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Section Heading / Name</label>
+              <Input
+                autoFocus
+                placeholder="e.g. Conference Room A, CEO Suite, Reception Area"
+                value={newSectionInputName}
+                onChange={(e) => setNewSectionInputName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    handleConfirmCreateSection()
+                  }
+                }}
+                className="h-10 text-sm font-semibold"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsCreateSectionModalOpen(false)
+                setNewSectionInputName("")
+                setSectionCreateTargetIndex(null)
+              }}
+              className="text-xs font-semibold cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmCreateSection}
+              className="text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" /> Create &amp; Assign Section
             </Button>
           </DialogFooter>
         </DialogContent>
