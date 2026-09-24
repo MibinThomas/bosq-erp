@@ -1047,43 +1047,39 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           </div>
 
           {/* Assign to Section Dropdown */}
-          <div className="flex items-center gap-1.5 bg-muted/40 border border-border/80 rounded-lg px-2 py-0.5 shrink-0" title="Assign item to a quotation section">
-            <FolderKanban className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span className="text-[11px] font-semibold text-muted-foreground hidden sm:inline">Section:</span>
-            <select
+          <div className="flex items-center gap-1 shrink-0" title="Assign product to a quotation section">
+            <Select
               disabled={isItemLocked}
               value={itemBatch || "General Items"}
-              onChange={(e) => {
-                const selected = e.target.value
-                if (selected === "__CREATE_NEW_SECTION__") {
-                  onOpenCreateSection?.(index)
-                } else if (selected === "__EDIT_CURRENT_SECTION__") {
-                  const currentBatchObj = (batches || []).find((b: any) => (b.name || "").trim() === (itemBatch || "General Items").trim())
-                  if (currentBatchObj) {
-                    onOpenEditSection?.(currentBatchObj)
-                  } else {
-                    onOpenCreateSection?.(index)
-                  }
-                } else {
-                  const targetVal = selected === "General Items" ? "" : selected
-                  form.setValue(`items.${index}.batchHeading`, targetVal, { shouldDirty: true, shouldValidate: true })
-                  toast.success(`Moved Item #${index + 1} to section "${selected}"`)
-                }
+              onValueChange={(selected) => {
+                const targetVal = selected === "General Items" ? "" : selected
+                form.setValue(`items.${index}.batchHeading`, targetVal, { shouldDirty: true, shouldValidate: true })
+                toast.success(`Moved Item #${index + 1} to section "${selected}"`)
               }}
-              className="text-xs font-bold bg-transparent text-foreground focus:outline-none cursor-pointer border-none py-0.5 max-w-[130px] sm:max-w-[170px] truncate"
             >
-              {(batches || []).map((b: any) => (
-                <option key={b.id} value={b.name || "General Items"}>
-                  {b.name || "General Items"}
-                </option>
-              ))}
-              <option value="__CREATE_NEW_SECTION__" className="font-bold text-primary">
-                + Create New Section...
-              </option>
-              <option value="__EDIT_CURRENT_SECTION__" className="font-bold text-amber-600">
-                ✏️ Edit Section Heading...
-              </option>
-            </select>
+              <SelectTrigger className="h-7 text-xs font-bold bg-background/80 hover:bg-background border-border/80 min-w-[130px] max-w-[200px] shadow-2xs">
+                <div className="flex items-center gap-1.5 truncate">
+                  <FolderKanban className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <SelectValue placeholder="Select Section" />
+                </div>
+              </SelectTrigger>
+              <SelectContent align="start" className="min-w-[190px]">
+                {(batches || []).map((b: any, bIdx: number) => {
+                  const theme = SECTION_THEMES[bIdx % SECTION_THEMES.length]
+                  const sectionName = b.name.trim() || "General Items"
+                  return (
+                    <SelectItem key={b.id || bIdx} value={sectionName} className="text-xs py-1.5 cursor-pointer">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className={cn("font-mono text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0", theme.badgeBg)}>
+                          #{bIdx + 1}
+                        </span>
+                        <span className="font-semibold truncate text-foreground">{sectionName}</span>
+                      </div>
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
           </div>
 
           {includeCategoryName && currentItemVal.categoryName && (
