@@ -1405,10 +1405,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
         </div>
 
         {/* Right Side: Pricing & Margins Grid Controls */}
-        <div className="lg:col-span-6 space-y-3 bg-muted/40 dark:bg-slate-900/40 p-4 rounded-xl border border-border shadow-2xs">
+        <div className="lg:col-span-6 space-y-4 bg-muted/30 dark:bg-slate-900/30 p-4 sm:p-5 rounded-xl border border-border/80 shadow-2xs">
           {/* Estimator Costing Lock Banner & Final Price Audit for Costed Items */}
           {isCostedByEstimator && (
-            <div className="bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 p-3 rounded-xl space-y-2 text-xs text-emerald-900 dark:text-emerald-200">
+            <div className="bg-emerald-500/10 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 p-3.5 rounded-xl space-y-2 text-xs text-emerald-900 dark:text-emerald-200 shadow-xs">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="flex items-center gap-1.5 font-bold text-xs">
                   <Check className="h-4 w-4 text-emerald-600 shrink-0 stroke-[3]" />
@@ -1445,188 +1445,211 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           )}
 
           {/* Price Source Toggle */}
-          <div className="flex items-center justify-between border-b pb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-              Pricing Mode
-            </span>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between border-b pb-2.5 flex-wrap gap-2">
+            <div className="flex items-center gap-1.5">
+              <Calculator className="h-4 w-4 text-primary shrink-0" />
+              <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                Line Item Pricing
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-background p-1 rounded-lg border shadow-2xs">
               <Button
                 type="button"
-                variant={currentPriceSource === "standard" ? "default" : "outline"}
+                variant={currentPriceSource === "standard" ? "default" : "ghost"}
                 size="sm"
                 disabled={isItemLocked || isCostingLockedForIDC}
                 onClick={() => {
                   form.setValue(`items.${index}.priceSource`, "standard")
                   if (currentProductId) handleProductSelect(index, currentProductId)
                 }}
-                className="h-6.5 text-[11px] px-2.5 font-bold cursor-pointer"
+                className={cn("h-6.5 text-[11px] px-2.5 font-bold cursor-pointer transition-all", currentPriceSource === "standard" && "shadow-2xs")}
               >
                 Standard Price
               </Button>
               <Button
                 type="button"
-                variant={currentPriceSource === "manual" ? "default" : "outline"}
+                variant={currentPriceSource === "manual" ? "default" : "ghost"}
                 size="sm"
                 disabled={isItemLocked || isCostingLockedForIDC}
                 onClick={() => form.setValue(`items.${index}.priceSource`, "manual")}
-                className="h-6.5 text-[11px] px-2.5 font-bold cursor-pointer"
+                className={cn("h-6.5 text-[11px] px-2.5 font-bold cursor-pointer transition-all", currentPriceSource === "manual" && "shadow-2xs")}
               >
                 Manual Override
               </Button>
             </div>
           </div>
 
-          {/* 6-Column Pricing Fields */}
-          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 pt-1">
-            {/* Quantity */}
-            <FormField
-              control={control}
-              name={`items.${index}.quantity`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold text-foreground text-center block">Qty</FormLabel>
-                  <FormControl>
-                    <NumericInput
-                      name={field.name}
-                      type="number"
-                      disabled={isItemLocked}
-                      className="h-9 text-xs sm:text-sm font-mono font-bold text-center bg-background"
-                      value={field.value}
-                      onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {/* Base Price */}
-            <FormField
-              control={control}
-              name={`items.${index}.basePrice`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold text-foreground text-center block">Base AED</FormLabel>
-                  <FormControl>
-                    <NumericInput
-                      name={field.name}
-                      disabled={isItemLocked || isCostingLockedForIDC || currentPriceSource === "standard"}
-                      className="h-9 text-xs sm:text-sm font-mono font-semibold bg-background"
-                      value={field.value}
-                      onChange={(val) => {
-                        const bPrice = val === "" ? 0 : Number(val)
-                        field.onChange(bPrice)
-                        const marginVal = Number(form.getValues(`items.${index}.margin`)) || 0
-                        const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
-                        form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
-                      }}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {/* Margin % */}
-            <FormField
-              control={control}
-              name={`items.${index}.margin`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold text-foreground text-center block">Margin %</FormLabel>
-                  <FormControl>
-                    <NumericInput
-                      name={field.name}
-                      disabled={isItemLocked}
-                      className="h-9 text-xs sm:text-sm font-mono font-bold text-center bg-background"
-                      value={field.value}
-                      onChange={(val) => {
-                        const marginVal = val === "" ? 0 : Number(val)
-                        field.onChange(marginVal)
-                        form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: false })
-                        const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
-                        if (bPrice > 0) {
-                          const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
-                          form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
-                        }
-                      }}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {/* Unit Price */}
-            <FormField
-              control={control}
-              name={`items.${index}.unitPrice`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs font-bold text-primary text-center block">Unit AED</FormLabel>
-                  <FormControl>
-                    <NumericInput
-                      name={field.name}
-                      disabled={isItemLocked || isCostingLockedForIDC}
-                      className="h-9 text-xs sm:text-sm font-mono bg-background font-bold text-primary border-primary/40"
-                      value={field.value}
-                      onChange={(val) => {
-                        const uPrice = val === "" ? 0 : Number(val)
-                        field.onChange(uPrice)
-                        const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
-                        if (bPrice > 0) {
-                          const calculatedMargin = Number((((uPrice - bPrice) / bPrice) * 100).toFixed(2))
-                          form.setValue(`items.${index}.margin`, calculatedMargin, { shouldValidate: false })
-                          form.setValue(`items.${index}.manualMargin`, calculatedMargin, { shouldValidate: false })
-                        }
-                      }}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {/* Item Discount Field */}
-            <FormField
-              control={control}
-              name={`items.${index}.discount`}
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center justify-between">
-                    <FormLabel className="text-xs font-bold text-foreground">Discount</FormLabel>
-                    <button
-                      type="button"
-                      disabled={isItemLocked}
-                      onClick={() => {
-                        const nextType = currentDiscountType === "PERCENTAGE" ? "AMOUNT" : "PERCENTAGE"
-                        form.setValue(`items.${index}.discountType`, nextType)
-                      }}
-                      className="text-[11px] text-primary hover:underline font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Toggle between % and AED discount"
-                    >
-                      {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
-                    </button>
-                  </div>
-                  <FormControl>
-                    <div className="relative">
+          {/* Card-Based Multi-Row Pricing Layout */}
+          <div className="space-y-3">
+            {/* Row 1: Quantity, Base Price, Margin % */}
+            <div className="grid grid-cols-3 gap-2.5">
+              {/* Quantity */}
+              <FormField
+                control={control}
+                name={`items.${index}.quantity`}
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-[11px] font-bold text-foreground uppercase tracking-wider text-center block">Qty</FormLabel>
+                    <FormControl>
                       <NumericInput
                         name={field.name}
+                        type="number"
                         disabled={isItemLocked}
-                        className="h-9 text-xs sm:text-sm font-mono bg-background pr-7"
+                        className="h-9 text-xs sm:text-sm font-mono font-bold text-center bg-background border-border/80 shadow-2xs"
                         value={field.value}
                         onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
                       />
-                      <span className="absolute right-2 top-2.5 text-[10px] font-bold text-muted-foreground pointer-events-none">
-                        {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
-                      </span>
-                    </div>
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
 
-            {/* Total Amount */}
-            <div className="col-span-2 sm:col-span-1">
-              <label className="text-xs font-bold text-primary text-center block">Total AED</label>
-              <div className="h-9 flex flex-col justify-center items-end px-2.5 bg-primary/10 border-2 border-primary/30 rounded-md font-mono text-xs sm:text-sm font-black text-primary shadow-2xs">
-                <span>{discValNum > 0 ? Math.round(lineTotal).toLocaleString("en-US") : formatCurrency(lineTotal)}</span>
+              {/* Base Price */}
+              <FormField
+                control={control}
+                name={`items.${index}.basePrice`}
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-[11px] font-bold text-foreground uppercase tracking-wider text-center block">Base AED</FormLabel>
+                    <FormControl>
+                      <NumericInput
+                        name={field.name}
+                        disabled={isItemLocked || isCostingLockedForIDC || currentPriceSource === "standard"}
+                        className="h-9 text-xs sm:text-sm font-mono font-semibold bg-background border-border/80 shadow-2xs"
+                        value={field.value}
+                        onChange={(val) => {
+                          const bPrice = val === "" ? 0 : Number(val)
+                          field.onChange(bPrice)
+                          const marginVal = Number(form.getValues(`items.${index}.margin`)) || 0
+                          const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
+                          form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
+                        }}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Margin % */}
+              <FormField
+                control={control}
+                name={`items.${index}.margin`}
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-[11px] font-bold text-foreground uppercase tracking-wider text-center block">Margin %</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <NumericInput
+                          name={field.name}
+                          disabled={isItemLocked}
+                          className="h-9 text-xs sm:text-sm font-mono font-bold text-center bg-background border-border/80 pr-5 shadow-2xs"
+                          value={field.value}
+                          onChange={(val) => {
+                            const marginVal = val === "" ? 0 : Number(val)
+                            field.onChange(marginVal)
+                            form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: false })
+                            const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
+                            if (bPrice > 0) {
+                              const uPrice = Number((bPrice * (1 + marginVal / 100)).toFixed(2))
+                              form.setValue(`items.${index}.unitPrice`, uPrice, { shouldValidate: false })
+                            }
+                          }}
+                        />
+                        <span className="absolute right-2 top-2.5 text-[10px] font-bold text-muted-foreground pointer-events-none">%</span>
+                      </div>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Row 2: Unit Price & Discount */}
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Unit Price */}
+              <FormField
+                control={control}
+                name={`items.${index}.unitPrice`}
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-[11px] font-bold text-primary uppercase tracking-wider block">Unit Price (AED)</FormLabel>
+                    <FormControl>
+                      <NumericInput
+                        name={field.name}
+                        disabled={isItemLocked || isCostingLockedForIDC}
+                        className="h-9 text-xs sm:text-sm font-mono bg-primary/5 font-bold text-primary border-primary/40 focus:border-primary shadow-2xs"
+                        value={field.value}
+                        onChange={(val) => {
+                          const uPrice = val === "" ? 0 : Number(val)
+                          field.onChange(uPrice)
+                          const bPrice = Number(form.getValues(`items.${index}.basePrice`)) || 0
+                          if (bPrice > 0) {
+                            const calculatedMargin = Number((((uPrice - bPrice) / bPrice) * 100).toFixed(2))
+                            form.setValue(`items.${index}.margin`, calculatedMargin, { shouldValidate: false })
+                            form.setValue(`items.${index}.manualMargin`, calculatedMargin, { shouldValidate: false })
+                          }
+                        }}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* Discount */}
+              <FormField
+                control={control}
+                name={`items.${index}.discount`}
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-[11px] font-bold text-foreground uppercase tracking-wider">Discount</FormLabel>
+                      <button
+                        type="button"
+                        disabled={isItemLocked}
+                        onClick={() => {
+                          const nextType = currentDiscountType === "PERCENTAGE" ? "FIXED" : "PERCENTAGE"
+                          form.setValue(`items.${index}.discountType`, nextType)
+                        }}
+                        className="text-[10px] text-primary hover:underline font-bold disabled:opacity-50 disabled:cursor-not-allowed uppercase cursor-pointer"
+                        title="Toggle between % and AED discount"
+                      >
+                        Mode: {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
+                      </button>
+                    </div>
+                    <FormControl>
+                      <div className="relative">
+                        <NumericInput
+                          name={field.name}
+                          disabled={isItemLocked}
+                          className="h-9 text-xs sm:text-sm font-mono bg-background pr-8 border-border/80 shadow-2xs"
+                          value={field.value}
+                          onChange={(val) => field.onChange(val === "" ? "" : Number(val))}
+                        />
+                        <span className="absolute right-2.5 top-2.5 text-[10px] font-bold text-muted-foreground pointer-events-none uppercase">
+                          {currentDiscountType === "PERCENTAGE" ? "%" : "AED"}
+                        </span>
+                      </div>
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Row 3: Prominent Total Line Amount Card */}
+            <div className="p-3.5 rounded-xl bg-primary/10 dark:bg-primary/20 border border-primary/30 flex items-center justify-between gap-3 flex-wrap shadow-2xs">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground block">
+                  Total Line Amount ({qtyNum} {qtyNum === 1 ? 'Unit' : 'Units'})
+                </span>
+                {discValNum > 0 && (
+                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    Discount applied: {currentDiscountType === "PERCENTAGE" ? `${discValNum}%` : `AED ${discValNum}`}
+                  </span>
+                )}
+              </div>
+              <div className="text-right">
+                <span className="font-mono text-base sm:text-lg font-black text-primary tracking-tight">
+                  AED {formatCurrency(lineTotal)}
+                </span>
               </div>
             </div>
           </div>
