@@ -46,7 +46,9 @@ import {
   Eye,
   Upload,
   Edit3,
-  X
+  X,
+  ListOrdered,
+  ArrowUpDown
 } from "lucide-react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
@@ -873,6 +875,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   isFirstInSection,
   isLastInSection,
   onOpenCreateSection,
+  onOpenEditSection,
 }: {
   index: number
   fieldItem: any
@@ -903,6 +906,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   isFirstInSection?: boolean
   isLastInSection?: boolean
   onOpenCreateSection?: (index: number) => void
+  onOpenEditSection?: (batch: any) => void
 }) {
   const [selectionMode, setSelectionMode] = useState<"search" | "configurator">("search")
   const canUseConfigurator = true
@@ -1008,6 +1012,13 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                 const selected = e.target.value
                 if (selected === "__CREATE_NEW_SECTION__") {
                   onOpenCreateSection?.(index)
+                } else if (selected === "__EDIT_CURRENT_SECTION__") {
+                  const currentBatchObj = (batches || []).find((b: any) => (b.name || "").trim() === (itemBatch || "General Items").trim())
+                  if (currentBatchObj) {
+                    onOpenEditSection?.(currentBatchObj)
+                  } else {
+                    onOpenCreateSection?.(index)
+                  }
                 } else {
                   const targetVal = selected === "General Items" ? "" : selected
                   form.setValue(`items.${index}.batchHeading`, targetVal, { shouldDirty: true, shouldValidate: true })
@@ -1023,6 +1034,9 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               ))}
               <option value="__CREATE_NEW_SECTION__" className="font-bold text-primary">
                 + Create New Section...
+              </option>
+              <option value="__EDIT_CURRENT_SECTION__" className="font-bold text-amber-600">
+                ✏️ Edit Section Heading...
               </option>
             </select>
           </div>
@@ -2032,37 +2046,58 @@ function NewQuotationForm() {
   const [isCreateSectionModalOpen, setIsCreateSectionModalOpen] = useState(false)
   const [newSectionInputName, setNewSectionInputName] = useState("")
   const [sectionCreateTargetIndex, setSectionCreateTargetIndex] = useState<number | null>(null)
+  const [editingSectionBatchId, setEditingSectionBatchId] = useState<string | null>(null)
 
-  const handleConfirmCreateSection = () => {
+  const handleOpenCreateSection = (targetIndex?: number) => {
+    setEditingSectionBatchId(null)
+    setNewSectionInputName("")
+    setSectionCreateTargetIndex(targetIndex ?? null)
+    setIsCreateSectionModalOpen(true)
+  }
+
+  const handleOpenEditSection = (batch: { id: string; name: string }) => {
+    setEditingSectionBatchId(batch.id)
+    setNewSectionInputName(batch.name.trim() || "General Items")
+    setSectionCreateTargetIndex(null)
+    setIsCreateSectionModalOpen(true)
+  }
+
+  const handleConfirmSaveSection = () => {
     const trimmed = newSectionInputName.trim()
     if (!trimmed) {
       toast.error("Please enter a section name.")
       return
     }
 
-    const existingMatch = batches.find((b) => b.name.toLowerCase() === trimmed.toLowerCase())
-    let targetSectionName = trimmed
-
-    if (existingMatch) {
-      targetSectionName = existingMatch.name
+    if (editingSectionBatchId) {
+      handleRenameBatch(editingSectionBatchId, trimmed)
+      toast.success(`Section heading updated to "${trimmed}".`)
     } else {
-      const newBatch = { id: `batch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`, name: trimmed }
-      setBatches((prev) => [...prev, newBatch])
-    }
+      const existingMatch = batches.find((b) => b.name.toLowerCase() === trimmed.toLowerCase())
+      let targetSectionName = trimmed
 
-    if (sectionCreateTargetIndex !== null && sectionCreateTargetIndex >= 0) {
-      form.setValue(`items.${sectionCreateTargetIndex}.batchHeading`, targetSectionName === "General Items" ? "" : targetSectionName, {
-        shouldDirty: true,
-        shouldValidate: true,
-      })
-      toast.success(`Assigned Item #${sectionCreateTargetIndex + 1} to section "${targetSectionName}".`)
-    } else {
-      toast.success(`Created section "${targetSectionName}".`)
+      if (existingMatch) {
+        targetSectionName = existingMatch.name
+      } else {
+        const newBatch = { id: `batch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`, name: trimmed }
+        setBatches((prev) => [...prev, newBatch])
+      }
+
+      if (sectionCreateTargetIndex !== null && sectionCreateTargetIndex >= 0) {
+        form.setValue(`items.${sectionCreateTargetIndex}.batchHeading`, targetSectionName === "General Items" ? "" : targetSectionName, {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
+        toast.success(`Assigned Item #${sectionCreateTargetIndex + 1} to section "${targetSectionName}".`)
+      } else {
+        toast.success(`Created section "${targetSectionName}".`)
+      }
     }
 
     setIsCreateSectionModalOpen(false)
     setNewSectionInputName("")
     setSectionCreateTargetIndex(null)
+    setEditingSectionBatchId(null)
   }
 
   const [draggedBatchId, setDraggedBatchId] = useState<string | null>(null)
@@ -2461,6 +2496,40 @@ function NewQuotationForm() {
 
     form.setValue("items", reorderedItems, { shouldDirty: true, shouldValidate: true })
     handleDragEnd()
+  }
+
+  const handleMoveBatchPosition = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= batches.length || toIndex >= batches.length) return
+
+    const updatedBatches = [...batches]
+    const [movedBatch] = updatedBatches.splice(fromIndex, 1)
+    updatedBatches.splice(toIndex, 0, movedBatch)
+    setBatches(updatedBatches)
+
+    const currentItems = [...form.getValues("items")]
+    const reorderedItems: any[] = []
+
+    updatedBatches.forEach((b) => {
+      const isBGeneral = !b.name || b.name.trim().toLowerCase() === "general items"
+      const itemsInBatch = currentItems.filter((item) => {
+        const h = (item.batchHeading || "").trim()
+        return isBGeneral ? (!h || h.toLowerCase() === "general items") : h === b.name
+      })
+      reorderedItems.push(...itemsInBatch)
+    })
+
+    const unassignedItems = currentItems.filter((item) => {
+      const h = (item.batchHeading || "").trim()
+      return !updatedBatches.some((b) => {
+        const isBGeneral = !b.name || b.name.trim().toLowerCase() === "general items"
+        return isBGeneral ? (!h || h.toLowerCase() === "general items") : h === b.name
+      })
+    })
+    reorderedItems.push(...unassignedItems)
+
+    form.setValue("items", reorderedItems, { shouldDirty: true, shouldValidate: true })
+    const targetName = movedBatch.name.trim() || "General Items"
+    toast.success(`Moved section "${targetName}" to position ${toIndex + 1}`)
   }
 
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
@@ -4717,6 +4786,84 @@ function NewQuotationForm() {
                       <Plus className="h-3.5 w-3.5" /> Add Section
                     </Button>
                   )}
+                  {watchIncludeSectionHeadings && batches.length > 1 && (
+                    <Popover>
+                      <PopoverTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted"
+                            title="Rearrange order of sections using a dropdown list"
+                          >
+                            <ListOrdered className="h-3.5 w-3.5 text-primary" />
+                            <span>Rearrange Sections</span>
+                          </Button>
+                        }
+                      />
+                      <PopoverContent className="w-80 p-3 shadow-lg" align="end">
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between border-b pb-2">
+                            <div className="flex items-center gap-1.5 font-bold text-xs text-foreground">
+                              <ListOrdered className="h-4 w-4 text-primary" />
+                              <span>Reorder Quotation Sections</span>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] font-mono">
+                              {batches.length} Sections
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Change section sequence using the dropdown list below:
+                          </p>
+                          <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
+                            {batches.map((b, bIdx) => (
+                              <div
+                                key={b.id || bIdx}
+                                className="flex items-center justify-between gap-2 p-2 rounded-lg border bg-muted/20 text-xs hover:bg-muted/40 transition-colors"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <span className="font-mono text-[11px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">
+                                    #{bIdx + 1}
+                                  </span>
+                                  <span className="font-semibold truncate text-foreground text-xs">
+                                    {b.name.trim() || "General Items"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleOpenEditSection(b)}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                                    title="Edit Section Heading Name"
+                                  >
+                                    <Edit3 className="h-3 w-3" />
+                                  </Button>
+                                  <Select
+                                    value={String(bIdx)}
+                                    onValueChange={(val) => handleMoveBatchPosition(bIdx, Number(val))}
+                                  >
+                                    <SelectTrigger className="h-7 text-[11px] w-[95px] bg-background font-medium">
+                                      <SelectValue placeholder={`Pos #${bIdx + 1}`} />
+                                    </SelectTrigger>
+                                    <SelectContent align="end">
+                                      {batches.map((_, targetIdx) => (
+                                        <SelectItem key={targetIdx} value={String(targetIdx)} className="text-[11px]">
+                                          Pos #{targetIdx + 1}{targetIdx === bIdx ? " (Current)" : ""}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
                   <Button
                     type="button"
                     variant="default"
@@ -4758,11 +4905,72 @@ function NewQuotationForm() {
                           >
                             <GripVertical className="h-4 w-4" />
                           </span>
-                          <div className="max-w-md flex-1">
-                            <BatchHeadingInput
-                              value={batch.name}
-                              onChange={(val) => handleRenameBatch(batch.id, val)}
-                            />
+
+                          {/* Section Sequence Position Dropdown */}
+                          {batches.length > 1 && (
+                            <div className="flex items-center gap-1 shrink-0" title="Rearrange section position via dropdown list">
+                              <span className="text-[11px] font-semibold text-muted-foreground hidden sm:inline">Order:</span>
+                              <Select
+                                value={String(batchIdx)}
+                                onValueChange={(val) => handleMoveBatchPosition(batchIdx, Number(val))}
+                              >
+                                <SelectTrigger className="h-8 text-xs w-[105px] bg-background font-medium border-border/80 hover:border-primary/50">
+                                  <SelectValue placeholder={`Pos #${batchIdx + 1}`} />
+                                </SelectTrigger>
+                                <SelectContent align="start">
+                                  {batches.map((b, idx) => {
+                                    const label = b.name.trim() || "General Items"
+                                    return (
+                                      <SelectItem key={b.id || idx} value={String(idx)} className="text-xs">
+                                        Pos #{idx + 1}: {label}{idx === batchIdx ? " (Current)" : ""}
+                                      </SelectItem>
+                                    )
+                                  })}
+                                </SelectContent>
+                              </Select>
+
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                disabled={batchIdx === 0}
+                                onClick={() => handleMoveBatchPosition(batchIdx, batchIdx - 1)}
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                                title="Move Section Up"
+                              >
+                                <ChevronUp className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                disabled={batchIdx === batches.length - 1}
+                                onClick={() => handleMoveBatchPosition(batchIdx, batchIdx + 1)}
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                                title="Move Section Down"
+                              >
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 max-w-md flex-1">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-background font-bold text-xs sm:text-sm text-foreground rounded-lg border border-border/80 shadow-2xs truncate">
+                              <FolderKanban className="h-4 w-4 text-primary shrink-0" />
+                              <span className="truncate uppercase tracking-wide">
+                                {batch.name.trim() || "General Items"}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenEditSection(batch)}
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 cursor-pointer"
+                              title="Edit Section Heading Name"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0 pl-1" title="Select all products in this section">
                             <Checkbox
@@ -4850,10 +5058,8 @@ function NewQuotationForm() {
                               isConfiguratorEnabled={isConfiguratorEnabled}
                               isSelected={selectedItemIndices.includes(originalIndex)}
                               handleToggleSelectItem={handleToggleSelectItem}
-                              onOpenCreateSection={(itemIdx) => {
-                                setSectionCreateTargetIndex(itemIdx)
-                                setIsCreateSectionModalOpen(true)
-                              }}
+                              onOpenCreateSection={(itemIdx) => handleOpenCreateSection(itemIdx)}
+                              onOpenEditSection={(targetBatch) => handleOpenEditSection(targetBatch)}
                             />
                           ))
                         })()}
@@ -6012,16 +6218,18 @@ function NewQuotationForm() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal for Creating New Section Inline from Item Card Dropdown */}
+      {/* Modal for Creating / Editing Section */}
       <Dialog open={isCreateSectionModalOpen} onOpenChange={setIsCreateSectionModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold">
               <FolderKanban className="h-5 w-5 text-primary" />
-              Create New Section
+              {editingSectionBatchId ? "Edit Section Heading" : "Create New Section"}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Enter a section heading name to organize items in your quotation (e.g., Executive Office, Meeting Room 1, Workstations).
+              {editingSectionBatchId
+                ? "Update the section heading name. All line items in this section will be updated."
+                : "Enter a section heading name to organize items in your quotation (e.g., Executive Office, Meeting Room 1, Workstations)."}
             </DialogDescription>
           </DialogHeader>
 
@@ -6036,7 +6244,7 @@ function NewQuotationForm() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault()
-                    handleConfirmCreateSection()
+                    handleConfirmSaveSection()
                   }
                 }}
                 className="h-10 text-sm font-semibold"
@@ -6053,6 +6261,7 @@ function NewQuotationForm() {
                 setIsCreateSectionModalOpen(false)
                 setNewSectionInputName("")
                 setSectionCreateTargetIndex(null)
+                setEditingSectionBatchId(null)
               }}
               className="text-xs font-semibold cursor-pointer"
             >
@@ -6061,10 +6270,18 @@ function NewQuotationForm() {
             <Button
               type="button"
               size="sm"
-              onClick={handleConfirmCreateSection}
+              onClick={handleConfirmSaveSection}
               className="text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
             >
-              <Plus className="h-3.5 w-3.5 mr-1" /> Create &amp; Assign Section
+              {editingSectionBatchId ? (
+                <>
+                  <Save className="h-3.5 w-3.5 mr-1" /> Save Section Name
+                </>
+              ) : (
+                <>
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Create &amp; Assign Section
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

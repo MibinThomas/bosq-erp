@@ -2824,13 +2824,48 @@ function NewBOQForm() {
                             <span>Section</span>
                           </div>
                           
-                          <BatchHeadingInput
-                            value={batch.name}
-                            onChange={(newName) => handleRenameBatch(batch.id, newName)}
-                          />
+                          <div className="flex items-center gap-2 max-w-md flex-1">
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-background font-bold text-xs sm:text-sm text-foreground rounded-lg border border-border/80 shadow-2xs truncate">
+                              <span className="truncate uppercase tracking-wide">
+                                {batch.name.trim() || "General Items"}
+                              </span>
+                            </div>
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
+                          {batches.length > 1 && (
+                            <div className="flex items-center gap-1" title="Rearrange section position via dropdown list">
+                              <span className="text-[11px] font-semibold text-muted-foreground hidden sm:inline">Order:</span>
+                              <Select
+                                value={String(batchIdx)}
+                                onValueChange={(val) => {
+                                  const targetIdx = Number(val)
+                                  if (targetIdx === batchIdx) return
+                                  const newBatches = [...batches]
+                                  const [moved] = newBatches.splice(batchIdx, 1)
+                                  newBatches.splice(targetIdx, 0, moved)
+                                  setBatches(newBatches)
+                                  reorderFlatItemsByBatches(newBatches)
+                                  toast.success(`Moved section "${batch.name.trim() || 'General Items'}" to position ${targetIdx + 1}`)
+                                }}
+                              >
+                                <SelectTrigger className="h-8 text-xs w-[105px] bg-background font-medium border-border/80">
+                                  <SelectValue placeholder={`Pos #${batchIdx + 1}`} />
+                                </SelectTrigger>
+                                <SelectContent align="start">
+                                  {batches.map((b, idx) => {
+                                    const label = b.name.trim() || "General Items"
+                                    return (
+                                      <SelectItem key={b.id || idx} value={String(idx)} className="text-xs">
+                                        Pos #{idx + 1}: {label}{idx === batchIdx ? " (Current)" : ""}
+                                      </SelectItem>
+                                    )
+                                  })}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                           <Button
                             type="button"
                             variant="ghost"
