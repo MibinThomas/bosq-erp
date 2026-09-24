@@ -892,6 +892,7 @@ function BatchSectionSubtotal({ control, batchName, fields }: { control: any; ba
 
 const QuotationItemCard = React.memo(function QuotationItemCard({
   index,
+  itemPosInSection,
   fieldItem,
   control,
   form,
@@ -923,6 +924,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   onOpenEditSection,
 }: {
   index: number
+  itemPosInSection?: number
   fieldItem: any
   control: any
   form: any
@@ -1015,9 +1017,9 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           </span>
           <span 
             className="font-mono text-xl sm:text-2xl font-black text-red-600 dark:text-red-500 shrink-0 tracking-tight flex items-center justify-center px-1 py-0.5 select-none"
-            title={`Product Line Item #${index + 1}`}
+            title={`Product Line Item #${(itemPosInSection !== undefined ? itemPosInSection : index) + 1}`}
           >
-            #{index + 1}
+            #{(itemPosInSection !== undefined ? itemPosInSection : index) + 1}
           </span>
 
           {/* Move Up / Move Down Arrow Controls */}
@@ -2084,6 +2086,39 @@ function NewQuotationForm() {
   const [batches, setBatches] = useState<{ id: string; name: string }[]>([
     { id: "default", name: "" }
   ])
+  const [collapsedBatches, setCollapsedBatches] = useState<Record<string, boolean>>({})
+  const [highlightedBatchId, setHighlightedBatchId] = useState<string | null>(null)
+
+  const toggleCollapseBatch = React.useCallback((batchId: string) => {
+    setCollapsedBatches((prev) => ({
+      ...prev,
+      [batchId]: !prev[batchId],
+    }))
+  }, [])
+
+  const handleToggleAllSectionsCollapse = React.useCallback((collapse: boolean) => {
+    setCollapsedBatches((prev) => {
+      const nextState: Record<string, boolean> = { ...prev }
+      batches.forEach((b) => {
+        nextState[b.id] = collapse
+      })
+      return nextState
+    })
+  }, [batches])
+
+  const scrollToSection = React.useCallback((batchId: string) => {
+    setCollapsedBatches((prev) => ({ ...prev, [batchId]: false }))
+    setHighlightedBatchId(batchId)
+
+    const el = document.getElementById(`section-container-${batchId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+
+    setTimeout(() => {
+      setHighlightedBatchId((prev) => (prev === batchId ? null : prev))
+    }, 2000)
+  }, [])
   const [isCreateSectionModalOpen, setIsCreateSectionModalOpen] = useState(false)
   const [newSectionInputName, setNewSectionInputName] = useState("")
   const [sectionCreateTargetIndex, setSectionCreateTargetIndex] = useState<number | null>(null)
@@ -4857,24 +4892,44 @@ function NewQuotationForm() {
                     {/* Batches Loop */}
                     {batches.map((batch, batchIdx) => {
                       const theme = SECTION_THEMES[batchIdx % SECTION_THEMES.length]
+                      const isCollapsed = !!collapsedBatches[batch.id]
+                      const isHighlighted = highlightedBatchId === batch.id
+
                       return (
                         <div
                           key={batch.id}
+                          id={`section-container-${batch.id}`}
                           onDragOver={(e) => handleBatchDragOver(e, batch.id)}
                           onDrop={(e) => handleBatchDrop(e, batch.id, batch.name)}
                           className={cn(
-                            "space-y-4 transition-all",
+                            "space-y-4 transition-all duration-300 rounded-xl scroll-mt-20",
                             watchIncludeSectionHeadings ? theme.containerBg : "rounded-xl border p-4 bg-muted/10",
-                            dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5 shadow-md"
+                            dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5 shadow-md",
+                            isHighlighted && "ring-2 ring-primary ring-offset-2 border-primary shadow-xl scale-[1.005]"
                           )}
                         >
                           {/* Section Header */}
                           {watchIncludeSectionHeadings && (
                             <div className={cn(
-                              "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border shadow-2xs transition-all",
+                              "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border shadow-2xs transition-all select-none",
                               theme.headerBg
                             )}>
-                              <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => toggleCollapseBatch(batch.id)}
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background/80 shrink-0 cursor-pointer p-0"
+                                  title={isCollapsed ? "Expand section products" : "Collapse section products"}
+                                >
+                                  {isCollapsed ? (
+                                    <ChevronRight className="h-4 w-4 transition-transform duration-200" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                                  )}
+                                </Button>
+
                                 <span
                                   draggable
                                   onDragStart={(e) => handleBatchDragStart(e, batch.id)}
@@ -4889,11 +4944,20 @@ function NewQuotationForm() {
                                   #{batchIdx + 1}
                                 </span>
 
-                                <div className="flex items-center gap-2 truncate">
+                                <div 
+                                  className="flex items-center gap-2 truncate cursor-pointer hover:opacity-80 transition-opacity" 
+                                  onClick={() => toggleCollapseBatch(batch.id)}
+                                  title={isCollapsed ? "Click to expand products" : "Click to collapse products"}
+                                >
                                   <FolderKanban className={cn("h-4 w-4 shrink-0", theme.iconColor)} />
                                   <span className="font-bold text-xs sm:text-sm uppercase tracking-wide truncate">
                                     {batch.name.trim() || "General Items"}
                                   </span>
+                                  {isCollapsed && (
+                                    <Badge variant="outline" className="text-[10px] font-medium bg-background/80 text-muted-foreground border-border shrink-0 ml-1">
+                                      Collapsed ({(groupedItemsByBatch[(batch.name || "").trim() || "General Items"] || []).length} items)
+                                    </Badge>
+                                  )}
                                 </div>
                               </div>
 
@@ -4916,70 +4980,75 @@ function NewQuotationForm() {
                             </div>
                           )}
 
-                          {/* Line Item Cards in Section */}
-                          <div className="space-y-4">
-                            {(() => {
-                              const bKey = (batch.name || "").trim() || "General Items"
-                              const sectionItems = groupedItemsByBatch[bKey] || []
+                          {!isCollapsed && (
+                            <>
+                              {/* Line Item Cards in Section */}
+                              <div className="space-y-4">
+                                {(() => {
+                                  const bKey = (batch.name || "").trim() || "General Items"
+                                  const sectionItems = groupedItemsByBatch[bKey] || []
 
-                              if (sectionItems.length === 0) {
-                                return (
-                                  <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
-                                    No products in this section. Click "+ Add Product to Section" or assign products here using the Section dropdown on any item.
-                                  </div>
-                                )
-                              }
+                                  if (sectionItems.length === 0) {
+                                    return (
+                                      <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
+                                        No products in this section. Click "+ Add Product to Section" or assign products here using the Section dropdown on any item.
+                                      </div>
+                                    )
+                                  }
 
-                              return sectionItems.map(({ fieldItem, originalIndex }, pos) => (
-                                <QuotationItemCard
-                                  key={fieldItem.id}
-                                  index={originalIndex}
-                                  fieldItem={fieldItem}
-                                  control={form.control}
-                                  form={form}
-                                  batchName={batch.name}
-                                  batches={batches}
-                                  products={products}
-                                  watchSegment={watchCustomerSegment}
-                                  dbCategories={dbCategories}
-                                  userRole={userRole}
-                                  isRevision={isRevision}
-                                  isFirstInSection={pos === 0}
-                                  isLastInSection={pos === sectionItems.length - 1}
-                                  draggedIndex={draggedIndex}
-                                  dragOverIndex={dragOverIndex}
-                                  handleDragStart={handleDragStart}
-                                  handleDragOver={handleDragOver}
-                                  handleDrop={handleDrop}
-                                  handleDragEnd={handleDragEnd}
-                                  handleDuplicateItem={handleDuplicateItem}
-                                  handleMoveItem={handleMoveItem}
-                                  remove={remove}
-                                  handleProductSelect={handleProductSelect}
-                                  handleVariantSelect={handleVariantSelect}
-                                  fieldsLength={fields.length}
-                                  isConfiguratorEnabled={isConfiguratorEnabled}
-                                  isSelected={selectedItemIndices.includes(originalIndex)}
-                                  handleToggleSelectItem={handleToggleSelectItem}
-                                  onOpenCreateSection={(itemIdx) => handleOpenCreateSection(itemIdx)}
-                                  onOpenEditSection={(targetBatch) => handleOpenEditSection(targetBatch)}
-                                />
-                              ))
-                            })()}
-                          </div>
+                                  return sectionItems.map(({ fieldItem, originalIndex }, pos) => (
+                                    <QuotationItemCard
+                                      key={fieldItem.id}
+                                      index={originalIndex}
+                                      itemPosInSection={pos}
+                                      fieldItem={fieldItem}
+                                      control={form.control}
+                                      form={form}
+                                      batchName={batch.name}
+                                      batches={batches}
+                                      products={products}
+                                      watchSegment={watchCustomerSegment}
+                                      dbCategories={dbCategories}
+                                      userRole={userRole}
+                                      isRevision={isRevision}
+                                      isFirstInSection={pos === 0}
+                                      isLastInSection={pos === sectionItems.length - 1}
+                                      draggedIndex={draggedIndex}
+                                      dragOverIndex={dragOverIndex}
+                                      handleDragStart={handleDragStart}
+                                      handleDragOver={handleDragOver}
+                                      handleDrop={handleDrop}
+                                      handleDragEnd={handleDragEnd}
+                                      handleDuplicateItem={handleDuplicateItem}
+                                      handleMoveItem={handleMoveItem}
+                                      remove={remove}
+                                      handleProductSelect={handleProductSelect}
+                                      handleVariantSelect={handleVariantSelect}
+                                      fieldsLength={fields.length}
+                                      isConfiguratorEnabled={isConfiguratorEnabled}
+                                      isSelected={selectedItemIndices.includes(originalIndex)}
+                                      handleToggleSelectItem={handleToggleSelectItem}
+                                      onOpenCreateSection={(itemIdx) => handleOpenCreateSection(itemIdx)}
+                                      onOpenEditSection={(targetBatch) => handleOpenEditSection(targetBatch)}
+                                    />
+                                  ))
+                                })()}
+                              </div>
 
-                          {/* Section Bottom Action Controls */}
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-2.5 pt-3 border-t border-border/50">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleAddItemToBatch(batch.name)}
-                              className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted font-medium"
-                            >
-                              <Plus className="h-3.5 w-3.5" /> {watchIncludeSectionHeadings && batch.name ? `Add Product to ${batch.name}` : "Add Product"}
-                            </Button>
-                          </div>
+                              {/* Section Bottom Action Controls */}
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-2.5 pt-3 border-t border-border/50">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleAddItemToBatch(batch.name)}
+                                  className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted font-medium"
+                                >
+                                  <Plus className="h-3.5 w-3.5" /> {watchIncludeSectionHeadings && batch.name ? `Add Product to ${batch.name}` : "Add Product"}
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )
                     })}
@@ -5018,44 +5087,92 @@ function NewQuotationForm() {
                       </Badge>
                     </CardHeader>
                     <CardContent className="p-3.5 space-y-3">
-                      <p className="text-[11px] text-muted-foreground">
-                        Manage sequence, subtotals, and edit section titles from one location:
-                      </p>
+                      <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground border-b pb-2">
+                        <span>Reorder sequence or jump to section:</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAllSectionsCollapse(false)}
+                            className="text-[10px] font-medium text-primary hover:underline cursor-pointer"
+                          >
+                            Expand All
+                          </button>
+                          <span>•</span>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAllSectionsCollapse(true)}
+                            className="text-[10px] font-medium text-muted-foreground hover:underline cursor-pointer"
+                          >
+                            Collapse All
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
                         {batches.map((b, bIdx) => {
                           const theme = SECTION_THEMES[bIdx % SECTION_THEMES.length]
                           const batchItems = fields.filter((f: any) => (f.batchName || "General Items") === b.name)
                           const batchSubtotal = batchItems.reduce((acc: number, f: any) => acc + (Number(f.totalPrice) || 0), 0)
+                          const isBatchCollapsed = !!collapsedBatches[b.id]
 
                           return (
                             <div
                               key={b.id || bIdx}
-                              className={cn("p-3 rounded-lg border transition-colors space-y-2.5", theme.headerBg)}
+                              className={cn(
+                                "p-3 rounded-lg border transition-all space-y-2.5",
+                                theme.headerBg,
+                                highlightedBatchId === b.id && "ring-2 ring-primary border-primary shadow-sm"
+                              )}
                             >
                               <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <div 
+                                  className="flex items-center gap-2 min-w-0 flex-1 cursor-pointer group"
+                                  onClick={() => scrollToSection(b.id)}
+                                  title="Click to scroll & jump to section"
+                                >
                                   <span className={cn("font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0", theme.badgeBg)}>
                                     #{bIdx + 1}
                                   </span>
-                                  <span className="font-semibold text-xs text-foreground truncate" title={b.name}>
-                                    {b.name.trim() || "General Items"}
+                                  <span className="font-semibold text-xs text-foreground truncate group-hover:text-primary transition-colors flex items-center gap-1.5">
+                                    <span className="truncate">{b.name.trim() || "General Items"}</span>
+                                    <Eye className="h-3 w-3 text-muted-foreground opacity-60 group-hover:opacity-100 group-hover:text-primary shrink-0 transition-all" />
                                   </span>
                                 </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenEditSection(b)}
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background/80 shrink-0 cursor-pointer"
-                                  title="Edit Section Name"
-                                >
-                                  <Edit3 className="h-3.5 w-3.5" />
-                                </Button>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => toggleCollapseBatch(b.id)}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background/80 shrink-0 cursor-pointer"
+                                    title={isBatchCollapsed ? "Expand Section Products" : "Collapse Section Products"}
+                                  >
+                                    {isBatchCollapsed ? (
+                                      <ChevronRight className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <ChevronDown className="h-3.5 w-3.5" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleOpenEditSection(b)}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background/80 shrink-0 cursor-pointer"
+                                    title="Edit Section Name"
+                                  >
+                                    <Edit3 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
                               </div>
 
                               <div className="flex items-center justify-between border-t pt-2 gap-2 text-xs">
-                                <span className="text-[11px] text-muted-foreground font-medium truncate">
-                                  {batchItems.length} {batchItems.length === 1 ? "Item" : "Items"} • <span className="font-mono font-bold text-foreground">AED {batchSubtotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                <span 
+                                  className="text-[11px] text-muted-foreground font-medium truncate cursor-pointer hover:text-foreground"
+                                  onClick={() => scrollToSection(b.id)}
+                                >
+                                  {batchItems.length} {batchItems.length === 1 ? "Item" : "Items"} {isBatchCollapsed ? "(Collapsed)" : ""} • <span className="font-mono font-bold text-foreground">AED {batchSubtotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
                                 </span>
 
                                 <div className="flex items-center gap-1 shrink-0">

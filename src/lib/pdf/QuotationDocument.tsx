@@ -1287,8 +1287,8 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
 
         {/* Grouped Table Sections */}
         {(() => {
-          let itemCounter = 0;
           return groupedSections.map((group, gIdx) => {
+            let itemCounter = 0;
             const sectionSubtotal = group.items.reduce((acc, item) => acc + item.amount, 0);
             return (
               <View key={`group-${gIdx}`} style={{ marginTop: gIdx > 0 ? 8 : 4 }}>
