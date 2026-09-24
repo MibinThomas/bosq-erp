@@ -941,7 +941,9 @@ export default function UserManagementPage() {
                 <label className="text-xs font-semibold">System Role <span className="text-destructive">*</span></label>
                 <Select value={formRole} onValueChange={(val) => val && setFormRole(val)}>
                   <SelectTrigger className="h-9 text-xs bg-background">
-                    <SelectValue placeholder="Select system role..." />
+                    <SelectValue placeholder="Select system role...">
+                      {SYSTEM_ROLES.find((r) => r.value === formRole)?.label || formRole || "Select system role..."}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {SYSTEM_ROLES.map((role) => (
@@ -1062,7 +1064,9 @@ export default function UserManagementPage() {
                 <label className="text-xs font-semibold">System Role <span className="text-destructive">*</span></label>
                 <Select value={formRole} onValueChange={(val) => val && setFormRole(val)}>
                   <SelectTrigger className="h-9 text-xs bg-background">
-                    <SelectValue placeholder="Select system role..." />
+                    <SelectValue placeholder="Select system role...">
+                      {SYSTEM_ROLES.find((r) => r.value === formRole)?.label || formRole || "Select system role..."}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {SYSTEM_ROLES.map((role) => (

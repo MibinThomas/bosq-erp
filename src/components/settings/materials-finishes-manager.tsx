@@ -260,7 +260,9 @@ export function MaterialsFinishesManager({ userRole }: { userRole: string }) {
           <div className="w-full sm:w-56">
             <Select value={selectedCategory} onValueChange={(val) => val && setSelectedCategory(val)}>
               <SelectTrigger className="bg-slate-900 border-slate-800 text-slate-200">
-                <SelectValue placeholder="All Categories" />
+                <SelectValue placeholder="All Categories">
+                  {selectedCategory === "all" || !selectedCategory ? "All Categories" : selectedCategory}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-slate-900 border-slate-800 text-slate-200">
                 <SelectItem value="all">All Categories ({materials.length})</SelectItem>

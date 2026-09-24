@@ -974,7 +974,11 @@ export function VariantDrawerModal({
               </label>
               <Select value={selectedDimension} onValueChange={(val) => setSelectedDimension(val || "all")}>
                 <SelectTrigger className="w-full h-9 text-xs font-semibold font-mono rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
-                  <SelectValue placeholder="All Dimensions" />
+                  <SelectValue placeholder="All Dimensions">
+                    {selectedDimension === "all" || !selectedDimension
+                      ? "All Dimensions"
+                      : (availableDimensions.find((o) => o.value === selectedDimension)?.label || selectedDimension)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
                   <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
@@ -1000,7 +1004,11 @@ export function VariantDrawerModal({
               </label>
               <Select value={selectedFinish} onValueChange={(val) => setSelectedFinish(val || "all")}>
                 <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
-                  <SelectValue placeholder="All Finishes" />
+                  <SelectValue placeholder="All Finishes">
+                    {selectedFinish === "all" || !selectedFinish
+                      ? "All Finishes"
+                      : (availableFinishes.find((o) => o.value === selectedFinish)?.label || selectedFinish)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
                   <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
@@ -1026,7 +1034,11 @@ export function VariantDrawerModal({
               </label>
               <Select value={selectedLeg} onValueChange={(val) => setSelectedLeg(val || "all")}>
                 <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
-                  <SelectValue placeholder="All Leg Options" />
+                  <SelectValue placeholder="All Leg Options">
+                    {selectedLeg === "all" || !selectedLeg
+                      ? "All Leg Options"
+                      : (availableLegs.find((o) => o.value === selectedLeg)?.label || selectedLeg)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
                   <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
@@ -1052,7 +1064,11 @@ export function VariantDrawerModal({
               </label>
               <Select value={selectedSideReturn} onValueChange={(val) => setSelectedSideReturn(val || "all")}>
                 <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
-                  <SelectValue placeholder="All Side Returns" />
+                  <SelectValue placeholder="All Side Returns">
+                    {selectedSideReturn === "all" || !selectedSideReturn
+                      ? "All Side Returns"
+                      : (availableSideReturns.find((o) => o.value === selectedSideReturn)?.label || selectedSideReturn)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
                   <SelectItem value="all" className="text-xs font-semibold cursor-pointer">

@@ -206,7 +206,9 @@ export function QuotationStatusModal({
                 <label className="text-xs font-bold text-muted-foreground">Select Next Status *</label>
                 <Select value={newStatus} onValueChange={(val) => setNewStatus(val || "")}>
                   <SelectTrigger className="w-full h-10 rounded-xl bg-background border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-primary/20">
-                    <SelectValue placeholder="Choose new status" />
+                    <SelectValue placeholder="Choose new status">
+                      {newStatus ? (STATUS_LABELS[newStatus] || newStatus) : "Choose new status"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {filteredNextStatuses.map((status) => (

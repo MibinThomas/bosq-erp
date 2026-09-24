@@ -473,7 +473,13 @@ export default function QuotationsPage() {
             <div className="space-y-1">
               <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">User</label>
               <Select value={userFilter} onValueChange={(val) => { setUserFilter(val || "all"); setCurrentPage(1); }}>
-                <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Users" /></SelectTrigger>
+                <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800">
+                  <SelectValue placeholder="All Users">
+                    {userFilter === "all" || !userFilter
+                      ? "All Users"
+                      : (usersList.find((u) => u.id === userFilter)?.name || usersList.find((u) => u.id === userFilter)?.email || "All Users")}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Users</SelectItem>
                   {usersList.map((u) => (
@@ -489,7 +495,11 @@ export default function QuotationsPage() {
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</label>
             <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val || "all"); setCurrentPage(1); }}>
-              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Status" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800">
+                <SelectValue placeholder="All Status">
+                  {statusFilter === "all" || !statusFilter ? "All Status" : (STATUS_LABELS[statusFilter] || statusFilter)}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="DRAFT">Draft</SelectItem>
@@ -515,7 +525,11 @@ export default function QuotationsPage() {
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Segment</label>
             <Select value={segmentFilter} onValueChange={(val) => { setSegmentFilter(val || "all"); setCurrentPage(1); }}>
-              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Segments" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800">
+                <SelectValue placeholder="All Segments">
+                  {segmentFilter === "all" || !segmentFilter ? "All Segments" : segmentFilter}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Segments</SelectItem>
                 <SelectItem value="Interior">Interior</SelectItem>
@@ -529,7 +543,11 @@ export default function QuotationsPage() {
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">PO Status</label>
             <Select value={poStatusFilter} onValueChange={(val) => { setPoStatusFilter(val || "all"); setCurrentPage(1); }}>
-              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All PO Status" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800">
+                <SelectValue placeholder="All PO Status">
+                  {poStatusFilter === "all" || !poStatusFilter ? "All PO Status" : (poStatusFilter === "PENDING" ? "Pending" : "Received")}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All PO Status</SelectItem>
                 <SelectItem value="PENDING">Pending</SelectItem>
@@ -541,7 +559,11 @@ export default function QuotationsPage() {
           <div className="space-y-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sort By</label>
             <Select value={sortBy} onValueChange={(val) => { setSortBy(val || "quotationNumber"); setCurrentPage(1); }}>
-              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Quotation No." /></SelectTrigger>
+              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800">
+                <SelectValue placeholder="Quotation No.">
+                  {sortBy === "quotationNumber" ? "Quotation No." : sortBy === "date" ? "Date" : sortBy === "grandTotal" ? "Total Amount" : sortBy === "client" ? "Client Name" : "Prepared By"}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="quotationNumber">Quotation No.</SelectItem>
                 <SelectItem value="date">Date</SelectItem>
@@ -555,7 +577,11 @@ export default function QuotationsPage() {
           <div className="space-y-1 col-span-2 sm:col-span-1">
             <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Order</label>
             <Select value={sortOrder} onValueChange={(val) => { setSortOrder((val as "asc" | "desc") || "desc"); setCurrentPage(1); }}>
-              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="Descending" /></SelectTrigger>
+              <SelectTrigger className="h-9 w-full bg-background border-zinc-200 dark:border-zinc-800">
+                <SelectValue placeholder="Descending">
+                  {sortOrder === "desc" ? "Descending" : "Ascending"}
+                </SelectValue>
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="desc">Descending</SelectItem>
                 <SelectItem value="asc">Ascending</SelectItem>

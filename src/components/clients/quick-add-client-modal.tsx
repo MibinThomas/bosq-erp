@@ -148,7 +148,9 @@ export function QuickAddClientModal({ isOpen, onClose, onSuccess, userRole }: Qu
                 <label className="text-xs font-bold">Client Segment <span className="text-destructive">*</span></label>
                 <Select onValueChange={(val) => setClientType(val || "Project")} value={clientType}>
                   <SelectTrigger className="bg-card">
-                    <SelectValue placeholder="Select segment" />
+                    <SelectValue placeholder="Select segment">
+                      {clientType === "Project" ? "Direct" : clientType === "Interior" ? "Interior Designer" : clientType === "Dealer" ? "Dealer" : clientType === "Special" ? "Online" : "Select segment"}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Project">Direct</SelectItem>

@@ -366,7 +366,15 @@ export function DashboardFilters({ filters, setFilters, onExport }: DashboardFil
                 <Users className="h-3 w-3" /> Client
               </label>
               <Select value={localFilters.clientId} onValueChange={v => setLocalFilters(p => ({ ...p, clientId: v as string }))}>
-                <SelectTrigger className="h-9 text-xs border-zinc-200 dark:border-zinc-800"><SelectValue placeholder="All Clients" /></SelectTrigger>
+                <SelectTrigger className="h-9 text-xs border-zinc-200 dark:border-zinc-800">
+                  <SelectValue placeholder="All Clients">
+                    {(() => {
+                      if (!localFilters.clientId || localFilters.clientId === "all") return "All Clients"
+                      const c = clients.find(cl => cl.id === localFilters.clientId)
+                      return c ? c.companyName : "All Clients"
+                    })()}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent className="min-w-[280px]">
                   <SelectItem value="all">All Clients</SelectItem>
                   {clients.map(c => (
