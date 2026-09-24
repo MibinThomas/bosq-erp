@@ -4766,86 +4766,277 @@ function NewQuotationForm() {
             </Card>
 
             {/* CARD 2: Line Items Catalog & Product Sections */}
-            <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">
-              <CardHeader className="bg-muted/30 border-b py-3 px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-primary" />
-                    2. Quotation Line Items ({fields.length} Products)
-                  </CardTitle>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {watchIncludeSectionHeadings && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddBatch()}
-                      className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Add Section
-                    </Button>
-                  )}
-                  {watchIncludeSectionHeadings && batches.length > 1 && (
-                    <Popover>
-                      <PopoverTrigger
-                        render={
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted"
-                            title="Rearrange order of sections using a dropdown list"
-                          >
-                            <ListOrdered className="h-3.5 w-3.5 text-primary" />
-                            <span>Rearrange Sections</span>
-                          </Button>
-                        }
-                      />
-                      <PopoverContent className="w-80 p-3 shadow-lg" align="end">
-                        <div className="space-y-2.5">
-                          <div className="flex items-center justify-between border-b pb-2">
-                            <div className="flex items-center gap-1.5 font-bold text-xs text-foreground">
-                              <ListOrdered className="h-4 w-4 text-primary" />
-                              <span>Reorder Quotation Sections</span>
-                            </div>
-                            <Badge variant="outline" className="text-[10px] font-mono">
-                              {batches.length} Sections
-                            </Badge>
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            Change section sequence using the dropdown list below:
-                          </p>
-                          <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
-                            {batches.map((b, bIdx) => (
-                              <div
-                                key={b.id || bIdx}
-                                className="flex items-center justify-between gap-2 p-2 rounded-lg border bg-muted/20 text-xs hover:bg-muted/40 transition-colors"
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+              {/* Main Products Column */}
+              <div className={cn(watchIncludeSectionHeadings && batches.length > 1 ? "xl:col-span-8 2xl:col-span-9 space-y-6" : "xl:col-span-12 space-y-6")}>
+                <Card className="shadow-xs border-border/80 rounded-xl overflow-hidden">
+                  <CardHeader className="bg-muted/30 border-b py-3 px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-xs sm:text-sm font-semibold text-foreground uppercase tracking-wider flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-primary" />
+                        2. Quotation Line Items ({fields.length} Products)
+                      </CardTitle>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {watchIncludeSectionHeadings && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddBatch()}
+                          className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Add Section
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={() => {
+                          setActiveLineIndex(fields.length)
+                          setIsQuickAddOpen(true)
+                        }}
+                        className="text-xs h-8 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Quick Add Product
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 sm:p-6 space-y-6">
+                    {/* Batches Loop */}
+                    {batches.map((batch, batchIdx) => {
+                      return (
+                        <div
+                          key={batch.id}
+                          onDragOver={(e) => handleBatchDragOver(e, batch.id)}
+                          onDrop={(e) => handleBatchDrop(e, batch.id, batch.name)}
+                          className={cn(
+                            "space-y-4 transition-all",
+                            watchIncludeSectionHeadings && "rounded-xl border p-4 bg-muted/10",
+                            dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5 shadow-md"
+                          )}
+                        >
+                          {/* Section Header */}
+                          {watchIncludeSectionHeadings && (
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span
+                                draggable
+                                onDragStart={(e) => handleBatchDragStart(e, batch.id)}
+                                onDragEnd={handleDragEnd}
+                                className="batch-drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
+                                title="Drag section to reorder"
                               >
+                                <GripVertical className="h-4 w-4" />
+                              </span>
+
+                              <div className="flex items-center gap-2 max-w-md flex-1">
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-background font-bold text-xs sm:text-sm text-foreground rounded-lg border border-border/80 shadow-2xs truncate">
+                                  <FolderKanban className="h-4 w-4 text-primary shrink-0" />
+                                  <span className="truncate uppercase tracking-wide">
+                                    {batch.name.trim() || "General Items"}
+                                  </span>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenEditSection(batch)}
+                                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 cursor-pointer"
+                                  title="Edit Section Heading Name"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0 pl-1" title="Select all products in this section">
+                                <Checkbox
+                                  checked={isBatchAllSelected(batch.name)}
+                                  onCheckedChange={() => handleToggleSelectBatch(batch.name)}
+                                  className="h-4 w-4 rounded border-primary/50 text-primary cursor-pointer"
+                                />
+                                <span className="text-[11px] font-medium text-muted-foreground select-none cursor-pointer" onClick={() => handleToggleSelectBatch(batch.name)}>
+                                  Select Section
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                              <BatchSectionSubtotal control={form.control} batchName={batch.name} fields={fields} />
+
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAddItemToBatch(batch.name)}
+                                className="text-[11px] h-7 flex items-center gap-1 cursor-pointer bg-background"
+                              >
+                                <Plus className="h-3 w-3" /> Add Item
+                              </Button>
+
+                              {batches.length > 1 && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteSection(batch.id)}
+                                  className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer"
+                                  title="Delete Section"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                          )}
+
+                          {/* Line Item Cards in Section */}
+                          <div className="space-y-4">
+                            {(() => {
+                              const bKey = (batch.name || "").trim() || "General Items"
+                              const sectionItems = groupedItemsByBatch[bKey] || []
+
+                              if (sectionItems.length === 0) {
+                                return (
+                                  <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
+                                    No products in this section. Click "+ Add Item" or assign products here using the Section dropdown on any item.
+                                  </div>
+                                )
+                              }
+
+                              return sectionItems.map(({ fieldItem, originalIndex }, pos) => (
+                                <QuotationItemCard
+                                  key={fieldItem.id}
+                                  index={originalIndex}
+                                  fieldItem={fieldItem}
+                                  control={form.control}
+                                  form={form}
+                                  batchName={batch.name}
+                                  batches={batches}
+                                  products={products}
+                                  watchSegment={watchCustomerSegment}
+                                  dbCategories={dbCategories}
+                                  userRole={userRole}
+                                  isRevision={isRevision}
+                                  isFirstInSection={pos === 0}
+                                  isLastInSection={pos === sectionItems.length - 1}
+                                  draggedIndex={draggedIndex}
+                                  dragOverIndex={dragOverIndex}
+                                  handleDragStart={handleDragStart}
+                                  handleDragOver={handleDragOver}
+                                  handleDrop={handleDrop}
+                                  handleDragEnd={handleDragEnd}
+                                  handleDuplicateItem={handleDuplicateItem}
+                                  handleMoveItem={handleMoveItem}
+                                  remove={remove}
+                                  handleProductSelect={handleProductSelect}
+                                  handleVariantSelect={handleVariantSelect}
+                                  fieldsLength={fields.length}
+                                  isConfiguratorEnabled={isConfiguratorEnabled}
+                                  isSelected={selectedItemIndices.includes(originalIndex)}
+                                  handleToggleSelectItem={handleToggleSelectItem}
+                                  onOpenCreateSection={(itemIdx) => handleOpenCreateSection(itemIdx)}
+                                  onOpenEditSection={(targetBatch) => handleOpenEditSection(targetBatch)}
+                                />
+                              ))
+                            })()}
+                          </div>
+
+                          {/* Section Bottom Action Controls */}
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-2.5 pt-3 border-t border-border/50">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAddItemToBatch(batch.name)}
+                              className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted"
+                            >
+                              <Plus className="h-3.5 w-3.5" /> {watchIncludeSectionHeadings && batch.name ? `Add Product to ${batch.name}` : "Add Product"}
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Bottom Add Section Action Block */}
+                    {watchIncludeSectionHeadings && (
+                      <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddBatch()}
+                          className="w-full sm:w-auto px-6 h-9 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer border-dashed border-primary/50 text-primary hover:bg-primary/10 transition-colors"
+                        >
+                          <Plus className="h-4 w-4" /> Add New Section
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right-Side Panel: Centralized Section / Batch Reorder Management */}
+              {watchIncludeSectionHeadings && batches.length > 1 && (
+                <div className="xl:col-span-4 2xl:col-span-3 space-y-4 xl:sticky xl:top-6">
+                  <Card className="shadow-sm border-primary/20 bg-card rounded-xl overflow-hidden">
+                    <CardHeader className="bg-primary/5 border-b py-3 px-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ListOrdered className="h-4 w-4 text-primary shrink-0" />
+                        <CardTitle className="text-xs font-bold text-foreground uppercase tracking-wider">
+                          Section / Batch Reorder
+                        </CardTitle>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] font-mono bg-background text-primary border-primary/30">
+                        {batches.length} Sections
+                      </Badge>
+                    </CardHeader>
+                    <CardContent className="p-3.5 space-y-3">
+                      <p className="text-[11px] text-muted-foreground">
+                        Manage sequence, subtotals, and edit section titles from one location:
+                      </p>
+                      <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
+                        {batches.map((b, bIdx) => {
+                          const batchItems = fields.filter((f: any) => (f.batchName || "General Items") === b.name)
+                          const batchSubtotal = batchItems.reduce((acc: number, f: any) => acc + (Number(f.totalPrice) || 0), 0)
+
+                          return (
+                            <div
+                              key={b.id || bIdx}
+                              className="p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors space-y-2.5"
+                            >
+                              <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
                                   <span className="font-mono text-[11px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">
                                     #{bIdx + 1}
                                   </span>
-                                  <span className="font-semibold truncate text-foreground text-xs">
+                                  <span className="font-semibold text-xs text-foreground truncate" title={b.name}>
                                     {b.name.trim() || "General Items"}
                                   </span>
                                 </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenEditSection(b)}
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background shrink-0 cursor-pointer"
+                                  title="Edit Section Name"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+
+                              <div className="flex items-center justify-between border-t pt-2 gap-2 text-xs">
+                                <span className="text-[11px] text-muted-foreground font-medium truncate">
+                                  {batchItems.length} {batchItems.length === 1 ? "Item" : "Items"} • <span className="font-mono font-bold text-foreground">AED {batchSubtotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                                </span>
+
                                 <div className="flex items-center gap-1 shrink-0">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleOpenEditSection(b)}
-                                    className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-                                    title="Edit Section Heading Name"
-                                  >
-                                    <Edit3 className="h-3 w-3" />
-                                  </Button>
                                   <Select
                                     value={String(bIdx)}
                                     onValueChange={(val) => handleMoveBatchPosition(bIdx, Number(val))}
                                   >
-                                    <SelectTrigger className="h-7 text-[11px] w-[95px] bg-background font-medium">
+                                    <SelectTrigger className="h-7 text-[11px] w-[95px] bg-background font-medium border-border/80">
                                       <SelectValue placeholder={`Pos #${bIdx + 1}`} />
                                     </SelectTrigger>
                                     <SelectContent align="end">
@@ -4856,247 +5047,52 @@ function NewQuotationForm() {
                                       ))}
                                     </SelectContent>
                                   </Select>
+
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={bIdx === 0}
+                                    onClick={() => handleMoveBatchPosition(bIdx, bIdx - 1)}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background cursor-pointer disabled:opacity-30"
+                                    title="Move Section Up"
+                                  >
+                                    <ChevronUp className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={bIdx === batches.length - 1}
+                                    onClick={() => handleMoveBatchPosition(bIdx, bIdx + 1)}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background cursor-pointer disabled:opacity-30"
+                                    title="Move Section Down"
+                                  >
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                  </Button>
                                 </div>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    onClick={() => {
-                      setActiveLineIndex(fields.length)
-                      setIsQuickAddOpen(true)
-                    }}
-                    className="text-xs h-8 flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Quick Add Product
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-6 space-y-6">
-                {/* Batches Loop */}
-                {batches.map((batch, batchIdx) => {
-                  return (
-                    <div
-                      key={batch.id}
-                      onDragOver={(e) => handleBatchDragOver(e, batch.id)}
-                      onDrop={(e) => handleBatchDrop(e, batch.id, batch.name)}
-                      className={cn(
-                        "space-y-4 transition-all",
-                        watchIncludeSectionHeadings && "rounded-xl border p-4 bg-muted/10",
-                        dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5 shadow-md"
-                      )}
-                    >
-                      {/* Section Header */}
-                      {watchIncludeSectionHeadings && (
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span
-                            draggable
-                            onDragStart={(e) => handleBatchDragStart(e, batch.id)}
-                            onDragEnd={handleDragEnd}
-                            className="batch-drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
-                            title="Drag section to reorder"
-                          >
-                            <GripVertical className="h-4 w-4" />
-                          </span>
-
-                          {/* Section Sequence Position Dropdown */}
-                          {batches.length > 1 && (
-                            <div className="flex items-center gap-1 shrink-0" title="Rearrange section position via dropdown list">
-                              <span className="text-[11px] font-semibold text-muted-foreground hidden sm:inline">Order:</span>
-                              <Select
-                                value={String(batchIdx)}
-                                onValueChange={(val) => handleMoveBatchPosition(batchIdx, Number(val))}
-                              >
-                                <SelectTrigger className="h-8 text-xs w-[105px] bg-background font-medium border-border/80 hover:border-primary/50">
-                                  <SelectValue placeholder={`Pos #${batchIdx + 1}`} />
-                                </SelectTrigger>
-                                <SelectContent align="start">
-                                  {batches.map((b, idx) => {
-                                    const label = b.name.trim() || "General Items"
-                                    return (
-                                      <SelectItem key={b.id || idx} value={String(idx)} className="text-xs">
-                                        Pos #{idx + 1}: {label}{idx === batchIdx ? " (Current)" : ""}
-                                      </SelectItem>
-                                    )
-                                  })}
-                                </SelectContent>
-                              </Select>
-
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                disabled={batchIdx === 0}
-                                onClick={() => handleMoveBatchPosition(batchIdx, batchIdx - 1)}
-                                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-                                title="Move Section Up"
-                              >
-                                <ChevronUp className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                disabled={batchIdx === batches.length - 1}
-                                onClick={() => handleMoveBatchPosition(batchIdx, batchIdx + 1)}
-                                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
-                                title="Move Section Down"
-                              >
-                                <ChevronDown className="h-3.5 w-3.5" />
-                              </Button>
                             </div>
-                          )}
-
-                          <div className="flex items-center gap-2 max-w-md flex-1">
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-background font-bold text-xs sm:text-sm text-foreground rounded-lg border border-border/80 shadow-2xs truncate">
-                              <FolderKanban className="h-4 w-4 text-primary shrink-0" />
-                              <span className="truncate uppercase tracking-wide">
-                                {batch.name.trim() || "General Items"}
-                              </span>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleOpenEditSection(batch)}
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 cursor-pointer"
-                              title="Edit Section Heading Name"
-                            >
-                              <Edit3 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0 pl-1" title="Select all products in this section">
-                            <Checkbox
-                              checked={isBatchAllSelected(batch.name)}
-                              onCheckedChange={() => handleToggleSelectBatch(batch.name)}
-                              className="h-4 w-4 rounded border-primary/50 text-primary cursor-pointer"
-                            />
-                            <span className="text-[11px] font-medium text-muted-foreground select-none cursor-pointer" onClick={() => handleToggleSelectBatch(batch.name)}>
-                              Select Section
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-                          <BatchSectionSubtotal control={form.control} batchName={batch.name} fields={fields} />
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleAddItemToBatch(batch.name)}
-                            className="text-[11px] h-7 flex items-center gap-1 cursor-pointer bg-background"
-                          >
-                            <Plus className="h-3 w-3" /> Add Item
-                          </Button>
-
-                          {batches.length > 1 && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteSection(batch.id)}
-                              className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer"
-                              title="Delete Section"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                      {/* Line Item Cards in Section */}
-                      <div className="space-y-4">
-                        {(() => {
-                          const bKey = (batch.name || "").trim() || "General Items"
-                          const sectionItems = groupedItemsByBatch[bKey] || []
-
-                          if (sectionItems.length === 0) {
-                            return (
-                              <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
-                                No products in this section. Click "+ Add Item" or assign products here using the Section dropdown on any item.
-                              </div>
-                            )
-                          }
-
-                          return sectionItems.map(({ fieldItem, originalIndex }, pos) => (
-                            <QuotationItemCard
-                              key={fieldItem.id}
-                              index={originalIndex}
-                              fieldItem={fieldItem}
-                              control={form.control}
-                              form={form}
-                              batchName={batch.name}
-                              batches={batches}
-                              products={products}
-                              watchSegment={watchCustomerSegment}
-                              dbCategories={dbCategories}
-                              userRole={userRole}
-                              isRevision={isRevision}
-                              isFirstInSection={pos === 0}
-                              isLastInSection={pos === sectionItems.length - 1}
-                              draggedIndex={draggedIndex}
-                              dragOverIndex={dragOverIndex}
-                              handleDragStart={handleDragStart}
-                              handleDragOver={handleDragOver}
-                              handleDrop={handleDrop}
-                              handleDragEnd={handleDragEnd}
-                              handleDuplicateItem={handleDuplicateItem}
-                              handleMoveItem={handleMoveItem}
-                              remove={remove}
-                              handleProductSelect={handleProductSelect}
-                              handleVariantSelect={handleVariantSelect}
-                              fieldsLength={fields.length}
-                              isConfiguratorEnabled={isConfiguratorEnabled}
-                              isSelected={selectedItemIndices.includes(originalIndex)}
-                              handleToggleSelectItem={handleToggleSelectItem}
-                              onOpenCreateSection={(itemIdx) => handleOpenCreateSection(itemIdx)}
-                              onOpenEditSection={(targetBatch) => handleOpenEditSection(targetBatch)}
-                            />
-                          ))
-                        })()}
+                          )
+                        })}
                       </div>
 
-                      {/* Section Bottom Action Controls */}
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-2.5 pt-3 border-t border-border/50">
+                      <div className="pt-2 border-t">
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => handleAddItemToBatch(batch.name)}
-                          className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted"
+                          onClick={() => handleAddBatch()}
+                          className="w-full text-xs h-8 flex items-center justify-center gap-1.5 cursor-pointer bg-background hover:bg-muted font-medium border-dashed"
                         >
-                          <Plus className="h-3.5 w-3.5" /> {watchIncludeSectionHeadings && batch.name ? `Add Product to ${batch.name}` : "Add Product"}
+                          <Plus className="h-3.5 w-3.5" /> Add New Section
                         </Button>
                       </div>
-                    </div>
-                  )
-                })}
-
-                {/* Bottom Add Section Action Block */}
-                {watchIncludeSectionHeadings && (
-                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAddBatch()}
-                      className="w-full sm:w-auto px-6 h-9 text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer border-dashed border-primary/50 text-primary hover:bg-primary/10 transition-colors"
-                    >
-                      <Plus className="h-4 w-4" /> Add New Section
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </div>
 
             {/* CARD 2.5: REMARKS */}
             {(() => {
