@@ -101,6 +101,51 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
+const SECTION_THEMES = [
+  {
+    headerBg: "bg-indigo-500/10 border-indigo-500/30 text-indigo-950 dark:text-indigo-200 dark:bg-indigo-950/40",
+    badgeBg: "bg-indigo-600 text-white shadow-2xs",
+    iconColor: "text-indigo-600 dark:text-indigo-400",
+    containerBg: "rounded-xl border border-indigo-500/30 p-4 bg-indigo-500/[0.03] dark:bg-indigo-950/10 shadow-2xs",
+  },
+  {
+    headerBg: "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-200 dark:bg-emerald-950/40",
+    badgeBg: "bg-emerald-600 text-white shadow-2xs",
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    containerBg: "rounded-xl border border-emerald-500/30 p-4 bg-emerald-500/[0.03] dark:bg-emerald-950/10 shadow-2xs",
+  },
+  {
+    headerBg: "bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-200 dark:bg-amber-950/40",
+    badgeBg: "bg-amber-600 text-white shadow-2xs",
+    iconColor: "text-amber-600 dark:text-amber-400",
+    containerBg: "rounded-xl border border-amber-500/30 p-4 bg-amber-500/[0.03] dark:bg-amber-950/10 shadow-2xs",
+  },
+  {
+    headerBg: "bg-sky-500/10 border-sky-500/30 text-sky-950 dark:text-sky-200 dark:bg-sky-950/40",
+    badgeBg: "bg-sky-600 text-white shadow-2xs",
+    iconColor: "text-sky-600 dark:text-sky-400",
+    containerBg: "rounded-xl border border-sky-500/30 p-4 bg-sky-500/[0.03] dark:bg-sky-950/10 shadow-2xs",
+  },
+  {
+    headerBg: "bg-purple-500/10 border-purple-500/30 text-purple-950 dark:text-purple-200 dark:bg-purple-950/40",
+    badgeBg: "bg-purple-600 text-white shadow-2xs",
+    iconColor: "text-purple-600 dark:text-purple-400",
+    containerBg: "rounded-xl border border-purple-500/30 p-4 bg-purple-500/[0.03] dark:bg-purple-950/10 shadow-2xs",
+  },
+  {
+    headerBg: "bg-rose-500/10 border-rose-500/30 text-rose-950 dark:text-rose-200 dark:bg-rose-950/40",
+    badgeBg: "bg-rose-600 text-white shadow-2xs",
+    iconColor: "text-rose-600 dark:text-rose-400",
+    containerBg: "rounded-xl border border-rose-500/30 p-4 bg-rose-500/[0.03] dark:bg-rose-950/10 shadow-2xs",
+  },
+  {
+    headerBg: "bg-teal-500/10 border-teal-500/30 text-teal-950 dark:text-teal-200 dark:bg-teal-950/40",
+    badgeBg: "bg-teal-600 text-white shadow-2xs",
+    iconColor: "text-teal-600 dark:text-teal-400",
+    containerBg: "rounded-xl border border-teal-500/30 p-4 bg-teal-500/[0.03] dark:bg-teal-950/10 shadow-2xs",
+  },
+]
+
 const quotationSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
   projectName: z.string().optional(),
@@ -4806,6 +4851,7 @@ function NewQuotationForm() {
                   <CardContent className="p-4 sm:p-6 space-y-6">
                     {/* Batches Loop */}
                     {batches.map((batch, batchIdx) => {
+                      const theme = SECTION_THEMES[batchIdx % SECTION_THEMES.length]
                       return (
                         <div
                           key={batch.id}
@@ -4813,81 +4859,56 @@ function NewQuotationForm() {
                           onDrop={(e) => handleBatchDrop(e, batch.id, batch.name)}
                           className={cn(
                             "space-y-4 transition-all",
-                            watchIncludeSectionHeadings && "rounded-xl border p-4 bg-muted/10",
+                            watchIncludeSectionHeadings ? theme.containerBg : "rounded-xl border p-4 bg-muted/10",
                             dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5 shadow-md"
                           )}
                         >
                           {/* Section Header */}
                           {watchIncludeSectionHeadings && (
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <span
-                                draggable
-                                onDragStart={(e) => handleBatchDragStart(e, batch.id)}
-                                onDragEnd={handleDragEnd}
-                                className="batch-drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted"
-                                title="Drag section to reorder"
-                              >
-                                <GripVertical className="h-4 w-4" />
-                              </span>
+                            <div className={cn(
+                              "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border shadow-2xs transition-all",
+                              theme.headerBg
+                            )}>
+                              <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                                <span
+                                  draggable
+                                  onDragStart={(e) => handleBatchDragStart(e, batch.id)}
+                                  onDragEnd={handleDragEnd}
+                                  className="batch-drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-background/50 shrink-0"
+                                  title="Drag section to reorder"
+                                >
+                                  <GripVertical className="h-4 w-4" />
+                                </span>
 
-                              <div className="flex items-center gap-2 max-w-md flex-1">
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-background font-bold text-xs sm:text-sm text-foreground rounded-lg border border-border/80 shadow-2xs truncate">
-                                  <FolderKanban className="h-4 w-4 text-primary shrink-0" />
-                                  <span className="truncate uppercase tracking-wide">
+                                <span className={cn("font-mono text-xs font-bold px-2 py-0.5 rounded-md shrink-0", theme.badgeBg)}>
+                                  #{batchIdx + 1}
+                                </span>
+
+                                <div className="flex items-center gap-2 truncate">
+                                  <FolderKanban className={cn("h-4 w-4 shrink-0", theme.iconColor)} />
+                                  <span className="font-bold text-xs sm:text-sm uppercase tracking-wide truncate">
                                     {batch.name.trim() || "General Items"}
                                   </span>
                                 </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleOpenEditSection(batch)}
-                                  className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 cursor-pointer"
-                                  title="Edit Section Heading Name"
-                                >
-                                  <Edit3 className="h-3.5 w-3.5" />
-                                </Button>
                               </div>
-                              <div className="flex items-center gap-1.5 shrink-0 pl-1" title="Select all products in this section">
-                                <Checkbox
-                                  checked={isBatchAllSelected(batch.name)}
-                                  onCheckedChange={() => handleToggleSelectBatch(batch.name)}
-                                  className="h-4 w-4 rounded border-primary/50 text-primary cursor-pointer"
-                                />
-                                <span className="text-[11px] font-medium text-muted-foreground select-none cursor-pointer" onClick={() => handleToggleSelectBatch(batch.name)}>
-                                  Select Section
-                                </span>
+
+                              <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                                <BatchSectionSubtotal control={form.control} batchName={batch.name} fields={fields} />
+
+                                {batches.length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteSection(batch.id)}
+                                    className="h-8 w-8 text-destructive hover:bg-destructive/10 cursor-pointer rounded-lg"
+                                    title="Delete Section"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
                               </div>
                             </div>
-
-                            <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-                              <BatchSectionSubtotal control={form.control} batchName={batch.name} fields={fields} />
-
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAddItemToBatch(batch.name)}
-                                className="text-[11px] h-7 flex items-center gap-1 cursor-pointer bg-background"
-                              >
-                                <Plus className="h-3 w-3" /> Add Item
-                              </Button>
-
-                              {batches.length > 1 && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteSection(batch.id)}
-                                  className="h-7 w-7 text-destructive hover:bg-destructive/10 cursor-pointer"
-                                  title="Delete Section"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
                           )}
 
                           {/* Line Item Cards in Section */}
@@ -4899,7 +4920,7 @@ function NewQuotationForm() {
                               if (sectionItems.length === 0) {
                                 return (
                                   <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
-                                    No products in this section. Click "+ Add Item" or assign products here using the Section dropdown on any item.
+                                    No products in this section. Click "+ Add Product to Section" or assign products here using the Section dropdown on any item.
                                   </div>
                                 )
                               }
@@ -4949,7 +4970,7 @@ function NewQuotationForm() {
                               variant="outline"
                               size="sm"
                               onClick={() => handleAddItemToBatch(batch.name)}
-                              className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted"
+                              className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted font-medium"
                             >
                               <Plus className="h-3.5 w-3.5" /> {watchIncludeSectionHeadings && batch.name ? `Add Product to ${batch.name}` : "Add Product"}
                             </Button>
@@ -4997,17 +5018,18 @@ function NewQuotationForm() {
                       </p>
                       <div className="space-y-2.5 max-h-[520px] overflow-y-auto pr-1">
                         {batches.map((b, bIdx) => {
+                          const theme = SECTION_THEMES[bIdx % SECTION_THEMES.length]
                           const batchItems = fields.filter((f: any) => (f.batchName || "General Items") === b.name)
                           const batchSubtotal = batchItems.reduce((acc: number, f: any) => acc + (Number(f.totalPrice) || 0), 0)
 
                           return (
                             <div
                               key={b.id || bIdx}
-                              className="p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors space-y-2.5"
+                              className={cn("p-3 rounded-lg border transition-colors space-y-2.5", theme.headerBg)}
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <span className="font-mono text-[11px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded shrink-0">
+                                  <span className={cn("font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0", theme.badgeBg)}>
                                     #{bIdx + 1}
                                   </span>
                                   <span className="font-semibold text-xs text-foreground truncate" title={b.name}>
@@ -5019,7 +5041,7 @@ function NewQuotationForm() {
                                   variant="ghost"
                                   size="icon"
                                   onClick={() => handleOpenEditSection(b)}
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background shrink-0 cursor-pointer"
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background/80 shrink-0 cursor-pointer"
                                   title="Edit Section Name"
                                 >
                                   <Edit3 className="h-3.5 w-3.5" />
