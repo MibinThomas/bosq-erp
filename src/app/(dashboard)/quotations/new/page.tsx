@@ -2249,20 +2249,29 @@ function NewQuotationForm() {
     return batchIndices.every((idx: number) => selectedItemIndices.includes(idx))
   }
 
-  const handleBulkMoveToSection = (targetBatchName: string) => {
+  const handleBulkCopyToSection = (targetBatchName: string) => {
     if (selectedItemIndices.length === 0) return
-    const currentItems = [...form.getValues("items")]
+    const currentItems = form.getValues("items") || []
+    const sortedIndices = [...selectedItemIndices].sort((a, b) => a - b)
     const isGeneral = !targetBatchName || targetBatchName.trim().toLowerCase() === "general items"
     const newHeading = isGeneral ? "" : targetBatchName
 
-    selectedItemIndices.forEach((idx) => {
-      if (currentItems[idx]) {
-        currentItems[idx].batchHeading = newHeading
+    const itemsToCopy = sortedIndices.map((idx) => {
+      const original = currentItems[idx]
+      return {
+        ...JSON.parse(JSON.stringify(original)),
+        id: undefined,
+        batchHeading: newHeading,
       }
     })
 
-    form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
-    toast.success(targetBatchName.trim() ? `Moved ${selectedItemIndices.length} items to "${targetBatchName}"` : `Moved ${selectedItemIndices.length} items`)
+    const updatedItems = [...currentItems, ...itemsToCopy]
+    form.setValue("items", updatedItems, { shouldDirty: true, shouldValidate: true })
+    toast.success(
+      targetBatchName.trim()
+        ? `Copied ${itemsToCopy.length} item(s) to section "${targetBatchName}"`
+        : `Copied ${itemsToCopy.length} item(s) to General Items`
+    )
     setSelectedItemIndices([])
   }
 
@@ -5721,32 +5730,40 @@ function NewQuotationForm() {
                 <span className="text-xs font-bold font-mono">{selectedItemIndices.length} Selected</span>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <Select onValueChange={(val) => {
-                  if (typeof val === "string") handleBulkMoveToSection(val)
+                  if (typeof val === "string") handleBulkCopyToSection(val)
                 }}>
-                  <SelectTrigger className="h-8 text-xs bg-slate-800 text-white border-slate-600 hover:bg-slate-700 w-44">
-                    <SelectValue placeholder="Move to Section..." />
+                  <SelectTrigger className="h-8 text-xs bg-slate-800 text-white border-slate-600 hover:bg-slate-700 min-w-[170px] font-medium">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <Copy className="h-3.5 w-3.5 text-sky-400 shrink-0" />
+                      <SelectValue placeholder="Copy to Section..." />
+                    </div>
                   </SelectTrigger>
                   <SelectContent className="bg-slate-800 text-white border-slate-700">
-                    {batches.map((b) => (
-                      <SelectItem key={b.id} value={b.name || "General Items"} className="text-xs focus:bg-slate-700 focus:text-white">
-                        {b.name.trim() || "General Items"}
+                    {batches.map((b, bIdx) => (
+                      <SelectItem key={b.id || bIdx} value={b.name || "General Items"} className="text-xs focus:bg-slate-700 focus:text-white cursor-pointer">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[10px] font-bold text-sky-400 bg-sky-400/10 px-1 py-0.5 rounded">
+                            #{bIdx + 1}
+                          </span>
+                          <span>{b.name.trim() || "General Items"}</span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Button type="button" size="sm" variant="ghost" onClick={handleBulkDuplicate} className="h-8 text-xs text-slate-200 hover:bg-slate-800 hover:text-white">
-                  <Copy className="h-3.5 w-3.5 mr-1.5" /> Duplicate
+                <Button type="button" size="sm" variant="ghost" onClick={handleBulkDuplicate} className="h-8 text-xs text-slate-200 hover:bg-slate-800 hover:text-white font-medium flex items-center gap-1.5">
+                  <Copy className="h-3.5 w-3.5 text-emerald-400" /> Duplicate
                 </Button>
 
-                <Button type="button" size="sm" variant="ghost" onClick={handleBulkDelete} className="h-8 text-xs text-red-400 hover:bg-red-500/20 hover:text-red-300">
-                  <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete ({selectedItemIndices.length})
+                <Button type="button" size="sm" variant="ghost" onClick={handleBulkDelete} className="h-8 text-xs text-red-400 hover:bg-red-500/20 hover:text-red-300 font-medium flex items-center gap-1.5">
+                  <Trash2 className="h-3.5 w-3.5 text-red-400" /> Delete ({selectedItemIndices.length})
                 </Button>
               </div>
 
-              <Button type="button" size="icon" variant="ghost" onClick={() => setSelectedItemIndices([])} className="h-7 w-7 rounded-full text-slate-400 hover:bg-slate-800 hover:text-white">
+              <Button type="button" size="icon" variant="ghost" onClick={() => setSelectedItemIndices([])} className="h-7 w-7 rounded-full text-slate-400 hover:bg-slate-800 hover:text-white ml-1" title="Deselect All">
                 <X className="h-4 w-4" />
               </Button>
             </div>
