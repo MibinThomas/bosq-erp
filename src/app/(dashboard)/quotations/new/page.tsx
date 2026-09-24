@@ -4890,168 +4890,168 @@ function NewQuotationForm() {
                   </CardHeader>
                   <CardContent className="p-4 sm:p-6 space-y-6">
                     {/* Batches Loop */}
-                    {batches.map((batch, batchIdx) => {
-                      const theme = SECTION_THEMES[batchIdx % SECTION_THEMES.length]
-                      const isCollapsed = !!collapsedBatches[batch.id]
-                      const isHighlighted = highlightedBatchId === batch.id
+                    {(() => {
+                      let globalItemCounter = 0
+                      return batches.map((batch, batchIdx) => {
+                        const theme = SECTION_THEMES[batchIdx % SECTION_THEMES.length]
+                        const isCollapsed = !!collapsedBatches[batch.id]
+                        const isHighlighted = highlightedBatchId === batch.id
+                        const bKey = (batch.name || "").trim() || "General Items"
+                        const sectionItems = groupedItemsByBatch[bKey] || []
+                        const sectionStartSerial = globalItemCounter
+                        globalItemCounter += sectionItems.length
 
-                      return (
-                        <div
-                          key={batch.id}
-                          id={`section-container-${batch.id}`}
-                          onDragOver={(e) => handleBatchDragOver(e, batch.id)}
-                          onDrop={(e) => handleBatchDrop(e, batch.id, batch.name)}
-                          className={cn(
-                            "space-y-4 transition-all duration-300 rounded-xl scroll-mt-20",
-                            watchIncludeSectionHeadings ? theme.containerBg : "rounded-xl border p-4 bg-muted/10",
-                            dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5 shadow-md",
-                            isHighlighted && "ring-2 ring-primary ring-offset-2 border-primary shadow-xl scale-[1.005]"
-                          )}
-                        >
-                          {/* Section Header */}
-                          {watchIncludeSectionHeadings && (
-                            <div className={cn(
-                              "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border shadow-2xs transition-all select-none",
-                              theme.headerBg
-                            )}>
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => toggleCollapseBatch(batch.id)}
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background/80 shrink-0 cursor-pointer p-0"
-                                  title={isCollapsed ? "Expand section products" : "Collapse section products"}
-                                >
-                                  {isCollapsed ? (
-                                    <ChevronRight className="h-4 w-4 transition-transform duration-200" />
-                                  ) : (
-                                    <ChevronDown className="h-4 w-4 transition-transform duration-200" />
-                                  )}
-                                </Button>
-
-                                <span
-                                  draggable
-                                  onDragStart={(e) => handleBatchDragStart(e, batch.id)}
-                                  onDragEnd={handleDragEnd}
-                                  className="batch-drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-background/50 shrink-0"
-                                  title="Drag section to reorder"
-                                >
-                                  <GripVertical className="h-4 w-4" />
-                                </span>
-
-                                <span className={cn("font-mono text-xs font-bold px-2 py-0.5 rounded-md shrink-0", theme.badgeBg)}>
-                                  #{batchIdx + 1}
-                                </span>
-
-                                <div 
-                                  className="flex items-center gap-2 truncate cursor-pointer hover:opacity-80 transition-opacity" 
-                                  onClick={() => toggleCollapseBatch(batch.id)}
-                                  title={isCollapsed ? "Click to expand products" : "Click to collapse products"}
-                                >
-                                  <FolderKanban className={cn("h-4 w-4 shrink-0", theme.iconColor)} />
-                                  <span className="font-bold text-xs sm:text-sm uppercase tracking-wide truncate">
-                                    {batch.name.trim() || "General Items"}
-                                  </span>
-                                  {isCollapsed && (
-                                    <Badge variant="outline" className="text-[10px] font-medium bg-background/80 text-muted-foreground border-border shrink-0 ml-1">
-                                      Collapsed ({(groupedItemsByBatch[(batch.name || "").trim() || "General Items"] || []).length} items)
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-                                <BatchSectionSubtotal control={form.control} batchName={batch.name} fields={fields} />
-
-                                {batches.length > 1 && (
+                        return (
+                          <div
+                            key={batch.id}
+                            id={`section-container-${batch.id}`}
+                            onDragOver={(e) => handleBatchDragOver(e, batch.id)}
+                            onDrop={(e) => handleBatchDrop(e, batch.id, batch.name)}
+                            className={cn(
+                              "space-y-4 transition-all duration-300 rounded-xl scroll-mt-20",
+                              watchIncludeSectionHeadings ? theme.containerBg : "rounded-xl border p-4 bg-muted/10",
+                              dragOverBatchId === batch.id && "border-primary border-dashed bg-primary/5 shadow-md",
+                              isHighlighted && "ring-2 ring-primary ring-offset-2 border-primary shadow-xl scale-[1.005]"
+                            )}
+                          >
+                            {/* Section Header */}
+                            {watchIncludeSectionHeadings && (
+                              <div className={cn(
+                                "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg border shadow-2xs transition-all select-none",
+                                theme.headerBg
+                              )}>
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => handleDeleteSection(batch.id)}
-                                    className="h-8 w-8 text-destructive hover:bg-destructive/10 cursor-pointer rounded-lg"
-                                    title="Delete Section"
+                                    onClick={() => toggleCollapseBatch(batch.id)}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-background/80 shrink-0 cursor-pointer p-0"
+                                    title={isCollapsed ? "Expand section products" : "Collapse section products"}
                                   >
-                                    <Trash2 className="h-3.5 w-3.5" />
+                                    {isCollapsed ? (
+                                      <ChevronRight className="h-4 w-4 transition-transform duration-200" />
+                                    ) : (
+                                      <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                                    )}
                                   </Button>
-                                )}
+
+                                  <span
+                                    draggable
+                                    onDragStart={(e) => handleBatchDragStart(e, batch.id)}
+                                    onDragEnd={handleDragEnd}
+                                    className="batch-drag-handle cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 rounded hover:bg-background/50 shrink-0"
+                                    title="Drag section to reorder"
+                                  >
+                                    <GripVertical className="h-4 w-4" />
+                                  </span>
+
+                                  <span className={cn("font-mono text-xs font-bold px-2 py-0.5 rounded-md shrink-0", theme.badgeBg)}>
+                                    #{batchIdx + 1}
+                                  </span>
+
+                                  <div 
+                                    className="flex items-center gap-2 truncate cursor-pointer hover:opacity-80 transition-opacity" 
+                                    onClick={() => toggleCollapseBatch(batch.id)}
+                                    title={isCollapsed ? "Click to expand products" : "Click to collapse products"}
+                                  >
+                                    <FolderKanban className={cn("h-4 w-4 shrink-0", theme.iconColor)} />
+                                    <span className="font-bold text-xs sm:text-sm uppercase tracking-wide truncate">
+                                      {batch.name.trim() || "General Items"}
+                                    </span>
+                                    {isCollapsed && (
+                                      <Badge variant="outline" className="text-[10px] font-medium bg-background/80 text-muted-foreground border-border shrink-0 ml-1">
+                                        Collapsed ({sectionItems.length} items)
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                                  <BatchSectionSubtotal control={form.control} batchName={batch.name} fields={fields} />
+
+                                  {batches.length > 1 && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDeleteSection(batch.id)}
+                                      className="h-8 w-8 text-destructive hover:bg-destructive/10 cursor-pointer rounded-lg"
+                                      title="Delete Section"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
 
-                          {!isCollapsed && (
-                            <>
-                              {/* Line Item Cards in Section */}
-                              <div className="space-y-4">
-                                {(() => {
-                                  const bKey = (batch.name || "").trim() || "General Items"
-                                  const sectionItems = groupedItemsByBatch[bKey] || []
+                            {!isCollapsed && (
+                              <>
+                                {/* Line Item Cards in Section */}
+                                <div className="space-y-4">
+                                  {sectionItems.length === 0 ? (
+                                    <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
+                                      No products in this section. Click "+ Add Product to Section" or assign products here using the Section dropdown on any item.
+                                    </div>
+                                  ) : (
+                                    sectionItems.map(({ fieldItem, originalIndex }, pos) => (
+                                      <QuotationItemCard
+                                        key={fieldItem.id}
+                                        index={originalIndex}
+                                        itemPosInSection={sectionStartSerial + pos}
+                                        fieldItem={fieldItem}
+                                        control={form.control}
+                                        form={form}
+                                        batchName={batch.name}
+                                        batches={batches}
+                                        products={products}
+                                        watchSegment={watchCustomerSegment}
+                                        dbCategories={dbCategories}
+                                        userRole={userRole}
+                                        isRevision={isRevision}
+                                        isFirstInSection={pos === 0}
+                                        isLastInSection={pos === sectionItems.length - 1}
+                                        draggedIndex={draggedIndex}
+                                        dragOverIndex={dragOverIndex}
+                                        handleDragStart={handleDragStart}
+                                        handleDragOver={handleDragOver}
+                                        handleDrop={handleDrop}
+                                        handleDragEnd={handleDragEnd}
+                                        handleDuplicateItem={handleDuplicateItem}
+                                        handleMoveItem={handleMoveItem}
+                                        remove={remove}
+                                        handleProductSelect={handleProductSelect}
+                                        handleVariantSelect={handleVariantSelect}
+                                        fieldsLength={fields.length}
+                                        isConfiguratorEnabled={isConfiguratorEnabled}
+                                        isSelected={selectedItemIndices.includes(originalIndex)}
+                                        handleToggleSelectItem={handleToggleSelectItem}
+                                        onOpenCreateSection={(itemIdx) => handleOpenCreateSection(itemIdx)}
+                                        onOpenEditSection={(targetBatch) => handleOpenEditSection(targetBatch)}
+                                      />
+                                    ))
+                                  )}
+                                </div>
 
-                                  if (sectionItems.length === 0) {
-                                    return (
-                                      <div className="text-center py-6 border border-dashed rounded-lg bg-muted/10 text-xs text-muted-foreground">
-                                        No products in this section. Click "+ Add Product to Section" or assign products here using the Section dropdown on any item.
-                                      </div>
-                                    )
-                                  }
-
-                                  return sectionItems.map(({ fieldItem, originalIndex }, pos) => (
-                                    <QuotationItemCard
-                                      key={fieldItem.id}
-                                      index={originalIndex}
-                                      itemPosInSection={pos}
-                                      fieldItem={fieldItem}
-                                      control={form.control}
-                                      form={form}
-                                      batchName={batch.name}
-                                      batches={batches}
-                                      products={products}
-                                      watchSegment={watchCustomerSegment}
-                                      dbCategories={dbCategories}
-                                      userRole={userRole}
-                                      isRevision={isRevision}
-                                      isFirstInSection={pos === 0}
-                                      isLastInSection={pos === sectionItems.length - 1}
-                                      draggedIndex={draggedIndex}
-                                      dragOverIndex={dragOverIndex}
-                                      handleDragStart={handleDragStart}
-                                      handleDragOver={handleDragOver}
-                                      handleDrop={handleDrop}
-                                      handleDragEnd={handleDragEnd}
-                                      handleDuplicateItem={handleDuplicateItem}
-                                      handleMoveItem={handleMoveItem}
-                                      remove={remove}
-                                      handleProductSelect={handleProductSelect}
-                                      handleVariantSelect={handleVariantSelect}
-                                      fieldsLength={fields.length}
-                                      isConfiguratorEnabled={isConfiguratorEnabled}
-                                      isSelected={selectedItemIndices.includes(originalIndex)}
-                                      handleToggleSelectItem={handleToggleSelectItem}
-                                      onOpenCreateSection={(itemIdx) => handleOpenCreateSection(itemIdx)}
-                                      onOpenEditSection={(targetBatch) => handleOpenEditSection(targetBatch)}
-                                    />
-                                  ))
-                                })()}
-                              </div>
-
-                              {/* Section Bottom Action Controls */}
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-2.5 pt-3 border-t border-border/50">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleAddItemToBatch(batch.name)}
-                                  className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted font-medium"
-                                >
-                                  <Plus className="h-3.5 w-3.5" /> {watchIncludeSectionHeadings && batch.name ? `Add Product to ${batch.name}` : "Add Product"}
-                                </Button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )
-                    })}
+                                {/* Section Bottom Action Controls */}
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-2.5 pt-3 border-t border-border/50">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleAddItemToBatch(batch.name)}
+                                    className="text-xs h-8 flex items-center gap-1.5 cursor-pointer bg-background hover:bg-muted font-medium"
+                                  >
+                                    <Plus className="h-3.5 w-3.5" /> {watchIncludeSectionHeadings && batch.name ? `Add Product to ${batch.name}` : "Add Product"}
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })
+                    })()}
 
                     {/* Bottom Add Section Action Block */}
                     {watchIncludeSectionHeadings && (
