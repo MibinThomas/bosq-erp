@@ -44,6 +44,15 @@ export interface ConfiguratorCategory {
   modelCount: number
 }
 
+export const MAIN_CONFIGURATOR_CATEGORIES = [
+  { id: "ALL", name: "Select Category", subLabel: "All Categories", matchKeys: [] },
+  { id: "Chair", name: "Chair", subLabel: "Chairs & Seating", matchKeys: ["chair", "seating", "executive chair", "ergonomic chair", "task chair"] },
+  { id: "Workstations", name: "Workstations", subLabel: "Desks & Tables", matchKeys: ["workstation", "desk", "table", "height adjustable", "conference"] },
+  { id: "Storage", name: "Storage", subLabel: "Storage Solutions", matchKeys: ["storage", "cabinet", "pedestal", "locker", "credenza"] },
+  { id: "Accessories", name: "Accessories", subLabel: "Add-ons & Power", matchKeys: ["accessory", "accessories", "monitor arm", "cable"] },
+  { id: "Others", name: "Others", subLabel: "Other Products", matchKeys: ["other", "general"] },
+]
+
 export interface WorkstationModel {
   seriesName?: string
   modelName: string
@@ -357,9 +366,22 @@ export function WorkstationConfigurator({
   // Models filtered by selected Category
   const categoryFilteredModels = useMemo(() => {
     if (!selectedCategory || selectedCategory === "ALL") return models
-    return models.filter(
-      (m) => m.categoryId === selectedCategory || m.categoryName.toLowerCase() === selectedCategory.toLowerCase()
-    )
+
+    const mainCat = MAIN_CONFIGURATOR_CATEGORIES.find((c) => c.id === selectedCategory || c.name === selectedCategory)
+
+    return models.filter((m) => {
+      // Direct ID or Exact Name Match
+      if (m.categoryId === selectedCategory || m.categoryName.toLowerCase() === selectedCategory.toLowerCase()) {
+        return true
+      }
+      // Main Category Match Keys
+      if (mainCat && mainCat.matchKeys.length > 0) {
+        const catLower = (m.categoryName || "").toLowerCase()
+        const modelLower = (m.modelName || "").toLowerCase()
+        return mainCat.matchKeys.some((k) => catLower.includes(k) || modelLower.includes(k))
+      }
+      return false
+    })
   }, [models, selectedCategory])
 
   // Derived Series List (Level 1) within selected category
@@ -504,26 +526,26 @@ export function WorkstationConfigurator({
 
   // Dropdown options for Category, Series and Model
   const categoryDropdownOptions = useMemo(() => {
-    const list: ConfiguratorDropdownOption[] = [
-      {
-        value: "ALL",
-        label: "All Categories",
-        subLabel: `${models.length} models`,
-        icon: <Layers className="h-3.5 w-3.5 text-orange-500" />,
-      },
-    ]
+    return MAIN_CONFIGURATOR_CATEGORIES.map((cat) => {
+      const isAll = cat.id === "ALL"
+      let count = models.length
+      if (!isAll) {
+        count = models.filter((m) => {
+          if (m.categoryId === cat.id || m.categoryName.toLowerCase() === cat.name.toLowerCase()) return true
+          const catLower = (m.categoryName || "").toLowerCase()
+          const modelLower = (m.modelName || "").toLowerCase()
+          return cat.matchKeys.some((k) => catLower.includes(k) || modelLower.includes(k))
+        }).length
+      }
 
-    categories.forEach((cat) => {
-      list.push({
+      return {
         value: cat.id,
         label: cat.name,
-        subLabel: `${cat.modelCount} models`,
-        icon: <Tag className="h-3.5 w-3.5 text-muted-foreground" />,
-      })
+        subLabel: `${count} models`,
+        icon: isAll ? <Layers className="h-3.5 w-3.5 text-orange-500" /> : <Tag className="h-3.5 w-3.5 text-muted-foreground" />,
+      }
     })
-
-    return list
-  }, [categories, models.length])
+  }, [models])
 
   const seriesDropdownOptions = useMemo(() => {
     return seriesList.map((s) => ({
