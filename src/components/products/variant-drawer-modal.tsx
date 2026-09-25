@@ -390,6 +390,62 @@ export function VariantDrawerModal({
   const [newVariantSelectedAttrs, setNewVariantSelectedAttrs] = useState<Record<string, string>>({})
   const [customAttrOptions, setCustomAttrOptions] = useState<Record<string, string[]>>({})
 
+  // Multi-image upload state for Variant Builder
+  const [variantUploadedImages, setVariantUploadedImages] = useState<string[]>([])
+  const [variantPrimaryImage, setVariantPrimaryImage] = useState<string | null>(null)
+  const [isUploadingVariantImages, setIsUploadingVariantImages] = useState(false)
+  const [isDraggingVariantImages, setIsDraggingVariantImages] = useState(false)
+
+  // Upload handler for variant images
+  const handleVariantImagesUpload = async (files: FileList | File[]) => {
+    if (!files || files.length === 0) return
+    setIsUploadingVariantImages(true)
+    const newUrls: string[] = []
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const formData = new FormData()
+        formData.append("file", file)
+        const uploadRes = await fetch("/api/upload?type=products", {
+          method: "POST",
+          body: formData,
+        })
+        const uploadData = await uploadRes.json()
+        if (uploadRes.ok && uploadData.url) {
+          newUrls.push(uploadData.url)
+        }
+      }
+
+      if (newUrls.length > 0) {
+        setVariantUploadedImages((prev) => {
+          const updated = [...prev, ...newUrls]
+          if (!variantPrimaryImage) {
+            setVariantPrimaryImage(updated[0])
+          }
+          return updated
+        })
+        toast.success(`Uploaded ${newUrls.length} image(s) successfully!`)
+      }
+    } catch (err: any) {
+      console.error("Variant image upload error:", err)
+      toast.error(err.message || "Failed to upload variant images")
+    } finally {
+      setIsUploadingVariantImages(false)
+    }
+  }
+
+  // Remove single image from variant images list
+  const handleRemoveVariantImage = (urlToRemove: string) => {
+    setVariantUploadedImages((prev) => {
+      const filtered = prev.filter((u) => u !== urlToRemove)
+      if (variantPrimaryImage === urlToRemove) {
+        setVariantPrimaryImage(filtered[0] || null)
+      }
+      return filtered
+    })
+  }
+
   const [newVariantForm, setNewVariantForm] = useState({
     productCode: "",
     productName: "",
@@ -433,6 +489,7 @@ export function VariantDrawerModal({
     // 2. Standard Category attribute presets per proposed behavior
     if (isChairCategory) {
       return {
+        "Chair Type": ["High Back (101)", "Mid Back (201)", "Low Back (301)", "Executive Chair", "Task Chair", "Visitor / Guest"],
         "Headrest Color": ["Black", "Grey", "White", "Red", "Blue", "None / N/A"],
         "Backrest Color": ["Black Mesh", "Grey Mesh", "Red Mesh", "Blue Mesh", "Leather Black", "Leather Tan"],
         "Seat Color": ["Black Fabric", "Grey Fabric", "Blue Fabric", "Red Fabric", "Tan Leather"],
@@ -513,6 +570,8 @@ export function VariantDrawerModal({
         }
       }
       setNewVariantSelectedAttrs(initialAttrs)
+      setVariantUploadedImages([])
+      setVariantPrimaryImage(null)
       setNewVariantForm({
         productCode: "",
         productName: "",
@@ -938,6 +997,8 @@ export function VariantDrawerModal({
         newVariantSelectedAttrs["Color / Finish"] ||
         ""
 
+      const selectedChairType = newVariantSelectedAttrs["Chair Type"] || null
+      const finalPrimaryImage = variantPrimaryImage || variantUploadedImages[0] || masterProduct.imageUrl || null
       const sku = newVariantForm.productCode.trim() || `${masterPrefix}-VAR-${Date.now().toString().slice(-4)}`
       const project = newVariantForm.projectPrice || newVariantForm.unitPrice || 0
 
@@ -956,7 +1017,9 @@ export function VariantDrawerModal({
         interiorPrice: project,
         specialPrice: project,
         stock: newVariantForm.stock || 0,
-        imageUrl: imageUrl || masterProduct.imageUrl || null,
+        imageUrl: finalPrimaryImage,
+        imageUrls: variantUploadedImages,
+        chairType: selectedChairType,
         variantAttributes: Object.keys(newVariantSelectedAttrs).length > 0 ? newVariantSelectedAttrs : undefined,
         description: newVariantForm.description.trim() || null,
         specifications: newVariantForm.specifications.trim() || null,
@@ -978,6 +1041,8 @@ export function VariantDrawerModal({
       setIsAddingVariant(false)
       setNewVariantImageFile(null)
       setNewVariantSelectedAttrs({})
+      setVariantUploadedImages([])
+      setVariantPrimaryImage(null)
       setNewVariantForm({
         productCode: "",
         productName: "",
@@ -1590,6 +1655,135 @@ export function VariantDrawerModal({
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* 4. Variant Images (Multiple Image Upload & Primary Featured Image) */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                    <Camera className="h-4 w-4 text-primary" />
+                    4. Variant Images ({variantUploadedImages.length})
+                  </h4>
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    Upload multiple images (JPG, PNG, WEBP) &amp; set a primary featured image
+                  </span>
+                </div>
+
+                {/* Drag & Drop Upload Zone */}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    setIsDraggingVariantImages(true)
+                  }}
+                  onDragLeave={() => setIsDraggingVariantImages(false)}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    setIsDraggingVariantImages(false)
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      handleVariantImagesUpload(e.dataTransfer.files)
+                    }
+                  }}
+                  className={cn(
+                    "border-2 border-dashed rounded-xl p-5 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-2",
+                    isDraggingVariantImages
+                      ? "border-primary bg-primary/10"
+                      : "border-border/80 hover:border-primary/50 bg-muted/20"
+                  )}
+                  onClick={() => {
+                    const el = document.getElementById("variant-multi-image-input")
+                    if (el) el.click()
+                  }}
+                >
+                  <input
+                    id="variant-multi-image-input"
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files) handleVariantImagesUpload(e.target.files)
+                    }}
+                  />
+                  <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                    {isUploadingVariantImages ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Upload className="h-5 w-5" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-foreground">
+                      {isUploadingVariantImages
+                        ? "Uploading images..."
+                        : "Click to upload or drag & drop variant images"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Front view, side view, rear view &amp; detail shots (Max 10MB per file)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Uploaded Images Gallery Preview */}
+                {variantUploadedImages.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 pt-2">
+                    {variantUploadedImages.map((imgUrl, index) => {
+                      const isPrimary = variantPrimaryImage === imgUrl || (!variantPrimaryImage && index === 0)
+                      return (
+                        <div
+                          key={imgUrl}
+                          className={cn(
+                            "relative group border rounded-xl overflow-hidden bg-background aspect-square flex items-center justify-center shadow-2xs transition-all",
+                            isPrimary ? "ring-2 ring-primary border-primary" : "hover:border-primary/50"
+                          )}
+                        >
+                          <img
+                            src={formatImageUrl(imgUrl) || imgUrl}
+                            alt={`Variant image ${index + 1}`}
+                            className="w-full h-full object-contain p-1"
+                          />
+
+                          {/* Primary Badge */}
+                          {isPrimary && (
+                            <Badge className="absolute top-1.5 left-1.5 text-[9px] font-extrabold px-1.5 py-0.5 bg-primary text-primary-foreground shadow">
+                              ⭐ Primary
+                            </Badge>
+                          )}
+
+                          {/* Action Overlay */}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1">
+                            {!isPrimary && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                className="h-6 text-[10px] font-bold px-2 bg-white text-black hover:bg-white/90 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setVariantPrimaryImage(imgUrl)
+                                }}
+                              >
+                                Set Primary
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              className="h-6 w-6 p-0 rounded-full cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleRemoveVariantImage(imgUrl)
+                              }}
+                              title="Remove Image"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
