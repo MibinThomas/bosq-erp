@@ -24,7 +24,11 @@ import {
   LayoutGrid,
   CheckCircle2,
   Ruler,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Armchair,
+  Building2,
+  Box,
+  Sparkles
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,6 +40,20 @@ import { cn, formatImageUrl } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import RichTextEditor from "@/components/ui/rich-text-editor"
+
+// Helper icon for dynamic attribute labels
+const getAttributeIcon = (name: string) => {
+  const lower = name.toLowerCase()
+  if (lower.includes("color") || lower.includes("finish")) return <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("dimension") || lower.includes("size")) return <Ruler className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("leg") || lower.includes("base") || lower.includes("frame")) return <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("chair") || lower.includes("back") || lower.includes("seat") || lower.includes("arm") || lower.includes("headrest")) return <Armchair className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("top") || lower.includes("surface") || lower.includes("table")) return <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("storage") || lower.includes("drawer") || lower.includes("pedestal") || lower.includes("lock") || lower.includes("handle")) return <Box className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("warranty")) return <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("material") || lower.includes("upholstery") || lower.includes("fabric")) return <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+  return <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+}
 
 export interface ProductVariantItem {
   id: string
@@ -207,14 +225,18 @@ export function VariantDrawerModal({
     specifications: "",
   })
 
-  // Inline Add Variant state
+  // Configuration-Based Variant Builder state
   const [isAddingVariant, setIsAddingVariant] = useState(false)
   const [isSubmittingNewVariant, setIsSubmittingNewVariant] = useState(false)
   const [newVariantImageFile, setNewVariantImageFile] = useState<File | null>(null)
+  const [newVariantSelectedAttrs, setNewVariantSelectedAttrs] = useState<Record<string, string>>({})
+  const [isManualNameOverride, setIsManualNameOverride] = useState(false)
+  const [isManualSkuOverride, setIsManualSkuOverride] = useState(false)
+
   const [newVariantForm, setNewVariantForm] = useState({
     productCode: "",
     productName: "",
-    modelName: "Single Seater Workstation",
+    modelName: "Standard",
     availableColors: "",
     costPrice: 200,
     unitPrice: 300,
@@ -223,6 +245,125 @@ export function VariantDrawerModal({
     description: "",
     specifications: "",
   })
+
+  // Category attribute identification for Master Product
+  const categoryName = masterProduct?.category?.name || "Chairs"
+  const categoryLower = categoryName.toLowerCase()
+  const isChairCategory = categoryLower.includes("chair") || categoryLower.includes("seating")
+  const isWorkstationCategory = categoryLower.includes("workstation") || categoryLower.includes("desk") || categoryLower.includes("table")
+  const isStorageCategory = categoryLower.includes("storage") || categoryLower.includes("cabinet") || categoryLower.includes("pedestal")
+
+  // Available Attribute Options map for Master Product
+  const activeCategoryAttrOptions: Record<string, string[]> = useMemo(() => {
+    if (!masterProduct) return {}
+
+    // 1. Check if master product defines custom variantAttributes JSON
+    if (masterProduct.variantAttributes && typeof masterProduct.variantAttributes === "object") {
+      const vAttrs = masterProduct.variantAttributes as Record<string, any>
+      const customMap: Record<string, string[]> = {}
+      for (const [k, v] of Object.entries(vAttrs)) {
+        if (Array.isArray(v)) {
+          customMap[k] = v
+        } else if (typeof v === "string" && v.includes(",")) {
+          customMap[k] = v.split(",").map((s) => s.trim()).filter(Boolean)
+        } else if (v) {
+          customMap[k] = [String(v).trim()]
+        }
+      }
+      if (Object.keys(customMap).length > 0) return customMap
+    }
+
+    // 2. Standard Category attribute presets per proposed behavior
+    if (isChairCategory) {
+      return {
+        "Headrest Color": ["Black", "Grey", "White", "Red", "Blue", "None / N/A"],
+        "Backrest Color": ["Black Mesh", "Grey Mesh", "Red Mesh", "Blue Mesh", "Leather Black", "Leather Tan"],
+        "Seat Color": ["Black Fabric", "Grey Fabric", "Blue Fabric", "Red Fabric", "Tan Leather"],
+        "Base Type": ["Aluminium Base", "Nylon Base", "Chrome Base"],
+        "Armrest Type": ["3D Adjustable", "Fixed Armrest", "4D Armrest", "Armless"],
+      }
+    }
+
+    if (isWorkstationCategory) {
+      return {
+        "Table Top Color": ["White Top", "Beech Top", "Walnut Top", "Black Top", "Oak Top"],
+        "Leg Type": ["Loop Leg", "A-Leg", "O-Leg", "Mild Steel Frame", "Timber Legs"],
+        "Leg Color": ["Black Legs", "White Legs", "Silver Legs"],
+        "Table Dimensions": ["1200 x 600 mm", "1400 x 700 mm", "1500 x 750 mm", "1600 x 800 mm", "1800 x 800 mm"],
+        "Cable Tray Option": ["Under-desk Cable Tray", "Flip Box Grommet", "Snake Wire Tray", "None"],
+      }
+    }
+
+    if (isStorageCategory) {
+      return {
+        "Finish Color": ["White Finish", "Black Finish", "Walnut Finish", "Beech Finish"],
+        "Handle Type": ["Recessed Aluminium", "Bar Handle", "Push to Open", "Flush Handle"],
+        "Lock Type": ["Digital Keypad Lock", "Key Lock", "Combination Lock", "No Lock"],
+        "Storage Dimensions": ["400 x 500 x 600 mm", "800 x 450 x 1200 mm", "900 x 450 x 1800 mm"],
+      }
+    }
+
+    // General / Fallback category
+    return {
+      "Color / Finish": ["Black", "White", "Grey", "Wood Finish"],
+      "Dimension / Size": ["Standard Size", "Compact Size", "Large Size"],
+      "Material / Finish": ["Standard Material", "Premium Fabric", "Wood Veneer"],
+    }
+  }, [masterProduct, isChairCategory, isWorkstationCategory, isStorageCategory])
+
+  // Initialize selected attribute values whenever isAddingVariant opens
+  useEffect(() => {
+    if (isAddingVariant && activeCategoryAttrOptions) {
+      const initialAttrs: Record<string, string> = {}
+      for (const [key, opts] of Object.entries(activeCategoryAttrOptions)) {
+        if (opts.length > 0) {
+          initialAttrs[key] = opts[0]
+        }
+      }
+      setNewVariantSelectedAttrs(initialAttrs)
+      setIsManualNameOverride(false)
+      setIsManualSkuOverride(false)
+    }
+  }, [isAddingVariant, activeCategoryAttrOptions])
+
+  // Auto-generate title, SKU, and specifications summary whenever selected attributes change
+  useEffect(() => {
+    if (!isAddingVariant || !masterProduct) return
+
+    const masterTitle = masterProduct.productName || "Master Product"
+    const masterCode = (masterProduct.productCode || "MASTER").replace("MASTER-", "").replace(/[^A-Z0-9]/g, "")
+
+    const attrEntries = Object.entries(newVariantSelectedAttrs).filter(
+      ([_, val]) => val && val.toLowerCase() !== "none" && val.toLowerCase() !== "none / n/a"
+    )
+
+    // Build Auto Variant Title: e.g. Ace High Back Chair | Black Backrest | Black Seat | Aluminium Base
+    const autoTitle = attrEntries.length > 0
+      ? `${masterTitle} | ${attrEntries.map(([_, v]) => v).join(" | ")}`
+      : masterTitle
+
+    // Build Auto SKU: e.g. ACE-BLK-BLK-BLK-ALU
+    const acronyms = attrEntries.map(([_, val]) => {
+      const clean = val.toUpperCase().replace(/[^A-Z0-9]/g, "")
+      return clean.slice(0, 3)
+    }).filter(Boolean)
+
+    const autoSku = acronyms.length > 0
+      ? `${masterCode}-${acronyms.join("-")}`
+      : `${masterCode}-VAR`
+
+    // Build Auto Specifications summary text
+    const autoSpecs = attrEntries.length > 0
+      ? attrEntries.map(([k, v]) => `• ${k}: ${v}`).join("\n")
+      : `Standard ${masterTitle} specification.`
+
+    setNewVariantForm(prev => ({
+      ...prev,
+      productName: isManualNameOverride ? prev.productName : autoTitle,
+      productCode: isManualSkuOverride ? prev.productCode : autoSku,
+      specifications: autoSpecs,
+    }))
+  }, [newVariantSelectedAttrs, isAddingVariant, masterProduct, isManualNameOverride, isManualSkuOverride])
 
   // Track broken/404 image URLs to gracefully fallback to Package icon
   const [failedImageUrls, setFailedImageUrls] = useState<Record<string, boolean>>({})
@@ -617,12 +758,18 @@ export function VariantDrawerModal({
         if (uploadRes.ok && uploadData.url) imageUrl = uploadData.url
       }
 
-      const masterPrefix = masterProduct.productCode.replace("MASTER-", "").slice(0, 5)
-      const modelPart = (newVariantForm.modelName || "VAR").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4)
-      const colorPart = (newVariantForm.availableColors || "STD").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4)
-      const sku = newVariantForm.productCode.trim() || `${masterPrefix}-${modelPart}-${colorPart}`
+      const masterPrefix = masterProduct.productCode.replace("MASTER-", "").replace(/[^A-Z0-9]/g, "").slice(0, 5)
 
-      const varName = newVariantForm.productName.trim() || `${masterProduct.productName} ${newVariantForm.modelName}${newVariantForm.availableColors ? ` - ${newVariantForm.availableColors}` : ""}`
+      // Primary color value extracted for availableColors field
+      const primaryColorVal = newVariantSelectedAttrs["Seat Color"] ||
+        newVariantSelectedAttrs["Backrest Color"] ||
+        newVariantSelectedAttrs["Table Top Color"] ||
+        newVariantSelectedAttrs["Finish Color"] ||
+        newVariantSelectedAttrs["Color / Finish"] ||
+        ""
+
+      const sku = newVariantForm.productCode.trim() || `${masterPrefix}-VAR-${Date.now().toString().slice(-4)}`
+      const varName = newVariantForm.productName.trim() || `${masterProduct.productName} Variant`
 
       const cost = newVariantForm.costPrice || 200
       const project = newVariantForm.projectPrice || newVariantForm.unitPrice || Number((cost * 1.5).toFixed(2))
@@ -630,11 +777,11 @@ export function VariantDrawerModal({
       const payload = {
         productCode: sku,
         productName: varName,
-        categoryName: masterProduct.category?.name || "Workstations",
+        categoryName: masterProduct.category?.name || "Chairs",
         parentProductId: masterProduct.id,
         isMaster: false,
-        modelName: newVariantForm.modelName.trim() || null,
-        availableColors: newVariantForm.availableColors.trim() || null,
+        modelName: masterProduct.modelName || masterProduct.productName || null,
+        availableColors: primaryColorVal.trim() || null,
         costPrice: cost,
         unitPrice: project,
         projectPrice: project,
@@ -643,7 +790,8 @@ export function VariantDrawerModal({
         specialPrice: cost,
         stock: newVariantForm.stock || 0,
         imageUrl: imageUrl || masterProduct.imageUrl || null,
-        description: newVariantForm.description || `${masterProduct.productName} Series ${newVariantForm.modelName}`,
+        variantAttributes: Object.keys(newVariantSelectedAttrs).length > 0 ? newVariantSelectedAttrs : undefined,
+        description: newVariantForm.description || `${masterProduct.productName} Variant (${varName})`,
         specifications: newVariantForm.specifications.trim() || masterProduct.specifications || null,
       }
 
@@ -662,10 +810,13 @@ export function VariantDrawerModal({
       toast.success(`New variant "${varName}" created successfully!`)
       setIsAddingVariant(false)
       setNewVariantImageFile(null)
+      setNewVariantSelectedAttrs({})
+      setIsManualNameOverride(false)
+      setIsManualSkuOverride(false)
       setNewVariantForm({
         productCode: "",
         productName: "",
-        modelName: "Single Seater Workstation",
+        modelName: "Standard",
         availableColors: "",
         costPrice: 200,
         unitPrice: 300,
@@ -1091,157 +1242,252 @@ export function VariantDrawerModal({
         {/* Level 3: Variant Grid */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">     
 
-          {/* Add New Variant Form Card */}
+          {/* Add New Variant Form Card (Configuration-Based Variant Builder) */}
           {isAddingVariant && (
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 space-y-4 shadow-md animate-in fade-in slide-in-from-top-3 duration-200">
-              <div className="flex items-center justify-between border-b border-primary/10 pb-3">
-                <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
-                    <Plus className="h-4 w-4" />
+            <div className="bg-card border-2 border-primary/30 rounded-2xl p-5 sm:p-6 space-y-6 shadow-xl animate-in fade-in slide-in-from-top-3 duration-200">
+              {/* Card Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm shrink-0 shadow-md">
+                    {isChairCategory ? <Armchair className="h-5 w-5" /> : isWorkstationCategory ? <Building2 className="h-5 w-5" /> : <Box className="h-5 w-5" />}
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-foreground">
-                      Create New Variant for {masterProduct.productName}
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground">
-                      Configure model type, colors, prices, and stock to add a new option to this series.
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-bold text-foreground">
+                        Configuration-Based Variant Builder
+                      </h3>
+                      <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border-primary/30">
+                        {categoryName} Category
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Select predefined attribute values for <strong className="text-foreground">{masterProduct.productName}</strong>. Title and SKU will auto-generate.
                     </p>
                   </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
+                  className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground self-end sm:self-auto cursor-pointer"
                   onClick={() => setIsAddingVariant(false)}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                <div className="space-y-1">
-                  <label className="font-bold text-foreground block">
-                    Sub-Model / Variant Type <span className="text-destructive">*</span>
-                  </label>
-                  <Input
-                    placeholder="e.g. Single Seater Workstation, Ultra Single Seater"
-                    value={newVariantForm.modelName}
-                    onChange={(e) => setNewVariantForm({ ...newVariantForm, modelName: e.target.value })}
-                    className="h-8 text-xs bg-background"
-                  />
+              {/* 1. Dynamic Category Configuration Attributes */}
+              <div className="space-y-3 bg-muted/40 p-4 rounded-xl border">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                    <SlidersHorizontal className="h-4 w-4 text-primary" />
+                    1. Configuration Attributes ({Object.keys(activeCategoryAttrOptions).length})
+                  </h4>
+                  <span className="text-[11px] text-muted-foreground">
+                    Derived from category preset &amp; master product
+                  </span>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-foreground block">
-                    Color / Finish
-                  </label>
-                  <Input
-                    placeholder="e.g. Walnut Wood / White Legs"
-                    value={newVariantForm.availableColors}
-                    onChange={(e) => setNewVariantForm({ ...newVariantForm, availableColors: e.target.value })}
-                    className="h-8 text-xs bg-background"
-                  />
-                </div>
+                {Object.keys(activeCategoryAttrOptions).length === 0 ? (
+                  <div className="p-3 text-center text-xs text-muted-foreground bg-background rounded-lg border border-dashed">
+                    No configurable attributes defined for this category/product.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Object.entries(activeCategoryAttrOptions).map(([attrName, options]) => {
+                      const currentValue = newVariantSelectedAttrs[attrName] || (options[0] || "")
+                      return (
+                        <div key={attrName} className="space-y-1.5 bg-background p-3 rounded-lg border shadow-2xs">
+                          <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                            {getAttributeIcon(attrName)}
+                            <span>{attrName}</span>
+                            <span className="text-destructive">*</span>
+                          </label>
+                          <Select
+                            value={currentValue}
+                            onValueChange={(val) => {
+                              const strVal = val || ""
+                              setNewVariantSelectedAttrs((prev) => ({
+                                ...prev,
+                                [attrName]: strVal,
+                              }))
+                            }}
+                          >
+                            <SelectTrigger className="w-full h-8 text-xs font-medium bg-background border rounded-lg cursor-pointer">
+                              <SelectValue placeholder={`Select ${attrName}`} />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-60 bg-card border rounded-lg shadow-lg z-50">
+                              {options.map((opt) => (
+                                <SelectItem key={opt} value={opt} className="text-xs font-medium cursor-pointer">
+                                  {opt}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-foreground block">
-                    Product SKU (Optional)
-                  </label>
-                  <Input
-                    placeholder="Auto-generated if blank"
-                    value={newVariantForm.productCode}
-                    onChange={(e) => setNewVariantForm({ ...newVariantForm, productCode: e.target.value })}
-                    className="h-8 text-xs bg-background font-mono"
-                  />
-                </div>
+              {/* 2. Variant Product Details & Pricing */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <Tag className="h-4 w-4 text-primary" />
+                  2. Product Information &amp; Pricing
+                </h4>
 
-                <div className="space-y-1 sm:col-span-2">
-                  <label className="font-bold text-foreground block">
-                    Variant Display Name (Optional)
-                  </label>
-                  <Input
-                    placeholder={`e.g. ${masterProduct.productName} ${newVariantForm.modelName || "Single Seater Workstation"}`}
-                    value={newVariantForm.productName}
-                    onChange={(e) => setNewVariantForm({ ...newVariantForm, productName: e.target.value })}
-                    className="h-8 text-xs bg-background"
-                  />
-                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                  {/* Variant Display Name */}
+                  <div className="space-y-1 sm:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-foreground block">
+                        Variant Display Name <span className="text-destructive">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isManualNameOverride) {
+                            setIsManualNameOverride(false)
+                          } else {
+                            setIsManualNameOverride(true)
+                          }
+                        }}
+                        className="text-[10px] text-primary hover:underline font-semibold"
+                      >
+                        {isManualNameOverride ? "⚡ Reset to Auto" : "✏️ Edit Manually"}
+                      </button>
+                    </div>
+                    <Input
+                      placeholder={`e.g. ${masterProduct.productName} High Back Chair | Black`}
+                      value={newVariantForm.productName}
+                      onChange={(e) => {
+                        setIsManualNameOverride(true)
+                        setNewVariantForm({ ...newVariantForm, productName: e.target.value })
+                      }}
+                      className="h-9 text-xs bg-background font-medium"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      {isManualNameOverride ? "Custom title override applied." : "Auto-generated from selected attribute values."}
+                    </p>
+                  </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-foreground block">
-                    Initial Stock Qty
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={newVariantForm.stock}
-                    onChange={(e) => setNewVariantForm({ ...newVariantForm, stock: parseInt(e.target.value, 10) || 0 })}
-                    className="h-8 text-xs bg-background"
-                  />
-                </div>
+                  {/* SKU */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="font-bold text-foreground block">
+                        Variant SKU <span className="text-destructive">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isManualSkuOverride) {
+                            setIsManualSkuOverride(false)
+                          } else {
+                            setIsManualSkuOverride(true)
+                          }
+                        }}
+                        className="text-[10px] text-primary hover:underline font-semibold"
+                      >
+                        {isManualSkuOverride ? "⚡ Reset to Auto" : "✏️ Edit Manually"}
+                      </button>
+                    </div>
+                    <Input
+                      placeholder="Auto-generated SKU"
+                      value={newVariantForm.productCode}
+                      onChange={(e) => {
+                        setIsManualSkuOverride(true)
+                        setNewVariantForm({ ...newVariantForm, productCode: e.target.value })
+                      }}
+                      className="h-9 text-xs bg-background font-mono font-bold"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      {isManualSkuOverride ? "Custom SKU override." : "Auto-generated from code & attributes."}
+                    </p>
+                  </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-foreground block">
-                    Cost Price (AED)
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newVariantForm.costPrice}
-                    onChange={(e) => setNewVariantForm({ ...newVariantForm, costPrice: parseFloat(e.target.value) || 0 })}
-                    className="h-8 text-xs bg-background"
-                  />
-                </div>
+                  {/* Stock Quantity */}
+                  <div className="space-y-1">
+                    <label className="font-bold text-foreground block">
+                      Initial Stock Qty
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={newVariantForm.stock}
+                      onChange={(e) => setNewVariantForm({ ...newVariantForm, stock: parseInt(e.target.value, 10) || 0 })}
+                      className="h-9 text-xs bg-background"
+                    />
+                  </div>
 
-                <div className="space-y-1">
-                  <label className="font-bold text-foreground block">
-                    Project Price (AED)
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newVariantForm.projectPrice}
-                    onChange={(e) => setNewVariantForm({ ...newVariantForm, projectPrice: parseFloat(e.target.value) || 0, unitPrice: parseFloat(e.target.value) || 0 })}
-                    className="h-8 text-xs bg-background font-bold text-primary"
-                  />
-                </div>
+                  {/* Cost Price */}
+                  <div className="space-y-1">
+                    <label className="font-bold text-foreground block">
+                      Cost Price (AED)
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newVariantForm.costPrice}
+                      onChange={(e) => setNewVariantForm({ ...newVariantForm, costPrice: parseFloat(e.target.value) || 0 })}
+                      className="h-9 text-xs bg-background font-mono"
+                    />
+                  </div>
 
-                <div className="space-y-1 sm:col-span-3">
-                  <label className="font-bold text-foreground block">
-                    Short Description
-                  </label>
-                  <Textarea
-                    rows={2}
-                    placeholder="Enter short description for quotation preview..."
-                    value={newVariantForm.description}
-                    onChange={(e) => setNewVariantForm({ ...newVariantForm, description: e.target.value })}
-                    className="text-xs bg-background resize-none"
-                  />
-                </div>
+                  {/* Selling / Project Price */}
+                  <div className="space-y-1">
+                    <label className="font-bold text-foreground block text-primary">
+                      Selling / Project Price (AED)
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={newVariantForm.projectPrice}
+                      onChange={(e) => setNewVariantForm({ ...newVariantForm, projectPrice: parseFloat(e.target.value) || 0, unitPrice: parseFloat(e.target.value) || 0 })}
+                      className="h-9 text-xs bg-background font-mono font-bold text-primary border-primary/40 focus:border-primary"
+                    />
+                  </div>
 
-                <div className="space-y-1.5 sm:col-span-3">
-                  <label className="font-bold text-foreground block flex items-center justify-between">
-                    <span>Product Specifications</span>
-                    <span className="text-[10px] text-muted-foreground font-normal">
-                      Rich text formatting (headings, bullet points, highlights) for PDF & quotation preview
-                    </span>
-                  </label>
-                  <RichTextEditor
-                    value={newVariantForm.specifications}
-                    onChange={(val) => setNewVariantForm({ ...newVariantForm, specifications: val })}
-                    placeholder="E.g. Headrest: 3D Adjustable; Back Frame: Mesh PP+GF; Armrest: 4D PU..."
-                  />
+                  {/* Short Description */}
+                  <div className="space-y-1 sm:col-span-3">
+                    <label className="font-bold text-foreground block">
+                      Short Description
+                    </label>
+                    <Textarea
+                      rows={2}
+                      placeholder="Enter short description for quotation preview..."
+                      value={newVariantForm.description}
+                      onChange={(e) => setNewVariantForm({ ...newVariantForm, description: e.target.value })}
+                      className="text-xs bg-background resize-none"
+                    />
+                  </div>
+
+                  {/* Product Specifications Summary */}
+                  <div className="space-y-1.5 sm:col-span-3">
+                    <label className="font-bold text-foreground block flex items-center justify-between">
+                      <span>Product Specification Summary</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        Auto-generated bullet summary (editable with rich text formatting)
+                      </span>
+                    </label>
+                    <RichTextEditor
+                      value={newVariantForm.specifications}
+                      onChange={(val) => setNewVariantForm({ ...newVariantForm, specifications: val })}
+                      placeholder="E.g. • Headrest Color: Black..."
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t">
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => setIsAddingVariant(false)}
-                  className="text-xs h-8 rounded-lg cursor-pointer"
+                  className="text-xs h-9 px-4 rounded-xl cursor-pointer"
                 >
                   Cancel
                 </Button>
@@ -1249,16 +1495,16 @@ export function VariantDrawerModal({
                   size="sm"
                   onClick={handleCreateVariantSubmit}
                   disabled={isSubmittingNewVariant}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-8 px-4 rounded-lg flex items-center gap-1.5 cursor-pointer shadow"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-9 px-5 rounded-xl flex items-center gap-2 cursor-pointer shadow-md"
                 >
                   {isSubmittingNewVariant ? (
                     <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Creating...
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creating Variant...
                     </>
                   ) : (
                     <>
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-4 w-4" />
                       Save Variant
                     </>
                   )}
