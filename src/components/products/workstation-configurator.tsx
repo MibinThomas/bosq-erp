@@ -22,6 +22,7 @@ import {
   Copy,
   Edit3,
   Grid,
+  LayoutGrid,
   ChevronsUpDown,
   SearchX,
   Sparkles,
@@ -35,7 +36,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command"
 import { toast } from "sonner"
-import { cn, safeCopyToClipboard } from "@/lib/utils"
+import { cn, safeCopyToClipboard, formatImageUrl } from "@/lib/utils"
 
 export interface ConfiguratorCategory {
   id: string
@@ -288,7 +289,7 @@ const getAttributeIcon = (name: string) => {
   if (lower.includes("dimension") || lower.includes("size")) return <Ruler className="h-3.5 w-3.5 text-muted-foreground" />
   if (lower.includes("leg") || lower.includes("base") || lower.includes("frame")) return <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
   if (lower.includes("chair") || lower.includes("back") || lower.includes("seat") || lower.includes("arm") || lower.includes("headrest")) return <Armchair className="h-3.5 w-3.5 text-muted-foreground" />
-  if (lower.includes("top") || lower.includes("surface") || lower.includes("table")) return <Grid className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("top") || lower.includes("surface") || lower.includes("table")) return <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
   if (lower.includes("storage") || lower.includes("drawer") || lower.includes("pedestal") || lower.includes("lock") || lower.includes("handle")) return <Box className="h-3.5 w-3.5 text-muted-foreground" />
   if (lower.includes("warranty")) return <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
   if (lower.includes("material") || lower.includes("upholstery") || lower.includes("fabric")) return <Tag className="h-3.5 w-3.5 text-muted-foreground" />
@@ -884,9 +885,9 @@ export function WorkstationConfigurator({
                 <div className="h-44 w-full border border-border/80 rounded-xl overflow-hidden bg-muted/30 flex items-center justify-center relative group shadow-2xs">
                   {activeProductPayload.imageUrl ? (
                     <img
-                      src={activeProductPayload.imageUrl}
+                      src={formatImageUrl(activeProductPayload.imageUrl) || activeProductPayload.imageUrl}
                       alt={activeProductPayload.productName}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-105"
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center space-y-1.5 text-muted-foreground/60 p-4 text-center">

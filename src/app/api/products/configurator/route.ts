@@ -215,50 +215,48 @@ export async function GET() {
       const finishVal = cleanStr(p.finishMaterial)
       const warrantyVal = cleanStr(p.warranty)
 
-      // Contextual attribute naming based on category & product
-      if (categoryLower.includes("chair") || categoryLower.includes("seating")) {
-        if (chairTypeVal) prodAttrMap["Chair / Backrest"] = chairTypeVal
-        if (colorVal) prodAttrMap["Seat Color"] = colorVal
-        if (finishVal) prodAttrMap["Upholstery Material"] = finishVal
-        if (legTypeVal) prodAttrMap["Base Type"] = legTypeVal
-        if (warrantyVal) prodAttrMap["Warranty"] = warrantyVal
-      } else if (categoryLower.includes("workstation") || categoryLower.includes("desk") || categoryLower.includes("table")) {
-        if (tableTopVal) prodAttrMap["Table Top Color"] = tableTopVal
-        if (legTypeVal) prodAttrMap["Leg Type"] = legTypeVal
-        if (colorVal) prodAttrMap["Leg Color"] = colorVal
-        if (dimensionsVal) prodAttrMap["Table Dimensions"] = dimensionsVal
-        if (finishVal) prodAttrMap["Finish Material"] = finishVal
-        if (warrantyVal) prodAttrMap["Warranty"] = warrantyVal
-      } else if (categoryLower.includes("storage") || categoryLower.includes("cabinet") || categoryLower.includes("pedestal")) {
-        if (colorVal) prodAttrMap["Storage Finish Color"] = colorVal
-        if (storageVal) prodAttrMap["Storage Type"] = storageVal
-        if (dimensionsVal) prodAttrMap["Storage Dimensions"] = dimensionsVal
-        if (finishVal) prodAttrMap["Finish Material"] = finishVal
-        if (warrantyVal) prodAttrMap["Warranty"] = warrantyVal
-      } else {
-        // Fallback standard naming for Other Categories
-        if (dimensionsVal) prodAttrMap["Dimension"] = dimensionsVal
-        if (colorVal) prodAttrMap["Color / Finish"] = colorVal
-        if (legTypeVal) prodAttrMap["Leg Frame"] = legTypeVal
-        if (tableTopVal) prodAttrMap["Top Finish"] = tableTopVal
-        if (chairTypeVal) prodAttrMap["Chair Type"] = chairTypeVal
-        if (storageVal) prodAttrMap["Storage Unit"] = storageVal
-        if (finishVal) prodAttrMap["Finish Material"] = finishVal
-        if (warrantyVal) prodAttrMap["Warranty"] = warrantyVal
-      }
-
-      // Merge dynamic variantAttributes JSON if defined by administrator
+      // 1. Merge dynamic variantAttributes JSON if defined by administrator
       if (p.variantAttributes && typeof p.variantAttributes === "object") {
         const vAttrs = p.variantAttributes as Record<string, any>
         for (const [attrKey, attrVal] of Object.entries(vAttrs)) {
           const cleanKey = String(attrKey).trim()
           const cleanVal = cleanStr(attrVal)
-          if (cleanKey && cleanVal && !["modelName", "modelCode", "color"].includes(cleanKey)) {
-            // Capitalize key appropriately
-            const formattedKey = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1)
-            prodAttrMap[formattedKey] = cleanVal
+          if (cleanKey && cleanVal && !["modelName", "modelCode"].includes(cleanKey)) {
+            prodAttrMap[cleanKey] = cleanVal
           }
         }
+      }
+
+      // 2. Contextual attribute fallback naming based on category & product standard fields
+      if (categoryLower.includes("chair") || categoryLower.includes("seating")) {
+        if (!prodAttrMap["Chair Type"] && chairTypeVal) prodAttrMap["Chair Type"] = chairTypeVal
+        if (!prodAttrMap["Seat Color"] && colorVal) prodAttrMap["Seat Color"] = colorVal
+        if (!prodAttrMap["Upholstery Material"] && finishVal) prodAttrMap["Upholstery Material"] = finishVal
+        if (!prodAttrMap["Base Type"] && legTypeVal) prodAttrMap["Base Type"] = legTypeVal
+        if (!prodAttrMap["Warranty"] && warrantyVal) prodAttrMap["Warranty"] = warrantyVal
+      } else if (categoryLower.includes("workstation") || categoryLower.includes("desk") || categoryLower.includes("table")) {
+        if (!prodAttrMap["Table Top Color"] && tableTopVal) prodAttrMap["Table Top Color"] = tableTopVal
+        if (!prodAttrMap["Leg Type"] && legTypeVal) prodAttrMap["Leg Type"] = legTypeVal
+        if (!prodAttrMap["Leg Color"] && colorVal) prodAttrMap["Leg Color"] = colorVal
+        if (!prodAttrMap["Table Dimensions"] && dimensionsVal) prodAttrMap["Table Dimensions"] = dimensionsVal
+        if (!prodAttrMap["Cable Management Option"] && storageVal) prodAttrMap["Cable Management Option"] = storageVal
+        if (!prodAttrMap["Side Return Option"] && finishVal) prodAttrMap["Side Return Option"] = finishVal
+        if (!prodAttrMap["Warranty"] && warrantyVal) prodAttrMap["Warranty"] = warrantyVal
+      } else if (categoryLower.includes("storage") || categoryLower.includes("cabinet") || categoryLower.includes("pedestal")) {
+        if (!prodAttrMap["Finish Color"] && colorVal) prodAttrMap["Finish Color"] = colorVal
+        if (!prodAttrMap["Handle Type"] && storageVal) prodAttrMap["Handle Type"] = storageVal
+        if (!prodAttrMap["Lock Type"] && legTypeVal) prodAttrMap["Lock Type"] = legTypeVal
+        if (!prodAttrMap["Dimensions"] && dimensionsVal) prodAttrMap["Dimensions"] = dimensionsVal
+        if (!prodAttrMap["Warranty"] && warrantyVal) prodAttrMap["Warranty"] = warrantyVal
+      } else {
+        if (!prodAttrMap["Dimensions"] && dimensionsVal) prodAttrMap["Dimensions"] = dimensionsVal
+        if (!prodAttrMap["Color / Finish"] && colorVal) prodAttrMap["Color / Finish"] = colorVal
+        if (!prodAttrMap["Leg Frame"] && legTypeVal) prodAttrMap["Leg Frame"] = legTypeVal
+        if (!prodAttrMap["Top Finish"] && tableTopVal) prodAttrMap["Top Finish"] = tableTopVal
+        if (!prodAttrMap["Chair Type"] && chairTypeVal) prodAttrMap["Chair Type"] = chairTypeVal
+        if (!prodAttrMap["Storage Type"] && storageVal) prodAttrMap["Storage Type"] = storageVal
+        if (!prodAttrMap["Finish Material"] && finishVal) prodAttrMap["Finish Material"] = finishVal
+        if (!prodAttrMap["Warranty"] && warrantyVal) prodAttrMap["Warranty"] = warrantyVal
       }
 
       // Record attributes into group's attribute set map
