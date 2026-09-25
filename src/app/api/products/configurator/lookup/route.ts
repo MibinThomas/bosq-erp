@@ -14,6 +14,7 @@ export async function POST(request: Request) {
     const {
       variantId,
       modelName,
+      attributes,
       legType,
       tableTopFinish,
       dimensions,
@@ -37,7 +38,8 @@ export async function POST(request: Request) {
           ...(modelName
             ? {
                 productName: {
-                  startsWith: modelName,
+                  contains: modelName,
+                  mode: "insensitive",
                 },
               }
             : {}),
@@ -52,6 +54,15 @@ export async function POST(request: Request) {
         if (dimensions && p.dimensions && p.dimensions.trim().toLowerCase() !== dimensions.trim().toLowerCase()) return false
         if (storageOptions && p.storageOptions && p.storageOptions.trim().toLowerCase() !== storageOptions.trim().toLowerCase()) return false
         if (finishMaterial && p.finishMaterial && p.finishMaterial.trim().toLowerCase() !== finishMaterial.trim().toLowerCase()) return false
+
+        if (attributes && typeof attributes === "object") {
+          const vAttrs = (p.variantAttributes || {}) as Record<string, any>
+          for (const [k, v] of Object.entries(attributes)) {
+            if (v && vAttrs[k] && String(vAttrs[k]).trim().toLowerCase() !== String(v).trim().toLowerCase()) {
+              return false
+            }
+          }
+        }
         return true
       }) || candidateProducts[0] || null
     }

@@ -133,6 +133,7 @@ export async function PUT(
         legType: legType !== undefined ? legType : undefined,
         storageOptions: storageOptions !== undefined ? storageOptions : undefined,
         finishMaterial: finishMaterial !== undefined ? finishMaterial : undefined,
+        variantAttributes: body.variantAttributes !== undefined ? body.variantAttributes : undefined,
         stock: stock !== undefined ? parseInt(stock) || 0 : undefined,
         status: status || "ACTIVE",
       },
@@ -180,7 +181,7 @@ export async function PATCH(
 
     const { id } = await params
     const body = await request.json()
-    const { stock, imageUrl, availableColors, modelName, productName } = body
+    const { stock, imageUrl, availableColors, modelName, productName, variantAttributes } = body
 
     const updateData: any = {}
     if (stock !== undefined) updateData.stock = parseInt(stock, 10) || 0
@@ -188,6 +189,7 @@ export async function PATCH(
     if (availableColors !== undefined) updateData.availableColors = availableColors
     if (modelName !== undefined) updateData.modelName = modelName
     if (productName !== undefined) updateData.productName = productName
+    if (variantAttributes !== undefined) updateData.variantAttributes = variantAttributes
 
     const updatedProduct = await prisma.product.update({
       where: { id },

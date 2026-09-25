@@ -24,7 +24,9 @@ import {
   Grid,
   ChevronsUpDown,
   SearchX,
-  Sparkles
+  Sparkles,
+  Filter,
+  Info
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,11 +37,18 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { toast } from "sonner"
 import { cn, safeCopyToClipboard } from "@/lib/utils"
 
+export interface ConfiguratorCategory {
+  id: string
+  name: string
+  modelCount: number
+}
+
 export interface WorkstationModel {
   seriesName?: string
   modelName: string
   categoryId: string
   categoryName: string
+  attributes?: Record<string, string[]>
   colors: string[]
   chairTypes: string[]
   legTypes: string[]
@@ -52,6 +61,7 @@ export interface WorkstationModel {
     id: string
     sku: string
     productName: string
+    attributes?: Record<string, string>
     color: string | null
     chairType: string | null
     legType: string | null
@@ -271,35 +281,38 @@ export function ConfiguratorDropdown({
   )
 }
 
+// Icon helper for dynamic attribute labels
+const getAttributeIcon = (name: string) => {
+  const lower = name.toLowerCase()
+  if (lower.includes("color") || lower.includes("finish")) return <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("dimension") || lower.includes("size")) return <Ruler className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("leg") || lower.includes("base") || lower.includes("frame")) return <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("chair") || lower.includes("back") || lower.includes("seat") || lower.includes("arm") || lower.includes("headrest")) return <Armchair className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("top") || lower.includes("surface") || lower.includes("table")) return <Grid className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("storage") || lower.includes("drawer") || lower.includes("pedestal") || lower.includes("lock") || lower.includes("handle")) return <Box className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("warranty")) return <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+  if (lower.includes("material") || lower.includes("upholstery") || lower.includes("fabric")) return <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+  return <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+}
+
 export function WorkstationConfigurator({
   watchSegment = "Project",
   onSelectVariant,
   onCancel,
 }: WorkstationConfiguratorProps) {
+  const [categories, setCategories] = useState<ConfiguratorCategory[]>([])
   const [models, setModels] = useState<WorkstationModel[]>([])
   const [loadingModels, setLoadingModels] = useState(true)
+
+  // Category Filter State
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL")
   const [selectedSeries, setSelectedSeries] = useState<string>("")
   const [selectedModelName, setSelectedModelName] = useState<string>("")
 
-  // Attribute selections
-  const [selectedColor, setSelectedColor] = useState<string>("")
-  const [selectedChairType, setSelectedChairType] = useState<string>("")
-  const [selectedLegType, setSelectedLegType] = useState<string>("")
-  const [selectedTableTop, setSelectedTableTop] = useState<string>("")
-  const [selectedDimension, setSelectedDimension] = useState<string>("")
-  const [selectedStorage, setSelectedStorage] = useState<string>("")
-  const [selectedFinish, setSelectedFinish] = useState<string>("")
-  const [selectedWarranty, setSelectedWarranty] = useState<string>("")
-
-  // Inline Custom Input Mode toggles
-  const [isCustomDimension, setIsCustomDimension] = useState<boolean>(false)
-  const [isCustomColor, setIsCustomColor] = useState<boolean>(false)
-  const [isCustomLegType, setIsCustomLegType] = useState<boolean>(false)
-  const [isCustomTableTop, setIsCustomTableTop] = useState<boolean>(false)
-  const [isCustomChairType, setIsCustomChairType] = useState<boolean>(false)
-  const [isCustomStorage, setIsCustomStorage] = useState<boolean>(false)
-  const [isCustomFinish, setIsCustomFinish] = useState<boolean>(false)
-  const [isCustomWarranty, setIsCustomWarranty] = useState<boolean>(false)
+  // Dynamic Selected Attributes State Map: { [attributeName]: selectedValue }
+  const [selectedAttributeValues, setSelectedAttributeValues] = useState<Record<string, string>>({})
+  // Dynamic Custom Input Toggles: { [attributeName]: boolean }
+  const [customInputModes, setCustomInputModes] = useState<Record<string, boolean>>({})
 
   // Matched Variant state from API
   const [fetchingVariant, setFetchingVariant] = useState(false)
@@ -313,16 +326,16 @@ export function WorkstationConfigurator({
     fetch("/api/products/configurator")
       .then((res) => res.json())
       .then((data) => {
-        if (isMounted && data.success && Array.isArray(data.models)) {
-          setModels(data.models)
-          if (data.models.length > 0) {
-            const firstSeries = data.models[0].seriesName || data.models[0].categoryName || "General Catalog"
-            setSelectedSeries(firstSeries)
-            const firstSub = data.models.find(
-              (m: WorkstationModel) => (m.seriesName || m.categoryName || "General Catalog") === firstSeries
-            )
-            if (firstSub) {
-              setSelectedModelName(firstSub.modelName)
+        if (isMounted && data.success) {
+          if (Array.isArray(data.categories)) {
+            setCategories(data.categories)
+          }
+          if (Array.isArray(data.models)) {
+            setModels(data.models)
+            if (data.models.length > 0) {
+              const firstSeries = data.models[0].seriesName || data.models[0].categoryName || "General Catalog"
+              setSelectedSeries(firstSeries)
+              setSelectedModelName(data.models[0].modelName)
             }
           }
         }
@@ -340,38 +353,74 @@ export function WorkstationConfigurator({
     }
   }, [])
 
-  // Derived Series List (Level 1)
+  // Models filtered by selected Category
+  const categoryFilteredModels = useMemo(() => {
+    if (!selectedCategory || selectedCategory === "ALL") return models
+    return models.filter(
+      (m) => m.categoryId === selectedCategory || m.categoryName.toLowerCase() === selectedCategory.toLowerCase()
+    )
+  }, [models, selectedCategory])
+
+  // Derived Series List (Level 1) within selected category
   const seriesList = useMemo(() => {
     const set = new Set<string>()
-    models.forEach((m) => {
+    categoryFilteredModels.forEach((m) => {
       set.add(m.seriesName || m.categoryName || "General Catalog")
     })
     return Array.from(set).sort()
-  }, [models])
+  }, [categoryFilteredModels])
 
   // Sub-Products available under selected Series (Level 2)
   const availableSubProducts = useMemo(() => {
-    if (!selectedSeries) return models
-    return models.filter(
+    if (!selectedSeries) return categoryFilteredModels
+    const filtered = categoryFilteredModels.filter(
       (m) => (m.seriesName || m.categoryName || "General Catalog") === selectedSeries
     )
-  }, [models, selectedSeries])
+    return filtered.length > 0 ? filtered : categoryFilteredModels
+  }, [categoryFilteredModels, selectedSeries])
 
   // Active Sub-Product Model object
   const activeModel = useMemo(() => {
-    if (!selectedModelName) return availableSubProducts[0] || models[0] || null
+    if (availableSubProducts.length === 0) return null
+    if (!selectedModelName) return availableSubProducts[0]
     return (
       availableSubProducts.find((m) => m.modelName === selectedModelName) ||
-      availableSubProducts[0] ||
-      null
+      availableSubProducts[0]
     )
-  }, [availableSubProducts, models, selectedModelName])
+  }, [availableSubProducts, selectedModelName])
+
+  // Dynamic attributes dictionary for active model
+  const activeModelAttributes = useMemo(() => {
+    if (!activeModel || !activeModel.attributes) return {}
+    return activeModel.attributes
+  }, [activeModel])
+
+  const activeAttributeKeys = useMemo(() => {
+    return Object.keys(activeModelAttributes)
+  }, [activeModelAttributes])
+
+  // Handle Category Pill Change
+  const handleCategoryChange = (catId: string) => {
+    setSelectedCategory(catId)
+    const filtered = catId === "ALL"
+      ? models
+      : models.filter((m) => m.categoryId === catId || m.categoryName.toLowerCase() === catId.toLowerCase())
+    
+    if (filtered.length > 0) {
+      const firstSeries = filtered[0].seriesName || filtered[0].categoryName || "General Catalog"
+      setSelectedSeries(firstSeries)
+      setSelectedModelName(filtered[0].modelName)
+    } else {
+      setSelectedSeries("")
+      setSelectedModelName("")
+    }
+  }
 
   // Handle Main Series change
   const handleSeriesChange = (val: string) => {
     const newSeries = val || ""
     setSelectedSeries(newSeries)
-    const subs = models.filter(
+    const subs = categoryFilteredModels.filter(
       (m) => (m.seriesName || m.categoryName || "General Catalog") === newSeries
     )
     if (subs.length > 0) {
@@ -381,101 +430,78 @@ export function WorkstationConfigurator({
     }
   }
 
-  // Handle Sub-Product change
+  // Handle Sub-Product model change
   const handleModelChange = (val: string) => {
     setSelectedModelName(val || "")
   }
 
-  // Helper to filter valid combinations for dynamic attribute options
-  const getValidCombinationsExcluding = (excludeField: string) => {
+  // Reset attributes to default options when model changes
+  const resetToDefaults = () => {
+    setCustomInputModes({})
+    if (activeModel && activeModel.attributes) {
+      const initialMap: Record<string, string> = {}
+      for (const [attrKey, opts] of Object.entries(activeModel.attributes)) {
+        if (opts.length > 0) {
+          initialMap[attrKey] = opts[0]
+        }
+      }
+      setSelectedAttributeValues(initialMap)
+    } else {
+      setSelectedAttributeValues({})
+    }
+  }
+
+  useEffect(() => {
+    resetToDefaults()
+  }, [activeModel?.modelName])
+
+  // Helper to filter valid combinations excluding target attribute for dynamic option updating
+  const getValidCombinationsExcluding = (targetAttr: string) => {
     if (!activeModel) return []
     return activeModel.combinations.filter((c) => {
-      if (excludeField !== "color" && !isCustomColor && selectedColor && c.color && c.color !== selectedColor) return false
-      if (excludeField !== "chairType" && !isCustomChairType && selectedChairType && c.chairType && c.chairType !== selectedChairType) return false
-      if (excludeField !== "legType" && !isCustomLegType && selectedLegType && c.legType && c.legType !== selectedLegType) return false
-      if (excludeField !== "tableTop" && !isCustomTableTop && selectedTableTop && c.tableTopFinish && c.tableTopFinish !== selectedTableTop) return false
-      if (excludeField !== "dimension" && !isCustomDimension && selectedDimension && c.dimensions && c.dimensions !== selectedDimension) return false
-      if (excludeField !== "storage" && !isCustomStorage && selectedStorage && c.storageOptions && c.storageOptions !== selectedStorage) return false
-      if (excludeField !== "finish" && !isCustomFinish && selectedFinish && c.finishMaterial && c.finishMaterial !== selectedFinish) return false
-      if (excludeField !== "warranty" && !isCustomWarranty && selectedWarranty && c.warranty && c.warranty !== selectedWarranty) return false
+      for (const [attrKey, selectedVal] of Object.entries(selectedAttributeValues)) {
+        if (attrKey === targetAttr) continue
+        if (customInputModes[attrKey]) continue
+        if (!selectedVal) continue
+
+        // Check combination's attribute map or fallback fields
+        const cVal = c.attributes?.[attrKey] || (c as any)[attrKey]
+        if (cVal && cVal !== selectedVal) return false
+      }
       return true
     })
   }
 
-  // Dynamic available attribute options
-  const availableColors = useMemo(() => {
-    if (!activeModel) return []
-    const combinations = getValidCombinationsExcluding("color")
+  // Compute dynamic options for a specific attribute key
+  const getDynamicOptionsForAttribute = (attrKey: string, presetOpts: string[]) => {
+    if (!activeModel) return presetOpts
+    const validCombs = getValidCombinationsExcluding(attrKey)
     const set = new Set<string>()
-    combinations.forEach((c) => { if (c.color) set.add(c.color) })
+    validCombs.forEach((c) => {
+      const val = c.attributes?.[attrKey] || (c as any)[attrKey]
+      if (val) set.add(val)
+    })
     const res = Array.from(set).sort()
-    return res.length > 0 ? res : activeModel.colors
-  }, [activeModel, selectedChairType, selectedLegType, selectedTableTop, selectedDimension, selectedStorage, selectedFinish, selectedWarranty, isCustomColor, isCustomChairType, isCustomLegType, isCustomTableTop, isCustomDimension, isCustomStorage, isCustomFinish, isCustomWarranty])
+    return res.length > 0 ? res : presetOpts
+  }
 
-  const availableChairTypes = useMemo(() => {
-    if (!activeModel) return []
-    const combinations = getValidCombinationsExcluding("chairType")
-    const set = new Set<string>()
-    combinations.forEach((c) => { if (c.chairType) set.add(c.chairType) })
-    const res = Array.from(set).sort()
-    return res.length > 0 ? res : activeModel.chairTypes
-  }, [activeModel, selectedColor, selectedLegType, selectedTableTop, selectedDimension, selectedStorage, selectedFinish, selectedWarranty, isCustomColor, isCustomChairType, isCustomLegType, isCustomTableTop, isCustomDimension, isCustomStorage, isCustomFinish, isCustomWarranty])
+  // Handle single attribute selection
+  const handleAttributeChange = (attrKey: string, value: string) => {
+    setSelectedAttributeValues((prev) => ({
+      ...prev,
+      [attrKey]: value,
+    }))
+  }
 
-  const availableLegTypes = useMemo(() => {
-    if (!activeModel) return []
-    const combinations = getValidCombinationsExcluding("legType")
-    const set = new Set<string>()
-    combinations.forEach((c) => { if (c.legType) set.add(c.legType) })
-    const res = Array.from(set).sort()
-    return res.length > 0 ? res : activeModel.legTypes
-  }, [activeModel, selectedColor, selectedChairType, selectedTableTop, selectedDimension, selectedStorage, selectedFinish, selectedWarranty, isCustomColor, isCustomChairType, isCustomLegType, isCustomTableTop, isCustomDimension, isCustomStorage, isCustomFinish, isCustomWarranty])
+  // Handle custom mode toggle for attribute
+  const toggleCustomMode = (attrKey: string) => {
+    setCustomInputModes((prev) => ({
+      ...prev,
+      [attrKey]: !prev[attrKey],
+    }))
+  }
 
-  const availableTableTopFinishes = useMemo(() => {
-    if (!activeModel) return []
-    const combinations = getValidCombinationsExcluding("tableTop")
-    const set = new Set<string>()
-    combinations.forEach((c) => { if (c.tableTopFinish) set.add(c.tableTopFinish) })
-    const res = Array.from(set).sort()
-    return res.length > 0 ? res : activeModel.tableTopFinishes
-  }, [activeModel, selectedColor, selectedChairType, selectedLegType, selectedDimension, selectedStorage, selectedFinish, selectedWarranty, isCustomColor, isCustomChairType, isCustomLegType, isCustomTableTop, isCustomDimension, isCustomStorage, isCustomFinish, isCustomWarranty])
-
-  const availableDimensions = useMemo(() => {
-    if (!activeModel) return []
-    const combinations = getValidCombinationsExcluding("dimension")
-    const set = new Set<string>()
-    combinations.forEach((c) => { if (c.dimensions) set.add(c.dimensions) })
-    const res = Array.from(set).sort()
-    return res.length > 0 ? res : activeModel.dimensions
-  }, [activeModel, selectedColor, selectedChairType, selectedLegType, selectedTableTop, selectedStorage, selectedFinish, selectedWarranty, isCustomColor, isCustomChairType, isCustomLegType, isCustomTableTop, isCustomDimension, isCustomStorage, isCustomFinish, isCustomWarranty])
-
-  const availableStorageOptions = useMemo(() => {
-    if (!activeModel) return []
-    const combinations = getValidCombinationsExcluding("storage")
-    const set = new Set<string>()
-    combinations.forEach((c) => { if (c.storageOptions) set.add(c.storageOptions) })
-    const res = Array.from(set).sort()
-    return res.length > 0 ? res : activeModel.storageOptions
-  }, [activeModel, selectedColor, selectedChairType, selectedLegType, selectedTableTop, selectedDimension, selectedFinish, selectedWarranty, isCustomColor, isCustomChairType, isCustomLegType, isCustomTableTop, isCustomDimension, isCustomStorage, isCustomFinish, isCustomWarranty])
-
-  const availableFinishMaterials = useMemo(() => {
-    if (!activeModel) return []
-    const combinations = getValidCombinationsExcluding("finish")
-    const set = new Set<string>()
-    combinations.forEach((c) => { if (c.finishMaterial) set.add(c.finishMaterial) })
-    const res = Array.from(set).sort()
-    return res.length > 0 ? res : activeModel.finishMaterials
-  }, [activeModel, selectedColor, selectedChairType, selectedLegType, selectedTableTop, selectedDimension, selectedStorage, selectedWarranty, isCustomColor, isCustomChairType, isCustomLegType, isCustomTableTop, isCustomDimension, isCustomStorage, isCustomFinish, isCustomWarranty])
-
-  const availableWarranties = useMemo(() => {
-    if (!activeModel) return []
-    const combinations = getValidCombinationsExcluding("warranty")
-    const set = new Set<string>()
-    combinations.forEach((c) => { if (c.warranty) set.add(c.warranty) })
-    const res = Array.from(set).sort()
-    return res.length > 0 ? res : activeModel.warranties
-  }, [activeModel, selectedColor, selectedChairType, selectedLegType, selectedTableTop, selectedDimension, selectedStorage, selectedFinish, isCustomColor, isCustomChairType, isCustomLegType, isCustomTableTop, isCustomDimension, isCustomStorage, isCustomFinish, isCustomWarranty])
-
-  // Options for Dropdowns
+  // Dropdown options for Series and Model
   const seriesDropdownOptions = useMemo(() => {
     return seriesList.map((s) => ({
       value: s,
@@ -488,128 +514,25 @@ export function WorkstationConfigurator({
       value: m.modelName,
       label: m.modelName,
       subLabel: m.categoryName,
-      group: m.categoryName || "Workstations",
+      group: m.categoryName || "Catalog",
     }))
   }, [availableSubProducts])
 
-  // Reset to default attributes
-  const resetToDefaults = () => {
-    setIsCustomDimension(false)
-    setIsCustomColor(false)
-    setIsCustomLegType(false)
-    setIsCustomTableTop(false)
-    setIsCustomChairType(false)
-    setIsCustomStorage(false)
-    setIsCustomFinish(false)
-    setIsCustomWarranty(false)
-
-    if (activeModel) {
-      setSelectedColor(activeModel.colors[0] || "")
-      setSelectedChairType(activeModel.chairTypes[0] || "")
-      setSelectedLegType(activeModel.legTypes[0] || "")
-      setSelectedTableTop(activeModel.tableTopFinishes[0] || "")
-      setSelectedDimension(activeModel.dimensions[0] || "")
-      setSelectedStorage(activeModel.storageOptions[0] || "")
-      setSelectedFinish(activeModel.finishMaterials[0] || "")
-      setSelectedWarranty(activeModel.warranties[0] || "")
-    }
-  }
-
-  useEffect(() => {
-    resetToDefaults()
-  }, [activeModel?.modelName])
-
-  // Auto-adjust non-custom attributes if selection is invalid
-  useEffect(() => {
-    if (!isCustomColor && availableColors.length > 0 && (!selectedColor || !availableColors.includes(selectedColor))) {
-      setSelectedColor(availableColors[0])
-    }
-  }, [availableColors, isCustomColor])
-
-  useEffect(() => {
-    if (!isCustomChairType && availableChairTypes.length > 0 && (!selectedChairType || !availableChairTypes.includes(selectedChairType))) {
-      setSelectedChairType(availableChairTypes[0])
-    }
-  }, [availableChairTypes, isCustomChairType])
-
-  useEffect(() => {
-    if (!isCustomLegType && availableLegTypes.length > 0 && (!selectedLegType || !availableLegTypes.includes(selectedLegType))) {
-      setSelectedLegType(availableLegTypes[0])
-    }
-  }, [availableLegTypes, isCustomLegType])
-
-  useEffect(() => {
-    if (!isCustomTableTop && availableTableTopFinishes.length > 0 && (!selectedTableTop || !availableTableTopFinishes.includes(selectedTableTop))) {
-      setSelectedTableTop(availableTableTopFinishes[0])
-    }
-  }, [availableTableTopFinishes, isCustomTableTop])
-
-  useEffect(() => {
-    if (!isCustomDimension && availableDimensions.length > 0 && (!selectedDimension || !availableDimensions.includes(selectedDimension))) {
-      setSelectedDimension(availableDimensions[0])
-    }
-  }, [availableDimensions, isCustomDimension])
-
-  useEffect(() => {
-    if (!isCustomStorage && availableStorageOptions.length > 0 && (!selectedStorage || !availableStorageOptions.includes(selectedStorage))) {
-      setSelectedStorage(availableStorageOptions[0])
-    }
-  }, [availableStorageOptions, isCustomStorage])
-
-  useEffect(() => {
-    if (!isCustomFinish && availableFinishMaterials.length > 0 && (!selectedFinish || !availableFinishMaterials.includes(selectedFinish))) {
-      setSelectedFinish(availableFinishMaterials[0])
-    }
-  }, [availableFinishMaterials, isCustomFinish])
-
-  useEffect(() => {
-    if (!isCustomWarranty && availableWarranties.length > 0 && (!selectedWarranty || !availableWarranties.includes(selectedWarranty))) {
-      setSelectedWarranty(availableWarranties[0])
-    }
-  }, [availableWarranties, isCustomWarranty])
-
-  // Compute available combinations for active model
-  const availableCombinations = useMemo(() => {
-    if (!activeModel) return []
-    return activeModel.combinations
-  }, [activeModel])
-
   // Locate matching combination in local matrix
   const matchedCombination = useMemo(() => {
-    if (!activeModel || availableCombinations.length === 0) return null
+    if (!activeModel || activeModel.combinations.length === 0) return null
     return (
-      availableCombinations.find((c) => {
-        const matchColor = isCustomColor || !selectedColor || !c.color || c.color === selectedColor
-        const matchChair = isCustomChairType || !selectedChairType || !c.chairType || c.chairType === selectedChairType
-        const matchLeg = isCustomLegType || !selectedLegType || !c.legType || c.legType === selectedLegType
-        const matchTop = isCustomTableTop || !selectedTableTop || !c.tableTopFinish || c.tableTopFinish === selectedTableTop
-        const matchDim = isCustomDimension || !selectedDimension || !c.dimensions || c.dimensions === selectedDimension
-        const matchStore = isCustomStorage || !selectedStorage || !c.storageOptions || c.storageOptions === selectedStorage
-        const matchFinish = isCustomFinish || !selectedFinish || !c.finishMaterial || c.finishMaterial === selectedFinish
-        const matchWarranty = isCustomWarranty || !selectedWarranty || !c.warranty || c.warranty === selectedWarranty
-        return matchColor && matchChair && matchLeg && matchTop && matchDim && matchStore && matchFinish && matchWarranty
-      }) || availableCombinations[0] || null
+      activeModel.combinations.find((c) => {
+        for (const [attrKey, selectedVal] of Object.entries(selectedAttributeValues)) {
+          if (customInputModes[attrKey]) continue
+          if (!selectedVal) continue
+          const cVal = c.attributes?.[attrKey] || (c as any)[attrKey]
+          if (cVal && cVal !== selectedVal) return false
+        }
+        return true
+      }) || activeModel.combinations[0] || null
     )
-  }, [
-    activeModel,
-    availableCombinations,
-    selectedColor,
-    selectedChairType,
-    selectedLegType,
-    selectedTableTop,
-    selectedDimension,
-    selectedStorage,
-    selectedFinish,
-    selectedWarranty,
-    isCustomDimension,
-    isCustomColor,
-    isCustomLegType,
-    isCustomTableTop,
-    isCustomChairType,
-    isCustomStorage,
-    isCustomFinish,
-    isCustomWarranty,
-  ])
+  }, [activeModel, selectedAttributeValues, customInputModes])
 
   // Fetch full details of matched variant SKU from API
   useEffect(() => {
@@ -650,11 +573,11 @@ export function WorkstationConfigurator({
   const activeProductPayload = useMemo(() => {
     if (!activeModel && !matchedProduct) return null
 
-    const hasAnyCustom = isCustomDimension || isCustomColor || isCustomLegType || isCustomTableTop || isCustomChairType || isCustomStorage || isCustomFinish || isCustomWarranty
+    const hasAnyCustom = Object.values(customInputModes).some(Boolean)
 
     const base = matchedProduct || {
       id: activeModel?.combinations[0]?.id || "custom-variant",
-      productName: activeModel?.modelName || "Workstation",
+      productName: activeModel?.modelName || "Product",
       productCode: activeModel?.combinations[0]?.sku || "CUSTOM-SKU",
       unitPrice: 0,
       projectPrice: 0,
@@ -664,45 +587,24 @@ export function WorkstationConfigurator({
       stock: 1,
     }
 
-    // Build custom dynamic product name incorporating active attributes
+    // Build custom dynamic product title incorporating key active attributes
     let dynamicTitle = activeModel?.modelName || base.productName
-    if (selectedDimension) dynamicTitle += ` ${selectedDimension}`
-    if (selectedColor) dynamicTitle += ` - ${selectedColor}`
+    const colorAttr = selectedAttributeValues["Color / Finish"] || selectedAttributeValues["Seat Color"] || selectedAttributeValues["Table Top Color"] || selectedAttributeValues["Storage Finish Color"]
+    const dimAttr = selectedAttributeValues["Dimension"] || selectedAttributeValues["Table Dimensions"] || selectedAttributeValues["Storage Dimensions"]
+
+    if (dimAttr) dynamicTitle += ` ${dimAttr}`
+    if (colorAttr) dynamicTitle += ` - ${colorAttr}`
 
     return {
       ...base,
       productName: hasAnyCustom ? dynamicTitle : base.productName,
       productCode: hasAnyCustom ? `${base.productCode || "SKU"}-CUSTOM` : base.productCode,
-      dimensions: selectedDimension,
-      availableColors: selectedColor,
-      chairType: selectedChairType,
-      legType: selectedLegType,
-      tableTopFinish: selectedTableTop,
-      storageOptions: selectedStorage,
-      finishMaterial: selectedFinish,
-      warranty: selectedWarranty,
+      configuredAttributes: selectedAttributeValues,
+      dimensions: dimAttr || base.dimensions,
+      availableColors: colorAttr || base.availableColors,
       isCustom: hasAnyCustom,
     }
-  }, [
-    matchedProduct,
-    activeModel,
-    selectedDimension,
-    selectedColor,
-    selectedChairType,
-    selectedLegType,
-    selectedTableTop,
-    selectedStorage,
-    selectedFinish,
-    selectedWarranty,
-    isCustomDimension,
-    isCustomColor,
-    isCustomLegType,
-    isCustomTableTop,
-    isCustomChairType,
-    isCustomStorage,
-    isCustomFinish,
-    isCustomWarranty,
-  ])
+  }, [matchedProduct, activeModel, selectedAttributeValues, customInputModes])
 
   // Resolved Price for segment
   const resolvedPrice = useMemo(() => {
@@ -724,10 +626,10 @@ export function WorkstationConfigurator({
   if (loadingModels) {
     return (
       <Card className="border border-border bg-card shadow-xs rounded-xl p-8 text-center space-y-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto" />
         <div className="space-y-1">
-          <h4 className="text-sm font-semibold text-foreground">Loading Configurator Catalog</h4>
-          <p className="text-xs text-muted-foreground">Fetching product series and attribute matrices...</p>
+          <h4 className="text-sm font-semibold text-foreground">Loading Category Configurator Catalog</h4>
+          <p className="text-xs text-muted-foreground">Fetching categories, series, and attribute matrices...</p>
         </div>
       </Card>
     )
@@ -747,7 +649,7 @@ export function WorkstationConfigurator({
 
   return (
     <Card className="border border-border bg-card shadow-xs rounded-xl overflow-hidden">
-      {/* Minimal Enterprise Header Bar */}
+      {/* Category-Driven Header Bar */}
       <CardHeader className="bg-muted/30 border-b border-border/70 py-3 px-4 flex flex-row items-center justify-between">
         <div className="flex items-center space-x-2.5">
           <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400">
@@ -755,22 +657,24 @@ export function WorkstationConfigurator({
           </div>
           <div>
             <CardTitle className="text-sm font-bold text-foreground">
-              Product Configurator
+              Category-Based Product Configurator
             </CardTitle>
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={resetToDefaults}
-            className="h-7 text-xs text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1"
-            title="Reset attributes to defaults"
-          >
-            <RotateCcw className="h-3 w-3" /> Reset
-          </Button>
+          {activeAttributeKeys.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={resetToDefaults}
+              className="h-7 text-xs text-muted-foreground hover:text-foreground cursor-pointer flex items-center gap-1"
+              title="Reset attributes to defaults"
+            >
+              <RotateCcw className="h-3 w-3" /> Reset
+            </Button>
+          )}
 
           <Badge variant="outline" className="text-[10px] uppercase font-mono font-bold bg-background text-foreground">
             Segment: {watchSegment}
@@ -778,7 +682,63 @@ export function WorkstationConfigurator({
         </div>
       </CardHeader>
 
-      <CardContent className="p-4 sm:p-5">
+      <CardContent className="p-4 sm:p-5 space-y-5">
+        {/* TOP LEVEL: Category Filter Pills */}
+        <div className="space-y-1.5 border-b border-border/50 pb-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <Filter className="h-3 w-3 text-orange-500" /> Select Product Category
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              {categoryFilteredModels.length} models available
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar scroll-smooth">
+            <Button
+              type="button"
+              size="sm"
+              variant={selectedCategory === "ALL" ? "default" : "outline"}
+              onClick={() => handleCategoryChange("ALL")}
+              className={cn(
+                "h-7 text-xs px-2.5 rounded-lg font-medium shrink-0 transition-all cursor-pointer",
+                selectedCategory === "ALL"
+                  ? "bg-orange-600 hover:bg-orange-500 text-white font-bold shadow-2xs"
+                  : "bg-background hover:bg-muted text-muted-foreground"
+              )}
+            >
+              <span>All Categories</span>
+              <Badge variant="secondary" className="ml-1.5 text-[9px] py-0 px-1 font-mono">
+                {models.length}
+              </Badge>
+            </Button>
+
+            {categories.map((cat) => {
+              const isSelected = selectedCategory === cat.id || selectedCategory === cat.name
+              return (
+                <Button
+                  key={cat.id}
+                  type="button"
+                  size="sm"
+                  variant={isSelected ? "default" : "outline"}
+                  onClick={() => handleCategoryChange(cat.id)}
+                  className={cn(
+                    "h-7 text-xs px-2.5 rounded-lg font-medium shrink-0 transition-all cursor-pointer flex items-center gap-1",
+                    isSelected
+                      ? "bg-orange-600 hover:bg-orange-500 text-white font-bold shadow-2xs"
+                      : "bg-background hover:bg-muted text-muted-foreground"
+                  )}
+                >
+                  <span>{cat.name}</span>
+                  <Badge variant="secondary" className="text-[9px] py-0 px-1 font-mono">
+                    {cat.modelCount}
+                  </Badge>
+                </Button>
+              )
+            })}
+          </div>
+        </div>
+
         {/* 2-Column Responsive Layout: Left Configurator Form (7 cols) + Right Dedicated Preview Panel (5 cols) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
@@ -824,310 +784,79 @@ export function WorkstationConfigurator({
               </div>
             </div>
 
-            {/* Attribute Configuration Form (Grid of Editable & Dropdown Attributes) */}
+            {/* DYNAMIC ATTRIBUTE CONFIGURATION FORM */}
             {activeModel && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Specifications & Attributes
-                  </span>
-                  <span className="text-[10px] text-muted-foreground italic">
-                    Tap &quot;Custom&quot; to type non-standard values
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-
-                  {/* 1. Dimension */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-foreground flex items-center gap-1">
-                        <Ruler className="h-3.5 w-3.5 text-muted-foreground" /> Dimension
+              <>
+                {activeAttributeKeys.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Specifications & Attributes
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsCustomDimension(!isCustomDimension)}
-                        className="text-[10px] font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        {isCustomDimension ? <RotateCcw className="h-2.5 w-2.5" /> : <Edit3 className="h-2.5 w-2.5" />}
-                        {isCustomDimension ? "Preset List" : "Custom"}
-                      </button>
-                    </div>
-
-                    {isCustomDimension ? (
-                      <Input
-                        value={selectedDimension}
-                        onChange={(e) => setSelectedDimension(e.target.value)}
-                        placeholder="e.g. 1500 x 750 mm"
-                        className="h-9 text-xs font-mono bg-background"
-                      />
-                    ) : (
-                      <ConfiguratorDropdown
-                        options={availableDimensions}
-                        value={selectedDimension}
-                        onValueChange={setSelectedDimension}
-                        placeholder="Select Dimension"
-                        searchPlaceholder="Search dimensions..."
-                        icon={<Ruler className="h-3.5 w-3.5" />}
-                        isMono={true}
-                      />
-                    )}
-                  </div>
-
-                  {/* 2. Color / Finish Scheme */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-foreground flex items-center gap-1">
-                        <Palette className="h-3.5 w-3.5 text-muted-foreground" /> Color / Finish
+                      <span className="text-[10px] text-muted-foreground italic">
+                        Tap &quot;Custom&quot; to type non-standard values
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsCustomColor(!isCustomColor)}
-                        className="text-[10px] font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        {isCustomColor ? <RotateCcw className="h-2.5 w-2.5" /> : <Edit3 className="h-2.5 w-2.5" />}
-                        {isCustomColor ? "Preset List" : "Custom"}
-                      </button>
                     </div>
 
-                    {isCustomColor ? (
-                      <Input
-                        value={selectedColor}
-                        onChange={(e) => setSelectedColor(e.target.value)}
-                        placeholder="e.g. Walnut Top / Black Legs"
-                        className="h-9 text-xs bg-background"
-                      />
-                    ) : (
-                      <ConfiguratorDropdown
-                        options={availableColors}
-                        value={selectedColor}
-                        onValueChange={setSelectedColor}
-                        placeholder="Select Color"
-                        searchPlaceholder="Search colors..."
-                        icon={<Palette className="h-3.5 w-3.5" />}
-                      />
-                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {activeAttributeKeys.map((attrKey) => {
+                        const presetOpts = activeModelAttributes[attrKey] || []
+                        const dynamicOpts = getDynamicOptionsForAttribute(attrKey, presetOpts)
+                        const isCustom = customInputModes[attrKey] || false
+                        const currentVal = selectedAttributeValues[attrKey] || ""
+
+                        return (
+                          <div key={attrKey} className="space-y-1">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold text-foreground flex items-center gap-1.5 truncate">
+                                {getAttributeIcon(attrKey)}
+                                <span className="truncate">{attrKey}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => toggleCustomMode(attrKey)}
+                                className="text-[10px] font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 cursor-pointer shrink-0 ml-1"
+                              >
+                                {isCustom ? <RotateCcw className="h-2.5 w-2.5" /> : <Edit3 className="h-2.5 w-2.5" />}
+                                {isCustom ? "Preset List" : "Custom"}
+                              </button>
+                            </div>
+
+                            {isCustom ? (
+                              <Input
+                                value={currentVal}
+                                onChange={(e) => handleAttributeChange(attrKey, e.target.value)}
+                                placeholder={`Custom ${attrKey}...`}
+                                className="h-9 text-xs bg-background"
+                              />
+                            ) : (
+                              <ConfiguratorDropdown
+                                options={dynamicOpts}
+                                value={currentVal}
+                                onValueChange={(val) => handleAttributeChange(attrKey, val)}
+                                placeholder={`Select ${attrKey}`}
+                                searchPlaceholder={`Search ${attrKey}...`}
+                                icon={getAttributeIcon(attrKey)}
+                              />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-
-                  {/* 3. Leg Type */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-foreground flex items-center gap-1">
-                        <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" /> Leg Frame
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsCustomLegType(!isCustomLegType)}
-                        className="text-[10px] font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        {isCustomLegType ? <RotateCcw className="h-2.5 w-2.5" /> : <Edit3 className="h-2.5 w-2.5" />}
-                        {isCustomLegType ? "Preset List" : "Custom"}
-                      </button>
+                ) : (
+                  /* Clean Notification Box when Product Model has 0 Configurable Attributes */
+                  <div className="p-4 border border-border/80 rounded-xl bg-muted/20 flex items-start space-x-3">
+                    <Info className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <h5 className="text-xs font-bold text-foreground">Standard Product Model</h5>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        This selected product model has no customizable attribute fields. You can review specifications on the preview panel and add it directly to your quotation.
+                      </p>
                     </div>
-
-                    {isCustomLegType ? (
-                      <Input
-                        value={selectedLegType}
-                        onChange={(e) => setSelectedLegType(e.target.value)}
-                        placeholder="e.g. Custom Loop Leg"
-                        className="h-9 text-xs bg-background"
-                      />
-                    ) : (
-                      <ConfiguratorDropdown
-                        options={availableLegTypes}
-                        value={selectedLegType}
-                        onValueChange={setSelectedLegType}
-                        placeholder="Select Leg Type"
-                        searchPlaceholder="Search leg frames..."
-                        icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
-                      />
-                    )}
                   </div>
-
-                  {/* 4. Table Top Finish */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-semibold text-foreground flex items-center gap-1">
-                        <Grid className="h-3.5 w-3.5 text-muted-foreground" /> Top Finish
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsCustomTableTop(!isCustomTableTop)}
-                        className="text-[10px] font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        {isCustomTableTop ? <RotateCcw className="h-2.5 w-2.5" /> : <Edit3 className="h-2.5 w-2.5" />}
-                        {isCustomTableTop ? "Preset List" : "Custom"}
-                      </button>
-                    </div>
-
-                    {isCustomTableTop ? (
-                      <Input
-                        value={selectedTableTop}
-                        onChange={(e) => setSelectedTableTop(e.target.value)}
-                        placeholder="e.g. Laminate Beech"
-                        className="h-9 text-xs bg-background"
-                      />
-                    ) : (
-                      <ConfiguratorDropdown
-                        options={availableTableTopFinishes}
-                        value={selectedTableTop}
-                        onValueChange={setSelectedTableTop}
-                        placeholder="Select Table Top"
-                        searchPlaceholder="Search finishes..."
-                        icon={<Grid className="h-3.5 w-3.5" />}
-                      />
-                    )}
-                  </div>
-
-                  {/* 5. Chair Type */}
-                  {availableChairTypes.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-foreground flex items-center gap-1">
-                          <Armchair className="h-3.5 w-3.5 text-muted-foreground" /> Chair / Backrest
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsCustomChairType(!isCustomChairType)}
-                          className="text-[10px] font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          {isCustomChairType ? <RotateCcw className="h-2.5 w-2.5" /> : <Edit3 className="h-2.5 w-2.5" />}
-                          {isCustomChairType ? "Preset List" : "Custom"}
-                        </button>
-                      </div>
-
-                      {isCustomChairType ? (
-                        <Input
-                          value={selectedChairType}
-                          onChange={(e) => setSelectedChairType(e.target.value)}
-                          placeholder="e.g. Ergonomic High Back"
-                          className="h-9 text-xs bg-background"
-                        />
-                      ) : (
-                        <ConfiguratorDropdown
-                          options={availableChairTypes}
-                          value={selectedChairType}
-                          onValueChange={setSelectedChairType}
-                          placeholder="Select Chair Type"
-                          searchPlaceholder="Search chair types..."
-                          icon={<Armchair className="h-3.5 w-3.5" />}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* 6. Storage Options */}
-                  {availableStorageOptions.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-foreground flex items-center gap-1">
-                          <Box className="h-3.5 w-3.5 text-muted-foreground" /> Storage Unit
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsCustomStorage(!isCustomStorage)}
-                          className="text-[10px] font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          {isCustomStorage ? <RotateCcw className="h-2.5 w-2.5" /> : <Edit3 className="h-2.5 w-2.5" />}
-                          {isCustomStorage ? "Preset List" : "Custom"}
-                        </button>
-                      </div>
-
-                      {isCustomStorage ? (
-                        <Input
-                          value={selectedStorage}
-                          onChange={(e) => setSelectedStorage(e.target.value)}
-                          placeholder="e.g. Mobile Pedestal"
-                          className="h-9 text-xs bg-background"
-                        />
-                      ) : (
-                        <ConfiguratorDropdown
-                          options={availableStorageOptions}
-                          value={selectedStorage}
-                          onValueChange={setSelectedStorage}
-                          placeholder="Select Storage"
-                          searchPlaceholder="Search storage options..."
-                          icon={<Box className="h-3.5 w-3.5" />}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* 7. Finish Material */}
-                  {availableFinishMaterials.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-foreground flex items-center gap-1">
-                          <Tag className="h-3.5 w-3.5 text-muted-foreground" /> Finish Material
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsCustomFinish(!isCustomFinish)}
-                          className="text-[10px] font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          {isCustomFinish ? <RotateCcw className="h-2.5 w-2.5" /> : <Edit3 className="h-2.5 w-2.5" />}
-                          {isCustomFinish ? "Preset List" : "Custom"}
-                        </button>
-                      </div>
-
-                      {isCustomFinish ? (
-                        <Input
-                          value={selectedFinish}
-                          onChange={(e) => setSelectedFinish(e.target.value)}
-                          placeholder="e.g. Custom Fabric"
-                          className="h-9 text-xs bg-background"
-                        />
-                      ) : (
-                        <ConfiguratorDropdown
-                          options={availableFinishMaterials}
-                          value={selectedFinish}
-                          onValueChange={setSelectedFinish}
-                          placeholder="Select Material"
-                          searchPlaceholder="Search materials..."
-                          icon={<Tag className="h-3.5 w-3.5" />}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* 8. Warranty */}
-                  {availableWarranties.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-foreground flex items-center gap-1">
-                          <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" /> Warranty
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsCustomWarranty(!isCustomWarranty)}
-                          className="text-[10px] font-medium text-orange-600 dark:text-orange-400 hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          {isCustomWarranty ? <RotateCcw className="h-2.5 w-2.5" /> : <Edit3 className="h-2.5 w-2.5" />}
-                          {isCustomWarranty ? "Preset List" : "Custom"}
-                        </button>
-                      </div>
-
-                      {isCustomWarranty ? (
-                        <Input
-                          value={selectedWarranty}
-                          onChange={(e) => setSelectedWarranty(e.target.value)}
-                          placeholder="e.g. 5 Years Extended"
-                          className="h-9 text-xs bg-background"
-                        />
-                      ) : (
-                        <ConfiguratorDropdown
-                          options={availableWarranties}
-                          value={selectedWarranty}
-                          onValueChange={setSelectedWarranty}
-                          placeholder="Select Warranty"
-                          searchPlaceholder="Search warranties..."
-                          icon={<ShieldCheck className="h-3.5 w-3.5" />}
-                        />
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+                )}
+              </>
             )}
           </div>
 
@@ -1210,49 +939,21 @@ export function WorkstationConfigurator({
                 </div>
 
                 {/* Detailed Active Specifications List */}
-                <div className="bg-muted/30 border border-border/60 rounded-xl p-3 space-y-2 text-xs">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block border-b border-border/40 pb-1">
-                    Selected Specifications
-                  </span>
-                  <div className="space-y-1 text-xs">
-                    {selectedDimension && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Dimension:</span>
-                        <span className="font-mono font-bold text-foreground">{selectedDimension}</span>
-                      </div>
-                    )}
-                    {selectedColor && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Color:</span>
-                        <span className="font-semibold text-foreground">{selectedColor}</span>
-                      </div>
-                    )}
-                    {selectedLegType && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Leg Frame:</span>
-                        <span className="font-medium text-foreground">{selectedLegType}</span>
-                      </div>
-                    )}
-                    {selectedTableTop && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Top Finish:</span>
-                        <span className="font-medium text-foreground">{selectedTableTop}</span>
-                      </div>
-                    )}
-                    {selectedStorage && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Storage:</span>
-                        <span className="font-medium text-foreground">{selectedStorage}</span>
-                      </div>
-                    )}
-                    {selectedWarranty && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Warranty:</span>
-                        <span className="font-medium text-foreground">{selectedWarranty}</span>
-                      </div>
-                    )}
+                {Object.keys(selectedAttributeValues).length > 0 && (
+                  <div className="bg-muted/30 border border-border/60 rounded-xl p-3 space-y-2 text-xs">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block border-b border-border/40 pb-1">
+                      Selected Specifications
+                    </span>
+                    <div className="space-y-1 text-xs">
+                      {Object.entries(selectedAttributeValues).map(([attrKey, val]) => (
+                        <div key={attrKey} className="flex justify-between items-center">
+                          <span className="text-muted-foreground">{attrKey}:</span>
+                          <span className="font-semibold text-foreground">{val}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Price Display & Add CTA */}
                 <div className="pt-2 space-y-3">

@@ -1212,12 +1212,12 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
               <span>Select Product by Attributes</span>
               <Badge variant="secondary" className="text-[9px] py-0 px-1 font-mono uppercase bg-primary/20 text-primary border-primary/30">
-                96 Variants
+                Category Driven
               </Badge>
             </Button>
           </div>
           <span className="text-[11px] text-muted-foreground hidden md:inline px-2">
-            {selectionMode === "search" ? "Search existing products by code/name" : "Dynamically filter by Leg Type, Table Top, Dimensions"}
+            {selectionMode === "search" ? "Search existing products by code/name" : "Dynamically filter product attributes by Category & Model"}
           </span>
         </div>
 

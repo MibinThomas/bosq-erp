@@ -4,6 +4,14 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { getSetting } from "@/lib/settings"
 
+// Helper to clean up string values
+const cleanStr = (val: any): string | null => {
+  if (val === null || val === undefined) return null
+  const s = String(val).trim()
+  if (!s || s.toLowerCase() === "standard" || s.toLowerCase() === "null") return null
+  return s
+}
+
 // Helper to extract color attribute from product
 const getColor = (p: any) => {
   if (p.availableColors && p.availableColors.trim() && p.availableColors.trim().toLowerCase() !== "standard") {
@@ -37,8 +45,7 @@ const getColor = (p: any) => {
 // Helper to extract chair type attribute from product
 const getChairType = (p: any) => {
   if (p.chairType && p.chairType.trim()) {
-    const val = p.chairType.trim()
-    return val
+    return p.chairType.trim()
   }
   const lowerName = p.productName.toLowerCase()
   if (lowerName.includes("high back")) return "High Back"
@@ -119,11 +126,17 @@ export async function GET() {
       return NextResponse.json({
         success: true,
         enabled: false,
+        categories: [],
         models: [],
       })
     }
 
-    // Fetch all active products that have category or attribute data
+    // 1. Fetch categories
+    const categoriesDb = await prisma.productCategory.findMany({
+      orderBy: { name: "asc" },
+    })
+
+    // 2. Fetch active products
     const products = await prisma.product.findMany({
       where: {
         deletedAt: null,
@@ -145,24 +158,19 @@ export async function GET() {
     // Filter out top-level master container products that have no price/stock and have variants
     const targetProducts = products.filter(p => !p.isMaster)
 
-    // Group products by series and sub-product model
+    // Dynamic Models Map
     const modelsMap: Record<string, {
       seriesName: string
       modelName: string
       categoryId: string
       categoryName: string
-      colors: Set<string>
-      chairTypes: Set<string>
-      legTypes: Set<string>
-      tableTopFinishes: Set<string>
-      dimensions: Set<string>
-      storageOptions: Set<string>
-      finishMaterials: Set<string>
-      warranties: Set<string>
+      attributes: Record<string, Set<string>>
       combinations: Array<{
         id: string
         sku: string
         productName: string
+        attributes: Record<string, string>
+        // Standard backwards-compatible fields
         color: string | null
         chairType: string | null
         legType: string | null
@@ -177,81 +185,162 @@ export async function GET() {
     for (const p of targetProducts) {
       const seriesName = getSeriesName(p)
       const subProductName = getSubProductName(p, seriesName)
-      const mapKey = `${seriesName}:::${subProductName}`
+      const categoryName = p.category?.name || "Other"
+      const mapKey = `${categoryName}:::${seriesName}:::${subProductName}`
 
       if (!modelsMap[mapKey]) {
         modelsMap[mapKey] = {
           seriesName,
           modelName: subProductName,
           categoryId: p.categoryId,
-          categoryName: p.category?.name || "Catalog",
-          colors: new Set<string>(),
-          chairTypes: new Set<string>(),
-          legTypes: new Set<string>(),
-          tableTopFinishes: new Set<string>(),
-          dimensions: new Set<string>(),
-          storageOptions: new Set<string>(),
-          finishMaterials: new Set<string>(),
-          warranties: new Set<string>(),
+          categoryName,
+          attributes: {},
           combinations: [],
         }
       }
 
       const group = modelsMap[mapKey]
+      const prodAttrMap: Record<string, string> = {}
+
+      // Category-specific attribute mapping
+      const categoryLower = categoryName.toLowerCase()
+
+      // Standard field extractions
       const colorVal = getColor(p)
       const chairTypeVal = getChairType(p)
+      const legTypeVal = cleanStr(p.legType)
+      const tableTopVal = cleanStr(p.tableTopFinish)
+      const dimensionsVal = cleanStr(p.dimensions)
+      const storageVal = cleanStr(p.storageOptions)
+      const finishVal = cleanStr(p.finishMaterial)
+      const warrantyVal = cleanStr(p.warranty)
 
-      if (colorVal) group.colors.add(colorVal)
-      if (chairTypeVal) group.chairTypes.add(chairTypeVal)
-      if (p.legType) group.legTypes.add(p.legType.trim())
-      if (p.tableTopFinish) group.tableTopFinishes.add(p.tableTopFinish.trim())
-      if (p.dimensions) group.dimensions.add(p.dimensions.trim())
-      if (p.storageOptions) group.storageOptions.add(p.storageOptions.trim())
-      if (p.finishMaterial) group.finishMaterials.add(p.finishMaterial.trim())
-      if (p.warranty) group.warranties.add(p.warranty.trim())
+      // Contextual attribute naming based on category & product
+      if (categoryLower.includes("chair") || categoryLower.includes("seating")) {
+        if (chairTypeVal) prodAttrMap["Chair / Backrest"] = chairTypeVal
+        if (colorVal) prodAttrMap["Seat Color"] = colorVal
+        if (finishVal) prodAttrMap["Upholstery Material"] = finishVal
+        if (legTypeVal) prodAttrMap["Base Type"] = legTypeVal
+        if (warrantyVal) prodAttrMap["Warranty"] = warrantyVal
+      } else if (categoryLower.includes("workstation") || categoryLower.includes("desk") || categoryLower.includes("table")) {
+        if (tableTopVal) prodAttrMap["Table Top Color"] = tableTopVal
+        if (legTypeVal) prodAttrMap["Leg Type"] = legTypeVal
+        if (colorVal) prodAttrMap["Leg Color"] = colorVal
+        if (dimensionsVal) prodAttrMap["Table Dimensions"] = dimensionsVal
+        if (finishVal) prodAttrMap["Finish Material"] = finishVal
+        if (warrantyVal) prodAttrMap["Warranty"] = warrantyVal
+      } else if (categoryLower.includes("storage") || categoryLower.includes("cabinet") || categoryLower.includes("pedestal")) {
+        if (colorVal) prodAttrMap["Storage Finish Color"] = colorVal
+        if (storageVal) prodAttrMap["Storage Type"] = storageVal
+        if (dimensionsVal) prodAttrMap["Storage Dimensions"] = dimensionsVal
+        if (finishVal) prodAttrMap["Finish Material"] = finishVal
+        if (warrantyVal) prodAttrMap["Warranty"] = warrantyVal
+      } else {
+        // Fallback standard naming for Other Categories
+        if (dimensionsVal) prodAttrMap["Dimension"] = dimensionsVal
+        if (colorVal) prodAttrMap["Color / Finish"] = colorVal
+        if (legTypeVal) prodAttrMap["Leg Frame"] = legTypeVal
+        if (tableTopVal) prodAttrMap["Top Finish"] = tableTopVal
+        if (chairTypeVal) prodAttrMap["Chair Type"] = chairTypeVal
+        if (storageVal) prodAttrMap["Storage Unit"] = storageVal
+        if (finishVal) prodAttrMap["Finish Material"] = finishVal
+        if (warrantyVal) prodAttrMap["Warranty"] = warrantyVal
+      }
+
+      // Merge dynamic variantAttributes JSON if defined by administrator
+      if (p.variantAttributes && typeof p.variantAttributes === "object") {
+        const vAttrs = p.variantAttributes as Record<string, any>
+        for (const [attrKey, attrVal] of Object.entries(vAttrs)) {
+          const cleanKey = String(attrKey).trim()
+          const cleanVal = cleanStr(attrVal)
+          if (cleanKey && cleanVal && !["modelName", "modelCode", "color"].includes(cleanKey)) {
+            // Capitalize key appropriately
+            const formattedKey = cleanKey.charAt(0).toUpperCase() + cleanKey.slice(1)
+            prodAttrMap[formattedKey] = cleanVal
+          }
+        }
+      }
+
+      // Record attributes into group's attribute set map
+      for (const [attrName, attrVal] of Object.entries(prodAttrMap)) {
+        if (!group.attributes[attrName]) {
+          group.attributes[attrName] = new Set<string>()
+        }
+        group.attributes[attrName].add(attrVal)
+      }
 
       group.combinations.push({
         id: p.id,
         sku: p.productCode,
         productName: p.productName,
+        attributes: prodAttrMap,
         color: colorVal,
         chairType: chairTypeVal,
-        legType: p.legType ? p.legType.trim() : null,
-        tableTopFinish: p.tableTopFinish ? p.tableTopFinish.trim() : null,
-        dimensions: p.dimensions ? p.dimensions.trim() : null,
-        storageOptions: p.storageOptions ? p.storageOptions.trim() : null,
-        finishMaterial: p.finishMaterial ? p.finishMaterial.trim() : null,
-        warranty: p.warranty ? p.warranty.trim() : null,
+        legType: legTypeVal,
+        tableTopFinish: tableTopVal,
+        dimensions: dimensionsVal,
+        storageOptions: storageVal,
+        finishMaterial: finishVal,
+        warranty: warrantyVal,
       })
     }
 
-    // Convert Sets to Arrays for JSON response and sort configurable models to top
+    // Convert Set map to sorted Array map for JSON output
     const models = Object.values(modelsMap)
-      .map((m) => ({
-        seriesName: m.seriesName,
-        modelName: m.modelName,
-        categoryId: m.categoryId,
-        categoryName: m.categoryName,
-        colors: Array.from(m.colors).sort(),
-        chairTypes: Array.from(m.chairTypes).sort(),
-        legTypes: Array.from(m.legTypes).sort(),
-        tableTopFinishes: Array.from(m.tableTopFinishes).sort(),
-        dimensions: Array.from(m.dimensions).sort(),
-        storageOptions: Array.from(m.storageOptions).sort(),
-        finishMaterials: Array.from(m.finishMaterials).sort(),
-        warranties: Array.from(m.warranties).sort(),
-        combinations: m.combinations,
-      }))
+      .map((m) => {
+        const attributesFormatted: Record<string, string[]> = {}
+        for (const [attrName, valSet] of Object.entries(m.attributes)) {
+          const arr = Array.from(valSet).sort()
+          if (arr.length > 0) {
+            attributesFormatted[attrName] = arr
+          }
+        }
+
+        // Backward compatibility arrays
+        const colors = attributesFormatted["Color / Finish"] || attributesFormatted["Seat Color"] || attributesFormatted["Table Top Color"] || attributesFormatted["Storage Finish Color"] || []
+        const chairTypes = attributesFormatted["Chair / Backrest"] || attributesFormatted["Chair Type"] || []
+        const legTypes = attributesFormatted["Leg Frame"] || attributesFormatted["Leg Type"] || attributesFormatted["Base Type"] || []
+        const tableTopFinishes = attributesFormatted["Top Finish"] || attributesFormatted["Table Top Color"] || []
+        const dimensions = attributesFormatted["Dimension"] || attributesFormatted["Table Dimensions"] || attributesFormatted["Storage Dimensions"] || []
+        const storageOptions = attributesFormatted["Storage Unit"] || attributesFormatted["Storage Type"] || []
+        const finishMaterials = attributesFormatted["Finish Material"] || attributesFormatted["Upholstery Material"] || []
+        const warranties = attributesFormatted["Warranty"] || []
+
+        return {
+          seriesName: m.seriesName,
+          modelName: m.modelName,
+          categoryId: m.categoryId,
+          categoryName: m.categoryName,
+          attributes: attributesFormatted,
+          colors,
+          chairTypes,
+          legTypes,
+          tableTopFinishes,
+          dimensions,
+          storageOptions,
+          finishMaterials,
+          warranties,
+          combinations: m.combinations,
+        }
+      })
       .sort((a, b) => {
-        const aCount = a.colors.length + a.chairTypes.length + a.legTypes.length + a.tableTopFinishes.length + a.dimensions.length
-        const bCount = b.colors.length + b.chairTypes.length + b.legTypes.length + b.tableTopFinishes.length + b.dimensions.length
+        const aCount = Object.keys(a.attributes).length
+        const bCount = Object.keys(b.attributes).length
         if (aCount !== bCount) return bCount - aCount
         return a.modelName.localeCompare(b.modelName)
       })
 
+    // Categories list for configurator top filter
+    const categories = categoriesDb.map(c => ({
+      id: c.id,
+      name: c.name,
+      modelCount: models.filter(m => m.categoryId === c.id || m.categoryName === c.name).length
+    }))
+
     return NextResponse.json({
       success: true,
       enabled: true,
+      categories,
       models,
     })
   } catch (error: any) {
@@ -259,3 +348,4 @@ export async function GET() {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
+

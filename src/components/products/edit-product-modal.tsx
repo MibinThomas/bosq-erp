@@ -31,6 +31,7 @@ interface Product {
   legType?: string | null
   storageOptions?: string | null
   finishMaterial?: string | null
+  variantAttributes?: any
   category: {
     name: string
   }
@@ -63,6 +64,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
   const [dimensions, setDimensions] = useState("")
   const [storageOptions, setStorageOptions] = useState("")
   const [finishMaterial, setFinishMaterial] = useState("")
+  const [customAttributes, setCustomAttributes] = useState("")
   const [categoriesList, setCategoriesList] = useState<any[]>([])
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [base64Image, setBase64Image] = useState<string | null>(null)
@@ -120,6 +122,11 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
       setDimensions(product.dimensions || "")
       setStorageOptions(product.storageOptions || "")
       setFinishMaterial(product.finishMaterial || "")
+      if (product.variantAttributes && typeof product.variantAttributes === "object") {
+        setCustomAttributes(JSON.stringify(product.variantAttributes, null, 2))
+      } else {
+        setCustomAttributes("")
+      }
       setImagePreview(product.imageUrl)
       setBase64Image(null)
     }
@@ -222,6 +229,17 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
 
     setLoading(true)
     try {
+      let parsedVariantAttrs: any = undefined
+      if (customAttributes.trim()) {
+        try {
+          parsedVariantAttrs = JSON.parse(customAttributes.trim())
+        } catch {
+          toast.error("Invalid JSON format for Custom Attributes")
+          setLoading(false)
+          return
+        }
+      }
+
       const res = await fetch(`/api/products/${product.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -244,6 +262,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
           dimensions: dimensions || null,
           storageOptions: storageOptions || null,
           finishMaterial: finishMaterial || null,
+          variantAttributes: parsedVariantAttrs,
           imageUrl: base64Image || undefined,
           stock: parseInt(stock.toString(), 10) || 0,
         })
@@ -432,6 +451,19 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
                 value={specifications}
                 onChange={(val) => setSpecifications(val)}
                 placeholder="E.g., High quality Italian leather, ergonomic lumbar support..."
+              />
+            </div>
+
+            <div className="space-y-1.5 col-span-2">
+              <label className="text-xs font-bold flex justify-between">
+                <span>Customization Attributes (JSON)</span>
+                <span className="text-[10px] text-muted-foreground">Key-value options for configurator</span>
+              </label>
+              <textarea
+                className="w-full border rounded-md px-3 py-2 text-xs font-mono bg-background resize-none min-h-[70px] focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+                value={customAttributes}
+                onChange={(e) => setCustomAttributes(e.target.value)}
+                placeholder='e.g. {"Headrest Color": "Black", "Base Type": "Aluminium", "Handle Type": "Recessed"}'
               />
             </div>
 
