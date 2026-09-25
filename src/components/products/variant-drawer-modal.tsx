@@ -177,6 +177,164 @@ export function extractVariantAttributes(v: ProductVariantItem) {
   }
 }
 
+// Searchable Attribute Combobox component with inline "+ Add New" value creation
+interface AttributeComboboxProps {
+  attrName: string
+  options: string[]
+  value: string
+  onChange: (value: string) => void
+  onAddNewValue: (attrName: string, newValue: string) => void
+  icon?: React.ReactNode
+}
+
+function AttributeCombobox({
+  attrName,
+  options,
+  value,
+  onChange,
+  onAddNewValue,
+  icon,
+}: AttributeComboboxProps) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const [isCreatingNew, setIsCreatingNew] = useState(false)
+  const [newValInput, setNewValInput] = useState("")
+
+  const filteredOptions = useMemo(() => {
+    if (!search.trim()) return options
+    const query = search.toLowerCase().trim()
+    return options.filter((opt) => opt.toLowerCase().includes(query))
+  }, [options, search])
+
+  const handleCreate = () => {
+    const trimmed = (newValInput || search).trim()
+    if (!trimmed) return
+    onAddNewValue(attrName, trimmed)
+    onChange(trimmed)
+    setNewValInput("")
+    setSearch("")
+    setIsCreatingNew(false)
+    setOpen(false)
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        className="w-full h-9 px-3 text-xs justify-between bg-background border border-border/80 rounded-lg hover:border-primary/40 focus:ring-2 focus:ring-primary font-medium flex items-center transition-colors cursor-pointer"
+        aria-expanded={open}
+      >
+        <span className="truncate text-foreground font-semibold">
+          {value || `Select ${attrName}`}
+        </span>
+        <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50 text-muted-foreground" />
+      </PopoverTrigger>
+      <PopoverContent className="w-[280px] p-2 bg-card border rounded-xl shadow-xl z-50 space-y-2" align="start">
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder={`Search ${attrName}...`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 pl-8 text-xs bg-muted/30 border-muted focus-visible:ring-1"
+          />
+        </div>
+
+        {/* Inline Create Form if toggled */}
+        {isCreatingNew ? (
+          <div className="p-2.5 bg-primary/5 rounded-lg border border-primary/20 space-y-2">
+            <span className="text-[11px] font-bold text-primary block flex items-center gap-1">
+              <Plus className="h-3 w-3" /> Add New {attrName}:
+            </span>
+            <Input
+              placeholder={`Enter new ${attrName}...`}
+              value={newValInput}
+              onChange={(e) => setNewValInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  handleCreate()
+                }
+              }}
+              autoFocus
+              className="h-8 text-xs bg-background font-medium"
+            />
+            <div className="flex items-center justify-end gap-1.5 pt-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px] px-2 text-muted-foreground hover:text-foreground"
+                onClick={() => setIsCreatingNew(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="h-6 text-[10px] px-2.5 bg-primary text-primary-foreground font-bold cursor-pointer"
+                onClick={handleCreate}
+              >
+                Save &amp; Select
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Options List */}
+            <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1">
+              {filteredOptions.length === 0 ? (
+                <div className="p-3 text-center text-xs text-muted-foreground">
+                  No matching options found
+                </div>
+              ) : (
+                filteredOptions.map((opt) => {
+                  const isSelected = value === opt
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => {
+                        onChange(opt)
+                        setOpen(false)
+                      }}
+                      className={cn(
+                        "w-full text-left px-2.5 py-1.5 text-xs rounded-md flex items-center justify-between transition-colors cursor-pointer",
+                        isSelected
+                          ? "bg-primary/10 text-primary font-bold"
+                          : "hover:bg-muted text-foreground"
+                      )}
+                    >
+                      <span className="truncate">{opt}</span>
+                      {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0 ml-2" />}
+                    </button>
+                  )
+                })
+              )}
+            </div>
+
+            {/* + Add New Option Button */}
+            <div className="pt-1.5 border-t border-border/60">
+              <button
+                type="button"
+                onClick={() => {
+                  setNewValInput(search)
+                  setIsCreatingNew(true)
+                }}
+                className="w-full text-left px-2.5 py-1.5 text-xs rounded-md text-primary hover:bg-primary/10 font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>
+                  + Add New {attrName}
+                  {search ? ` "${search}"` : ""}
+                </span>
+              </button>
+            </div>
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export function VariantDrawerModal({
   masterProduct,
   isOpen,
@@ -230,15 +388,14 @@ export function VariantDrawerModal({
   const [isSubmittingNewVariant, setIsSubmittingNewVariant] = useState(false)
   const [newVariantImageFile, setNewVariantImageFile] = useState<File | null>(null)
   const [newVariantSelectedAttrs, setNewVariantSelectedAttrs] = useState<Record<string, string>>({})
-  const [isManualNameOverride, setIsManualNameOverride] = useState(false)
-  const [isManualSkuOverride, setIsManualSkuOverride] = useState(false)
+  const [customAttrOptions, setCustomAttrOptions] = useState<Record<string, string[]>>({})
 
   const [newVariantForm, setNewVariantForm] = useState({
     productCode: "",
     productName: "",
     modelName: "Standard",
     availableColors: "",
-    costPrice: 200,
+    costPrice: 0,
     unitPrice: 300,
     projectPrice: 300,
     stock: 10,
@@ -253,7 +410,7 @@ export function VariantDrawerModal({
   const isWorkstationCategory = categoryLower.includes("workstation") || categoryLower.includes("desk") || categoryLower.includes("table")
   const isStorageCategory = categoryLower.includes("storage") || categoryLower.includes("cabinet") || categoryLower.includes("pedestal")
 
-  // Available Attribute Options map for Master Product
+  // Base Category Attribute Options map for Master Product
   const activeCategoryAttrOptions: Record<string, string[]> = useMemo(() => {
     if (!masterProduct) return {}
 
@@ -311,59 +468,65 @@ export function VariantDrawerModal({
     }
   }, [masterProduct, isChairCategory, isWorkstationCategory, isStorageCategory])
 
-  // Initialize selected attribute values whenever isAddingVariant opens
+  // Merged Category Attribute Options including dynamically created inline values
+  const mergedCategoryAttrOptions: Record<string, string[]> = useMemo(() => {
+    const base = { ...activeCategoryAttrOptions }
+    for (const [key, extraOpts] of Object.entries(customAttrOptions)) {
+      if (base[key]) {
+        const combined = [...base[key]]
+        for (const opt of extraOpts) {
+          if (!combined.includes(opt)) combined.push(opt)
+        }
+        base[key] = combined
+      } else {
+        base[key] = extraOpts
+      }
+    }
+    return base
+  }, [activeCategoryAttrOptions, customAttrOptions])
+
+  // Handler for adding new attribute value directly from combobox
+  const handleAddNewAttrValue = (attrName: string, newValue: string) => {
+    const trimmed = newValue.trim()
+    if (!trimmed) return
+    setCustomAttrOptions((prev) => {
+      const existing = prev[attrName] || []
+      if (existing.includes(trimmed)) return prev
+      return {
+        ...prev,
+        [attrName]: [...existing, trimmed],
+      }
+    })
+    setNewVariantSelectedAttrs((prev) => ({
+      ...prev,
+      [attrName]: trimmed,
+    }))
+  }
+
+  // Initialize selected attribute values and form when isAddingVariant opens
   useEffect(() => {
-    if (isAddingVariant && activeCategoryAttrOptions) {
+    if (isAddingVariant && mergedCategoryAttrOptions) {
       const initialAttrs: Record<string, string> = {}
-      for (const [key, opts] of Object.entries(activeCategoryAttrOptions)) {
+      for (const [key, opts] of Object.entries(mergedCategoryAttrOptions)) {
         if (opts.length > 0) {
           initialAttrs[key] = opts[0]
         }
       }
       setNewVariantSelectedAttrs(initialAttrs)
-      setIsManualNameOverride(false)
-      setIsManualSkuOverride(false)
+      setNewVariantForm({
+        productCode: "",
+        productName: "",
+        modelName: "Standard",
+        availableColors: "",
+        costPrice: 0,
+        unitPrice: 300,
+        projectPrice: 300,
+        stock: 10,
+        description: "",
+        specifications: "",
+      })
     }
-  }, [isAddingVariant, activeCategoryAttrOptions])
-
-  // Auto-generate title, SKU, and specifications summary whenever selected attributes change
-  useEffect(() => {
-    if (!isAddingVariant || !masterProduct) return
-
-    const masterTitle = masterProduct.productName || "Master Product"
-    const masterCode = (masterProduct.productCode || "MASTER").replace("MASTER-", "").replace(/[^A-Z0-9]/g, "")
-
-    const attrEntries = Object.entries(newVariantSelectedAttrs).filter(
-      ([_, val]) => val && val.toLowerCase() !== "none" && val.toLowerCase() !== "none / n/a"
-    )
-
-    // Build Auto Variant Title: e.g. Ace High Back Chair | Black Backrest | Black Seat | Aluminium Base
-    const autoTitle = attrEntries.length > 0
-      ? `${masterTitle} | ${attrEntries.map(([_, v]) => v).join(" | ")}`
-      : masterTitle
-
-    // Build Auto SKU: e.g. ACE-BLK-BLK-BLK-ALU
-    const acronyms = attrEntries.map(([_, val]) => {
-      const clean = val.toUpperCase().replace(/[^A-Z0-9]/g, "")
-      return clean.slice(0, 3)
-    }).filter(Boolean)
-
-    const autoSku = acronyms.length > 0
-      ? `${masterCode}-${acronyms.join("-")}`
-      : `${masterCode}-VAR`
-
-    // Build Auto Specifications summary text
-    const autoSpecs = attrEntries.length > 0
-      ? attrEntries.map(([k, v]) => `• ${k}: ${v}`).join("\n")
-      : `Standard ${masterTitle} specification.`
-
-    setNewVariantForm(prev => ({
-      ...prev,
-      productName: isManualNameOverride ? prev.productName : autoTitle,
-      productCode: isManualSkuOverride ? prev.productCode : autoSku,
-      specifications: autoSpecs,
-    }))
-  }, [newVariantSelectedAttrs, isAddingVariant, masterProduct, isManualNameOverride, isManualSkuOverride])
+  }, [isAddingVariant, mergedCategoryAttrOptions])
 
   // Track broken/404 image URLs to gracefully fallback to Package icon
   const [failedImageUrls, setFailedImageUrls] = useState<Record<string, boolean>>({})
@@ -758,6 +921,13 @@ export function VariantDrawerModal({
         if (uploadRes.ok && uploadData.url) imageUrl = uploadData.url
       }
 
+      const varName = newVariantForm.productName.trim()
+      if (!varName) {
+        toast.error("Please enter a Product Variant Name")
+        setIsSubmittingNewVariant(false)
+        return
+      }
+
       const masterPrefix = masterProduct.productCode.replace("MASTER-", "").replace(/[^A-Z0-9]/g, "").slice(0, 5)
 
       // Primary color value extracted for availableColors field
@@ -769,10 +939,7 @@ export function VariantDrawerModal({
         ""
 
       const sku = newVariantForm.productCode.trim() || `${masterPrefix}-VAR-${Date.now().toString().slice(-4)}`
-      const varName = newVariantForm.productName.trim() || `${masterProduct.productName} Variant`
-
-      const cost = newVariantForm.costPrice || 200
-      const project = newVariantForm.projectPrice || newVariantForm.unitPrice || Number((cost * 1.5).toFixed(2))
+      const project = newVariantForm.projectPrice || newVariantForm.unitPrice || 0
 
       const payload = {
         productCode: sku,
@@ -782,17 +949,17 @@ export function VariantDrawerModal({
         isMaster: false,
         modelName: masterProduct.modelName || masterProduct.productName || null,
         availableColors: primaryColorVal.trim() || null,
-        costPrice: cost,
+        costPrice: 0,
         unitPrice: project,
         projectPrice: project,
-        dealerPrice: Number((cost / 0.85).toFixed(2)),
-        interiorPrice: Number((cost / 0.70).toFixed(2)),
-        specialPrice: cost,
+        dealerPrice: project,
+        interiorPrice: project,
+        specialPrice: project,
         stock: newVariantForm.stock || 0,
         imageUrl: imageUrl || masterProduct.imageUrl || null,
         variantAttributes: Object.keys(newVariantSelectedAttrs).length > 0 ? newVariantSelectedAttrs : undefined,
-        description: newVariantForm.description || `${masterProduct.productName} Variant (${varName})`,
-        specifications: newVariantForm.specifications.trim() || masterProduct.specifications || null,
+        description: newVariantForm.description.trim() || null,
+        specifications: newVariantForm.specifications.trim() || null,
       }
 
       const res = await fetch("/api/products", {
@@ -811,17 +978,15 @@ export function VariantDrawerModal({
       setIsAddingVariant(false)
       setNewVariantImageFile(null)
       setNewVariantSelectedAttrs({})
-      setIsManualNameOverride(false)
-      setIsManualSkuOverride(false)
       setNewVariantForm({
         productCode: "",
         productName: "",
         modelName: "Standard",
         availableColors: "",
-        costPrice: 200,
-        unitPrice: 300,
-        projectPrice: 300,
-        stock: 10,
+        costPrice: 0,
+        unitPrice: 0,
+        projectPrice: 0,
+        stock: 0,
         description: "",
         specifications: "",
       })
@@ -1261,7 +1426,7 @@ export function VariantDrawerModal({
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Select predefined attribute values for <strong className="text-foreground">{masterProduct.productName}</strong>. Title and SKU will auto-generate.
+                      Select configuration attributes or create new values directly. Enter variant details manually below.
                     </p>
                   </div>
                 </div>
@@ -1280,21 +1445,21 @@ export function VariantDrawerModal({
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground flex items-center gap-1.5">
                     <SlidersHorizontal className="h-4 w-4 text-primary" />
-                    1. Configuration Attributes ({Object.keys(activeCategoryAttrOptions).length})
+                    1. Configuration Attributes ({Object.keys(mergedCategoryAttrOptions).length})
                   </h4>
-                  <span className="text-[11px] text-muted-foreground">
-                    Derived from category preset &amp; master product
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    Searchable dropdowns with inline "+ Add New" value creation
                   </span>
                 </div>
 
-                {Object.keys(activeCategoryAttrOptions).length === 0 ? (
+                {Object.keys(mergedCategoryAttrOptions).length === 0 ? (
                   <div className="p-3 text-center text-xs text-muted-foreground bg-background rounded-lg border border-dashed">
                     No configurable attributes defined for this category/product.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {Object.entries(activeCategoryAttrOptions).map(([attrName, options]) => {
-                      const currentValue = newVariantSelectedAttrs[attrName] || (options[0] || "")
+                    {Object.entries(mergedCategoryAttrOptions).map(([attrName, options]) => {
+                      const currentValue = newVariantSelectedAttrs[attrName] || ""
                       return (
                         <div key={attrName} className="space-y-1.5 bg-background p-3 rounded-lg border shadow-2xs">
                           <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
@@ -1302,27 +1467,19 @@ export function VariantDrawerModal({
                             <span>{attrName}</span>
                             <span className="text-destructive">*</span>
                           </label>
-                          <Select
+                          <AttributeCombobox
+                            attrName={attrName}
+                            options={options}
                             value={currentValue}
-                            onValueChange={(val) => {
-                              const strVal = val || ""
+                            onChange={(val) => {
                               setNewVariantSelectedAttrs((prev) => ({
                                 ...prev,
-                                [attrName]: strVal,
+                                [attrName]: val,
                               }))
                             }}
-                          >
-                            <SelectTrigger className="w-full h-8 text-xs font-medium bg-background border rounded-lg cursor-pointer">
-                              <SelectValue placeholder={`Select ${attrName}`} />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-60 bg-card border rounded-lg shadow-lg z-50">
-                              {options.map((opt) => (
-                                <SelectItem key={opt} value={opt} className="text-xs font-medium cursor-pointer">
-                                  {opt}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            onAddNewValue={handleAddNewAttrValue}
+                            icon={getAttributeIcon(attrName)}
+                          />
                         </div>
                       )
                     })}
@@ -1330,128 +1487,82 @@ export function VariantDrawerModal({
                 )}
               </div>
 
-              {/* 2. Variant Product Details & Pricing */}
+              {/* 2. Product Information & Pricing */}
               <div className="space-y-4">
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground flex items-center gap-1.5">
                   <Tag className="h-4 w-4 text-primary" />
-                  2. Product Information &amp; Pricing
+                  2. Product Information
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
-                  {/* Variant Display Name */}
+                  {/* Product Variant Name (Manual Entry) */}
                   <div className="space-y-1 sm:col-span-2">
-                    <div className="flex items-center justify-between">
-                      <label className="font-bold text-foreground block">
-                        Variant Display Name <span className="text-destructive">*</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isManualNameOverride) {
-                            setIsManualNameOverride(false)
-                          } else {
-                            setIsManualNameOverride(true)
-                          }
-                        }}
-                        className="text-[10px] text-primary hover:underline font-semibold"
-                      >
-                        {isManualNameOverride ? "⚡ Reset to Auto" : "✏️ Edit Manually"}
-                      </button>
-                    </div>
+                    <label className="font-bold text-foreground block">
+                      Product Variant Name <span className="text-destructive">*</span>
+                    </label>
                     <Input
-                      placeholder={`e.g. ${masterProduct.productName} High Back Chair | Black`}
+                      placeholder="Enter variant display name (e.g. Ace High Back Chair - Black)"
                       value={newVariantForm.productName}
-                      onChange={(e) => {
-                        setIsManualNameOverride(true)
-                        setNewVariantForm({ ...newVariantForm, productName: e.target.value })
-                      }}
+                      onChange={(e) => setNewVariantForm({ ...newVariantForm, productName: e.target.value })}
                       className="h-9 text-xs bg-background font-medium"
                     />
-                    <p className="text-[10px] text-muted-foreground">
-                      {isManualNameOverride ? "Custom title override applied." : "Auto-generated from selected attribute values."}
-                    </p>
                   </div>
 
-                  {/* SKU */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="font-bold text-foreground block">
-                        Variant SKU <span className="text-destructive">*</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isManualSkuOverride) {
-                            setIsManualSkuOverride(false)
-                          } else {
-                            setIsManualSkuOverride(true)
-                          }
-                        }}
-                        className="text-[10px] text-primary hover:underline font-semibold"
-                      >
-                        {isManualSkuOverride ? "⚡ Reset to Auto" : "✏️ Edit Manually"}
-                      </button>
-                    </div>
-                    <Input
-                      placeholder="Auto-generated SKU"
-                      value={newVariantForm.productCode}
-                      onChange={(e) => {
-                        setIsManualSkuOverride(true)
-                        setNewVariantForm({ ...newVariantForm, productCode: e.target.value })
-                      }}
-                      className="h-9 text-xs bg-background font-mono font-bold"
-                    />
-                    <p className="text-[10px] text-muted-foreground">
-                      {isManualSkuOverride ? "Custom SKU override." : "Auto-generated from code & attributes."}
-                    </p>
-                  </div>
-
-                  {/* Stock Quantity */}
+                  {/* SKU (Manual Entry) */}
                   <div className="space-y-1">
                     <label className="font-bold text-foreground block">
-                      Initial Stock Qty
+                      SKU <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      placeholder="Enter SKU (e.g. ACE-HB-BLK-ALU)"
+                      value={newVariantForm.productCode}
+                      onChange={(e) => setNewVariantForm({ ...newVariantForm, productCode: e.target.value })}
+                      className="h-9 text-xs bg-background font-mono font-bold"
+                    />
+                  </div>
+
+                  {/* Initial Stock Quantity */}
+                  <div className="space-y-1">
+                    <label className="font-bold text-foreground block">
+                      Initial Stock Quantity
                     </label>
                     <Input
                       type="number"
                       min="0"
                       value={newVariantForm.stock}
                       onChange={(e) => setNewVariantForm({ ...newVariantForm, stock: parseInt(e.target.value, 10) || 0 })}
-                      className="h-9 text-xs bg-background"
+                      className="h-9 text-xs bg-background font-medium"
                     />
                   </div>
 
-                  {/* Cost Price */}
-                  <div className="space-y-1">
-                    <label className="font-bold text-foreground block">
-                      Cost Price (AED)
-                    </label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={newVariantForm.costPrice}
-                      onChange={(e) => setNewVariantForm({ ...newVariantForm, costPrice: parseFloat(e.target.value) || 0 })}
-                      className="h-9 text-xs bg-background font-mono"
-                    />
-                  </div>
-
-                  {/* Selling / Project Price */}
-                  <div className="space-y-1">
+                  {/* Selling / Project Price (AED) */}
+                  <div className="space-y-1 sm:col-span-2">
                     <label className="font-bold text-foreground block text-primary">
-                      Selling / Project Price (AED)
+                      Selling / Project Price (AED) <span className="text-destructive">*</span>
                     </label>
                     <Input
                       type="number"
                       min="0"
                       step="0.01"
+                      placeholder="0.00"
                       value={newVariantForm.projectPrice}
                       onChange={(e) => setNewVariantForm({ ...newVariantForm, projectPrice: parseFloat(e.target.value) || 0, unitPrice: parseFloat(e.target.value) || 0 })}
                       className="h-9 text-xs bg-background font-mono font-bold text-primary border-primary/40 focus:border-primary"
                     />
                   </div>
+                </div>
+              </div>
 
+              {/* 3. Product Content */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <Package className="h-4 w-4 text-primary" />
+                  3. Product Content
+                </h4>
+
+                <div className="space-y-4 text-xs">
                   {/* Short Description */}
-                  <div className="space-y-1 sm:col-span-3">
+                  <div className="space-y-1">
                     <label className="font-bold text-foreground block">
                       Short Description
                     </label>
@@ -1464,18 +1575,18 @@ export function VariantDrawerModal({
                     />
                   </div>
 
-                  {/* Product Specifications Summary */}
-                  <div className="space-y-1.5 sm:col-span-3">
+                  {/* Product Specification Summary */}
+                  <div className="space-y-1.5">
                     <label className="font-bold text-foreground block flex items-center justify-between">
                       <span>Product Specification Summary</span>
                       <span className="text-[10px] text-muted-foreground font-normal">
-                        Auto-generated bullet summary (editable with rich text formatting)
+                        Manual entry with rich text formatting (headings, bullet points, highlights)
                       </span>
                     </label>
                     <RichTextEditor
                       value={newVariantForm.specifications}
                       onChange={(val) => setNewVariantForm({ ...newVariantForm, specifications: val })}
-                      placeholder="E.g. • Headrest Color: Black..."
+                      placeholder="Enter full specifications, bullet points, or custom requirements..."
                     />
                   </div>
                 </div>
