@@ -1,5 +1,7 @@
 "use client"
 
+// Category-Based Product Configurator with Dropdown Category Selector
+
 import React, { useState, useEffect, useMemo } from "react"
 import { 
   SlidersHorizontal, 
