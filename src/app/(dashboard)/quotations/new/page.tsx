@@ -1083,12 +1083,6 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               </SelectContent>
             </Select>
           </div>
-
-          {includeCategoryName && currentItemVal.categoryName && (
-            <Badge variant="secondary" className="text-[10px] uppercase font-semibold">
-              {currentItemVal.categoryName}
-            </Badge>
-          )}
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -1211,13 +1205,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             >
               <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
               <span>Select Product by Attributes</span>
-              <Badge variant="secondary" className="text-[9px] py-0 px-1 font-mono uppercase bg-primary/20 text-primary border-primary/30">
-                Category Driven
-              </Badge>
             </Button>
           </div>
           <span className="text-[11px] text-muted-foreground hidden md:inline px-2">
-            {selectionMode === "search" ? "Search existing products by code/name" : "Dynamically filter product attributes by Category & Model"}
+            {selectionMode === "search" ? "Search existing products by code/name" : "Dynamically filter product attributes by Model & Specifications"}
           </span>
         </div>
 
@@ -1280,58 +1271,6 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               />
             </div>
           </div>
-
-          {/* Additional Category / Chair Type Selects */}
-          {includeCategoryName && (
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={control}
-                name={`items.${index}.categoryName`}
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-bold text-foreground">Category</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || "Chairs"} disabled={isItemLocked}>
-                      <FormControl>
-                        <SelectTrigger className="h-9 text-xs font-medium bg-background" disabled={isItemLocked}>
-                          <SelectValue placeholder="Category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {dbCategories.map(cat => (
-                          <SelectItem key={cat.id} value={cat.name} className="text-xs">{cat.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-
-              {currentItemVal.categoryName === "Chairs" && (
-                <FormField
-                  control={control}
-                  name={`items.${index}.chairType`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold text-foreground">Chair Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || ""} disabled={isItemLocked}>
-                        <FormControl>
-                          <SelectTrigger className="h-9 text-xs font-medium bg-background" disabled={isItemLocked}>
-                            <SelectValue placeholder="Type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Executive Chair" className="text-xs">Executive Chair</SelectItem>
-                          <SelectItem value="Workstation Chair" className="text-xs">Workstation Chair</SelectItem>
-                          <SelectItem value="Meeting Chair" className="text-xs">Meeting Chair</SelectItem>
-                          <SelectItem value="Lounge Chair" className="text-xs">Lounge Chair</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
-              )}
-            </div>
-          )}
 
           {/* Save to Catalog Switch for Managerial & Super Admin roles */}
           {isManagerOrAdminRole(userRole) && (
@@ -6293,11 +6232,6 @@ function NewQuotationForm() {
                         <span className="font-semibold text-xs text-foreground truncate">
                           {item.description || "Product #" + (idx + 1)}
                         </span>
-                        {form.watch("includeCategoryName") !== false && item.categoryName && (
-                          <Badge variant="outline" className="text-[10px] py-0 px-1 font-mono">
-                            {item.categoryName}
-                          </Badge>
-                        )}
                       </div>
                       {item.specifications && (
                         <p className="text-[11px] text-muted-foreground truncate">{cleanHtmlText(item.specifications)}</p>

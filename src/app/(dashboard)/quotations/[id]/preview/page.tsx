@@ -1123,11 +1123,6 @@ export default function QuotationHtmlPreviewPage() {
                       <div className="space-y-1.5 flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-sm text-foreground truncate">{item.description}</span>
-                          {quotation.includeCategoryName !== false && item.categoryName && (
-                            <Badge variant="outline" className="text-[10px] py-0 font-semibold bg-slate-100 dark:bg-slate-800">
-                              {item.categoryName}
-                            </Badge>
-                          )}
                           {isSaved && (
                             <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900 py-0.5 px-2 flex items-center gap-1 font-semibold">
                               <CheckCircle2 className="h-3 w-3" /> Saved in Catalog

@@ -1020,11 +1020,6 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         {/* Product Name */}
         <Text style={styles.itemTitle}>{item.description}</Text>
 
-        {/* Category Name */}
-        {includeCategoryName !== false && item.categoryName ? (
-          <Text style={styles.itemCategory}>{item.categoryName}</Text>
-        ) : null}
-
         {/* Product Description */}
         {item.productDescription ? (
           <Text style={styles.itemDescText}>

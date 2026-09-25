@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge"
 export interface QuotationToggleValues {
   includeSalesAgent: boolean
   includeCompanySeal: boolean
-  includeCategoryName: boolean
+  includeCategoryName?: boolean
   includeSectionHeadings: boolean
   includeMaterialsFinishes: boolean
 }
@@ -62,17 +62,6 @@ const toggleDefinitions: ToggleItemDef[] = [
     activeColorClass: "bg-emerald-600 text-white shadow-emerald-500/30 border-emerald-500",
     activeBadgeBg: "bg-emerald-500",
     ringClass: "focus-visible:ring-emerald-500",
-  },
-  {
-    key: "includeCategoryName",
-    title: "Show Product Category",
-    shortLabel: "Categories",
-    description: "Show product category badges (e.g. PREMIUM CHAIRS) on preview and PDF.",
-    activeIcon: Tag,
-    inactiveIcon: Tag,
-    activeColorClass: "bg-indigo-600 text-white shadow-indigo-500/30 border-indigo-500",
-    activeBadgeBg: "bg-indigo-500",
-    ringClass: "focus-visible:ring-indigo-500",
   },
   {
     key: "includeSectionHeadings",
