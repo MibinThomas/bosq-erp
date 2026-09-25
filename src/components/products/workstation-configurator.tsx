@@ -502,7 +502,29 @@ export function WorkstationConfigurator({
     }))
   }
 
-  // Dropdown options for Series and Model
+  // Dropdown options for Category, Series and Model
+  const categoryDropdownOptions = useMemo(() => {
+    const list: ConfiguratorDropdownOption[] = [
+      {
+        value: "ALL",
+        label: "All Categories",
+        subLabel: `${models.length} models`,
+        icon: <Layers className="h-3.5 w-3.5 text-orange-500" />,
+      },
+    ]
+
+    categories.forEach((cat) => {
+      list.push({
+        value: cat.id,
+        label: cat.name,
+        subLabel: `${cat.modelCount} models`,
+        icon: <Tag className="h-3.5 w-3.5 text-muted-foreground" />,
+      })
+    })
+
+    return list
+  }, [categories, models.length])
+
   const seriesDropdownOptions = useMemo(() => {
     return seriesList.map((s) => ({
       value: s,
@@ -684,76 +706,40 @@ export function WorkstationConfigurator({
       </CardHeader>
 
       <CardContent className="p-4 sm:p-5 space-y-5">
-        {/* TOP LEVEL: Category Filter Pills */}
-        <div className="space-y-1.5 border-b border-border/50 pb-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-              <Filter className="h-3 w-3 text-orange-500" /> Select Product Category
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              {categoryFilteredModels.length} models available
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar scroll-smooth">
-            <Button
-              type="button"
-              size="sm"
-              variant={selectedCategory === "ALL" ? "default" : "outline"}
-              onClick={() => handleCategoryChange("ALL")}
-              className={cn(
-                "h-7 text-xs px-2.5 rounded-lg font-medium shrink-0 transition-all cursor-pointer",
-                selectedCategory === "ALL"
-                  ? "bg-orange-600 hover:bg-orange-500 text-white font-bold shadow-2xs"
-                  : "bg-background hover:bg-muted text-muted-foreground"
-              )}
-            >
-              <span>All Categories</span>
-              <Badge variant="secondary" className="ml-1.5 text-[9px] py-0 px-1 font-mono">
-                {models.length}
-              </Badge>
-            </Button>
-
-            {categories.map((cat) => {
-              const isSelected = selectedCategory === cat.id || selectedCategory === cat.name
-              return (
-                <Button
-                  key={cat.id}
-                  type="button"
-                  size="sm"
-                  variant={isSelected ? "default" : "outline"}
-                  onClick={() => handleCategoryChange(cat.id)}
-                  className={cn(
-                    "h-7 text-xs px-2.5 rounded-lg font-medium shrink-0 transition-all cursor-pointer flex items-center gap-1",
-                    isSelected
-                      ? "bg-orange-600 hover:bg-orange-500 text-white font-bold shadow-2xs"
-                      : "bg-background hover:bg-muted text-muted-foreground"
-                  )}
-                >
-                  <span>{cat.name}</span>
-                  <Badge variant="secondary" className="text-[9px] py-0 px-1 font-mono">
-                    {cat.modelCount}
-                  </Badge>
-                </Button>
-              )
-            })}
-          </div>
-        </div>
-
         {/* 2-Column Responsive Layout: Left Configurator Form (7 cols) + Right Dedicated Preview Panel (5 cols) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* LEFT COLUMN: Configurator Inputs & Attributes (7/12 cols) */}
           <div className="lg:col-span-7 space-y-5">
 
-            {/* Model & Series Selection Box */}
+            {/* Product Selection Box: Category -> Series -> Sub-Product Model */}
             <div className="space-y-3 bg-muted/20 border border-border/60 rounded-xl p-3.5">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">
-                Product Model
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Filter className="h-3 w-3 text-orange-500" /> Product Selection
+                </span>
+                <span className="text-[10px] text-muted-foreground font-medium">
+                  {categoryFilteredModels.length} models available
+                </span>
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Main Series Dropdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* 1. Category Dropdown Selector */}
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-foreground block">
+                    Product Category
+                  </label>
+                  <ConfiguratorDropdown
+                    options={categoryDropdownOptions}
+                    value={selectedCategory}
+                    onValueChange={handleCategoryChange}
+                    placeholder="Select Category"
+                    searchPlaceholder="Search category..."
+                    icon={<Tag className="h-3.5 w-3.5" />}
+                  />
+                </div>
+
+                {/* 2. Main Series Dropdown */}
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground block">
                     Product Series
@@ -768,7 +754,7 @@ export function WorkstationConfigurator({
                   />
                 </div>
 
-                {/* Sub-Product / Model Dropdown */}
+                {/* 3. Sub-Product / Model Dropdown */}
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-foreground block">
                     Sub-Product Model
