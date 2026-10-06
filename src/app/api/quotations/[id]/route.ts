@@ -231,6 +231,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await request.json()
+    const isAutoSave = body.isAutoSave === true && body.status === "DRAFT"
     
     const originalQuotation = await prisma.quotation.findFirst({
       where: {
@@ -1293,17 +1294,19 @@ export async function PUT(
               })),
             },
           },
-          include: {
-            client: true,
-            items: true,
-            revisions: true,
-          }
+          ...(!isAutoSave && {
+            include: {
+              client: true,
+              items: true,
+              revisions: true,
+            }
+          })
         })
       }, { maxWait: 15000, timeout: 30000 })
 
 
       // Autosaves are frequent background persistence and should not create activity noise.
-      if (!body.isAutoSave) {
+      if (!isAutoSave) {
         try {
           if (logUserId) {
             await prisma.activityLog.create({
@@ -1319,6 +1322,18 @@ export async function PUT(
         } catch (logError) {
           console.error("Failed to write revised quotation activity log:", logError)
         }
+      }
+
+      if (isAutoSave) {
+        return NextResponse.json({
+          id: updatedQuotation.id,
+          quotationNumber: updatedQuotation.quotationNumber,
+          status: updatedQuotation.status,
+          revisionNumber: updatedQuotation.revisionNumber,
+          parentId: updatedQuotation.parentId,
+          costingStatus: updatedQuotation.costingStatus,
+          updatedAt: updatedQuotation.updatedAt,
+        })
       }
 
       return NextResponse.json(updatedQuotation)
@@ -1372,13 +1387,37 @@ export async function PUT(
       }
 
       const resolvedStatus = body.status || existingQuotation.status
+      const isDraftUpdate = resolvedStatus === "DRAFT" && body.isUpdate === true
 
-      // Prefetch products catalog details
-      const productIds = items.map((i: any) => i.productId).filter(Boolean)
-      const dbProducts = await prisma.product.findMany({
-        where: { id: { in: productIds } },
-        include: { category: true }
-      })
+      const existingItemsById = new Map(
+        existingQuotation.items.map((item) => [item.id, item])
+      )
+      const existingItemsByPosition = [...existingQuotation.items].sort(
+        (a, b) => a.itemNo - b.itemNo
+      )
+      const hasMatchingItemIds = items.some((item: any) =>
+        item.id && existingItemsById.has(item.id)
+      )
+      const existingItemsForRequest = items.map((item: any, idx: number) =>
+        (item.id && existingItemsById.get(item.id)) ||
+        (isDraftUpdate && !hasMatchingItemIds ? existingItemsByPosition[idx] : undefined)
+      )
+
+      // During autosave, only fetch catalog data for genuinely new or changed products.
+      const productIds: string[] = Array.from(new Set(items
+        .filter((item: any, idx: number) =>
+          !isDraftUpdate ||
+          !existingItemsForRequest[idx] ||
+          existingItemsForRequest[idx].productId !== (item.productId || null)
+        )
+        .map((item: any) => item.productId)
+        .filter((productId: unknown): productId is string => typeof productId === "string" && productId.length > 0)))
+      const dbProducts = productIds.length > 0
+        ? await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            include: { category: true }
+          })
+        : []
 
       // Validate out-of-stock products for Interior Design Consultants
       const userRole = (session?.user as any)?.role || ""
@@ -1410,6 +1449,7 @@ export async function PUT(
         const marginVal = parseFloat(item.margin) || 0.0
         const amt = (price - disc) * qty
 
+        const existingItem = existingItemsForRequest[idx]
         const matchedProd = dbProducts.find((p) => p.id === item.productId)
 
         const rawImageUrl = item.customImageUrl || item.imageUrl || matchedProd?.imageUrl || null;
@@ -1417,6 +1457,7 @@ export async function PUT(
         const resolvedImage = resolvedStatus !== "DRAFT" ? await resolveImageUrl(rawImageUrl) : null;
 
         return {
+          id: existingItem?.id,
           itemNo: idx + 1,
           sortOrder: idx + 1,
           productId: item.productId || null,
@@ -1431,13 +1472,13 @@ export async function PUT(
           margin: marginVal,
           amount: amt,
           imageUrl: resolvedImage,
-          categoryName: item.categoryName || matchedProd?.category?.name || "OFFICE FURNITURE",
-          chairType: item.chairType || matchedProd?.chairType || null,
+          categoryName: item.categoryName || matchedProd?.category?.name || existingItem?.categoryName || "OFFICE FURNITURE",
+          chairType: item.chairType || matchedProd?.chairType || existingItem?.chairType || null,
           productDescription: item.productDescription !== undefined && item.productDescription !== null
             ? cleanHtmlText(item.productDescription)
-            : (matchedProd?.description ? cleanHtmlText(matchedProd.description) : null),
-          dimensions: matchedProd?.dimensions || null,
-          warranty: matchedProd?.warranty || null,
+            : (matchedProd?.description ? cleanHtmlText(matchedProd.description) : existingItem?.productDescription || null),
+          dimensions: matchedProd?.dimensions || existingItem?.dimensions || null,
+          warranty: matchedProd?.warranty || existingItem?.warranty || null,
           batchHeading: item.batchHeading || null,
           costingStatus: item.costingStatus || "NOT_REQUIRED",
           unitCost: parseFloat(item.unitCost) || 0,
@@ -1501,27 +1542,43 @@ export async function PUT(
         grandTotal = Math.round(taxableAmount + vatAmount)
       }
 
-      // Read brand logo to base64 (only if not draft)
-      const logoBase64 = await getLogoBase64()
-      const watermarkBase64 = await getWatermarkBase64()
-      const aynMuskLogoBase64 = await getAynMuskLogoBase64()
-      const companySealBase64 = await getCompanySealBase64()
-      const promotionalImageBase64 = await getPromotionalImageBase64()
+      const shouldGeneratePdf = resolvedStatus !== "DRAFT"
+
+      // Autosaving a draft does not use PDF assets; avoid repeated settings/storage reads.
+      const [
+        logoBase64,
+        watermarkBase64,
+        aynMuskLogoBase64,
+        companySealBase64,
+        promotionalImageBase64,
+      ] = shouldGeneratePdf
+        ? await Promise.all([
+            getLogoBase64(),
+            getWatermarkBase64(),
+            getAynMuskLogoBase64(),
+            getCompanySealBase64(),
+            getPromotionalImageBase64(),
+          ])
+        : ["", "", "", "", null]
       const barcodeBase64 = generateCode128DataUri(existingQuotation.quotationNumber)
 
-      const companySettings = await getSettings([
-        "company_name",
-        "company_address",
-        "company_trn",
-        "company_bank_details",
-        "company_disclaimer_title",
-        "company_disclaimer",
-      ])
+      const companySettings = shouldGeneratePdf
+        ? await getSettings([
+            "company_name",
+            "company_address",
+            "company_trn",
+            "company_bank_details",
+            "company_disclaimer_title",
+            "company_disclaimer",
+          ])
+        : {}
 
       // Re-fetch client in case it changed
-      const currentClient = await prisma.client.findUnique({
-        where: { id: clientId || existingQuotation.clientId }
-      })
+      const currentClient = shouldGeneratePdf
+        ? await prisma.client.findUnique({
+            where: { id: clientId || existingQuotation.clientId }
+          })
+        : existingQuotation.client
       if (!currentClient) {
         return NextResponse.json({ error: "Client not found" }, { status: 404 })
       }
@@ -1556,7 +1613,7 @@ export async function PUT(
         }
       }
 
-      if (termsArray.length === 0) {
+      if (termsArray.length === 0 && shouldGeneratePdf) {
         const dbTerms = await prisma.termsCondition.findMany({
           where: { isDefault: true },
         })
@@ -1573,13 +1630,15 @@ export async function PUT(
 
       // Resolve material swatch images for update PDF
       const rawSelectedMaterialsUpd = Array.isArray(selectedMaterials) ? selectedMaterials : []
-      const docSelectedMaterialsUpd = await Promise.all(
-        rawSelectedMaterialsUpd.map(async (mat: any) => ({
-          ...mat,
-          swatchUrl: mat.swatchUrl ? await resolveImageUrl(mat.swatchUrl) : null,
-          referenceImageUrl: mat.referenceImageUrl ? await resolveImageUrl(mat.referenceImageUrl) : null,
-        }))
-      )
+      const docSelectedMaterialsUpd = shouldGeneratePdf
+        ? await Promise.all(
+            rawSelectedMaterialsUpd.map(async (mat: any) => ({
+              ...mat,
+              swatchUrl: mat.swatchUrl ? await resolveImageUrl(mat.swatchUrl) : null,
+              referenceImageUrl: mat.referenceImageUrl ? await resolveImageUrl(mat.referenceImageUrl) : null,
+            }))
+          )
+        : rawSelectedMaterialsUpd
 
       const pdfProps = {
         quotationNumber: existingQuotation.quotationNumber,
@@ -1667,17 +1726,39 @@ export async function PUT(
         }
       }
 
-      // Execute transaction to delete and recreate items, and update parent quotation
-      const updatedQuotation = await prisma.$transaction(async (tx) => {
-        // 1. Delete existing items
-        await tx.quotationItem.deleteMany({
-          where: { quotationId: existingQuotation.id }
-        })
+      const quotationItemData = (item: any) => ({
+        itemNo: item.itemNo,
+        sortOrder: item.sortOrder,
+        productId: item.productId,
+        description: item.description,
+        specifications: item.specifications,
+        productNotes: item.productNotes,
+        customImageUrl: item.customImageUrl,
+        productDescription: item.productDescription,
+        categoryName: item.categoryName,
+        chairType: item.chairType,
+        batchHeading: item.batchHeading,
+        quantity: item.quantity,
+        basePrice: item.basePrice,
+        unitPrice: item.unitPrice,
+        discount: item.discount,
+        margin: item.margin,
+        amount: item.amount,
+        costingStatus: item.costingStatus || "NOT_REQUIRED",
+        unitCost: item.unitCost || 0,
+        materialCost: item.materialCost || 0,
+        laborCost: item.laborCost || 0,
+        overheadCost: item.overheadCost || 0,
+        transportCost: item.transportCost || 0,
+        installationCost: item.installationCost || 0,
+        marginPercentage: item.marginPercentage || 0,
+        estimatorNotes: item.estimatorNotes || null,
+        estimatorId: item.estimatorId || null,
+        costingRequestedAt: item.costingRequestedAt || null,
+        costingCompletedAt: item.costingCompletedAt || null,
+      })
 
-        // 2. Update parent quotation
-        return await tx.quotation.update({
-          where: { id: existingQuotation.id },
-          data: {
+      const quotationUpdateData = {
             clientId: clientId || existingQuotation.clientId,
             preparedById: finalPreparedById,
             customerSegment: customerSegment || existingQuotation.customerSegment,
@@ -1714,38 +1795,74 @@ export async function PUT(
             salesAgentContactNumber: includeSalesAgent ? (salesAgentContactNumber || null) : null,
             salesAgentTitle: includeSalesAgent ? (salesAgentTitle || null) : null,
             salesAgentEmail: includeSalesAgent ? (salesAgentEmail || null) : null,
+      }
+
+      // Autosaves preserve existing item rows and only write rows that actually changed.
+      const updatedQuotation = await prisma.$transaction(async (tx) => {
+        if (isDraftUpdate) {
+          const retainedItemIds: string[] = []
+          const newItems: any[] = []
+
+          for (const item of quotationItemsToCreate) {
+            const data = quotationItemData(item)
+            const existingItem = item.id ? existingItemsById.get(item.id) : undefined
+            if (!existingItem) {
+              newItems.push(data)
+              continue
+            }
+
+            retainedItemIds.push(existingItem.id)
+            const dataKeys = Object.keys(data) as (keyof typeof data)[]
+            const existingItemValues = new Map(Object.entries(existingItem))
+            const hasChanges = dataKeys.some((key) => {
+              const value = data[key]
+              const currentValue = existingItemValues.get(key)
+              if (value instanceof Date && currentValue instanceof Date) {
+                return value.getTime() !== currentValue.getTime()
+              }
+              return currentValue !== value
+            })
+            if (hasChanges) {
+              await tx.quotationItem.update({
+                where: { id: existingItem.id },
+                data,
+              })
+            }
+          }
+
+          await tx.quotationItem.deleteMany({
+            where: {
+              quotationId: existingQuotation.id,
+              id: { notIn: retainedItemIds },
+            },
+          })
+
+          return tx.quotation.update({
+            where: { id: existingQuotation.id },
+            data: {
+              ...quotationUpdateData,
+              items: { create: newItems },
+            },
+            ...(!isAutoSave && {
+              include: {
+                client: true,
+                items: true,
+                revisions: true,
+              }
+            })
+          })
+        }
+
+        await tx.quotationItem.deleteMany({
+          where: { quotationId: existingQuotation.id }
+        })
+
+        return tx.quotation.update({
+          where: { id: existingQuotation.id },
+          data: {
+            ...quotationUpdateData,
             items: {
-              create: quotationItemsToCreate.map((item: any) => ({
-                itemNo: item.itemNo,
-                sortOrder: item.sortOrder,
-                productId: item.productId,
-                description: item.description,
-                specifications: item.specifications,
-                productNotes: item.productNotes,
-                customImageUrl: item.customImageUrl,
-                productDescription: item.productDescription,
-                categoryName: item.categoryName,
-                chairType: item.chairType,
-                batchHeading: item.batchHeading,
-                quantity: item.quantity,
-                basePrice: item.basePrice,
-                unitPrice: item.unitPrice,
-                discount: item.discount,
-                margin: item.margin,
-                amount: item.amount,
-                costingStatus: item.costingStatus || "NOT_REQUIRED",
-                unitCost: item.unitCost || 0,
-                materialCost: item.materialCost || 0,
-                laborCost: item.laborCost || 0,
-                overheadCost: item.overheadCost || 0,
-                transportCost: item.transportCost || 0,
-                installationCost: item.installationCost || 0,
-                marginPercentage: item.marginPercentage || 0,
-                estimatorNotes: item.estimatorNotes || null,
-                estimatorId: item.estimatorId || null,
-                costingRequestedAt: item.costingRequestedAt || null,
-                costingCompletedAt: item.costingCompletedAt || null,
-              })),
+              create: quotationItemsToCreate.map(quotationItemData),
             },
           },
           include: {
@@ -1757,7 +1874,7 @@ export async function PUT(
       }, { maxWait: 15000, timeout: 30000 })
 
       // Autosaves are frequent background persistence and should not create activity noise.
-      if (!body.isAutoSave) {
+      if (!isAutoSave) {
         try {
           if (logUserId) {
             await prisma.activityLog.create({
@@ -1773,6 +1890,18 @@ export async function PUT(
         } catch (logError) {
           console.error("Failed to write updated quotation activity log:", logError)
         }
+      }
+
+      if (isAutoSave) {
+        return NextResponse.json({
+          id: updatedQuotation.id,
+          quotationNumber: updatedQuotation.quotationNumber,
+          status: updatedQuotation.status,
+          revisionNumber: updatedQuotation.revisionNumber,
+          parentId: updatedQuotation.parentId,
+          costingStatus: updatedQuotation.costingStatus,
+          updatedAt: updatedQuotation.updatedAt,
+        })
       }
 
       return NextResponse.json(updatedQuotation)

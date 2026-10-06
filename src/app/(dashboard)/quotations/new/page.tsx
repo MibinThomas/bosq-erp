@@ -173,6 +173,7 @@ const quotationSchema = z.object({
   disclaimer: z.string().optional(),
   items: z.array(
     z.object({
+      id: z.string().optional(),
       productId: z.string().nullable().optional(),
       priceSource: z.enum(["standard", "manual"]).default("standard"),
       description: z.string().optional(),
@@ -870,20 +871,39 @@ function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid
   )
 }
 
-function BatchSectionSubtotal({ control, batchName, fields }: { control: any; batchName: string; fields: any[] }) {
-  const watchItems = useWatch({ control, name: "items" }) || []
-  const isGeneralBatch = !batchName || batchName.trim().toLowerCase() === "general items"
+function BatchSectionSubtotal({
+  control,
+  sectionItems,
+}: {
+  control: any
+  sectionItems: { originalIndex: number }[]
+}) {
+  if (sectionItems.length === 0) {
+    return (
+      <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+        <Badge variant="outline" className="text-[11px] font-mono shrink-0 bg-background">0 items</Badge>
+        <span className="text-xs font-semibold text-foreground font-mono">Subtotal: AED 0.00</span>
+      </div>
+    )
+  }
 
-  const itemsInBatch = fields.flatMap((_, idx) => {
-    const itemVal = watchItems[idx] || {}
-    const itemBatch = (itemVal?.batchHeading || "").trim()
-    const belongsToBatch = isGeneralBatch
-      ? !itemBatch || itemBatch.toLowerCase() === "general items"
-      : itemBatch === batchName
-    return belongsToBatch ? [itemVal] : []
-  })
+  return <BatchSectionSubtotalValue control={control} sectionItems={sectionItems} />
+}
 
-  const batchSubtotal = itemsInBatch.reduce((sum, itemVal) => {
+function BatchSectionSubtotalValue({
+  control,
+  sectionItems,
+}: {
+  control: any
+  sectionItems: { originalIndex: number }[]
+}) {
+  const itemPaths = useMemo(
+    () => sectionItems.map(({ originalIndex }) => `items.${originalIndex}` as const),
+    [sectionItems]
+  )
+  const items = useWatch({ control, name: itemPaths }) || []
+
+  const batchSubtotal = items.reduce((sum, itemVal) => {
     const qty = itemVal.quantity === "" ? 0 : Number(itemVal.quantity) || 0
     const price = itemVal.unitPrice === "" ? 0 : Number(itemVal.unitPrice) || 0
     const discVal = itemVal.discount === "" ? 0 : Number(itemVal.discount) || 0
@@ -896,7 +916,7 @@ function BatchSectionSubtotal({ control, batchName, fields }: { control: any; ba
   return (
     <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
       <Badge variant="outline" className="text-[11px] font-mono shrink-0 bg-background">
-        {itemsInBatch.length} {itemsInBatch.length === 1 ? 'item' : 'items'}
+        {items.length} {items.length === 1 ? 'item' : 'items'}
       </Badge>
       <span className="text-xs font-semibold text-foreground font-mono">
         Subtotal: AED {formatCurrency(batchSubtotal)}
@@ -2124,19 +2144,19 @@ function NewQuotationForm() {
   const [sectionCreateTargetIndex, setSectionCreateTargetIndex] = useState<number | null>(null)
   const [editingSectionBatchId, setEditingSectionBatchId] = useState<string | null>(null)
 
-  const handleOpenCreateSection = (targetIndex?: number) => {
+  const handleOpenCreateSection = useCallback((targetIndex?: number) => {
     setEditingSectionBatchId(null)
     setNewSectionInputName("")
     setSectionCreateTargetIndex(targetIndex ?? null)
     setIsCreateSectionModalOpen(true)
-  }
+  }, [])
 
-  const handleOpenEditSection = (batch: { id: string; name: string }) => {
+  const handleOpenEditSection = useCallback((batch: { id: string; name: string }) => {
     setEditingSectionBatchId(batch.id)
     setNewSectionInputName(batch.name.trim() || "General Items")
     setSectionCreateTargetIndex(null)
     setIsCreateSectionModalOpen(true)
-  }
+  }, [])
 
   const handleConfirmSaveSection = () => {
     const trimmed = newSectionInputName.trim()
@@ -2238,12 +2258,13 @@ function NewQuotationForm() {
   }, [draggedIndex, draggedBatchId])
 
   const [selectedItemIndices, setSelectedItemIndices] = useState<number[]>([])
+  const autoSaveHandlerRef = useRef<() => Promise<any>>(async () => undefined)
 
-  const handleToggleSelectItem = (index: number) => {
+  const handleToggleSelectItem = useCallback((index: number) => {
     setSelectedItemIndices((prev) =>
       prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
     )
-  }
+  }, [])
 
   const handleToggleSelectBatch = (bName: string) => {
     const watchAllItems = form.getValues("items") || []
@@ -2314,7 +2335,10 @@ function NewQuotationForm() {
     if (selectedItemIndices.length === 0) return
     const currentItems = form.getValues("items") || []
     const sortedIndices = [...selectedItemIndices].sort((a, b) => a - b)
-    const itemsToDuplicate = sortedIndices.map((idx) => ({ ...currentItems[idx] }))
+    const itemsToDuplicate = sortedIndices.map((idx) => ({
+      ...currentItems[idx],
+      id: undefined,
+    }))
 
     const updatedItems = [...currentItems, ...itemsToDuplicate]
     form.setValue("items", updatedItems, { shouldDirty: true, shouldValidate: true })
@@ -2356,30 +2380,30 @@ function NewQuotationForm() {
     autoSaveStateRef.current = { isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes }
   }, [isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes])
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
     e.stopPropagation()
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', `item-${index}`)
     setDraggedIndex(index)
-  }
+  }, [])
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
     e.preventDefault()
     e.stopPropagation()
     e.dataTransfer.dropEffect = 'move'
     if (draggedIndex !== null && draggedIndex !== index && dragOverIndex !== index) {
       setDragOverIndex(index)
     }
-  }
+  }, [draggedIndex, dragOverIndex])
 
-  const handleDragEnd = () => {
+  const handleDragEnd = useCallback(() => {
     setDraggedIndex(null)
     setDragOverIndex(null)
     setDraggedBatchId(null)
     setDragOverBatchId(null)
-  }
+  }, [])
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number, targetBatchName?: string) => {
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number, targetBatchName?: string) => {
     e.preventDefault()
     e.stopPropagation()
 
@@ -2443,9 +2467,9 @@ function NewQuotationForm() {
     } else {
       toast.success(formattedTargetName ? `Moved product to section "${formattedTargetName}"` : `Moved product`)
     }
-  }
+  }, [draggedIndex, selectedItemIndices, form, handleDragEnd])
 
-  const handleMoveItem = (index: number, direction: -1 | 1, batchName: string) => {
+  const handleMoveItem = useCallback((index: number, direction: -1 | 1, batchName: string) => {
     const currentItems = [...form.getValues("items")]
     if (index < 0 || index >= currentItems.length) return
 
@@ -2473,7 +2497,7 @@ function NewQuotationForm() {
     currentItems[targetIndex] = temp
 
     form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
-  }
+  }, [form])
 
   const handleBatchDragStart = (e: React.DragEvent, batchId: string) => {
     e.stopPropagation()
@@ -2986,6 +3010,7 @@ function NewQuotationForm() {
                   : (item.costingStatus || (activeData.costingStatus === "COSTING_COMPLETED" ? "COSTING_COMPLETED" : "NOT_REQUIRED"))
 
                 return {
+                  id: copyId ? undefined : item.id,
                   productId: item.productId || "",
                   priceSource: resolvedPriceSource,
                   description: item.description,
@@ -3135,9 +3160,13 @@ function NewQuotationForm() {
     control: form.control,
   })
 
+  const batchHeadingFieldNames = useMemo(
+    () => fields.map((_, idx) => `items.${idx}.batchHeading` as const),
+    [fields]
+  )
   const watchedBatchHeadings = useWatch({
     control: form.control,
-    name: fields.map((_, idx) => `items.${idx}.batchHeading` as const),
+    name: batchHeadingFieldNames,
   })
 
   const groupedItemsByBatch = useMemo(() => {
@@ -3243,7 +3272,7 @@ function NewQuotationForm() {
     }
   }
 
-  const handleProductSelect = (index: number, productId: string, overrideProd?: any) => {
+  const handleProductSelect = useCallback((index: number, productId: string, overrideProd?: any) => {
     const prod = overrideProd || products.find((p) => p.id === productId)
     if (!prod) return
 
@@ -3292,9 +3321,9 @@ function NewQuotationForm() {
     if (prod.chairType) {
       form.setValue(`items.${index}.chairType`, prod.chairType, { shouldValidate: true, shouldDirty: true })
     }
-  }
+  }, [products, watchSegment, form])
 
-  const handleVariantSelect = (index: number, variantProduct: any) => {
+  const handleVariantSelect = useCallback((index: number, variantProduct: any) => {
     if (!variantProduct) return
     setProducts((prev) => {
       if (!prev.some((p) => p.id === variantProduct.id)) {
@@ -3305,18 +3334,18 @@ function NewQuotationForm() {
     handleProductSelect(index, variantProduct.id, variantProduct)
     lastSavedDataRef.current = ""
     setTimeout(() => {
-      handleAutoSave()
+      void autoSaveHandlerRef.current()
     }, 50)
-  }
+  }, [handleProductSelect])
 
-  const handleDuplicateItem = (index: number) => {
+  const handleDuplicateItem = useCallback((index: number) => {
     const itemToCopy = form.getValues(`items.${index}`)
     const { id, ...cleanItem } = (itemToCopy || {}) as any
     insert(index + 1, {
       ...cleanItem,
     })
     toast.success("Item duplicated")
-  }
+  }, [form, insert])
 
   const handleAddItemToBatch = (batchName: string) => {
     append({
@@ -3665,15 +3694,21 @@ function NewQuotationForm() {
       if (res.ok) {
         const result = await res.json()
         if (result.id) {
+          const previousQuote = autoSaveStateRef.current.existingQuote
+          const nextQuote = previousQuote
+            ? { ...previousQuote, ...result }
+            : result
           autoSaveStateRef.current = {
             ...autoSaveStateRef.current,
             isEdit: true,
             isRevision: false,
-            existingQuote: result,
+            existingQuote: nextQuote,
             autoSavedQuoteId: result.id,
           }
           setAutoSavedQuoteId(result.id)
-          setExistingQuote(result)
+          if (!previousQuote || previousQuote.id !== result.id) {
+            setExistingQuote(nextQuote)
+          }
           setIsEdit(true)
           setIsRevision(false)
         }
@@ -3696,6 +3731,7 @@ function NewQuotationForm() {
         }, 0)
       }
     }
+    autoSaveHandlerRef.current = handleAutoSave
   }
 
   const saveHistorySnapshot = useCallback(() => {
@@ -3724,7 +3760,7 @@ function NewQuotationForm() {
       }
       historySnapshotTimerRef.current = setTimeout(() => {
         saveHistorySnapshot()
-      }, 250)
+      }, 1000)
     })
     return () => {
       subscription.unsubscribe()
@@ -5010,7 +5046,10 @@ function NewQuotationForm() {
                                 </div>
 
                                 <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-                                  <BatchSectionSubtotal control={form.control} batchName={batch.name} fields={fields} />
+                                  <BatchSectionSubtotal
+                                    control={form.control}
+                                    sectionItems={sectionItems}
+                                  />
 
                                   {batches.length > 1 && (
                                     <Button
@@ -5069,8 +5108,8 @@ function NewQuotationForm() {
                                         isConfiguratorEnabled={isConfiguratorEnabled}
                                         isSelected={selectedItemIndices.includes(originalIndex)}
                                         handleToggleSelectItem={handleToggleSelectItem}
-                                        onOpenCreateSection={(itemIdx) => handleOpenCreateSection(itemIdx)}
-                                        onOpenEditSection={(targetBatch) => handleOpenEditSection(targetBatch)}
+                                        onOpenCreateSection={handleOpenCreateSection}
+                                        onOpenEditSection={handleOpenEditSection}
                                       />
                                     ))
                                   )}
