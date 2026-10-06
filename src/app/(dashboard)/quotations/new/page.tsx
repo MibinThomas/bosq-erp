@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useState, useEffect, useMemo, Suspense, useRef } from "react"
+import React, { useState, useEffect, useMemo, Suspense, useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useForm, useFieldArray, useWatch } from "react-hook-form"
+import { useForm, useFieldArray, useWatch, type Control } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { 
@@ -686,6 +686,23 @@ function useQuotationFinancials(control: any) {
   }
 }
 
+function usePendingCostingItems(control: Control<QuotationFormValues>) {
+  const watchItems = useWatch({ control, name: "items" })
+
+  const pendingCostingCount = useMemo(() => {
+    return (watchItems || []).filter((item) =>
+      item.costingStatus === "ADDED_FOR_COSTING" ||
+      item.costingStatus === "PENDING_COSTING" ||
+      item.costingStatus === "COSTING_IN_PROGRESS"
+    ).length
+  }, [watchItems])
+
+  return {
+    pendingCostingCount,
+    hasPendingCostingItems: pendingCostingCount > 0,
+  }
+}
+
 function CalculationSummaryPanel({ control }: { control: any }) {
   const {
     subtotal,
@@ -855,20 +872,18 @@ function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid
 
 function BatchSectionSubtotal({ control, batchName, fields }: { control: any; batchName: string; fields: any[] }) {
   const watchItems = useWatch({ control, name: "items" }) || []
+  const isGeneralBatch = !batchName || batchName.trim().toLowerCase() === "general items"
 
-  const itemsInBatch = fields.filter((_, idx) => {
-    const itemVal = watchItems[idx]
+  const itemsInBatch = fields.flatMap((_, idx) => {
+    const itemVal = watchItems[idx] || {}
     const itemBatch = (itemVal?.batchHeading || "").trim()
-    const isGeneralBatch = !batchName || batchName.trim().toLowerCase() === "general items"
-    if (isGeneralBatch) {
-      return !itemBatch || itemBatch.toLowerCase() === "general items"
-    }
-    return itemBatch === batchName
+    const belongsToBatch = isGeneralBatch
+      ? !itemBatch || itemBatch.toLowerCase() === "general items"
+      : itemBatch === batchName
+    return belongsToBatch ? [itemVal] : []
   })
 
-  const batchSubtotal = itemsInBatch.reduce((sum, fieldItem) => {
-    const idx = fields.findIndex(f => f.id === fieldItem.id)
-    const itemVal = watchItems[idx] || {}
+  const batchSubtotal = itemsInBatch.reduce((sum, itemVal) => {
     const qty = itemVal.quantity === "" ? 0 : Number(itemVal.quantity) || 0
     const price = itemVal.unitPrice === "" ? 0 : Number(itemVal.unitPrice) || 0
     const discVal = itemVal.discount === "" ? 0 : Number(itemVal.discount) || 0
@@ -1619,28 +1634,27 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   )
 })
 function StickyFooterToolbar({
-  grandTotal,
   submitting,
   primaryButtonText,
   onSubmit,
   onInvalid,
   form,
+  control,
   handleSendToCostingClick,
-  pendingCostingCount,
-  hasPendingCostingItems,
   isQuotationLockedForCosting,
 }: {
-  grandTotal: number
   submitting: boolean
   primaryButtonText: string
   onSubmit: (data: any, status?: any) => void
   onInvalid: (errors: any) => void
   form: any
+  control: Control<QuotationFormValues>
   handleSendToCostingClick: () => void
-  pendingCostingCount: number
-  hasPendingCostingItems: boolean
   isQuotationLockedForCosting?: boolean
 }) {
+  const { grandTotal } = useQuotationFinancials(control)
+  const { pendingCostingCount, hasPendingCostingItems } = usePendingCostingItems(control)
+
   return (
     <div className="fixed bottom-0 left-0 md:left-64 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
       <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
@@ -1723,6 +1737,38 @@ function StickyFooterToolbar({
   )
 }
 
+function PendingCostingAction({
+  control,
+  isIDC,
+  isQuotationLockedForCosting,
+  submitting,
+  onClick,
+}: {
+  control: Control<QuotationFormValues>
+  isIDC: boolean
+  isQuotationLockedForCosting: boolean
+  submitting: boolean
+  onClick: () => void
+}) {
+  const { pendingCostingCount, hasPendingCostingItems } = usePendingCostingItems(control)
+
+  if (!isIDC || !hasPendingCostingItems || isQuotationLockedForCosting) return null
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={submitting}
+      onClick={onClick}
+      className="bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-xs h-8 px-2.5 cursor-pointer flex items-center gap-1 shadow-2xs"
+    >
+      <Calculator className="h-3.5 w-3.5 text-amber-600" />
+      <span className="hidden md:inline">Send to Estimator ({pendingCostingCount})</span>
+    </Button>
+  )
+}
+
 function NewQuotationForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1785,18 +1831,10 @@ function NewQuotationForm() {
 
   const watchIncludeMaterialsFinishes = form.watch("includeMaterialsFinishes")
   const watchSelectedMaterials = form.watch("selectedMaterials") || []
-  const watchItems = form.watch("items") || []
 
   const [isCostingSelectionOpen, setIsCostingSelectionOpen] = useState(false)
   const [selectedCostingItemIndexes, setSelectedCostingItemIndexes] = useState<number[]>([])
-
-  const pendingCostingCount = useMemo(() => {
-    return watchItems.filter((item: any) => item.costingStatus === "ADDED_FOR_COSTING" || item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS").length
-  }, [watchItems])
-
-  const hasPendingCostingItems = useMemo(() => {
-    return watchItems.some((item: any) => item.costingStatus === "ADDED_FOR_COSTING" || item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS")
-  }, [watchItems])
+  const costingItems = form.getValues("items") || []
 
   const handleSendToCostingClick = async () => {
     if (submitting || isQuotationLockedForCosting) return
@@ -3097,7 +3135,10 @@ function NewQuotationForm() {
     control: form.control,
   })
 
-  const watchAllItemsForGrouping = form.watch("items") || []
+  const watchedBatchHeadings = useWatch({
+    control: form.control,
+    name: fields.map((_, idx) => `items.${idx}.batchHeading` as const),
+  })
 
   const groupedItemsByBatch = useMemo(() => {
     const map: Record<string, { fieldItem: any; originalIndex: number }[]> = {}
@@ -3109,8 +3150,7 @@ function NewQuotationForm() {
     })
 
     fields.forEach((fieldItem, idx) => {
-      const itemVal = watchAllItemsForGrouping[idx] || fieldItem
-      const itemBatch = (itemVal?.batchHeading || "").trim()
+      const itemBatch = (watchedBatchHeadings[idx] ?? fieldItem.batchHeading ?? "").trim()
       const isGeneral = !itemBatch || itemBatch.toLowerCase() === "general items"
 
       let targetBatchName = "General Items"
@@ -3133,7 +3173,7 @@ function NewQuotationForm() {
     })
 
     return map
-  }, [fields, watchAllItemsForGrouping, batches])
+  }, [fields, watchedBatchHeadings, batches])
 
   const { fields: additionalFields, append: appendAdditional, remove: removeAdditional } = useFieldArray({
     name: "additionalCharges",
@@ -3532,15 +3572,22 @@ function NewQuotationForm() {
   }
 
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const autoSaveInFlightRef = useRef(false)
+  const autoSaveQueuedRef = useRef(false)
 
   const handleAutoSave = async () => {
     const currentData = form.getValues()
     if (!currentData.clientId || currentData.items.length === 0) return
+    if (autoSaveInFlightRef.current) {
+      autoSaveQueuedRef.current = true
+      return
+    }
 
     const { isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes } = autoSaveStateRef.current
     const dataString = JSON.stringify({ ...currentData, revisionNotes })
     if (dataString === lastSavedDataRef.current) return
 
+    autoSaveInFlightRef.current = true
     setIsAutoSaving(true)
     try {
 
@@ -3609,6 +3656,7 @@ function NewQuotationForm() {
           commonRemarkStyle: currentData.commonRemarkStyle || "AMBER",
           isRevision: sendIsRevision,
           isUpdate: isEdit || !!autoSavedQuoteId,
+          isAutoSave: true,
           revisionNotes: revisionNotes,
           status: "DRAFT",
         }),
@@ -3617,6 +3665,13 @@ function NewQuotationForm() {
       if (res.ok) {
         const result = await res.json()
         if (result.id) {
+          autoSaveStateRef.current = {
+            ...autoSaveStateRef.current,
+            isEdit: true,
+            isRevision: false,
+            existingQuote: result,
+            autoSavedQuoteId: result.id,
+          }
           setAutoSavedQuoteId(result.id)
           setExistingQuote(result)
           setIsEdit(true)
@@ -3629,31 +3684,62 @@ function NewQuotationForm() {
     } catch (error) {
       console.error("Auto-save failed:", error)
     } finally {
+      autoSaveInFlightRef.current = false
       setIsAutoSaving(false)
+      if (autoSaveQueuedRef.current) {
+        autoSaveQueuedRef.current = false
+        if (autoSaveTimerRef.current) {
+          clearTimeout(autoSaveTimerRef.current)
+        }
+        autoSaveTimerRef.current = setTimeout(() => {
+          void handleAutoSave()
+        }, 0)
+      }
     }
   }
 
-  // Track Form Changes for Undo History Stack
-  useEffect(() => {
-    const subscription = form.watch((value) => {
-      if (isHistoryActionRef.current) return
-      
-      const snapshot = JSON.parse(JSON.stringify(value))
-      const lastSnapshot = historyStackRef.current[historyStackRef.current.length - 1]
-      
-      if (!lastSnapshot || JSON.stringify(snapshot) !== JSON.stringify(lastSnapshot)) {
-        historyStackRef.current.push(snapshot)
-        if (historyStackRef.current.length > 35) {
-          historyStackRef.current.shift()
-        }
-        redoStackRef.current = []
+  const saveHistorySnapshot = useCallback(() => {
+    if (isHistoryActionRef.current) return
+
+    const snapshot = JSON.parse(JSON.stringify(form.getValues()))
+    const lastSnapshot = historyStackRef.current[historyStackRef.current.length - 1]
+
+    if (!lastSnapshot || JSON.stringify(snapshot) !== JSON.stringify(lastSnapshot)) {
+      historyStackRef.current.push(snapshot)
+      if (historyStackRef.current.length > 35) {
+        historyStackRef.current.shift()
       }
-    })
-    return () => subscription.unsubscribe()
+      redoStackRef.current = []
+    }
   }, [form])
+
+  // Track Form Changes for Undo History Stack
+  const historySnapshotTimerRef = useRef<NodeJS.Timeout | null>(null)
+  useEffect(() => {
+    const subscription = form.watch(() => {
+      if (isHistoryActionRef.current) return
+
+      if (historySnapshotTimerRef.current) {
+        clearTimeout(historySnapshotTimerRef.current)
+      }
+      historySnapshotTimerRef.current = setTimeout(() => {
+        saveHistorySnapshot()
+      }, 250)
+    })
+    return () => {
+      subscription.unsubscribe()
+      if (historySnapshotTimerRef.current) {
+        clearTimeout(historySnapshotTimerRef.current)
+      }
+    }
+  }, [form, saveHistorySnapshot])
 
   // Undo / Redo Handlers
   const performUndo = () => {
+    if (historySnapshotTimerRef.current) {
+      clearTimeout(historySnapshotTimerRef.current)
+    }
+    saveHistorySnapshot()
     if (historyStackRef.current.length <= 1) {
       toast.info("Nothing to undo")
       return
@@ -3674,6 +3760,10 @@ function NewQuotationForm() {
   }
 
   const performRedo = () => {
+    if (historySnapshotTimerRef.current) {
+      clearTimeout(historySnapshotTimerRef.current)
+    }
+    saveHistorySnapshot()
     if (redoStackRef.current.length === 0) {
       toast.info("Nothing to redo")
       return
@@ -3830,7 +3920,6 @@ function NewQuotationForm() {
   const primaryButtonText = isRevisionMode ? `Create Revision ${targetRevNo}` : isFinalizedQuote ? "Update Quotation" : "Create Quotation"
   const watchIncludeSectionHeadings = useWatch({ control: form.control, name: "includeSectionHeadings" }) ?? true
 
-  const { grandTotal: calculatedGrandTotal } = useQuotationFinancials(form.control)
   const currentUserRole = userRole || (session?.user as any)?.role || ""
   const isIDC = ["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(currentUserRole)
   const currentCostingStatus = (existingQuote?.costingStatus || "").toUpperCase()
@@ -3929,20 +4018,13 @@ function NewQuotationForm() {
             <span>PDF Preview</span>
           </Button>
 
-          {/* Send to Estimator Action Button (if applicable for IDC) */}
-          {isIDC && hasPendingCostingItems && !isQuotationLockedForCosting && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={submitting}
-              onClick={handleSendToCostingClick}
-              className="bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-xs h-8 px-2.5 cursor-pointer flex items-center gap-1 shadow-2xs"
-            >
-              <Calculator className="h-3.5 w-3.5 text-amber-600" />
-              <span className="hidden md:inline">Send to Estimator ({pendingCostingCount})</span>
-            </Button>
-          )}
+          <PendingCostingAction
+            control={form.control}
+            isIDC={isIDC}
+            isQuotationLockedForCosting={isQuotationLockedForCosting}
+            submitting={submitting}
+            onClick={handleSendToCostingClick}
+          />
 
           {/* Primary Action Button (Create / Update / Save Revision) */}
           <Button
@@ -3983,8 +4065,6 @@ function NewQuotationForm() {
     submitting,
     isQuotationLockedForCosting,
     isIDC,
-    hasPendingCostingItems,
-    pendingCostingCount,
     primaryButtonText,
     setHeaderContent,
   ])
@@ -5853,15 +5933,13 @@ function NewQuotationForm() {
 
       {/* STICKY FLOATING ACTION DOCK (MOBILE & DESKTOP) */}
       <StickyFooterToolbar
-        grandTotal={calculatedGrandTotal}
         submitting={submitting}
         primaryButtonText={primaryButtonText}
         onSubmit={onSubmit}
         onInvalid={onInvalid}
         form={form}
+        control={form.control}
         handleSendToCostingClick={handleSendToCostingClick}
-        pendingCostingCount={pendingCostingCount}
-        hasPendingCostingItems={hasPendingCostingItems}
         isQuotationLockedForCosting={isQuotationLockedForCosting}
       />
 
@@ -6185,25 +6263,25 @@ function NewQuotationForm() {
 
           <div className="space-y-3 my-2 max-h-[60vh] overflow-y-auto pr-1">
             <div className="flex items-center justify-between border-b pb-2 text-xs">
-              <span className="font-semibold text-muted-foreground">Quotation Line Items ({watchItems.length})</span>
+              <span className="font-semibold text-muted-foreground">Quotation Line Items ({costingItems.length})</span>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  if (selectedCostingItemIndexes.length === watchItems.length) {
+                  if (selectedCostingItemIndexes.length === costingItems.length) {
                     setSelectedCostingItemIndexes([])
                   } else {
-                    setSelectedCostingItemIndexes(watchItems.map((_: any, idx: number) => idx))
+                    setSelectedCostingItemIndexes(costingItems.map((_: any, idx: number) => idx))
                   }
                 }}
                 className="text-xs h-6 px-2 text-amber-700 hover:bg-amber-50 font-semibold cursor-pointer"
               >
-                {selectedCostingItemIndexes.length === watchItems.length ? "Deselect All" : "Select All"}
+                {selectedCostingItemIndexes.length === costingItems.length ? "Deselect All" : "Select All"}
               </Button>
             </div>
 
-            {watchItems.map((item: any, idx: number) => {
+            {costingItems.map((item: any, idx: number) => {
               const isChecked = selectedCostingItemIndexes.includes(idx)
               return (
                 <div

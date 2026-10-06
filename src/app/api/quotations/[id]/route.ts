@@ -1302,21 +1302,23 @@ export async function PUT(
       }, { maxWait: 15000, timeout: 30000 })
 
 
-      // Log Activity
-      try {
-        if (logUserId) {
-          await prisma.activityLog.create({
-            data: {
-              userId: logUserId,
-              action: "REVISED_QUOTATION",
-              entityType: "QUOTATION",
-              entityId: updatedQuotation.id,
-              details: `Revised quotation ${existingQuotation.quotationNumber} to ${revQuoteNum}. Notes: ${revisionNotes}`,
-            },
-          })
+      // Autosaves are frequent background persistence and should not create activity noise.
+      if (!body.isAutoSave) {
+        try {
+          if (logUserId) {
+            await prisma.activityLog.create({
+              data: {
+                userId: logUserId,
+                action: "REVISED_QUOTATION",
+                entityType: "QUOTATION",
+                entityId: updatedQuotation.id,
+                details: `Revised quotation ${existingQuotation.quotationNumber} to ${revQuoteNum}. Notes: ${revisionNotes}`,
+              },
+            })
+          }
+        } catch (logError) {
+          console.error("Failed to write revised quotation activity log:", logError)
         }
-      } catch (logError) {
-        console.error("Failed to write revised quotation activity log:", logError)
       }
 
       return NextResponse.json(updatedQuotation)
@@ -1754,21 +1756,23 @@ export async function PUT(
         })
       }, { maxWait: 15000, timeout: 30000 })
 
-      // Log Activity
-      try {
-        if (logUserId) {
-          await prisma.activityLog.create({
-            data: {
-              userId: logUserId,
-              action: "UPDATED_QUOTATION",
-              entityType: "QUOTATION",
-              entityId: updatedQuotation.id,
-              details: `Updated quotation draft details for ${existingQuotation.quotationNumber}`,
-            },
-          })
+      // Autosaves are frequent background persistence and should not create activity noise.
+      if (!body.isAutoSave) {
+        try {
+          if (logUserId) {
+            await prisma.activityLog.create({
+              data: {
+                userId: logUserId,
+                action: "UPDATED_QUOTATION",
+                entityType: "QUOTATION",
+                entityId: updatedQuotation.id,
+                details: `Updated quotation draft details for ${existingQuotation.quotationNumber}`,
+              },
+            })
+          }
+        } catch (logError) {
+          console.error("Failed to write updated quotation activity log:", logError)
         }
-      } catch (logError) {
-        console.error("Failed to write updated quotation activity log:", logError)
       }
 
       return NextResponse.json(updatedQuotation)
