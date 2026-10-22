@@ -155,6 +155,7 @@ export async function POST(request: Request) {
               dimensions: dimensions ? dimensions : undefined,
               imageUrl: imageUrl ? imageUrl : undefined,
               status: "ACTIVE",
+              deletedAt: null, // re-importing a removed product code restores it
               chairType: chairType !== undefined ? chairType : undefined,
               tableTopFinish: tableTopFinish !== undefined ? tableTopFinish : undefined,
               legType: legType !== undefined ? legType : undefined,
