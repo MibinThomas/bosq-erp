@@ -165,6 +165,7 @@ export default function ProductsPage() {
     }
   }
   const [selectedCategory, setSelectedCategory] = useState("")
+  const [selectedSubCategory, setSelectedSubCategory] = useState("")
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; description: string | null; parentId?: string | null; _count?: { products: number } }[]>([])
@@ -181,12 +182,17 @@ export default function ProductsPage() {
     { ...parent, depth: 0 },
     ...categoriesList.filter(c => c.parentId === parent.id).map(child => ({ ...child, depth: 1 })),
   ])
-  // Selecting a parent category also matches products in its sub-categories
+  // The category filter shows main categories; a main category with sub-categories (e.g. Chairs)
+  // reveals a second filter to narrow to one sub-category (e.g. Premium Chairs).
   const selectedCategoryObj = categoriesList.find(c => c.name === selectedCategory)
+  const subCategoryOptions = selectedCategoryObj ? categoriesList.filter(c => c.parentId === selectedCategoryObj.id) : []
+  const activeFilterCategory = (selectedSubCategory && categoriesList.find(c => c.name === selectedSubCategory)) || selectedCategoryObj
   const selectedCategoryNames = new Set(
-    selectedCategoryObj
-      ? [selectedCategoryObj.name, ...categoriesList.filter(c => c.parentId === selectedCategoryObj.id).map(c => c.name)]
-      : selectedCategory ? [selectedCategory] : []
+    selectedSubCategory
+      ? [selectedSubCategory]
+      : selectedCategoryObj
+        ? [selectedCategoryObj.name, ...subCategoryOptions.map(c => c.name)]
+        : selectedCategory ? [selectedCategory] : []
   )
   const [updatingCategory, setUpdatingCategory] = useState(false)
   const [deletingCatId, setDeletingCatId] = useState<string | null>(null)
@@ -766,7 +772,7 @@ export default function ProductsPage() {
             <a
               href={`/api/products/export?${new URLSearchParams({
                 ...(searchTerm.trim() ? { q: searchTerm.trim() } : {}),
-                ...(selectedCategory ? { categoryId: categoriesList.find(c => c.name === selectedCategory)?.id || "" } : {}),
+                ...(activeFilterCategory ? { categoryId: activeFilterCategory.id } : {}),
               }).toString()}`}
               download
             >
@@ -804,15 +810,35 @@ export default function ProductsPage() {
           <select
             className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer hover:bg-muted/40 transition-colors max-w-[200px]"
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value)
+              setSelectedSubCategory("")
+            }}
           >
             <option value="">All Categories</option>
-            {categoryTree.map((cat) => (
+            {topLevelCategories.map((cat) => (
               <option key={cat.id} value={cat.name}>
-                {cat.depth > 0 ? `   └ ${cat.name}` : cat.name}
+                {cat.name}
               </option>
             ))}
           </select>
+
+          {/* Sub-category filter, shown only for a main category that has sub-categories (e.g. Chairs) */}
+          {subCategoryOptions.length > 0 && (
+            <select
+              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer hover:bg-muted/40 transition-colors max-w-[200px]"
+              value={selectedSubCategory}
+              onChange={(e) => setSelectedSubCategory(e.target.value)}
+              aria-label={`${selectedCategory} sub-category`}
+            >
+              <option value="">All {selectedCategory}</option>
+              {subCategoryOptions.map((cat) => (
+                <option key={cat.id} value={cat.name}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           <select
             className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer hover:bg-muted/40 transition-colors max-w-[200px]"
