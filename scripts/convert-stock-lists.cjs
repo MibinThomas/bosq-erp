@@ -9,6 +9,7 @@ const req = (m) => require(path.join(root, "node_modules", m))
 const ExcelJS = req("exceljs")
 const JSZip = req("jszip")
 const sharp = req("sharp")
+const { chairShortDescription, stockItemShortDescription } = require("./lib/short-descriptions.cjs")
 
 const imgDir = path.join(outDir, "images")
 fs.mkdirSync(imgDir, { recursive: true })
@@ -534,7 +535,9 @@ const SHEET_CATEGORY = {
       "Category": c.category, "Product Model": c.modelName, "Model Code": c.modelCode, "Chair Type": c.chairType, "Type Code": c.typeCode,
       "Item Code": c.itemCode, "Product Name": c.productName, "Selling Price (AED)": c.price || "", "Base Price (AED)": c.price ? "" : 0,
       "Stock Quantity": c.stock, "Headrest Colours": c.headrest, "Backrest Colours": c.backrest, "Seat Colours": c.seat, "Base Types": c.base,
-      "Dimensions / Size": c.dimensions, "Short Description": c.shortDescription, "Specifications / Details": c.specifications,
+      "Dimensions / Size": c.dimensions,
+      "Short Description": chairShortDescription({ chairType: c.chairType, spec: c.specifications, modelName: c.modelName }),
+      "Specifications / Details": c.specifications,
       "Image Filename": c.imageFilename,
     })
   }
@@ -542,7 +545,8 @@ const SHEET_CATEGORY = {
     addRow({
       "Category": p.category, "Item Code": p.code, "Product Name": p.name, "Selling Price (AED)": p.sellingPrice || "",
       "Base Price (AED)": p.sellingPrice ? "" : 0, "Stock Quantity": p.stock, "Dimensions / Size": p.dimensions, "Color": p.colour,
-      "Short Description": p.shortDescription, "Specifications / Details": p.specifications, "Image Filename": p.imageFilename,
+      "Short Description": stockItemShortDescription({ name: p.name, spec: p.specifications, colour: p.colour }),
+      "Specifications / Details": p.specifications, "Image Filename": p.imageFilename,
     })
   }
   sheet.getRow(1).font = { bold: true }

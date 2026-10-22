@@ -10,6 +10,7 @@ const input = process.argv[4]
 const req = (m) => require(path.join(root, "node_modules", m))
 const ExcelJS = req("exceljs")
 const sharp = req("sharp")
+const { priceListShortDescription } = require("./lib/short-descriptions.cjs")
 
 const imgDir = path.join(outDir, "images")
 fs.mkdirSync(imgDir, { recursive: true })
@@ -233,7 +234,8 @@ function classify(b) {
         rows.push({
           "Category": c.category, "Item Code": code, "Product Name": `${c.name} – ${d} mm`,
           "Selling Price (AED)": s.price, "Stock Quantity": 0, "Dimensions / Size": `${d} mm`,
-          "Short Description": `${c.name} ${d} mm`, "Specifications / Details": b.spec, "Image Filename": image,
+          "Short Description": priceListShortDescription({ spec: b.spec, size: d }),
+          "Specifications / Details": b.spec, "Image Filename": image,
         })
       }
       continue
@@ -263,7 +265,7 @@ function classify(b) {
       "Item Code": code, "Product Name": `${c.model} — ${c.layout}`,
       "Selling Price (AED)": base, "Stock Quantity": 0,
       "Dimension Options": options.join(", "),
-      "Short Description": `${c.model} — ${c.layout}`,
+      "Short Description": priceListShortDescription({ model: c.model, layout: c.layout, spec: b.spec, round: c.round }),
       "Specifications / Details": b.spec,
       "Image Filename": image,
     })
