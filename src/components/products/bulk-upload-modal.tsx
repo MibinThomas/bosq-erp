@@ -62,6 +62,8 @@ interface ParsedProduct {
   stock?: number
   modelName?: string
   masterTitle?: string
+  // True when the sheet supplied a selling/list price, which is used as-is (no margin markup)
+  priceFromList?: boolean
 }
 
 export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalProps) {
@@ -293,6 +295,40 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     return cleanCat || "General"
   }
 
+  // Derives all segment prices for an imported row. A selling/list price is used as-is for every
+  // segment; otherwise the base price is treated as cost and marked up by the pricing tiers.
+  const buildPrices = (basePrice: number, sellingPrice: number) => {
+    if (sellingPrice > 0) {
+      return {
+        costPrice: basePrice,
+        unitPrice: sellingPrice,
+        dealerPrice: sellingPrice,
+        interiorPrice: sellingPrice,
+        projectPrice: sellingPrice,
+        specialPrice: sellingPrice,
+        priceFromList: true,
+      }
+    }
+    const calculatePrice = (pct: number) => {
+      if (pct >= 100) return basePrice
+      return Number((basePrice / (1 - (pct / 100))).toFixed(2))
+    }
+    return {
+      costPrice: basePrice,
+      unitPrice: calculatePrice(pricingTiers.direct),
+      dealerPrice: calculatePrice(pricingTiers.dealer),
+      interiorPrice: calculatePrice(pricingTiers.interior),
+      projectPrice: calculatePrice(pricingTiers.direct),
+      specialPrice: basePrice,
+      priceFromList: false,
+    }
+  }
+
+  const parsePriceCell = (raw: string) => {
+    const val = parseFloat(raw.replace(/[^0-9.]/g, ""))
+    return isNaN(val) ? 0.0 : val
+  }
+
   // Auto-suggest and process data silently
   const processImportData = (fileHeaders: string[], fileRows: string[][], fileName: string, fileSize: number) => {
     const initialMappings: Record<string, string> = {}
@@ -304,6 +340,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       { key: "shortDescription", synonyms: ["short description", "shortdescription", "short desc", "summary", "brief description"] },
       { key: "description", synonyms: ["product description", "description", "full description"] },
       { key: "categoryName", synonyms: ["category", "category name", "categoryname", "product category", "productcategory", "item category", "categories", "category_name", "product_category", "type", "group", "class", "sub category", "subcategory"] },
+      { key: "sellingPrice", synonyms: ["selling price (aed)", "selling price", "list price (aed)", "list price"] },
       { key: "basePrice", synonyms: ["base price (aed)", "base price", "base_price", "price", "unitprice", "rate", "cost", "sellingprice", "selling rate", "baseprice", "costprice", "price(aed)"] },
       { key: "warranty", synonyms: ["warranty", "warranty period", "guarantee", "period"] },
       { key: "finishMaterial", synonyms: ["product type", "producttype", "finish / material", "finish/material", "finish material", "finishmaterial"] },
@@ -358,13 +395,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return ""
       }
 
-      const basePriceVal = parseFloat(getVal("basePrice").replace(/[^0-9.]/g, ""))
-      const basePrice = isNaN(basePriceVal) ? 0.0 : basePriceVal
-
-      const calculatePrice = (pct: number) => {
-        if (pct >= 100) return basePrice
-        return Number((basePrice / (1 - (pct / 100))).toFixed(2))
-      }
+      const prices = buildPrices(parsePriceCell(getVal("basePrice")), parsePriceCell(getVal("sellingPrice")))
 
       const stockRaw = getVal("stock")
       let stock: number | undefined = undefined
@@ -386,12 +417,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         description: shortDesc,
         shortDescription: shortDesc,
         specifications: fullSpecs,
-        unitPrice: calculatePrice(pricingTiers.direct),
-        costPrice: basePrice,
-        dealerPrice: calculatePrice(pricingTiers.dealer),
-        interiorPrice: calculatePrice(pricingTiers.interior),
-        projectPrice: calculatePrice(pricingTiers.direct),
-        specialPrice: basePrice,
+        ...prices,
         warranty: getVal("warranty") || "5 Years",
         finishMaterial: getVal("finishMaterial"),
         chairType: getVal("chairType"),
@@ -580,11 +606,18 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         })
       }
 
-      if (typeof p.costPrice !== "number" || isNaN(p.costPrice) || p.costPrice <= 0) {
+      if (typeof p.costPrice !== "number" || isNaN(p.costPrice) || p.costPrice < 0) {
         errorsList.push({
           row: csvRowNum,
           column: currentMappings["basePrice"] || "Base Price (AED)",
-          message: "Base price must be a valid positive number.",
+          message: "Base price must be a valid number (0 or greater).",
+          key: "costPrice"
+        })
+      } else if (!p.priceFromList && p.costPrice === 0) {
+        warningsList.push({
+          row: csvRowNum,
+          column: currentMappings["basePrice"] || "Base Price (AED)",
+          message: "No price — product will be imported at 0. Set its price before quoting.",
           key: "costPrice"
         })
       }
@@ -699,13 +732,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return ""
       }
 
-      const basePriceVal = parseFloat(getVal("basePrice").replace(/[^0-9.]/g, ""))
-      const basePrice = isNaN(basePriceVal) ? 0.0 : basePriceVal
-
-      const calculatePrice = (pct: number) => {
-        if (pct >= 100) return basePrice
-        return Number((basePrice / (1 - (pct / 100))).toFixed(2))
-      }
+      const prices = buildPrices(parsePriceCell(getVal("basePrice")), parsePriceCell(getVal("sellingPrice")))
 
       const stockVal = parseInt(getVal("stock").replace(/[^0-9]/g, ""), 10)
       const stock = isNaN(stockVal) ? 0 : stockVal
@@ -720,12 +747,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         categoryName: inferCategoryName(pCat, pName, pCode),
         description: getVal("description") || getVal("shortDescription") || getVal("specifications") || "",
         specifications: getVal("specifications"),
-        unitPrice: calculatePrice(pricingTiers.direct),
-        costPrice: basePrice,
-        dealerPrice: calculatePrice(pricingTiers.dealer),
-        interiorPrice: calculatePrice(pricingTiers.interior),
-        projectPrice: calculatePrice(pricingTiers.direct),
-        specialPrice: basePrice, // Online Price = Base Price
+        ...prices,
         warranty: getVal("warranty"),
         finishMaterial: getVal("finishMaterial"),
         chairType: getVal("chairType"),
@@ -870,8 +892,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     
     updated[index] = { ...updated[index], [key]: parsedValue }
     
-    // If changing costPrice, recalculate prices
-    if (key === "costPrice") {
+    // If changing costPrice, recalculate prices (unless the row carries an explicit selling/list price)
+    if (key === "costPrice" && !updated[index].priceFromList) {
       const cost = parsedValue as number
       const calculatePrice = (pct: number) => {
         if (pct >= 100) return cost
@@ -925,20 +947,35 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return
       }
 
-      const res = await fetch("/api/products/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ products: finalizedProducts })
-      })
-
-      if (!res.ok) throw new Error("Bulk import failed")
-      const data = await res.json()
+      // Send in batches so embedded images stay well under the server's request body limit
+      const BATCH_SIZE = 20
+      let importedCount = 0
+      const skippedRows: string[] = []
+      for (let start = 0; start < finalizedProducts.length; start += BATCH_SIZE) {
+        const batch = finalizedProducts.slice(start, start + BATCH_SIZE)
+        const res = await fetch("/api/products/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ products: batch })
+        })
+        if (!res.ok) {
+          throw new Error(`Bulk import failed at products ${start + 1}–${start + batch.length}${importedCount ? ` (${importedCount} already imported)` : ""}`)
+        }
+        const data = await res.json()
+        importedCount += data.count || 0
+        for (const s of data.skipped || []) {
+          skippedRows.push(`${batch[s.row - 1]?.productCode || `#${start + s.row}`}: ${s.reason}`)
+        }
+      }
 
       setShowSuccessOverlay(true)
-      toast.success(`Successfully imported ${data.count} products!`)
-    } catch (err) {
+      toast.success(`Successfully imported ${importedCount} products!`)
+      if (skippedRows.length > 0) {
+        toast.warning(`${skippedRows.length} product(s) were skipped: ${skippedRows.slice(0, 3).join("; ")}${skippedRows.length > 3 ? "…" : ""}`, { duration: 10000 })
+      }
+    } catch (err: any) {
       console.error(err)
-      toast.error("Bulk upload failed. Please verify spreadsheet structure.")
+      toast.error(err?.message || "Bulk upload failed. Please verify spreadsheet structure.")
     } finally {
       setUploading(false)
     }
@@ -1734,6 +1771,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                         { key: "categoryName", label: "Category", required: true },
                         { key: "finishMaterial", label: "Product Type (Finish)", required: false },
                         { key: "basePrice", label: "Base Price Only (AED)", required: true },
+                        { key: "sellingPrice", label: "Selling / List Price (AED, no markup)", required: false },
                         { key: "description", label: "Product Description", required: false },
                         { key: "specifications", label: "Specifications", required: false },
                         { key: "warranty", label: "Warranty period", required: false },
