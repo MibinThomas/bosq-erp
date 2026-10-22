@@ -146,14 +146,15 @@ async function readInCellImages(file) {
 }
 
 // ---------- main ----------
+// Sheets map onto the ERP's main product categories (Chairs, Workstations, Storage, Accessories)
 const SHEET_CATEGORY = {
-  "premium chairs": "Premium Chairs",
-  "executive chairs": "Executive Chairs",
-  "pdu": "Accessories - Power & Data (PDU)",
-  "metal storage": "Storage - Metal Pedestals",
-  "negotiation table frame": "Table Frames",
+  "premium chairs": "Chairs",
+  "executive chairs": "Chairs",
+  "pdu": "Accessories",
+  "metal storage": "Storage",
+  "negotiation table frame": "Workstations",
   "other accessories": "Accessories",
-  "height adjustable frame": "Height Adjustable Frames",
+  "height adjustable frame": "Workstations",
 }
 
 ;(async () => {

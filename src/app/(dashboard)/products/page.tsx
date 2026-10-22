@@ -82,6 +82,7 @@ export default function ProductsPage() {
   const canDeleteProduct = hasPermission("PRODUCTS", "delete")
   const canBulkUploadProduct = hasPermission("PRODUCTS", "uploadFiles")
   const canManageCategory = hasPermission("PRODUCTS", "manage")
+  const canExportProduct = hasPermission("PRODUCTS", "export")
   const hasQuoteAccess = hasPermission("PRODUCTS", "share")
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -659,7 +660,11 @@ export default function ProductsPage() {
       (product.category?.name && product.category.name.toLowerCase().includes(term)) ||
       Boolean(matchesVariants)
     )
-    const matchesCategory = selectedCategory ? product.category?.name === selectedCategory : true
+    // A group matches when the master or any of its variants belongs to the selected category
+    const matchesCategory = selectedCategory
+      ? product.category?.name === selectedCategory ||
+        Boolean(product.variants?.some(v => v.category?.name === selectedCategory))
+      : true
     return matchesSearch && matchesCategory
   })
 
@@ -741,6 +746,23 @@ export default function ProductsPage() {
               <Sparkles className="h-4 w-4 text-primary animate-pulse" />
               Bulk Upload
             </Button>
+          )}
+          {canExportProduct && (
+            <a
+              href={`/api/products/export?${new URLSearchParams({
+                ...(searchTerm.trim() ? { q: searchTerm.trim() } : {}),
+                ...(selectedCategory ? { categoryId: categoriesList.find(c => c.name === selectedCategory)?.id || "" } : {}),
+              }).toString()}`}
+              download
+            >
+              <Button
+                variant="outline"
+                className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+              >
+                <Download className="h-4 w-4 text-primary" />
+                Export
+              </Button>
+            </a>
           )}
           {canCreateProduct && (
             <Link href="/products/new">
@@ -1265,7 +1287,10 @@ export default function ProductsPage() {
       <BulkUploadModal 
         isOpen={isBulkOpen}
         onClose={() => setIsBulkOpen(false)}
-        onSuccess={fetchProducts}
+        onSuccess={() => {
+          fetchProducts()
+          fetchCategories()
+        }}
       />
 
       {/* Manage Categories Modal */}
@@ -2206,7 +2231,10 @@ export default function ProductsPage() {
           setIsEditOpen(false)
           setEditingProduct(null)
         }}
-        onSuccess={fetchProducts}
+        onSuccess={() => {
+          fetchProducts()
+          fetchCategories()
+        }}
       />
 
       <ProductDetailsModal
