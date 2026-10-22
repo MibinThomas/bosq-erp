@@ -7,10 +7,8 @@ import {
   Layers,
   ShoppingCart,
   Check,
-  Edit,
   Pencil,
   Tag,
-  Boxes,
   Palette,
   ShieldCheck,
   ChevronRight,
@@ -22,7 +20,6 @@ import {
   Search,
   SlidersHorizontal,
   LayoutGrid,
-  CheckCircle2,
   Ruler,
   ChevronsUpDown,
   Armchair,
@@ -38,8 +35,8 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { cn, formatImageUrl } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import RichTextEditor from "@/components/ui/rich-text-editor"
+import { categoryTrail, facetDefsFor, optionSummary, variantKind, variantNoun, variantTypeLabel } from "@/lib/variant-facets"
 
 // Helper icon for dynamic attribute labels
 const getAttributeIcon = (name: string) => {
@@ -352,14 +349,6 @@ export function VariantDrawerModal({
   onOpenCart,
   quoteCartCount,
 }: VariantDrawerModalProps) {
-  const [selectedSubProduct, setSelectedSubProduct] = useState<string>("all")
-  const [subProductSearch, setSubProductSearch] = useState<string>("")
-  
-  // Attribute Combination Filters
-  const [selectedDimension, setSelectedDimension] = useState<string>("all")
-  const [selectedFinish, setSelectedFinish] = useState<string>("all")
-  const [selectedLeg, setSelectedLeg] = useState<string>("all")
-  const [selectedSideReturn, setSelectedSideReturn] = useState<string>("all")
 
   const [editingStockId, setEditingStockId] = useState<string | null>(null)
   const [draftStockVal, setDraftStockVal] = useState<number>(0)
@@ -595,212 +584,73 @@ export function VariantDrawerModal({
     setFailedImageUrls((prev) => ({ ...prev, [url]: true }))
   }
 
-  // Compute Sub-Products (Level 2) and Variant Attributes (Level 3)
-  const variants = masterProduct?.variants || []
+  // Variants of this model, organised like the product listing: chair types (chairs), seater & layouts
+  // (workstations, desks, tables) or plain variants (storage and others)
+  const variants = useMemo(() => masterProduct?.variants || [], [masterProduct])
   const masterTitle = masterProduct?.productName || "Product Series"
+  const kind = useMemo(() => variantKind(masterProduct?.category, variants), [masterProduct, variants])
+  const facetDefs = useMemo(() => facetDefsFor(kind, masterTitle), [kind, masterTitle])
 
-  // Pre-parse all variants for fast dynamic filtering
-  const parsedVariants = useMemo(() => {
-    return (masterProduct?.variants || []).map((v) => {
-      const subProduct = getSubProductName(v, masterTitle)
-      const attrs = extractVariantAttributes(v)
-      return {
+  const [selectedFacets, setSelectedFacets] = useState<Record<string, string>>({})
+  const [variantSearch, setVariantSearch] = useState<string>("")
+
+  // Each variant's values for every filter (a chair type offers several colours, a layout several sizes)
+  const variantFacetValues = useMemo(
+    () =>
+      variants.map((v) => ({
         variant: v,
-        subProduct,
-        dimensions: attrs.dimensions,
-        finish: attrs.finish,
-        legs: attrs.legs,
-        sideReturn: attrs.sideReturn,
-      }
-    })
-  }, [masterProduct, masterTitle])
+        values: Object.fromEntries(facetDefs.map((f) => [f.key, f.values(v)])) as Record<string, string[]>,
+      })),
+    [variants, facetDefs]
+  )
 
-  const [isSubProductPopoverOpen, setIsSubProductPopoverOpen] = useState(false)
-
-  // Map each sub-product model name to its thumbnail image (first matching variant image)
-  const subProductImageMap = useMemo(() => {
-    const map = new Map<string, string | null>()
-    for (const pv of parsedVariants) {
-      if (pv.subProduct && !map.has(pv.subProduct)) {
-        if (pv.variant.imageUrl) {
-          map.set(pv.subProduct, pv.variant.imageUrl)
-        }
-      }
-    }
-    return map
-  }, [parsedVariants])
-
-  // Distinct sub-product names count for header badge
-  const allSubProductNames = useMemo(() => {
-    const set = new Set<string>()
-    for (const pv of parsedVariants) {
-      if (pv.subProduct) set.add(pv.subProduct)
-    }
-    return Array.from(set).sort()
-  }, [parsedVariants])
-
-  // Filter variants by search query (SKU, name, sub-product)
-  const searchFilteredVariants = useMemo(() => {
-    if (!subProductSearch.trim()) return parsedVariants
-    const q = subProductSearch.toLowerCase().trim()
-    return parsedVariants.filter(
-      (pv) =>
-        pv.subProduct.toLowerCase().includes(q) ||
-        (pv.variant.productCode && pv.variant.productCode.toLowerCase().includes(q)) ||
-        (pv.variant.productName && pv.variant.productName.toLowerCase().includes(q))
-    )
-  }, [parsedVariants, subProductSearch])
-
-  // Active filter predicates
-  const matchSubProduct = (pv: (typeof parsedVariants)[0]) =>
-    selectedSubProduct === "all" || pv.subProduct === selectedSubProduct
-
-  const matchDimension = (pv: (typeof parsedVariants)[0]) =>
-    selectedDimension === "all" || pv.dimensions === selectedDimension
-
-  const matchFinish = (pv: (typeof parsedVariants)[0]) =>
-    selectedFinish === "all" || pv.finish === selectedFinish
-
-  const matchLeg = (pv: (typeof parsedVariants)[0]) =>
-    selectedLeg === "all" || pv.legs === selectedLeg
-
-  const matchSideReturn = (pv: (typeof parsedVariants)[0]) =>
-    selectedSideReturn === "all" || pv.sideReturn === selectedSideReturn
-
-  // Dynamic available Sub-Products (matching remaining 4 attribute filters)
-  const availableSubProducts = useMemo(() => {
-    const matching = searchFilteredVariants.filter(
-      (pv) => matchDimension(pv) && matchFinish(pv) && matchLeg(pv) && matchSideReturn(pv)
-    )
-    const countsMap = new Map<string, number>()
-    for (const pv of matching) {
-      if (pv.subProduct) {
-        countsMap.set(pv.subProduct, (countsMap.get(pv.subProduct) || 0) + 1)
-      }
-    }
-    return Array.from(countsMap.entries())
-      .map(([value, count]) => ({ value, label: value, count }))
-      .sort((a, b) => a.value.localeCompare(b.value))
-  }, [searchFilteredVariants, selectedDimension, selectedFinish, selectedLeg, selectedSideReturn])
-
-  // Dynamic available Dimensions (matching subProduct + finish + leg + sideReturn)
-  const availableDimensions = useMemo(() => {
-    const matching = searchFilteredVariants.filter(
-      (pv) => matchSubProduct(pv) && matchFinish(pv) && matchLeg(pv) && matchSideReturn(pv)
-    )
-    const countsMap = new Map<string, number>()
-    for (const pv of matching) {
-      if (pv.dimensions && pv.dimensions !== "Standard Size") {
-        countsMap.set(pv.dimensions, (countsMap.get(pv.dimensions) || 0) + 1)
-      }
-    }
-    return Array.from(countsMap.entries())
-      .map(([value, count]) => ({ value, label: value, count }))
-      .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }))
-  }, [searchFilteredVariants, selectedSubProduct, selectedFinish, selectedLeg, selectedSideReturn])
-
-  // Dynamic available Finishes (matching subProduct + dimension + leg + sideReturn)
-  const availableFinishes = useMemo(() => {
-    const matching = searchFilteredVariants.filter(
-      (pv) => matchSubProduct(pv) && matchDimension(pv) && matchLeg(pv) && matchSideReturn(pv)
-    )
-    const countsMap = new Map<string, number>()
-    for (const pv of matching) {
-      if (pv.finish && pv.finish !== "Standard Finish") {
-        countsMap.set(pv.finish, (countsMap.get(pv.finish) || 0) + 1)
-      }
-    }
-    return Array.from(countsMap.entries())
-      .map(([value, count]) => ({ value, label: value, count }))
-      .sort((a, b) => a.value.localeCompare(b.value))
-  }, [searchFilteredVariants, selectedSubProduct, selectedDimension, selectedLeg, selectedSideReturn])
-
-  // Dynamic available Leg Options (matching subProduct + dimension + finish + sideReturn)
-  const availableLegs = useMemo(() => {
-    const matching = searchFilteredVariants.filter(
-      (pv) => matchSubProduct(pv) && matchDimension(pv) && matchFinish(pv) && matchSideReturn(pv)
-    )
-    const countsMap = new Map<string, number>()
-    for (const pv of matching) {
-      if (pv.legs && pv.legs !== "Standard Frame") {
-        countsMap.set(pv.legs, (countsMap.get(pv.legs) || 0) + 1)
-      }
-    }
-    return Array.from(countsMap.entries())
-      .map(([value, count]) => ({ value, label: value, count }))
-      .sort((a, b) => a.value.localeCompare(b.value))
-  }, [searchFilteredVariants, selectedSubProduct, selectedDimension, selectedFinish, selectedSideReturn])
-
-  // Dynamic available Side Returns (matching subProduct + dimension + finish + leg)
-  const availableSideReturns = useMemo(() => {
-    const matching = searchFilteredVariants.filter(
-      (pv) => matchSubProduct(pv) && matchDimension(pv) && matchFinish(pv) && matchLeg(pv)
-    )
-    const countsMap = new Map<string, number>()
-    for (const pv of matching) {
-      if (pv.sideReturn && pv.sideReturn !== "No Side Return") {
-        countsMap.set(pv.sideReturn, (countsMap.get(pv.sideReturn) || 0) + 1)
-      }
-    }
-    return Array.from(countsMap.entries())
-      .map(([value, count]) => ({ value, label: value, count }))
-      .sort((a, b) => a.value.localeCompare(b.value))
-  }, [searchFilteredVariants, selectedSubProduct, selectedDimension, selectedFinish, selectedLeg])
-
-  // Final filtered list of variants matching all currently active selection criteria
-  const finalFilteredVariants = useMemo(() => {
-    return searchFilteredVariants
-      .filter(
-        (pv) =>
-          matchSubProduct(pv) &&
-          matchDimension(pv) &&
-          matchFinish(pv) &&
-          matchLeg(pv) &&
-          matchSideReturn(pv)
+  const searchedVariants = useMemo(() => {
+    const q = variantSearch.trim().toLowerCase()
+    if (!q) return variantFacetValues
+    return variantFacetValues.filter(({ variant, values }) =>
+      [variant.productCode, variant.productName, variant.description || "", ...Object.values(values).flat()].some((s) =>
+        String(s).toLowerCase().includes(q)
       )
-      .map((pv) => pv.variant)
-  }, [
-    searchFilteredVariants,
-    selectedSubProduct,
-    selectedDimension,
-    selectedFinish,
-    selectedLeg,
-    selectedSideReturn,
-  ])
+    )
+  }, [variantFacetValues, variantSearch])
 
-  // Auto-reset filter selections if they are no longer valid options in the newly filtered subset
-  useEffect(() => {
-    if (selectedSubProduct !== "all" && !availableSubProducts.some((o) => o.value === selectedSubProduct)) {
-      setSelectedSubProduct("all")
-    }
-    if (selectedDimension !== "all" && !availableDimensions.some((o) => o.value === selectedDimension)) {
-      setSelectedDimension("all")
-    }
-    if (selectedFinish !== "all" && !availableFinishes.some((o) => o.value === selectedFinish)) {
-      setSelectedFinish("all")
-    }
-    if (selectedLeg !== "all" && !availableLegs.some((o) => o.value === selectedLeg)) {
-      setSelectedLeg("all")
-    }
-    if (selectedSideReturn !== "all" && !availableSideReturns.some((o) => o.value === selectedSideReturn)) {
-      setSelectedSideReturn("all")
-    }
-  }, [
-    availableSubProducts,
-    availableDimensions,
-    availableFinishes,
-    availableLegs,
-    availableSideReturns,
-    selectedSubProduct,
-    selectedDimension,
-    selectedFinish,
-    selectedLeg,
-    selectedSideReturn,
-  ])
+  // Filter options are counted against the other active filters; only filters with a real choice are shown
+  const facetOptions = useMemo(() => {
+    const matchesOthers = (values: Record<string, string[]>, except: string) =>
+      facetDefs.every((f) => f.key === except || !selectedFacets[f.key] || values[f.key].includes(selectedFacets[f.key]))
+    return facetDefs
+      .map((f) => {
+        const counts = new Map<string, number>()
+        for (const { values } of searchedVariants) {
+          if (!matchesOthers(values, f.key)) continue
+          for (const val of new Set(values[f.key])) counts.set(val, (counts.get(val) || 0) + 1)
+        }
+        const distinct = new Set(variantFacetValues.flatMap(({ values }) => values[f.key])).size
+        const options = [...counts.entries()]
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }))
+        return { ...f, options, distinct }
+      })
+      .filter((f) => f.distinct > 1)
+  }, [facetDefs, searchedVariants, variantFacetValues, selectedFacets])
+
+  const finalFilteredVariants = useMemo(
+    () =>
+      searchedVariants
+        .filter(({ values }) => facetDefs.every((f) => !selectedFacets[f.key] || values[f.key].includes(selectedFacets[f.key])))
+        .map(({ variant }) => variant),
+    [searchedVariants, facetDefs, selectedFacets]
+  )
+
+  const activeFilters = facetDefs.filter((f) => selectedFacets[f.key]).map((f) => ({ label: f.label, value: selectedFacets[f.key] }))
+  const resetFilters = () => setSelectedFacets({})
 
   if (!isOpen || !masterProduct) return null
 
   const totalStock = variants.reduce((sum, v) => sum + (v.stock || 0), 0)
+  const categoryPath = categoryTrail(kind, masterProduct.category?.name)
+  const variantPrices = variants.map((v) => v.projectPrice || v.unitPrice || 0).filter((p) => p > 0)
+  const modelPriceFrom = variantPrices.length ? Math.min(...variantPrices) : 0
 
   const startEditingVariant = (variant: ProductVariantItem) => {
     if (onEditVariant) {
@@ -1069,27 +919,42 @@ export function VariantDrawerModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-4 md:p-6 animate-in fade-in duration-200 overflow-x-hidden">
       <div className="relative w-full max-w-6xl max-h-[94vh] bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
         
-        {/* Level 1: Main Product Header */}
+        {/* Model header: category trail, model name/code, what it contains, and actions */}
         <div className="p-5 sm:p-6 border-b bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
-          <div className="space-y-1">
+          <div className="space-y-1.5 min-w-0">
+            {categoryPath.length > 0 && (
+              <nav aria-label="Category" className="flex items-center gap-1 flex-wrap text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                {categoryPath.map((name, i) => (
+                  <span key={name} className="flex items-center gap-1">
+                    {i > 0 && <ChevronRight className="h-3 w-3" />}
+                    <span className={i === categoryPath.length - 1 ? "text-primary" : undefined}>{name}</span>
+                  </span>
+                ))}
+              </nav>
+            )}
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-baseline gap-2 flex-wrap">
+              {masterProduct.productName}
+              {masterProduct.modelCode && masterProduct.modelCode.toLowerCase() !== masterProduct.productName.toLowerCase() && (
+                <span className="font-mono text-sm font-semibold text-muted-foreground">{masterProduct.modelCode}</span>
+              )}
+            </h2>
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-bold uppercase text-[10px] tracking-wider">
-                {masterProduct.category?.name || "Product Series"}
-              </Badge>
-              <Badge variant="secondary" className="font-semibold text-xs bg-muted border">
-                <LayoutGrid className="h-3 w-3 mr-1 text-primary" />
-                {allSubProductNames.length} Sub-Products / Workstation Models
-              </Badge>
               <Badge variant="secondary" className="font-bold text-xs bg-primary/10 text-primary border border-primary/20">
                 <Layers className="h-3 w-3 mr-1" />
-                {variants.length} Total Variations
+                {variantNoun(kind, variants.length)}
               </Badge>
+              {modelPriceFrom > 0 && (
+                <Badge variant="secondary" className="font-semibold text-xs bg-muted border">
+                  From AED {modelPriceFrom.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Badge>
+              )}
             </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2">
-              {masterProduct.productName}
-            </h2>
             <p className="text-xs text-muted-foreground">
-              Select a sub-product workstation model below to choose your required attribute combination (dimensions, finish, legs, side return).
+              {kind === "chairs"
+                ? "Each chair type lists the colour and base options offered on quotations."
+                : kind === "workstations"
+                  ? "Each layout lists its available sizes and finishes. Quantities on quotations count complete units."
+                  : "All variants of this product with their price and stock."}
             </p>
           </div>
 
@@ -1099,10 +964,10 @@ export function VariantDrawerModal({
                 variant="outline"
                 onClick={() => onEditMasterProduct(masterProduct)}
                 className="border-primary/20 hover:border-primary/40 text-foreground font-bold text-xs rounded-xl h-9 px-3 flex items-center gap-1.5 shadow-sm cursor-pointer"
-                title="Edit Master Product Details"
+                title="Edit model details"
               >
                 <Pencil className="h-4 w-4 text-primary" />
-                Edit Master
+                Edit Model
               </Button>
             )}
             {canEditProduct && (
@@ -1111,7 +976,7 @@ export function VariantDrawerModal({
                 className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-xl h-9 px-4 flex items-center gap-1.5 shadow cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
-                Add Variant
+                {kind === "chairs" ? "Add Chair Type" : kind === "workstations" ? "Add Layout" : "Add Variant"}
               </Button>
             )}
             <div className="text-right hidden sm:block">
@@ -1143,330 +1008,85 @@ export function VariantDrawerModal({
               size="icon"
               onClick={onClose}
               className="rounded-full hover:bg-muted"
+              aria-label="Close"
             >
               <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
-        
-        {/* Level 2 & 3: Unified Filter Controls (Sub-Product Dropdown & Attribute Combination Dropdowns) */}
-        <div className="border-b bg-muted/10 p-4 space-y-4 shrink-0">
+
+        {/* Filters: chosen per product type and shown only when they offer a real choice */}
+        <div className="border-b bg-muted/10 px-4 py-3 space-y-3 shrink-0">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <span className="text-xs font-extrabold uppercase text-primary tracking-wider flex items-center gap-1.5">
                 <SlidersHorizontal className="h-4 w-4" />
-                Filter Options:
+                Filters
               </span>
               <Badge variant="secondary" className="text-xs font-bold bg-background border">
-                {finalFilteredVariants.length} Variations Shown
+                {finalFilteredVariants.length} of {variantNoun(kind, variants.length)}
               </Badge>
             </div>
 
             <div className="flex items-center gap-3">
-              {(selectedSubProduct !== "all" || selectedDimension !== "all" || selectedFinish !== "all" || selectedLeg !== "all" || selectedSideReturn !== "all") && (
+              {activeFilters.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setSelectedSubProduct("all")
-                    setSelectedDimension("all")
-                    setSelectedFinish("all")
-                    setSelectedLeg("all")
-                    setSelectedSideReturn("all")
-                  }}
+                  onClick={resetFilters}
                   className="text-xs font-bold text-muted-foreground hover:text-foreground h-8 cursor-pointer"
                 >
-                  Reset All Filters
+                  Reset Filters
                 </Button>
               )}
-
               <div className="relative w-48 sm:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
-                  placeholder="Search sub-products / SKUs..."
-                  value={subProductSearch}
-                  onChange={(e) => setSubProductSearch(e.target.value)}
+                  placeholder={kind === "chairs" ? "Search chair types, codes, colours…" : kind === "workstations" ? "Search layouts, codes, sizes…" : "Search variants or codes…"}
+                  value={variantSearch}
+                  onChange={(e) => setVariantSearch(e.target.value)}
                   className="h-8 text-xs pl-8 bg-background"
+                  aria-label="Search variants"
                 />
               </div>
             </div>
           </div>
 
-          {/* Unified Dropdowns Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            
-            {/* 1. Sub-Product / Model Popover Combobox Dropdown */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
-                <LayoutGrid className="h-3 w-3 text-primary" />
-                Sub-Product / Model
-              </label>
-              <Popover open={isSubProductPopoverOpen} onOpenChange={setIsSubProductPopoverOpen}>
-                <PopoverTrigger 
-                  className="w-full h-9 text-xs font-bold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary flex items-center justify-between gap-2 overflow-hidden transition-colors"
-                  aria-expanded={isSubProductPopoverOpen}
-                >
-                  <span className="truncate flex items-center gap-1.5 min-w-0">
-                    {selectedSubProduct === "all" ? (
-                      <span>All Sub-Products ({allSubProductNames.length})</span>
-                    ) : (
-                      <>
-                        <span className="truncate">{selectedSubProduct}</span>
-                        {(() => {
-                          const item = availableSubProducts.find(s => s.value === selectedSubProduct)
-                          return item ? (
-                            <Badge variant="secondary" className="text-[10px] font-mono font-bold bg-primary/10 text-primary border-primary/20 shrink-0">
-                              {item.count}
-                            </Badge>
-                          ) : null
-                        })()}
-                      </>
-                    )}
-                  </span>
-                  <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 opacity-60 text-muted-foreground" />
-                </PopoverTrigger>
-                
-                <PopoverContent 
-                  className="w-[340px] sm:w-[440px] p-0 rounded-2xl shadow-2xl border bg-card text-card-foreground z-[65]" 
-                  align="start"
-                >
-                  <Command filter={(value, search) => {
-                    if (value.toLowerCase().includes(search.toLowerCase())) return 1
-                    return 0
-                  }}>
-                    <CommandInput placeholder="Search workstation models..." className="h-10 text-xs px-3" />
-                    <CommandList className="max-h-76 overflow-y-auto p-2 space-y-1">
-                      <CommandEmpty className="p-4 text-center text-xs text-muted-foreground">
-                        No workstation models match your search.
-                      </CommandEmpty>
-                      
-                      <CommandGroup>
-                        {/* Option: All Sub-Products */}
-                        <CommandItem
-                          value="all All Sub-Products"
-                          onSelect={() => {
-                            setSelectedSubProduct("all")
-                            setIsSubProductPopoverOpen(false)
-                          }}
-                          className={cn(
-                            "p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 mb-1",
-                            selectedSubProduct === "all" 
-                              ? "bg-primary/10 border-primary/40 text-primary font-bold shadow-xs" 
-                              : "border-border/40 hover:bg-muted/60 dark:hover:bg-muted/30 text-foreground"
-                          )}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-9 w-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                              <LayoutGrid className="h-4 w-4 text-primary" />
-                            </div>
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-bold text-xs leading-snug">All Sub-Products</span>
-                              <span className="text-[10px] text-muted-foreground">Show all models in series</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <Badge variant="secondary" className="text-[10px] font-mono font-bold bg-muted text-muted-foreground">
-                              {allSubProductNames.length} models
-                            </Badge>
-                            <Check className={cn("h-4 w-4 text-primary", selectedSubProduct === "all" ? "opacity-100" : "opacity-0")} />
-                          </div>
-                        </CommandItem>
-
-                        {/* Model Cards */}
-                        {availableSubProducts.map((opt) => {
-                          const isSelected = selectedSubProduct === opt.value
-                          const img = subProductImageMap.get(opt.value) || masterProduct?.imageUrl
-
-                          return (
-                            <CommandItem
-                              key={opt.value}
-                              value={opt.value}
-                              onSelect={() => {
-                                setSelectedSubProduct(opt.value)
-                                setIsSubProductPopoverOpen(false)
-                              }}
-                              className={cn(
-                                "p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 my-1",
-                                isSelected
-                                  ? "bg-primary/10 border-primary/40 text-primary font-bold shadow-xs"
-                                  : "border-border/40 hover:bg-muted/60 dark:hover:bg-muted/30 text-foreground"
-                              )}
-                            >
-                              <div className="flex items-center gap-3 min-w-0 flex-1">
-                                {/* Model Thumbnail */}
-                                <div className="h-10 w-10 border rounded-lg bg-white dark:bg-muted/50 overflow-hidden shrink-0 flex items-center justify-center shadow-2xs">
-                                  {(() => {
-                                    const formattedImg = formatImageUrl(img)
-                                    const isFailed = formattedImg ? failedImageUrls[formattedImg] : true
-                                    return formattedImg && !isFailed ? (
-                                      <img
-                                        src={formattedImg}
-                                        alt={opt.label}
-                                        className="h-full w-full object-contain p-0.5"
-                                        onError={() => handleImageError(formattedImg)}
-                                      />
-                                    ) : (
-                                      <Package className="h-5 w-5 text-muted-foreground/50" />
-                                    )
-                                  })()}
-                                </div>
-                                
-                                {/* Model Title & Specs */}
-                                <div className="flex flex-col min-w-0 flex-1">
-                                  <span className="font-bold text-xs leading-snug break-words whitespace-normal text-foreground" title={opt.label}>
-                                    {opt.label}
-                                  </span>
-                                  <span className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                                    {masterProduct?.productCode}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Variant Count & Selection Indicator */}
-                              <div className="flex items-center gap-2 shrink-0">
-                                <Badge 
-                                  variant="secondary" 
-                                  className={cn(
-                                    "text-[10px] font-mono font-bold px-2 py-0.5 rounded-md border",
-                                    isSelected 
-                                      ? "bg-primary text-primary-foreground border-primary" 
-                                      : "bg-primary/10 text-primary border-primary/20"
-                                  )}
-                                >
-                                  {opt.count} {opt.count === 1 ? "var" : "vars"}
-                                </Badge>
-                                <Check className={cn("h-4 w-4 text-primary shrink-0", isSelected ? "opacity-100" : "opacity-0")} />
-                              </div>
-                            </CommandItem>
-                          )
-                        })}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+          {facetOptions.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              {facetOptions.map((f) => {
+                const selected = selectedFacets[f.key] || "all"
+                return (
+                  <div key={f.key} className="space-y-1">
+                    <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider block">{f.label}</label>
+                    <Select
+                      value={selected}
+                      onValueChange={(val) => setSelectedFacets((prev) => ({ ...prev, [f.key]: !val || val === "all" ? "" : val }))}
+                    >
+                      <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
+                        <SelectValue placeholder={`All (${f.options.length})`}>
+                          {selected === "all" ? `All (${f.options.length})` : selected}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60 min-w-[220px] bg-card border rounded-xl shadow-xl z-50">
+                        <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
+                          All ({f.options.length})
+                        </SelectItem>
+                        {f.options.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs font-medium cursor-pointer">
+                            <span className="flex items-center justify-between w-full gap-2">
+                              <span className="truncate">{opt.value}</span>
+                              <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )
+              })}
             </div>
-
-            {/* 2. Dimensions / Size Dropdown */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
-                <Ruler className="h-3 w-3 text-primary" />
-                Dimensions / Size
-              </label>
-              <Select value={selectedDimension} onValueChange={(val) => setSelectedDimension(val || "all")}>
-                <SelectTrigger className="w-full h-9 text-xs font-semibold font-mono rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
-                  <SelectValue placeholder="All Dimensions">
-                    {selectedDimension === "all" || !selectedDimension
-                      ? "All Dimensions"
-                      : (availableDimensions.find((o) => o.value === selectedDimension)?.label || selectedDimension)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
-                  <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
-                    All Dimensions ({availableDimensions.length})
-                  </SelectItem>
-                  {availableDimensions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-mono font-medium cursor-pointer">
-                      <span className="flex items-center justify-between w-full gap-2">
-                        <span className="truncate">{opt.label}</span>
-                        <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 3. Table Top Finish / Wood Dropdown */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
-                <Palette className="h-3 w-3 text-primary" />
-                Table Top Finish
-              </label>
-              <Select value={selectedFinish} onValueChange={(val) => setSelectedFinish(val || "all")}>
-                <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
-                  <SelectValue placeholder="All Finishes">
-                    {selectedFinish === "all" || !selectedFinish
-                      ? "All Finishes"
-                      : (availableFinishes.find((o) => o.value === selectedFinish)?.label || selectedFinish)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
-                  <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
-                    All Finishes ({availableFinishes.length})
-                  </SelectItem>
-                  {availableFinishes.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-medium cursor-pointer">
-                      <span className="flex items-center justify-between w-full gap-2">
-                        <span className="truncate">{opt.label}</span>
-                        <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 4. Leg Type / Color Dropdown */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
-                <Layers className="h-3 w-3 text-primary" />
-                Leg Type / Color
-              </label>
-              <Select value={selectedLeg} onValueChange={(val) => setSelectedLeg(val || "all")}>
-                <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
-                  <SelectValue placeholder="All Leg Options">
-                    {selectedLeg === "all" || !selectedLeg
-                      ? "All Leg Options"
-                      : (availableLegs.find((o) => o.value === selectedLeg)?.label || selectedLeg)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
-                  <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
-                    All Leg Options ({availableLegs.length})
-                  </SelectItem>
-                  {availableLegs.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-medium cursor-pointer">
-                      <span className="flex items-center justify-between w-full gap-2">
-                        <span className="truncate">{opt.label}</span>
-                        <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 5. Side Return Option Dropdown */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1">
-                <Boxes className="h-3 w-3 text-primary" />
-                Side Return Option
-              </label>
-              <Select value={selectedSideReturn} onValueChange={(val) => setSelectedSideReturn(val || "all")}>
-                <SelectTrigger className="w-full h-9 text-xs font-semibold rounded-xl border bg-background border-border/80 px-3 cursor-pointer shadow-2xs hover:border-primary/40 focus:ring-2 focus:ring-primary">
-                  <SelectValue placeholder="All Side Returns">
-                    {selectedSideReturn === "all" || !selectedSideReturn
-                      ? "All Side Returns"
-                      : (availableSideReturns.find((o) => o.value === selectedSideReturn)?.label || selectedSideReturn)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="max-h-60 min-w-[240px] sm:min-w-[280px] bg-card border rounded-xl shadow-xl z-50">
-                  <SelectItem value="all" className="text-xs font-semibold cursor-pointer">
-                    All Side Returns ({availableSideReturns.length})
-                  </SelectItem>
-                  {availableSideReturns.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value} className="text-xs font-medium cursor-pointer">
-                      <span className="flex items-center justify-between w-full gap-2">
-                        <span className="truncate">{opt.label}</span>
-                        <span className="text-[10px] font-mono text-muted-foreground font-bold shrink-0">({opt.count})</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Level 3: Variant Grid */}
@@ -1821,10 +1441,16 @@ export function VariantDrawerModal({
           {/* Variants Count Header */}
           <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold">
             <span>
-              Showing <strong className="text-foreground font-extrabold">{finalFilteredVariants.length}</strong> of {variants.length} variations
+              Showing <strong className="text-foreground font-extrabold">{finalFilteredVariants.length}</strong> of {variantNoun(kind, variants.length)}
             </span>
-            {selectedSubProduct !== "all" && (
-              <span>Sub-Product: <strong className="text-foreground">{selectedSubProduct}</strong></span>
+            {activeFilters.length > 0 && (
+              <span className="truncate">
+                {activeFilters.map((f) => (
+                  <span key={f.label} className="ml-3">
+                    {f.label}: <strong className="text-foreground">{f.value}</strong>
+                  </span>
+                ))}
+              </span>
             )}
           </div>
 
@@ -1833,18 +1459,15 @@ export function VariantDrawerModal({
             <div className="text-center py-12 border border-dashed rounded-xl bg-muted/20 space-y-3">
               <Package className="h-10 w-10 text-muted-foreground/40 mx-auto" />
               <div className="space-y-1">
-                <p className="text-sm font-bold text-foreground">No variations match the selected filters</p>
-                <p className="text-xs text-muted-foreground">Try resetting your combination filters or choosing another sub-product model.</p>
+                <p className="text-sm font-bold text-foreground">Nothing matches the selected filters</p>
+                <p className="text-xs text-muted-foreground">Reset the filters or clear the search to see all {variantNoun(kind, variants.length)}.</p>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setSelectedSubProduct("all")
-                  setSelectedDimension("all")
-                  setSelectedFinish("all")
-                  setSelectedLeg("all")
-                  setSelectedSideReturn("all")
+                  resetFilters()
+                  setVariantSearch("")
                 }}
                 className="text-xs rounded-xl border-primary/20 text-primary hover:bg-primary/10 cursor-pointer"
               >
@@ -1858,8 +1481,10 @@ export function VariantDrawerModal({
                 const isEditingThisDetails = editingVariantDetailsId === variant.id
                 const isStockEditing = editingStockId === variant.id
                 const displayPrice = variant.projectPrice || variant.unitPrice || 0
-                const attrs = extractVariantAttributes(variant)
-                const subProductName = getSubProductName(variant, masterTitle)
+                const typeLabel = variantTypeLabel(variant, kind, masterTitle)
+                const options = optionSummary(variant, kind)
+                const fixedSize = options.length === 0 ? (variant.dimensions || "").trim() : ""
+                const fixedColour = options.length === 0 ? (variant.availableColors || variant.finishMaterial || "").trim() : ""
 
                 if (isEditingThisDetails) {
                   return (
@@ -2074,16 +1699,11 @@ export function VariantDrawerModal({
                             {variant.productCode}
                           </span>
                           <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-                            {subProductName}
+                            {typeLabel}
                           </Badge>
-                          {attrs.dimensions !== "Standard Size" && (
+                          {fixedSize && !/^standard$/i.test(fixedSize) && (
                             <span className="text-[11px] font-medium text-foreground bg-muted/60 border px-2 py-0.5 rounded-md">
-                              {attrs.dimensions}
-                            </span>
-                          )}
-                          {attrs.sideReturn !== "No Side Return" && (
-                            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
-                              {attrs.sideReturn}
+                              {fixedSize}
                             </span>
                           )}
                         </div>
@@ -2105,25 +1725,33 @@ export function VariantDrawerModal({
                           </div>
                         )}
 
-                        {/* Attribute Badges */}
-                        <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground pt-0.5">
-                          {attrs.finish !== "Standard Finish" && (
-                            <span className="bg-muted px-2 py-0.5 rounded border">
-                              Finish: <strong className="text-foreground font-semibold">{attrs.finish}</strong>
-                            </span>
-                          )}
-                          {attrs.legs !== "Standard Frame" && (
-                            <span className="bg-muted px-2 py-0.5 rounded border">
-                              Legs: <strong className="text-foreground font-semibold">{attrs.legs}</strong>
-                            </span>
-                          )}
-                          {attrs.color !== "Default Color" && (
-                            <span className="bg-muted px-2 py-0.5 rounded border flex items-center gap-1">
-                              <Palette className="h-3 w-3 text-primary" />
-                              <strong className="text-foreground font-semibold">{attrs.color}</strong>
-                            </span>
-                          )}
-                        </div>
+                        {/* Options offered for this chair type / layout on quotations */}
+                        {options.length > 0 ? (
+                          <div className="space-y-1 pt-0.5 max-w-2xl">
+                            {options.map((o) => (
+                              <div key={o.label} className="flex items-start gap-2 text-[11px]">
+                                <span className="font-bold text-muted-foreground w-20 shrink-0 pt-0.5">{o.label}</span>
+                                <span className="flex flex-wrap gap-1">
+                                  {o.values.slice(0, 8).map((val) => (
+                                    <span key={val} className="bg-muted px-1.5 py-0.5 rounded border text-foreground font-medium">{val}</span>
+                                  ))}
+                                  {o.values.length > 8 && (
+                                    <span className="px-1.5 py-0.5 text-muted-foreground font-semibold">+{o.values.length - 8} more</span>
+                                  )}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          fixedColour && !/^standard$/i.test(fixedColour) && (
+                            <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground pt-0.5">
+                              <span className="bg-muted px-2 py-0.5 rounded border flex items-center gap-1">
+                                <Palette className="h-3 w-3 text-primary" />
+                                <strong className="text-foreground font-semibold">{fixedColour}</strong>
+                              </span>
+                            </div>
+                          )
+                        )}
                       </div>
                     </div>
 

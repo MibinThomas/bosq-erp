@@ -39,6 +39,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2, ChevronRight, UserPlus, Layers, Eye, Camera } from "lucide-react"
 import { VariantDrawerModal, getSubProductName } from "@/components/products/variant-drawer-modal"
+import { categoryTrail, variantKind, variantNoun, variantTypeLabel } from "@/lib/variant-facets"
 
 interface Product {
   id: string
@@ -918,8 +919,10 @@ export default function ProductsPage() {
               // Total stock across variants
               const totalVariantStock = isMasterModel ? variantList.reduce((sum, v) => sum + (v.stock || 0), 0) : (product.stock || 0)
 
-              // Distinct sub-models list (Level 2)
-              const subModelNames = isMasterModel ? Array.from(new Set(variantList.map(v => getSubProductName(v as any, product.productName)).filter(Boolean))) : []
+              // Chair types / workstation layouts / variants of this model, labelled like the variants window
+              const modelKind = variantKind(product.category, variantList as any)
+              const subModelNames = isMasterModel ? Array.from(new Set(variantList.map(v => variantTypeLabel(v as any, modelKind, product.productName)).filter(Boolean))) : []
+              const productCategoryPath = categoryTrail(modelKind, product.category?.name)
 
               return (
                 <div 
@@ -951,7 +954,7 @@ export default function ProductsPage() {
                     {isMasterModel ? (
                       <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-extrabold text-xs shadow-sm flex items-center gap-1">
                         <Layers className="h-3.5 w-3.5" />
-                        {subModelNames.length} Models • {variantList.length} Variations
+                        {variantNoun(modelKind, variantList.length)}
                       </Badge>
                     ) : (
                       <Badge variant={product.status === "ACTIVE" ? "default" : "destructive"} className="shadow-sm">
@@ -1025,7 +1028,7 @@ export default function ProductsPage() {
                       </h3>
                       
                       <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                        Category: <span className="text-foreground">{product.category.name}</span>
+                        <span className="text-foreground">{productCategoryPath.join(" › ") || product.category.name}</span>
                       </p>
 
                       {subModelNames.length > 0 && (
@@ -1037,7 +1040,7 @@ export default function ProductsPage() {
                           ))}
                           {subModelNames.length > 4 && (
                             <span className="text-[10px] font-bold text-muted-foreground">
-                              +{subModelNames.length - 4} more models
+                              +{subModelNames.length - 4} more
                             </span>
                           )}
                         </div>
@@ -1155,11 +1158,12 @@ export default function ProductsPage() {
                   
                   const totalVariantStock = isMasterModel ? variantList.reduce((sum, v) => sum + (v.stock || 0), 0) : (product.stock || 0)
 
-                  // Sub-products grouping (Level 2)
+                  // Group by chair type / workstation layout / variant, labelled like the variants window
+                  const modelKind = variantKind(product.category, variantList as any)
                   const subProductsMap = new Map<string, typeof variantList>()
                   if (isMasterModel) {
                     for (const v of variantList) {
-                      const subName = getSubProductName(v as any, product.productName)
+                      const subName = variantTypeLabel(v as any, modelKind, product.productName)
                       if (!subProductsMap.has(subName)) subProductsMap.set(subName, [])
                       subProductsMap.get(subName)!.push(v)
                     }
@@ -1198,11 +1202,11 @@ export default function ProductsPage() {
                         </TableCell>
                         <TableCell className="font-mono font-medium text-primary">{product.productCode}</TableCell>
                         <TableCell className="font-bold text-base">{product.productName}</TableCell>
-                        <TableCell>{product.category.name}</TableCell>
+                        <TableCell>{categoryTrail(modelKind, product.category?.name).join(" › ") || product.category.name}</TableCell>
                         <TableCell>
                           {isMasterModel ? (
                             <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-bold">
-                              {subProductsMap.size} Models • {variantList.length} Variations
+                              {variantNoun(modelKind, variantList.length)}
                             </Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs">Single Item</span>
@@ -1248,7 +1252,7 @@ export default function ProductsPage() {
                         </TableCell>
                       </TableRow>
 
-                      {/* Expandable Sub-table for Master Model Variants grouped by Sub-Products */}
+                      {/* Expandable sub-table: the model's chair types / layouts / variants */}
                       {isExpanded && isMasterModel && (
                         <TableRow key={`${product.id}-variants`} className="bg-muted/15 border-y">
                           <TableCell colSpan={10} className="p-4">
@@ -1256,7 +1260,7 @@ export default function ProductsPage() {
                               <div className="flex items-center justify-between">
                                 <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
                                   <Layers className="h-4 w-4 text-primary" />
-                                  Sub-Products & Variations under {product.productName} ({subProductsMap.size} Sub-Products, {variantList.length} Items)
+                                  {product.productName}: {variantNoun(modelKind, variantList.length)}
                                 </h4>
                               </div>
 
@@ -1265,12 +1269,12 @@ export default function ProductsPage() {
                                   <div className="bg-muted/40 px-3 py-2 border-b flex items-center justify-between">
                                     <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
                                       <Badge variant="outline" className="text-[10px] font-bold bg-primary/10 text-primary border-primary/20">
-                                        Sub-Product
+                                        {modelKind === "chairs" ? "Chair Type" : modelKind === "workstations" ? "Layout" : "Variant"}
                                       </Badge>
                                       {subName}
                                     </span>
                                     <span className="text-[11px] font-semibold text-muted-foreground">
-                                      {items.length} Variations
+                                      {items.length} item{items.length === 1 ? "" : "s"}
                                     </span>
                                   </div>
                                   <Table>
