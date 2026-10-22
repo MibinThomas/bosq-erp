@@ -110,7 +110,6 @@ export async function POST(request: Request) {
         warranty,
         availableColors,
         dimensions,
-        imageUrl,
         chairType,
         tableTopFinish,
         legType,
@@ -121,6 +120,8 @@ export async function POST(request: Request) {
         modelCode,
       } = prod
       const chairModel = masterTitle ? String(masterTitle).trim() : ""
+      // Images must be uploaded to file storage first; inline base64 images bloat every product list response
+      const imageUrl = prod.imageUrl && !String(prod.imageUrl).startsWith("data:") ? prod.imageUrl : null
 
       if (!productName || !String(productName).trim() || !categoryName || !String(categoryName).trim()) {
         skipped.push({ row, reason: "Product name and category are required" })

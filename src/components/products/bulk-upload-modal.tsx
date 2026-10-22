@@ -1035,32 +1035,57 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const handleImport = async () => {
     setUploading(true)
     try {
-      const finalizedProducts = []
-      
+      // Images are uploaded to file storage and products keep only the URL. Embedding images as
+      // base64 in the product rows made the product list API exceed the 4.5 MB response limit.
+      const uploadImage = async (blob: Blob, name: string): Promise<string | null> => {
+        const formData = new FormData()
+        formData.append("file", blob, name)
+        const res = await fetch("/api/upload?type=products", { method: "POST", body: formData })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !data.url) throw new Error(data.error || `Image upload failed for ${name}`)
+        return data.url as string
+      }
+
+      const finalizedProducts: any[] = []
+      const imageFailures: string[] = []
+      let imageUploadBlocked: string | null = null
+
       for (let i = 0; i < products.length; i++) {
         const prod = products[i]
-        
+
         // Skip products with blocking errors
         const hasErrors = validationErrors.some(err => err.row === (i + 2))
         if (hasErrors) continue
 
-        let uploadedUrl = null
-        if (prod.previewUrl && prod.previewUrl.startsWith("data:image/")) {
-          uploadedUrl = prod.previewUrl
-        } else if (prod.localImageFile) {
-          const base64Data = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onloadend = () => resolve(reader.result as string)
-            reader.onerror = () => reject(new Error("Failed to read image"))
-            reader.readAsDataURL(prod.localImageFile!)
-          })
-          uploadedUrl = base64Data
+        let uploadedUrl: string | null = null
+        if (!imageUploadBlocked && (prod.previewUrl?.startsWith("data:image/") || prod.localImageFile)) {
+          try {
+            const blob = prod.previewUrl?.startsWith("data:image/")
+              ? await (await fetch(prod.previewUrl)).blob() // cropped image
+              : prod.localImageFile!
+            const name = prod.localImageFile?.name || `${prod.productCode || "product"}.jpg`
+            uploadedUrl = await uploadImage(blob, name)
+          } catch (imgErr: any) {
+            imageFailures.push(prod.productCode || prod.productName)
+            // A storage configuration error will fail for every image — stop retrying and import without images
+            if (/not configured|not linked|does not exist|unauthori/i.test(imgErr?.message || "")) {
+              imageUploadBlocked = imgErr.message
+            }
+          }
         }
 
         finalizedProducts.push({
           ...prod,
+          localImageFile: undefined,
+          previewUrl: undefined,
           imageUrl: uploadedUrl
         })
+      }
+
+      if (imageUploadBlocked) {
+        toast.error(`Images could not be uploaded: ${imageUploadBlocked} Products will be imported without images.`, { duration: 12000 })
+      } else if (imageFailures.length > 0) {
+        toast.warning(`${imageFailures.length} image(s) failed to upload and were skipped: ${imageFailures.slice(0, 3).join(", ")}${imageFailures.length > 3 ? "…" : ""}`, { duration: 10000 })
       }
 
       if (finalizedProducts.length === 0) {
@@ -1069,7 +1094,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return
       }
 
-      // Send in batches so embedded images stay well under the server's request body limit
+      // Send in batches to keep each request small
       const BATCH_SIZE = 20
       let importedCount = 0
       const skippedRows: string[] = []
