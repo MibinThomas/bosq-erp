@@ -7,6 +7,7 @@ import { hasPermission } from "@/lib/rbac"
 import { generateProductCode } from "@/lib/product-code"
 import { findOrCreateCategory } from "@/lib/product-categories"
 import { parseOptionList } from "@/lib/chair-options"
+import { generateShortDescription } from "@/lib/short-descriptions"
 
 // Parses a spreadsheet cell as a number. Empty / non-numeric cells return undefined ("leave unchanged"),
 // while an explicit 0 is preserved.
@@ -144,7 +145,20 @@ export async function POST(request: Request) {
         const createData = {
           productName: String(productName).trim(),
           categoryId,
-          description: description || null,
+          // New products always get a quotation description: the file's Short Description, or one generated from the spec
+          description:
+            description ||
+            generateShortDescription({
+              productName: String(productName).trim(),
+              specifications,
+              chairType,
+              dimensions,
+              availableColors,
+              variantAttributes: { layout: prod.layout || "" },
+              category: { name: String(categoryName) },
+              parentProduct: chairModel ? { productName: chairModel } : null,
+            }) ||
+            null,
           specifications: specifications || null,
           unitPrice: prices.unitPrice ?? 0,
           costPrice: prices.costPrice ?? 0,

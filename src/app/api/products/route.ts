@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client"
 import prisma from "@/lib/prisma"
 import { generateProductCode } from "@/lib/product-code"
 import { getCategoryIdsWithChildren } from "@/lib/product-categories"
+import { generateShortDescription } from "@/lib/short-descriptions"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
@@ -170,7 +171,11 @@ export async function POST(request: Request) {
         categoryId: category.id,
         parentProductId: body.parentProductId || null,
         modelName: body.modelName || null,
-        description: description || null,
+        // Default quotation description, generated from the spec when none is entered
+        description:
+          description ||
+          generateShortDescription({ productName, specifications, chairType, dimensions, availableColors, category: { name: categoryName } }) ||
+          null,
         specifications: specifications || null,
         unitPrice: parseFloat(unitPrice) || 0.0,
         costPrice: parseFloat(costPrice) || 0.0,
@@ -210,7 +215,20 @@ export async function POST(request: Request) {
             categoryId: category.id,
             modelName: varItem.modelName || null,
             modelCode: varItem.modelCode || null,
-            description: varItem.description || description || null,
+            description:
+              varItem.description ||
+              description ||
+              generateShortDescription({
+                productName: varItem.productName || productName,
+                specifications: varItem.specifications || specifications,
+                chairType: varItem.chairType || chairType,
+                dimensions: varItem.dimensions || dimensions,
+                availableColors: varItem.availableColors || availableColors,
+                variantAttributes: varItem.variantAttributes,
+                category: { name: categoryName },
+                parentProduct: { productName },
+              }) ||
+              null,
             specifications: varItem.specifications || specifications || null,
             costPrice: parseFloat(varItem.costPrice) || parseFloat(costPrice) || 0.0,
             unitPrice: parseFloat(varItem.unitPrice) || parseFloat(unitPrice) || 0.0,

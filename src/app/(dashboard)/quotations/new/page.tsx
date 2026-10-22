@@ -84,6 +84,7 @@ import { AssignmentModal } from "@/components/clients/assignment-modal"
 import { ChairConfigurator } from "@/components/quotations/ChairConfigurator"
 import { WorkstationLayoutConfigurator } from "@/components/quotations/WorkstationLayoutConfigurator"
 import { PRODUCT_SELECTION_TABS, type ProductTab, productTabOf } from "@/lib/product-tabs"
+import { defaultQuotationDescription } from "@/lib/short-descriptions"
 import { ImageCropper } from "@/components/ui/image-cropper"
 import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
 import { QuotationSuccessModal } from "@/components/quotations/QuotationSuccessModal"
@@ -1385,28 +1386,48 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             />
           )}
 
-          {/* Detailed Product Description Field */}
+          {/* Short description: filled from the product by default, editable per quotation line */}
           <FormField
             control={control}
             name={`items.${index}.productDescription`}
-            render={({ field }) => (
-              <FormItem>
-                <div className="flex items-center justify-between">
-                  <FormLabel className="text-xs font-bold text-foreground">Detailed Product Description</FormLabel>
-                  <span className="text-[11px] text-muted-foreground font-medium">Appears in PDF & Preview</span>
-                </div>
-                <FormControl>
-                  <Textarea
-                    disabled={isItemLocked}
-                    placeholder="Enter detailed product description (e.g. materials, mechanism, finish, fabric, warranty...)"
-                    className="min-h-[75px] text-xs bg-background leading-relaxed font-normal"
-                    {...field}
-                    value={field.value || ""}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              const lineProduct = currentProductId ? products.find((p) => p.id === currentProductId) : null
+              const defaultDescription = lineProduct ? cleanHtmlText(defaultQuotationDescription(lineProduct)) : ""
+              const isCustomised = !!defaultDescription && (field.value || "").trim() !== defaultDescription.trim()
+              return (
+                <FormItem>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <FormLabel className="text-xs font-bold text-foreground">
+                      Short Description
+                      {isCustomised && <span className="ml-1.5 text-[10px] font-semibold text-amber-600">· edited</span>}
+                    </FormLabel>
+                    <div className="flex items-center gap-2">
+                      {isCustomised && !isItemLocked && (
+                        <button
+                          type="button"
+                          onClick={() => form.setValue(`items.${index}.productDescription`, defaultDescription, { shouldDirty: true })}
+                          className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                          title={defaultDescription}
+                        >
+                          Reset to default
+                        </button>
+                      )}
+                      <span className="text-[11px] text-muted-foreground font-medium">Appears in PDF & Preview</span>
+                    </div>
+                  </div>
+                  <FormControl>
+                    <Textarea
+                      disabled={isItemLocked}
+                      placeholder="Short description shown under the product title on the quotation (materials, mechanism, finish…)"
+                      className="min-h-[75px] text-xs bg-background leading-relaxed font-normal"
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )
+            }}
           />
 
           {/* Special Notes Field */}
@@ -3365,7 +3386,8 @@ function NewQuotationForm() {
 
     form.setValue(`items.${index}.unitPrice`, calculatedUnitPrice, { shouldValidate: true, shouldDirty: true })
     form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: true, shouldDirty: true })
-    form.setValue(`items.${index}.productDescription`, cleanHtmlText(prod.description || ""), { shouldValidate: true, shouldDirty: true })
+    // Every product line starts with a short description (editable on the line before finalizing)
+    form.setValue(`items.${index}.productDescription`, cleanHtmlText(defaultQuotationDescription(prod)), { shouldValidate: true, shouldDirty: true })
 
     const category = prod.category?.name || prod.categoryName
     if (category) {

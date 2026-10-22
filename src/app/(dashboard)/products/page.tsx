@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import {
-  Upload, Download, Plus, Search, Trash2, Edit, AlertCircle, FileSpreadsheet, PackageOpen, LayoutGrid, List, CheckCircle2, MoreVertical, X, Filter, FolderPlus, Tag, Boxes, LayoutDashboard, Copy, MoreHorizontal, Pencil, SlidersHorizontal
+  Upload, Download, Plus, Search, Trash2, Edit, AlertCircle, FileSpreadsheet, PackageOpen, LayoutGrid, List, CheckCircle2, MoreVertical, X, Filter, FolderPlus, Tag, Boxes, LayoutDashboard, Copy, MoreHorizontal, Pencil, SlidersHorizontal, FileText
 } from "lucide-react"
 import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { useRouter } from "next/navigation"
@@ -195,6 +195,41 @@ export default function ProductsPage() {
         ? [selectedCategoryObj.name, ...subCategoryOptions.map(c => c.name)]
         : selectedCategory ? [selectedCategory] : []
   )
+  // Generate short quotation descriptions for catalogue products (preview first, then apply)
+  const [isDescriptionsOpen, setIsDescriptionsOpen] = useState(false)
+  const [descriptionsMode, setDescriptionsMode] = useState<"missing" | "all">("missing")
+  const [descriptionsBusy, setDescriptionsBusy] = useState(false)
+  const [descriptionsPreview, setDescriptionsPreview] = useState<{
+    count: number
+    totalProducts: number
+    samples: { productCode: string; productName: string; before: string; after: string }[]
+  } | null>(null)
+
+  const runDescriptions = async (mode: "missing" | "all", apply: boolean) => {
+    setDescriptionsBusy(true)
+    try {
+      const res = await fetch("/api/products/descriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, apply }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to generate descriptions")
+      if (apply) {
+        toast.success(`Updated short descriptions for ${data.count} product(s).`)
+        setIsDescriptionsOpen(false)
+        setDescriptionsPreview(null)
+        fetchProducts()
+      } else {
+        setDescriptionsPreview(data)
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate descriptions")
+    } finally {
+      setDescriptionsBusy(false)
+    }
+  }
+
   const [updatingCategory, setUpdatingCategory] = useState(false)
   const [deletingCatId, setDeletingCatId] = useState<string | null>(null)
 
@@ -757,6 +792,21 @@ export default function ProductsPage() {
             >
               <Tag className="h-4 w-4 text-primary" />
               Manage Attributes
+            </Button>
+          )}
+          {canManageCategory && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDescriptionsOpen(true)
+                setDescriptionsPreview(null)
+                runDescriptions(descriptionsMode, false)
+              }}
+              className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+              title="Generate short quotation descriptions from product specifications"
+            >
+              <FileText className="h-4 w-4 text-primary" />
+              Generate Descriptions
             </Button>
           )}
           {canBulkUploadProduct && (
@@ -1337,6 +1387,98 @@ export default function ProductsPage() {
           fetchCategories()
         }}
       />
+
+      {/* Generate Descriptions Modal */}
+      {isDescriptionsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-3xl bg-card rounded-2xl border shadow-2xl flex flex-col p-6 space-y-5 max-h-[90vh] overflow-hidden">
+            <div className="flex items-start justify-between border-b pb-4 shrink-0 gap-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Generate Short Descriptions
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Creates a one-line, customer-facing description from each product&apos;s specification. It is added to
+                  quotation lines by default and can be edited on each line before finalizing.
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setIsDescriptionsOpen(false)} className="rounded-full h-8 w-8 shrink-0" aria-label="Close">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 shrink-0" role="radiogroup" aria-label="Which products">
+              {([
+                { value: "missing", title: "Missing or placeholder only", hint: "Keeps descriptions you have written" },
+                { value: "all", title: "Regenerate all", hint: "Replaces every product's description" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={descriptionsMode === opt.value}
+                  onClick={() => {
+                    setDescriptionsMode(opt.value)
+                    runDescriptions(opt.value, false)
+                  }}
+                  className={`flex-1 text-left rounded-xl border p-3 cursor-pointer transition-colors ${
+                    descriptionsMode === opt.value ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+                  }`}
+                >
+                  <span className="text-sm font-bold text-foreground block">{opt.title}</span>
+                  <span className="text-xs text-muted-foreground">{opt.hint}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-[160px] border rounded-xl bg-muted/10">
+              {descriptionsBusy && !descriptionsPreview ? (
+                <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Checking products…
+                </div>
+              ) : descriptionsPreview ? (
+                descriptionsPreview.count === 0 ? (
+                  <p className="p-6 text-sm text-muted-foreground text-center">
+                    All {descriptionsPreview.totalProducts} products already have a suitable description.
+                  </p>
+                ) : (
+                  <div className="divide-y">
+                    <p className="p-3 text-xs font-semibold text-muted-foreground">
+                      {descriptionsPreview.count} of {descriptionsPreview.totalProducts} products will be updated. Examples:
+                    </p>
+                    {descriptionsPreview.samples.map((s) => (
+                      <div key={s.productCode} className="p-3 space-y-1 text-xs">
+                        <div className="font-semibold text-foreground">
+                          <span className="font-mono text-muted-foreground mr-2">{s.productCode}</span>
+                          {s.productName}
+                        </div>
+                        {s.before && <div className="text-muted-foreground line-through decoration-muted-foreground/50 line-clamp-1">{s.before}</div>}
+                        <div className="text-foreground">{s.after}</div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : null}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setIsDescriptionsOpen(false)} className="cursor-pointer">
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={descriptionsBusy || !descriptionsPreview || descriptionsPreview.count === 0}
+                onClick={() => runDescriptions(descriptionsMode, true)}
+                className="cursor-pointer"
+              >
+                {descriptionsBusy && descriptionsPreview ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1.5 h-3.5 w-3.5" />}
+                Update {descriptionsPreview?.count ?? ""} product{descriptionsPreview?.count === 1 ? "" : "s"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Manage Categories Modal */}
       {isCategoryModalOpen && (
