@@ -29,14 +29,18 @@ export const WORKSTATION_COMPONENTS = [
 
 /** Seats implied by a layout name when not given explicitly ("Cluster Of 6" → 6, "2 Seater Linear" → 2). */
 export function seatsFromLayout(layout: string): number {
-  const m = layout.match(/(\d+)/)
+  const m =
+    layout.match(/(\d+)\s*(?:seater|persons?|seats?)\b/i) ||
+    layout.match(/\b(?:cluster|linear|group)\s+of\s+(\d+)/i)
   if (m) return Number(m[1])
   return /single/i.test(layout) ? 1 : 0
 }
 
-/** Normalises a dimension like "2400x1200x750mm" to "2400 × 1200 × 750". */
+/** Normalises a plain dimension like "2400x1200x750mm" to "2400 × 1200 × 750"; other labels are kept as written. */
 export const formatDimension = (value: string) =>
-  value.replace(/\s*mm\s*$/i, "").split(/\s*[x×X*]\s*/).map((s) => s.trim()).filter(Boolean).join(" × ")
+  /^\s*\d+\s*[x×X*]\s*\d+(\s*[x×X*]\s*\d+)?\s*(mm)?\s*$/.test(value)
+    ? value.replace(/\s*mm\s*$/i, "").split(/\s*[x×X*]\s*/).map((s) => s.trim()).filter(Boolean).join(" × ")
+    : value.trim()
 
 /** Reads workstation options stored in a product's variantAttributes. */
 export function getWorkstationOptions(variantAttributes: unknown, fallbackLayout = ""): WorkstationOptions {

@@ -153,7 +153,8 @@ export function WorkstationLayoutConfigurator({
     onApply({
       variant,
       config,
-      productTitle: `${model!.name}${/workstation/i.test(model!.name) ? "" : " Workstation"} — ${layout}`,
+      // "Zen X" → "Zen X Workstation — Cluster Of 4"; names that already say what they are (tables, desks) are kept
+      productTitle: `${model!.name}${/workstation|table|desk/i.test(model!.name) ? "" : " Workstation"} — ${layout}`,
       componentSpec,
       surcharge,
       quantity: qtyNum,
