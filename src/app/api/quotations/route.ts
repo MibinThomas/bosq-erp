@@ -740,9 +740,10 @@ export async function POST(request: Request) {
       additionalCharges: parsedAdditionalCharges,
     }
 
-    let sharepointUrl = ""
+    // Drafts are never archived to SharePoint; only finalized quotations get a PDF uploaded,
+    // and only after the quotation record has been created successfully.
+    let pdfBuffer: Buffer | null = null
     if (resolvedStatus !== "DRAFT") {
-      let pdfBuffer: Buffer
       try {
         pdfBuffer = await renderToBuffer(
           React.createElement(QuotationDocument, pdfProps) as any
@@ -754,27 +755,10 @@ export async function POST(request: Request) {
           { status: 500 }
         )
       }
-
-      // 6. Upload PDF to SharePoint folder
-      const sanitizedClientNameForFile = clientObj.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
-      const filenameBase = `${nextQuoteNo}_${sanitizedClientNameForFile}`
-      try {
-        sharepointUrl = await uploadQuotationPdf(
-          clientObj.companyName,
-          filenameBase,
-          pdfBuffer
-        )
-      } catch (spError) {
-        console.error("Failed to upload PDF to SharePoint:", spError)
-        // Fallback url
-        sharepointUrl = `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(
-          clientObj.companyName
-        )}/Quotations/${filenameBase}.pdf`
-      }
     }
 
-    // 7. Save Quotation and Items in Database
-    const newQuotation = await prisma.quotation.create({
+    // 6. Save Quotation and Items in Database
+    let newQuotation = await prisma.quotation.create({
       data: {
         quotationNumber: nextQuoteNo,
         customerSegment: segment,
@@ -797,7 +781,7 @@ export async function POST(request: Request) {
         specialDiscountReason: specialDiscountReason || null,
         vatMode: resolvedVatMode,
         additionalCharges: parsedAdditionalCharges as any,
-        sharepointUrl,
+        sharepointUrl: "",
         notes: notes || null,
         disclaimerTitle: disclaimerTitle || null,
         disclaimer: disclaimer || null,
@@ -866,6 +850,35 @@ export async function POST(request: Request) {
         revisions: true,
       }
     })
+
+    // 7. Upload the finalized quotation PDF to SharePoint
+    if (pdfBuffer) {
+      const sanitizedClientNameForFile = clientObj.companyName.replace(/[\/\\:\*\?"<>\|]/g, "").trim()
+      const filenameBase = `${nextQuoteNo}_${sanitizedClientNameForFile}`
+      let sharepointUrl: string
+      try {
+        sharepointUrl = await uploadQuotationPdf(
+          clientObj.companyName,
+          filenameBase,
+          pdfBuffer
+        )
+      } catch (spError) {
+        console.error("Failed to upload PDF to SharePoint:", spError)
+        // Fallback url
+        sharepointUrl = `https://sharepoint.bosq.ae/Clients/${encodeURIComponent(
+          clientObj.companyName
+        )}/Quotations/${filenameBase}.pdf`
+      }
+      newQuotation = await prisma.quotation.update({
+        where: { id: newQuotation.id },
+        data: { sharepointUrl },
+        include: {
+          client: true,
+          items: true,
+          revisions: true,
+        }
+      })
+    }
 
     if (usedBaseNumber > 0) {
       await prisma.sequenceTracker.upsert({

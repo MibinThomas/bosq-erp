@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
+import { Prisma } from "@prisma/client"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
 import { generateProductCode } from "@/lib/product-code"
 import { findOrCreateCategory } from "@/lib/product-categories"
+import { parseOptionList } from "@/lib/chair-options"
 
 // Parses a spreadsheet cell as a number. Empty / non-numeric cells return undefined ("leave unchanged"),
 // while an explicit 0 is preserved.
@@ -59,6 +61,44 @@ export async function POST(request: Request) {
       return category.id
     }
 
+    // Finds or creates the master product for a chair model (code MODEL-<model code>), e.g. "Ace" / HCY
+    const modelCache = new Map<string, string>()
+    const getChairModelId = async (title: string, code: string, categoryId: string, imageUrl: string | null) => {
+      const slug = (code || title).toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+      const masterCode = `MODEL-${slug}`
+      const cached = modelCache.get(masterCode)
+      if (cached) return cached
+      const existing = await prisma.product.findUnique({ where: { productCode: masterCode } })
+      const master = existing
+        ? await prisma.product.update({
+            where: { id: existing.id },
+            data: {
+              productName: title,
+              modelCode: code || null,
+              isMaster: true,
+              parentProductId: null,
+              categoryId,
+              status: "ACTIVE",
+              deletedAt: null,
+              ...(imageUrl && !existing.imageUrl ? { imageUrl } : {}),
+            },
+          })
+        : await prisma.product.create({
+            data: {
+              productCode: masterCode,
+              productName: title,
+              modelCode: code || null,
+              isMaster: true,
+              categoryId,
+              imageUrl,
+              description: `${title} product model`,
+              status: "ACTIVE",
+            },
+          })
+      modelCache.set(masterCode, master.id)
+      return master.id
+    }
+
     for (const [index, prod] of products.entries()) {
       const row = index + 1
       const {
@@ -77,7 +117,10 @@ export async function POST(request: Request) {
         storageOptions,
         finishMaterial,
         modelName,
+        masterTitle,
+        modelCode,
       } = prod
+      const chairModel = masterTitle ? String(masterTitle).trim() : ""
 
       if (!productName || !String(productName).trim() || !categoryName || !String(categoryName).trim()) {
         skipped.push({ row, reason: "Product name and category are required" })
@@ -122,6 +165,31 @@ export async function POST(request: Request) {
           modelName: modelName ? String(modelName).trim() : null,
         }
 
+        // Chair / workstation rows: group the type or layout under its product model and store the
+        // configurator options (chairs: component colours & base; workstations: dimensions & colours)
+        const seats = parseInteger(prod.seatsPerUnit)
+        const chairData = chairModel
+          ? {
+              parentProductId: await getChairModelId(chairModel, modelCode ? String(modelCode).trim() : "", categoryId, imageUrl || null),
+              isMaster: false,
+              modelCode: modelCode ? String(modelCode).trim() : null,
+              modelName: chairModel,
+              variantAttributes: {
+                typeCode: prod.typeCode ? String(prod.typeCode).trim() : "",
+                headrestColours: parseOptionList(prod.headrestColours),
+                backrestColours: parseOptionList(prod.backrestColours),
+                seatColours: parseOptionList(prod.seatColours),
+                baseTypes: parseOptionList(prod.baseTypes),
+                layout: prod.layout ? String(prod.layout).trim() : "",
+                seatsPerUnit: seats && seats > 0 ? seats : null,
+                dimensionOptions: parseOptionList(prod.dimensionOptions),
+                tableTopColours: parseOptionList(prod.tableTopColours),
+                legFrameColours: parseOptionList(prod.legFrameColours),
+              } as unknown as Prisma.InputJsonObject,
+            }
+          : {}
+        Object.assign(createData, chairData)
+
         const providedCode = productCode ? String(productCode).trim() : ""
 
         let saved
@@ -158,6 +226,7 @@ export async function POST(request: Request) {
               finishMaterial: finishMaterial !== undefined ? finishMaterial : undefined,
               stock,
               modelName: modelName ? String(modelName).trim() : undefined,
+              ...chairData,
             },
             create: { ...createData, productCode: providedCode },
           })

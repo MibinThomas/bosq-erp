@@ -81,7 +81,9 @@ import { toast } from "sonner"
 import { QuickAddProductModal } from "@/components/products/quick-add-product-modal"
 import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
 import { AssignmentModal } from "@/components/clients/assignment-modal"
-import { WorkstationConfigurator } from "@/components/products/workstation-configurator"
+import { ChairConfigurator } from "@/components/quotations/ChairConfigurator"
+import { WorkstationLayoutConfigurator } from "@/components/quotations/WorkstationLayoutConfigurator"
+import { PRODUCT_SELECTION_TABS, type ProductTab, productTabOf } from "@/lib/product-tabs"
 import { ImageCropper } from "@/components/ui/image-cropper"
 import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
 import { QuotationSuccessModal } from "@/components/quotations/QuotationSuccessModal"
@@ -990,7 +992,17 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   onOpenCreateSection?: (index: number) => void
   onOpenEditSection?: (batch: any) => void
 }) {
-  const [selectionMode, setSelectionMode] = useState<"search" | "configurator">("search")
+  const [productTab, setProductTab] = useState<ProductTab>(() => {
+    const line = form.getValues(`items.${index}`) || {}
+    const prod = line.productId ? products.find((p) => p.id === line.productId) : null
+    if (prod) return productTabOf(prod, dbCategories)
+    // Custom (non-catalog) lines open on the search tab; new lines start with chairs
+    return line.description ? "others" : "chairs"
+  })
+  const tabProducts = useMemo(
+    () => products.filter((p) => productTabOf(p, dbCategories) === productTab),
+    [products, dbCategories, productTab]
+  )
   const canUseConfigurator = true
   const currentItemVal = useWatch({ control, name: `items.${index}` }) || {}
   const includeCategoryName = useWatch({ control, name: "includeCategoryName" }) ?? true
@@ -1222,56 +1234,97 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
         </div>
       </div>
 
-      {/* Product Search / Workstation Configurator Tabbed Selector */}
+      {/* Product selection: chairs use the chair configurator; other categories use catalog search */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap bg-muted/40 p-1.5 rounded-lg border border-border/60">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 flex-wrap bg-muted/40 p-1 rounded-lg border border-border/60" role="tablist">
+          {PRODUCT_SELECTION_TABS.map((tab) => (
             <Button
+              key={tab.key}
               type="button"
-              variant={selectionMode === "configurator" ? "default" : "outline"}
+              role="tab"
+              aria-selected={productTab === tab.key}
+              variant={productTab === tab.key ? "default" : "ghost"}
               size="sm"
-              onClick={() => setSelectionMode(selectionMode === "configurator" ? "search" : "configurator")}
+              onClick={() => setProductTab(tab.key)}
               className={cn(
-                "h-8 text-xs px-3.5 font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
-                selectionMode === "configurator"
-                  ? "bg-primary text-primary-foreground shadow-xs border-primary"
-                  : "bg-background text-primary border-primary/30 hover:bg-primary/10"
+                "h-8 text-xs px-3.5 font-semibold cursor-pointer",
+                productTab === tab.key ? "shadow-xs" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-              <span>Select Product by Attributes</span>
+              {tab.label}
             </Button>
-          </div>
-          <span className="text-[11px] text-muted-foreground hidden md:inline px-2">
-            {selectionMode === "search" ? "Search existing products by code/name" : "Dynamically filter product attributes by Model & Specifications"}
-          </span>
+          ))}
         </div>
 
-        {selectionMode === "search" ? (
+        {productTab === "chairs" ? (
+          <ChairConfigurator
+            key={`${index}-${currentProductId || "new"}`}
+            products={products}
+            categories={dbCategories}
+            watchSegment={watchSegment}
+            currentProductId={currentProductId}
+            currentSpecifications={currentItemVal.specifications}
+            currentQuantity={currentQuantity}
+            disabled={isItemLocked}
+            onApply={(selection) => {
+              const v = selection.variant
+              handleProductSelect(index, v.id, {
+                ...v,
+                imageUrl: v.imageUrl || v.parentProduct?.imageUrl || "",
+              })
+              // Segment price from the ERP price list plus approved customization charges
+              const segmentBase = Number(form.getValues(`items.${index}.basePrice`)) || 0
+              const base = Number((segmentBase + selection.surcharge).toFixed(2))
+              const marginVal = Number(form.getValues(`items.${index}.margin`)) || 0
+              const opts = { shouldValidate: true, shouldDirty: true }
+              form.setValue(`items.${index}.basePrice`, base, opts)
+              form.setValue(`items.${index}.unitPrice`, Number((base * (1 + marginVal / 100)).toFixed(2)), opts)
+              form.setValue(`items.${index}.description`, `${selection.productTitle} — ${selection.itemCode}`, opts)
+              form.setValue(`items.${index}.specifications`, selection.componentSpec, opts)
+              form.setValue(`items.${index}.quantity`, selection.quantity, opts)
+              toast.success(`${selection.productTitle} added to line #${index + 1}`)
+            }}
+          />
+        ) : productTab === "workstations" ? (
+          <WorkstationLayoutConfigurator
+            key={`${index}-${currentProductId || "new"}`}
+            products={products}
+            categories={dbCategories}
+            watchSegment={watchSegment}
+            currentProductId={currentProductId}
+            currentSpecifications={currentItemVal.specifications}
+            currentQuantity={currentQuantity}
+            disabled={isItemLocked}
+            onApply={(selection) => {
+              const v = selection.variant
+              handleProductSelect(index, v.id, {
+                ...v,
+                imageUrl: v.imageUrl || v.parentProduct?.imageUrl || "",
+              })
+              // ERP price for the selected configuration (layout price + approved option charges)
+              const segmentBase = Number(form.getValues(`items.${index}.basePrice`)) || 0
+              const base = Number((segmentBase + selection.surcharge).toFixed(2))
+              const marginVal = Number(form.getValues(`items.${index}.margin`)) || 0
+              const opts = { shouldValidate: true, shouldDirty: true }
+              form.setValue(`items.${index}.basePrice`, base, opts)
+              form.setValue(`items.${index}.unitPrice`, Number((base * (1 + marginVal / 100)).toFixed(2)), opts)
+              form.setValue(`items.${index}.description`, selection.productTitle, opts)
+              form.setValue(`items.${index}.specifications`, selection.componentSpec, opts)
+              form.setValue(`items.${index}.quantity`, selection.quantity, opts)
+              toast.success(`${selection.productTitle} added to line #${index + 1}`)
+            }}
+          />
+        ) : (
           <ProductSearchSelect
             productId={currentProductId}
-            products={products}
+            products={tabProducts}
             watchSegment={watchSegment}
             onProductSelect={(prodId) => handleProductSelect(index, prodId)}
             onCustomProductClick={() => {
               form.setValue(`items.${index}.productId`, "")
               form.setValue(`items.${index}.priceSource`, "manual")
             }}
-            onOpenConfigurator={() => setSelectionMode("configurator")}
             disabled={isItemLocked}
-          />
-        ) : (
-          <WorkstationConfigurator
-            watchSegment={watchSegment}
-            onSelectVariant={(variantProduct) => {
-              if (handleVariantSelect) {
-                handleVariantSelect(index, variantProduct)
-              } else {
-                handleProductSelect(index, variantProduct.id, variantProduct)
-              }
-              setSelectionMode("search")
-            }}
-            onCancel={() => setSelectionMode("search")}
           />
         )}
       </div>
@@ -3613,6 +3666,8 @@ function NewQuotationForm() {
     }
 
     const { isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes } = autoSaveStateRef.current
+    // Finalized quotations are only saved explicitly via "Update Quotation"; never autosave them as drafts
+    if (!isRevision && existingQuote && existingQuote.status !== "DRAFT") return
     const dataString = JSON.stringify({ ...currentData, revisionNotes })
     if (dataString === lastSavedDataRef.current) return
 

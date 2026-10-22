@@ -1345,6 +1345,18 @@ export async function PUT(
         return NextResponse.json({ error: "Unauthorized: You can only update your own or assigned quotations" }, { status: 403 })
       }
 
+      // A finalized quotation has already been archived to SharePoint. Draft saves must never
+      // demote it back to DRAFT; edits to it go through an explicit "Update Quotation" or a revision.
+      if (existingQuotation.status !== "DRAFT" && body.status === "DRAFT") {
+        if (isAutoSave) {
+          return NextResponse.json({ ...existingQuotation, autoSaveSkipped: true })
+        }
+        return NextResponse.json(
+          { error: `Quotation ${existingQuotation.quotationNumber} is finalized and cannot be saved as a draft. Use "Update Quotation" or create a revision.` },
+          { status: 400 }
+        )
+      }
+
       const {
         items,
         projectName,
@@ -1911,6 +1923,13 @@ export async function PUT(
     const { status, poStatus, paymentStatus, notes } = body
     if (!(await canManageQuotationSeries())) {
       return NextResponse.json({ error: "Unauthorized: You can only update your own or assigned quotations" }, { status: 403 })
+    }
+
+    if (status === "DRAFT" && existingQuotation.status !== "DRAFT") {
+      return NextResponse.json(
+        { error: `Quotation ${existingQuotation.quotationNumber} is finalized and cannot be moved back to draft.` },
+        { status: 400 }
+      )
     }
 
     // Block forward transition to PO/Production if not client approved

@@ -85,7 +85,7 @@ export async function GET(request: Request) {
         where,
         include: {
           category: true,
-          parentProduct: { select: { id: true, productName: true } }
+          parentProduct: { select: { id: true, productName: true, modelCode: true, imageUrl: true } }
         },
         orderBy: { productCode: "asc" },
         ...(page ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
