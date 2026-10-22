@@ -167,12 +167,27 @@ export default function ProductsPage() {
   const [selectedCategory, setSelectedCategory] = useState("")
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
-  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; description: string | null; _count?: { products: number } }[]>([])
+  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; description: string | null; parentId?: string | null; _count?: { products: number } }[]>([])
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [newCategoryDesc, setNewCategoryDesc] = useState("")
+  const [newCategoryParentId, setNewCategoryParentId] = useState("")
   const [creatingCategory, setCreatingCategory] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; description: string } | null>(null)
+  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; description: string; parentId: string } | null>(null)
+
+  // Categories ordered as a tree: each top-level category followed by its sub-categories
+  const topLevelCategories = categoriesList.filter(c => !c.parentId || !categoriesList.some(p => p.id === c.parentId))
+  const categoryTree = topLevelCategories.flatMap(parent => [
+    { ...parent, depth: 0 },
+    ...categoriesList.filter(c => c.parentId === parent.id).map(child => ({ ...child, depth: 1 })),
+  ])
+  // Selecting a parent category also matches products in its sub-categories
+  const selectedCategoryObj = categoriesList.find(c => c.name === selectedCategory)
+  const selectedCategoryNames = new Set(
+    selectedCategoryObj
+      ? [selectedCategoryObj.name, ...categoriesList.filter(c => c.parentId === selectedCategoryObj.id).map(c => c.name)]
+      : selectedCategory ? [selectedCategory] : []
+  )
   const [updatingCategory, setUpdatingCategory] = useState(false)
   const [deletingCatId, setDeletingCatId] = useState<string | null>(null)
 
@@ -216,13 +231,13 @@ export default function ProductsPage() {
     }
   }, [isAttributeModalOpen])
 
-  const handleUpdateCategory = async (id: string, name: string, description: string) => {
+  const handleUpdateCategory = async (id: string, name: string, description: string, parentId: string) => {
     setUpdatingCategory(true)
     try {
       const res = await fetch(`/api/products/categories/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description })
+        body: JSON.stringify({ name, description, parentId: parentId || null })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to update category")
@@ -237,7 +252,7 @@ export default function ProductsPage() {
   }
 
   const handleDeleteCategory = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete category "${name}"? Products in this category will be re-assigned to General.`)) return
+    if (!confirm(`Are you sure you want to delete category "${name}"? Products in this category will be re-assigned to General, and any sub-categories will become top-level categories.`)) return
     setDeletingCatId(id)
     try {
       const res = await fetch(`/api/products/categories/${id}`, {
@@ -662,8 +677,8 @@ export default function ProductsPage() {
     )
     // A group matches when the master or any of its variants belongs to the selected category
     const matchesCategory = selectedCategory
-      ? product.category?.name === selectedCategory ||
-        Boolean(product.variants?.some(v => v.category?.name === selectedCategory))
+      ? selectedCategoryNames.has(product.category?.name || "") ||
+        Boolean(product.variants?.some(v => selectedCategoryNames.has(v.category?.name || "")))
       : true
     return matchesSearch && matchesCategory
   })
@@ -792,9 +807,9 @@ export default function ProductsPage() {
             onChange={(e) => setSelectedCategory(e.target.value)}
           >
             <option value="">All Categories</option>
-            {categoriesList.map((cat) => (
+            {categoryTree.map((cat) => (
               <option key={cat.id} value={cat.name}>
-                {cat.name}
+                {cat.depth > 0 ? `   └ ${cat.name}` : cat.name}
               </option>
             ))}
           </select>
@@ -1315,7 +1330,8 @@ export default function ProductsPage() {
                   setEditingCategory(null)
                   setNewCategoryName("")
                   setNewCategoryDesc("")
-                }} 
+                  setNewCategoryParentId("")
+                }}
                 className="rounded-full h-8 w-8"
               >
                 <X className="h-4 w-4" />
@@ -1338,6 +1354,7 @@ export default function ProductsPage() {
                     body: JSON.stringify({
                       name: newCategoryName.trim(),
                       description: newCategoryDesc.trim() || undefined,
+                      parentId: newCategoryParentId || null,
                     })
                   })
                   const data = await res.json()
@@ -1347,6 +1364,7 @@ export default function ProductsPage() {
                   toast.success(`Category "${data.name}" created successfully!`)
                   setNewCategoryName("")
                   setNewCategoryDesc("")
+                  setNewCategoryParentId("")
                   fetchCategories()
                 } catch (err: any) {
                   toast.error(err.message || "Failed to create category.")
@@ -1357,20 +1375,31 @@ export default function ProductsPage() {
               className="bg-muted/30 p-4 rounded-xl border space-y-3 shrink-0"
             >
               <span className="text-xs font-bold text-foreground block">Add New Category</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input 
-                  value={newCategoryName} 
-                  onChange={(e) => setNewCategoryName(e.target.value)} 
-                  placeholder="Category Name (e.g. Acoustic Pods)" 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Input
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Category Name (e.g. Acoustic Pods)"
                   className="h-9 text-xs bg-background"
                   required
                 />
-                <Input 
-                  value={newCategoryDesc} 
-                  onChange={(e) => setNewCategoryDesc(e.target.value)} 
-                  placeholder="Description (Optional)" 
+                <Input
+                  value={newCategoryDesc}
+                  onChange={(e) => setNewCategoryDesc(e.target.value)}
+                  placeholder="Description (Optional)"
                   className="h-9 text-xs bg-background"
                 />
+                <select
+                  value={newCategoryParentId}
+                  onChange={(e) => setNewCategoryParentId(e.target.value)}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-xs cursor-pointer"
+                  title="Parent category"
+                >
+                  <option value="">No parent (top-level)</option>
+                  {topLevelCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>Under: {cat.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex justify-end">
                 <Button 
@@ -1406,19 +1435,33 @@ export default function ProductsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
-                  {categoriesList.map((cat) => {
+                  {categoryTree.map((cat) => {
                     const isEditingThis = editingCategory?.id === cat.id
+                    const hasChildren = categoriesList.some(c => c.parentId === cat.id)
 
                     return (
                       <TableRow key={cat.id} className="hover:bg-muted/20">
                         {isEditingThis ? (
                           <>
-                            <TableCell>
-                              <Input 
+                            <TableCell className="space-y-1.5">
+                              <Input
                                 value={editingCategory.name}
                                 onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
                                 className="h-8 text-xs font-semibold"
                               />
+                              {!hasChildren && (
+                                <select
+                                  value={editingCategory.parentId}
+                                  onChange={(e) => setEditingCategory({ ...editingCategory, parentId: e.target.value })}
+                                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs cursor-pointer"
+                                  title="Parent category"
+                                >
+                                  <option value="">No parent (top-level)</option>
+                                  {topLevelCategories.filter(p => p.id !== cat.id).map((p) => (
+                                    <option key={p.id} value={p.id}>Under: {p.name}</option>
+                                  ))}
+                                </select>
+                              )}
                             </TableCell>
                             <TableCell>
                               <Input 
@@ -1436,7 +1479,7 @@ export default function ProductsPage() {
                                   size="icon" 
                                   variant="ghost" 
                                   className="h-7 w-7 text-emerald-600 hover:bg-emerald-50"
-                                  onClick={() => handleUpdateCategory(cat.id, editingCategory.name, editingCategory.description)}
+                                  onClick={() => handleUpdateCategory(cat.id, editingCategory.name, editingCategory.description, editingCategory.parentId)}
                                   disabled={updatingCategory}
                                   title="Save Changes"
                                 >
@@ -1456,7 +1499,10 @@ export default function ProductsPage() {
                           </>
                         ) : (
                           <>
-                            <TableCell className="font-semibold text-foreground">{cat.name}</TableCell>
+                            <TableCell className={cat.depth > 0 ? "pl-8 text-foreground" : "font-semibold text-foreground"}>
+                              {cat.depth > 0 && <span className="text-muted-foreground mr-1.5">└</span>}
+                              {cat.name}
+                            </TableCell>
                             <TableCell className="text-muted-foreground">{cat.description || "—"}</TableCell>
                             <TableCell className="text-center">
                               <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
@@ -1469,7 +1515,7 @@ export default function ProductsPage() {
                                   size="icon" 
                                   variant="ghost" 
                                   className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
-                                  onClick={() => setEditingCategory({ id: cat.id, name: cat.name, description: cat.description || "" })}
+                                  onClick={() => setEditingCategory({ id: cat.id, name: cat.name, description: cat.description || "", parentId: cat.parentId || "" })}
                                   title="Edit Category"
                                 >
                                   <Pencil className="h-3.5 w-3.5" />

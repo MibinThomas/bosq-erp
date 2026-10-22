@@ -108,9 +108,15 @@ model ProductCategory {
   id          String    @id @default(cuid())
   name        String    @unique
   description String?
+  // Optional parent for a two-level hierarchy, e.g. Chairs > Premium Chairs
+  parentId    String?
+  parent      ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ProductCategory[] @relation("CategoryTree")
   products    Product[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([parentId])
 }
 
 model Product {
@@ -156,6 +162,10 @@ model Product {
 
   quotationItems  QuotationItem[]
   boqItems        BoqItem[]
+
+  @@index([categoryId])
+  @@index([parentProductId])
+  @@index([deletedAt, status])
 }
 
 model Quotation {
@@ -318,6 +328,8 @@ model QuotationItem {
   updatedAt       DateTime  @updatedAt
 
   @@index([sortOrder])
+  @@index([quotationId])
+  @@index([productId])
 }
 
 model QuotationRevision {
@@ -471,9 +483,12 @@ model BoqItem {
   negotiationAmount Float   @default(0.0)
   unitSellingPrice Float    @default(0.0)
   totalSellingPrice Float   @default(0.0)
-  
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([boqId])
+  @@index([productId])
 }
 
 model Role {

@@ -146,10 +146,11 @@ async function readInCellImages(file) {
 }
 
 // ---------- main ----------
-// Sheets map onto the ERP's main product categories (Chairs, Workstations, Storage, Accessories)
+// Sheets map onto the ERP's main product categories (Chairs, Workstations, Storage, Accessories).
+// "Parent > Child" creates a sub-category under the parent on import.
 const SHEET_CATEGORY = {
-  "premium chairs": "Chairs",
-  "executive chairs": "Chairs",
+  "premium chairs": "Chairs > Premium Chairs",
+  "executive chairs": "Chairs > Executive Chairs",
   "pdu": "Accessories",
   "metal storage": "Storage",
   "negotiation table frame": "Workstations",

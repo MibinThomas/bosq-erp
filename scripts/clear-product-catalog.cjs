@@ -31,6 +31,23 @@ const REFERENCED = `
   const client = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } })
   await client.connect()
   try {
+    // Make sure this is the ERP's database (current schema) before doing anything
+    const host = new URL(process.env.DATABASE_URL).hostname
+    console.log(`Database host: ${host}`)
+    const { rows: cols } = await client.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = 'Product' AND column_name = ANY($1)`,
+      [["parentProductId", "isMaster", "deletedAt", "categoryId"]]
+    )
+    if (cols.length < 4) {
+      console.error(
+        `This database does not match the ERP's current schema (missing: ${["parentProductId", "isMaster", "deletedAt", "categoryId"]
+          .filter((c) => !cols.some((r) => r.column_name === c)).join(", ")}).\n` +
+        `It is probably not the database the app uses — check the host above against PROD_DB_URL in src/lib/prisma.ts. Nothing was changed.`
+      )
+      process.exitCode = 1
+      return
+    }
+
     const { rows: [stats] } = await client.query(`
       SELECT count(*)::int AS total,
              count(*) FILTER (WHERE "deletedAt" IS NULL)::int AS visible,

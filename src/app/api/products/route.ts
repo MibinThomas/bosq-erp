@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { Prisma } from "@prisma/client"
 import prisma from "@/lib/prisma"
 import { generateProductCode } from "@/lib/product-code"
+import { getCategoryIdsWithChildren } from "@/lib/product-categories"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
@@ -42,7 +43,8 @@ export async function GET(request: Request) {
 
     const baseWhere: Prisma.ProductWhereInput = {
       deletedAt: null,
-      ...(categoryId ? { categoryId } : {}),
+      // A parent category also matches products in its sub-categories
+      ...(categoryId ? { categoryId: { in: await getCategoryIdsWithChildren(categoryId) } } : {}),
       ...(status ? { status } : {}),
       ...(isInteriorConsultant ? { stock: { gt: 0 } } : {}),
     }

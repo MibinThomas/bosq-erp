@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { validateCategoryParent } from "@/lib/product-categories"
 
 export async function PUT(
   request: Request,
@@ -53,11 +54,22 @@ export async function PUT(
       return NextResponse.json({ error: `Category "${cleanName}" already exists.` }, { status: 400 })
     }
 
+    // parentId: omitted = unchanged, null/"" = make top-level, id = place under that parent
+    let parentId: string | null | undefined = undefined
+    if (body.parentId !== undefined) {
+      parentId = body.parentId || null
+      if (parentId) {
+        const parentError = await validateCategoryParent(id, parentId)
+        if (parentError) return NextResponse.json({ error: parentError }, { status: 400 })
+      }
+    }
+
     const updatedCategory = await prisma.productCategory.update({
       where: { id },
       data: {
         name: cleanName,
-        description: description !== undefined ? description.trim() : category.description
+        description: description !== undefined ? description.trim() : category.description,
+        ...(parentId !== undefined ? { parentId } : {}),
       }
     })
 

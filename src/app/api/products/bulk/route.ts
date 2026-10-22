@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
 import { generateProductCode } from "@/lib/product-code"
+import { findOrCreateCategory } from "@/lib/product-categories"
 
 // Parses a spreadsheet cell as a number. Empty / non-numeric cells return undefined ("leave unchanged"),
 // while an explicit 0 is preserved.
@@ -52,14 +53,8 @@ export async function POST(request: Request) {
       const cached = categoryCache.get(key)
       if (cached) return cached
 
-      let category = await prisma.productCategory.findFirst({
-        where: { name: { equals: name, mode: "insensitive" } },
-      })
-      if (!category) {
-        category = await prisma.productCategory.create({
-          data: { name, description: `${name} category` },
-        })
-      }
+      // Supports "Parent > Child" names, e.g. "Chairs > Premium Chairs"
+      const category = await findOrCreateCategory(name)
       categoryCache.set(key, category.id)
       return category.id
     }

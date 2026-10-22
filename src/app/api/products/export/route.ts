@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { getCategoryIdsWithChildren } from "@/lib/product-categories"
 
 // Exports the product catalog as .xlsx (default) or .csv.
 // Supports the same filters as GET /api/products: ?q=&categoryId=&status=
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
 
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
-      ...(categoryId ? { categoryId } : {}),
+      ...(categoryId ? { categoryId: { in: await getCategoryIdsWithChildren(categoryId) } } : {}),
       ...(status ? { status } : {}),
       ...(q
         ? {
