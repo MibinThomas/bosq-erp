@@ -4,7 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg"
 import pg from "pg"
 import xlsx from "xlsx"
 
-const PROD_DB_URL = "postgresql://neondb_owner:npg_kSwG9Ic8MNyx@ep-old-term-adz4r5o6-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
+const PROD_DB_URL = process.env.DATABASE_URL || ""
 
 async function importWorkstations() {
   const excelPath = "C:\\Users\\Lazim\\Downloads\\erp.xlsx"

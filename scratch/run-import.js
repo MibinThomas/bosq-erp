@@ -19,7 +19,7 @@ const { PrismaPg } = require("@prisma/adapter-pg");
 const pg = require("pg");
 const XLSX = require("xlsx");
 
-const connectionString = process.env.DATABASE_URL || "postgresql://neondb_owner:npg_kSwG9Ic8MNyx@ep-old-term-adz4r5o6-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require";
+const connectionString = process.env.DATABASE_URL;
 const pool = new pg.Pool({ connectionString });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });

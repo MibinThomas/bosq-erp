@@ -23,7 +23,8 @@ export const authOptions: NextAuthOptions = {
         let user: any = null
         try {
           user = await prisma.user.findUnique({
-            where: { email: cleanEmail }
+            where: { email: cleanEmail },
+            omit: { password: false }
           })
         } catch (dbErr: any) {
           console.error("[NextAuth] DB lookup error during authorize:", dbErr)

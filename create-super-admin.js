@@ -6,8 +6,9 @@ const crypto = require("crypto")
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex")
-  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex")
-  return `${salt}:${hash}`
+  const iterations = 210000
+  const hash = crypto.pbkdf2Sync(password, salt, iterations, 64, "sha512").toString("hex")
+  return `${iterations}:${salt}:${hash}`
 }
 
 const connectionString = process.env.DATABASE_URL
@@ -17,7 +18,8 @@ const prisma = new PrismaClient({ adapter })
 
 async function main() {
   const email = "superadmin@bosq.ae"
-  const password = "BosqSuper@2026"
+  const password = process.env.NEW_PASSWORD || ""
+  if (password.length < 12) throw new Error("Set NEW_PASSWORD (at least 12 characters) before running this script.")
 
   const user = await prisma.user.upsert({
     where: { email },
@@ -37,7 +39,6 @@ async function main() {
 
   console.log("Super Admin seeded successfully:")
   console.log(`Email: ${email}`)
-  console.log(`Password: ${password}`)
 }
 
 main()
