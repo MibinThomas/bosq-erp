@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
+import { generateProductCode } from "@/lib/product-code"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { isManagerOrAdminRole } from "@/lib/utils"
@@ -70,23 +71,7 @@ export async function POST(
     }
 
     // 2. Generate product code if needed
-    let productCode = body.productCode
-    if (!productCode) {
-      const prefix = categoryName.substring(0, 2).toUpperCase()
-      const lastProduct = await prisma.product.findFirst({
-        where: { productCode: { startsWith: prefix } },
-        orderBy: { productCode: "desc" },
-      })
-
-      let nextNum = 1
-      if (lastProduct) {
-        const lastNumPart = parseInt(lastProduct.productCode.replace(prefix + "-", ""), 10)
-        if (!isNaN(lastNumPart)) {
-          nextNum = lastNumPart + 1
-        }
-      }
-      productCode = `${prefix}-${nextNum.toString().padStart(2, "0")}`
-    }
+    const productCode = body.productCode || await generateProductCode(categoryName)
 
     const unitPrice = body.unitPrice !== undefined ? Number(body.unitPrice) : Number(item.unitPrice || 0)
     const description = body.description || item.productDescription || item.description

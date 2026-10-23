@@ -2,12 +2,17 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
+import { hasPermission } from "@/lib/rbac"
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const canView = await hasPermission((session.user as any).id, "PRODUCTS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view products" }, { status: 403 })
     }
 
     const body = await request.json().catch(() => ({}))
@@ -64,7 +69,16 @@ export async function POST(request: Request) {
           }
         }
         return true
-      }) || candidateProducts[0] || null
+      }) || null
+
+      // Only fall back to the first model match when the user hasn't selected any options;
+      // otherwise an unavailable combination would silently quote a different variant.
+      const hasSelectedOptions =
+        [legType, tableTopFinish, dimensions, storageOptions, finishMaterial].some(Boolean) ||
+        (attributes && typeof attributes === "object" && Object.values(attributes).some(Boolean))
+      if (!matchedProduct && !hasSelectedOptions) {
+        matchedProduct = candidateProducts[0] || null
+      }
     }
 
     if (!matchedProduct) {

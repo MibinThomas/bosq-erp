@@ -2,12 +2,17 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { importBosqBulkData } from "@/lib/import-bosq-bulk"
+import { hasPermission } from "@/lib/rbac"
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized access" }, { status: 401 })
+    }
+    const canBulkUpload = await hasPermission((session.user as any).id, "PRODUCTS", "uploadFiles")
+    if (!canBulkUpload) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to bulk upload products" }, { status: 403 })
     }
 
     const result = await importBosqBulkData("public/uploads/bosq_bulk_update.xlsx")
