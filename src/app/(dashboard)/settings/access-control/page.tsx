@@ -91,6 +91,13 @@ const matrixColumns = [
   { id: "canSaveToCatalog", label: "Save to Catalog", title: "Save custom items into master product catalog" },
 ]
 
+/** Strong random initial password (no shared default password). */
+function randomInitialPassword() {
+  const bytes = new Uint8Array(9)
+  crypto.getRandomValues(bytes)
+  return "Bq-" + btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_")
+}
+
 export default function AccessControlPage() {
   const { data: session } = useSession()
   const currentUserRole = (session?.user as any)?.role || ""
@@ -146,7 +153,7 @@ export default function AccessControlPage() {
   const [newUserDepartment, setNewUserDepartment] = useState("")
   const [newUserRole, setNewUserRole] = useState("")
   const [newUserStatus, setNewUserStatus] = useState("Active")
-  const [newUserPassword, setNewUserPassword] = useState("Bosq@2026")
+  const [newUserPassword, setNewUserPassword] = useState("")
   const [submittingNewUser, setSubmittingNewUser] = useState(false)
 
   // Comprehensive Edit User modal state
@@ -386,7 +393,7 @@ export default function AccessControlPage() {
       setNewUserPhone("")
       setNewUserDesignation("")
       setNewUserDepartment("")
-      setNewUserPassword("Bosq@2026")
+      setNewUserPassword(randomInitialPassword())
       await loadData()
     } catch (err: any) {
       toast.error(err.message || "Failed to create user account.")
@@ -505,7 +512,7 @@ export default function AccessControlPage() {
       if (!res.ok) throw new Error(data.error || "Failed to process password reset request")
 
       if (action === "APPROVE") {
-        toast.success(`Password reset approved! Temporary Password: ${data.tempPassword || resetTempPassword || "Generated"}`)
+        toast.success(`Password reset approved! Temporary password: ${data.tempPassword || resetTempPassword}. Share it with the user directly.`, { duration: 15000 })
       } else {
         toast.info("Password reset request rejected.")
       }
@@ -685,6 +692,7 @@ export default function AccessControlPage() {
                   variant="outline"
                   onClick={() => {
                     setNewUserRole(selectedRole?.name || "INTERIOR_DESIGN_CONSULTANT")
+                    setNewUserPassword(randomInitialPassword())
                     setIsAddUserOpen(true)
                   }}
                   className="h-8 text-xs font-bold border-rose-500 text-rose-600 hover:bg-rose-50 dark:border-rose-400 dark:text-rose-400 dark:hover:bg-rose-950/30 flex items-center gap-1.5 cursor-pointer shadow-2xs"

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
+import { checkUserChange } from "@/lib/role-policy"
 
 export async function PUT(
   request: Request,
@@ -46,7 +47,19 @@ export async function PUT(
       signature
     }
 
-    // Only admins can update the role and active status
+    // Only admins can update the role and active status, within the role policy
+    if (isAdmin && (role !== undefined || isActive !== undefined)) {
+      const target = await prisma.user.findUnique({ where: { id }, select: { id: true, role: true, isActive: true } })
+      if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 })
+      const denied = await checkUserChange({
+        actorId: currentUserId,
+        actorRole: userRole,
+        target,
+        newRole: role,
+        newIsActive: isActive === undefined ? undefined : !!isActive,
+      })
+      if (denied) return NextResponse.json({ error: denied }, { status: 403 })
+    }
     if (isAdmin) {
       if (role !== undefined) updateData.role = role;
       if (isActive !== undefined) {
