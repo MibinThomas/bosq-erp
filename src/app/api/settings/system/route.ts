@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
-import { getSettings } from "@/lib/settings"
+import { getSettings, SECRET_MASK } from "@/lib/settings"
 import { hasPermission } from "@/lib/rbac"
 
 const SETTING_KEYS = [
@@ -42,6 +42,9 @@ export async function GET() {
 
     const settings = await getSettings(SETTING_KEYS)
 
+    // The client secret is write-only: never send it to the browser
+    if (settings.sharepoint_client_secret) settings.sharepoint_client_secret = SECRET_MASK
+
     if (!canViewFullSettings) {
       delete settings.sharepoint_client_secret
       delete settings.sharepoint_client_id
@@ -74,6 +77,7 @@ export async function PUT(request: Request) {
     // Save each key in db SystemSetting model
     for (const key of SETTING_KEYS) {
       if (body[key] !== undefined) {
+        if (key === "sharepoint_client_secret" && body[key] === SECRET_MASK) continue // unchanged
         await prisma.systemSetting.upsert({
           where: { key },
           update: { value: String(body[key]) },

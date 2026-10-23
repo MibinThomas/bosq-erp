@@ -82,3 +82,6 @@ function getEnvValue(key: string): string | null {
       return null
   }
 }
+
+/** Shown instead of stored secrets; sending it back means "keep the stored value". */
+export const SECRET_MASK = "********"

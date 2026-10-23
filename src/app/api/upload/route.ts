@@ -7,6 +7,17 @@ import { writeFile, mkdir } from "fs/promises"
 import fs from "fs"
 import crypto from "crypto"
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+/** Detects the image type from the file's first bytes (the browser-supplied type can't be trusted). */
+function sniffImageType(b: Buffer): string | null {
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg"
+  if (b.length >= 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png"
+  if (b.length >= 6 && /^GIF8[79]a$/.test(b.subarray(0, 6).toString("ascii"))) return "image/gif"
+  if (b.length >= 12 && b.subarray(0, 4).toString("ascii") === "RIFF" && b.subarray(8, 12).toString("ascii") === "WEBP") return "image/webp"
+  return null
+}
+
 export async function POST(request: Request) {
   try {
     console.log("[UPLOAD API] Starting upload request...");
@@ -27,9 +38,14 @@ export async function POST(request: Request) {
     }
     console.log("[UPLOAD API] File found:", file.name, file.type, file.size);
 
-    const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"]
-    if (!allowedMimeTypes.includes(file.type)) {
-      return NextResponse.json({ error: "Invalid file type. Only images are allowed." }, { status: 400 })
+    // SVG is not accepted: it can carry scripts that run when the file is opened
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: "File is too large (max 10 MB)." }, { status: 400 })
+    }
+    const head = Buffer.from(await file.slice(0, 16).arrayBuffer())
+    const detectedType = sniffImageType(head)
+    if (!detectedType) {
+      return NextResponse.json({ error: "Invalid file type. Only JPEG, PNG, WebP or GIF images are allowed." }, { status: 400 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -46,10 +62,9 @@ export async function POST(request: Request) {
       "image/jpeg": ".jpg",
       "image/png": ".png",
       "image/webp": ".webp",
-      "image/gif": ".gif",
-      "image/svg+xml": ".svg"
+      "image/gif": ".gif"
     }
-    const ext = mimeToExt[file.type] || ".jpg"
+    const ext = mimeToExt[detectedType] || ".jpg"
     const randomId = crypto.randomBytes(16).toString("hex")
     const filename = `upload-${Date.now()}-${randomId}${ext}`
 
@@ -79,8 +94,7 @@ export async function POST(request: Request) {
 
     // Otherwise, upload to Vercel Blob
     const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const maskedToken = token ? `${token.slice(0, 12)}...${token.slice(-6)}` : "undefined";
-    console.log(`[UPLOAD API] Uploading to Vercel Blob... Token length: ${token?.length || 0}, Masked: ${maskedToken}`);
+    console.log("[UPLOAD API] Uploading to Vercel Blob...");
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     
@@ -88,7 +102,7 @@ export async function POST(request: Request) {
     try {
       const blob = await put(blobPathname, buffer, {
         access: "public",
-        contentType: file.type,
+        contentType: detectedType,
       })
       return NextResponse.json({ url: blob.url })
     } catch (blobError: any) {
