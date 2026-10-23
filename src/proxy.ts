@@ -1,5 +1,7 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
+import { hasPermission } from "@/lib/rbac"
+import { resolveRoutePermission } from "@/lib/route-permissions"
 
 export default withAuth(
   async function middleware(req) {
@@ -24,32 +26,21 @@ export default withAuth(
       return NextResponse.next()
     }
 
-    // Bypass check route to prevent infinite loop
-    if (path.startsWith("/api/settings/access-control/check")) {
-      return NextResponse.next()
-    }
+    const deny = (status: number, message: string) =>
+      path.startsWith("/api/")
+        ? new NextResponse(JSON.stringify({ error: message }), { status, headers: { "Content-Type": "application/json" } })
+        : NextResponse.redirect(new URL("/403", req.url))
 
-    try {
-      const host = req.headers.get("host") || "localhost:3000"
-      const protocol = req.nextUrl.protocol || "http:"
-      const method = req.method
-      const checkUrl = `${protocol}//${host}/api/settings/access-control/check?userId=${userId}&path=${encodeURIComponent(path)}&method=${method}`
-      
-      const checkRes = await fetch(checkUrl)
-      if (checkRes.ok) {
-        const { authorized } = await checkRes.json()
-        if (!authorized) {
-          if (path.startsWith("/api/")) {
-            return new NextResponse(
-              JSON.stringify({ error: "Forbidden: You do not have permission to access this resource." }),
-              { status: 403, headers: { "Content-Type": "application/json" } }
-            )
-          }
-          return NextResponse.redirect(new URL("/403", req.url))
-        }
+    const required = resolveRoutePermission(path, req.method)
+    if (!required.allow) {
+      // Checked in-process (proxy runs on Node.js). Any failure denies access.
+      try {
+        const authorized = await hasPermission(userId, required.module, required.action)
+        if (!authorized) return deny(403, "Forbidden: You do not have permission to access this resource.")
+      } catch (err) {
+        console.error("Proxy permission check failed:", err)
+        return deny(503, "Permission check unavailable. Please try again.")
       }
-    } catch (err) {
-      console.error("Middleware permission check failed:", err)
     }
 
     return NextResponse.next()
