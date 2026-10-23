@@ -44,6 +44,7 @@ export async function PUT(
       const transCost = Number(itemUpdate.transportCost ?? existingItem.transportCost ?? 0)
       const instCost = Number(itemUpdate.installationCost ?? existingItem.installationCost ?? 0)
       const marginPct = Number(itemUpdate.marginPercentage ?? existingItem.marginPercentage ?? 0)
+      const negotiationPct = Number(itemUpdate.negotiationPct ?? existingItem.negotiationPct ?? 0)
 
       const computedUnitCost = matCost + labCost + overCost + transCost + instCost
       
@@ -73,6 +74,7 @@ export async function PUT(
           installationCost: instCost,
           unitCost: computedUnitCost,
           marginPercentage: marginPct,
+          negotiationPct,
           unitPrice: computedUnitPrice,
           amount: computedAmount,
           estimatorUnitPrice: estimatorPrice,

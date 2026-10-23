@@ -121,7 +121,7 @@ export async function GET(
         batchHeading: qItem.batchHeading || null,
         description: qItem.description || qItem.product?.productName || "Product Item",
         specifications: qItem.specifications || qItem.productDescription || qItem.productNotes || null,
-        modelCode: qItem.product?.sku || qItem.product?.modelCode || qItem.description,
+        modelCode: qItem.product?.productCode || qItem.product?.modelCode || qItem.description,
         productType: qItem.categoryName || qItem.chairType || qItem.product?.category?.name || null,
         upholsteryMaterial: qItem.product?.upholsteryMaterial || null,
         baseType: qItem.product?.baseType || null,
@@ -138,6 +138,8 @@ export async function GET(
         costingStatusText: statusText,
         discountByIDC: discPct > 0 ? `${discPct}%` : "0%",
         finalPriceUnit: consPrice,
+        estimatorNotes: qItem.estimatorNotes || null,
+        itemCode: qItem.product?.productCode || null,
         customImageUrl: qItem.customImageUrl || null,
         product: qItem.product ? {
           imageUrl: qItem.product.imageUrl || null,
@@ -147,6 +149,7 @@ export async function GET(
     })
 
     const workbook = await buildCostingExcelWorkbook({
+      quotationId: quotation.id,
       quotationNumber: quotation.quotationNumber,
       projectName: quotation.projectName,
       date: quotation.date,
