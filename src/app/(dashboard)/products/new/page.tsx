@@ -42,6 +42,7 @@ import { toast } from "sonner"
 import { ImageUploader } from "@/components/products/ImageUploader"
 import { VariantMatrixBuilder, GeneratedVariant } from "@/components/products/variant-matrix-builder"
 import { cn } from "@/lib/utils"
+import { normalizePricingTiers } from "@/lib/pricing-tiers"
 
 export default function NewProductPage() {
   const router = useRouter()
@@ -115,7 +116,7 @@ export default function NewProductPage() {
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
-          setMargins(data)
+          setMargins(normalizePricingTiers(data))
         }
       })
       .catch(console.error)

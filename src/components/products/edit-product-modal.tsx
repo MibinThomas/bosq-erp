@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { ImageCropper } from "@/components/ui/image-cropper"
 import RichTextEditor from "@/components/ui/rich-text-editor"
+import { normalizePricingTiers } from "@/lib/pricing-tiers"
 
 interface Product {
   id: string
@@ -84,7 +85,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
-          setMargins(data)
+          setMargins(normalizePricingTiers(data))
         }
       })
       .catch(console.error)

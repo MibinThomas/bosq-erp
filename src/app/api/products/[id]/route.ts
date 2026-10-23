@@ -237,9 +237,15 @@ export async function DELETE(
     }
 
     const { id } = await params
+    const now = new Date()
     const deletedProduct = await prisma.product.update({
       where: { id },
-      data: { deletedAt: new Date() }
+      data: { deletedAt: now }
+    })
+    // A deleted model's variants must not stay selectable in quotations
+    await prisma.product.updateMany({
+      where: { parentProductId: id, deletedAt: null },
+      data: { deletedAt: now }
     })
 
     // Log Activity

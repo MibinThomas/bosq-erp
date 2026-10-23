@@ -26,23 +26,28 @@ export async function POST(request: Request) {
       )
     }
 
-    // 1. Log Activity
+    // Soft delete (same as single delete) so quotations/BOQs keep their product links and
+    // the products can be restored. Deleting a model also removes its variants from use.
+    const now = new Date()
+    const deleteResult = await prisma.$transaction(async (tx) => {
+      const products = await tx.product.updateMany({
+        where: { id: { in: ids }, deletedAt: null },
+        data: { deletedAt: now },
+      })
+      const variants = await tx.product.updateMany({
+        where: { parentProductId: { in: ids }, deletedAt: null },
+        data: { deletedAt: now },
+      })
+      return { count: products.count + variants.count, variants: variants.count }
+    })
+
     await prisma.activityLog.create({
       data: {
         userId: (session.user as any).id,
         action: "DELETED_PRODUCTS",
         entityType: "PRODUCT",
         entityId: "BULK",
-        details: `Bulk deleted ${ids.length} products`,
-      },
-    })
-
-    // 2. Perform deletion
-    const deleteResult = await prisma.product.deleteMany({
-      where: {
-        id: {
-          in: ids,
-        },
+        details: `Bulk deleted ${ids.length} products (${deleteResult.variants} variants included): ${ids.slice(0, 50).join(", ")}`.slice(0, 1000),
       },
     })
 

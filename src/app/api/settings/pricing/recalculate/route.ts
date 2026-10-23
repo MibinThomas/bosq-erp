@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { normalizePricingTiers } from "@/lib/pricing-tiers"
 
 export async function POST(request: Request) {
   try {
@@ -21,10 +22,8 @@ export async function POST(request: Request) {
       where: { key: "PRICING_PERCENTAGES" }
     })
     
-    let margins = { dealer: 15, interior: 30, direct: 50, online: 75 }
-    if (setting) {
-      margins = { ...margins, ...JSON.parse(setting.value) }
-    }
+    // Stored as { dealer, interior, project, special }; direct = project, online = special
+    const margins = normalizePricingTiers(setting ? JSON.parse(setting.value) : {})
 
     const invalidMargin = Object.entries(margins).find(([, pct]) => !Number.isFinite(Number(pct)) || Number(pct) < 0 || Number(pct) >= 100)
     if (invalidMargin) {

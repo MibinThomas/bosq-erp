@@ -29,6 +29,7 @@ import { read, utils } from "xlsx"
 import { ImageCropper } from "@/components/ui/image-cropper"
 import { formatOptionList, getChairOptions } from "@/lib/chair-options"
 import { getWorkstationOptions } from "@/lib/workstation-options"
+import { normalizePricingTiers } from "@/lib/pricing-tiers"
 
 interface BulkUploadModalProps {
   isOpen: boolean
@@ -133,7 +134,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       fetch("/api/settings/pricing")
         .then(res => res.json())
         .then(data => {
-          if (!data.error) setPricingTiers(data)
+          if (!data.error) setPricingTiers(normalizePricingTiers(data))
         })
         .catch(console.error)
 
