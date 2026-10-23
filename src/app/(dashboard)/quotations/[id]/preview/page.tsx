@@ -814,7 +814,12 @@ export default function QuotationHtmlPreviewPage() {
   const parseSpecifications = (specs: string | null | undefined) => {
     if (!specs) return [];
     const rawText = sanitizeHtmlToText(specs);
-    const lines = rawText.split('\n').map(line => line.trim()).filter(line => line !== "");
+    // One specification per line; "Headrest: Black; Backrest: Grey" is split before each "Label:"
+    const lines = rawText
+      .split('\n')
+      .flatMap(line => line.split(/;\s*(?=[A-Za-z][\w\s/().&-]{0,30}:)/))
+      .map(line => line.replace(/^•\s*/, '').trim())
+      .filter(line => line !== "");
     const parsedSpecs: { key?: string; value: string }[] = [];
 
     lines.forEach((line) => {

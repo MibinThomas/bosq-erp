@@ -11,6 +11,7 @@ import {
   type WorkstationConfig,
   buildWorkstationSpec,
   getWorkstationOptions,
+  workstationSpecItems,
   parseWorkstationSpec,
   workstationSurcharge,
 } from "@/lib/workstation-options"
@@ -136,7 +137,8 @@ export function WorkstationLayoutConfigurator({
   const surcharge = variant ? workstationSurcharge(options, config) : 0
   const unitPrice = variant ? segmentPrice(variant, watchSegment) + surcharge : 0
   const productTitle = model && variant ? `${model.name} — ${layout}` : ""
-  const componentSpec = variant ? buildWorkstationSpec(config) : ""
+  const specItems = variant ? workstationSpecItems(config, options.seatsPerUnit) : []
+  const componentSpec = variant ? buildWorkstationSpec(config, options.seatsPerUnit) : ""
   const isUpdate = !!currentProductId && currentProductId === variantId
   const seatingPositions = options.seatsPerUnit > 0 && qtyValid ? options.seatsPerUnit * qtyNum : 0
 
@@ -318,11 +320,14 @@ export function WorkstationLayoutConfigurator({
             <div className="rounded-lg bg-muted/30 border px-3 py-2.5 space-y-1">
               <span className="text-xs font-semibold text-muted-foreground">Quotation line preview</span>
               <p className="text-sm font-medium">{productTitle}</p>
-              {config.dimensions && <p className="text-xs text-muted-foreground">Dimensions: {config.dimensions} mm</p>}
-              {(config.tableTop || config.legFrame) && (
-                <p className="text-xs text-muted-foreground">
-                  {[config.tableTop && `Tabletop: ${config.tableTop}`, config.legFrame && `Leg frame: ${config.legFrame}`].filter(Boolean).join(" · ")}
-                </p>
+              {specItems.length > 0 && (
+                <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+                  {specItems.map((s) => (
+                    <li key={s.label}>
+                      <span className="font-semibold text-foreground">{s.label}:</span> {s.value}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
 

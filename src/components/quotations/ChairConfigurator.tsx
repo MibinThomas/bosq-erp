@@ -10,6 +10,7 @@ import {
   type ChairConfig,
   type ChairOptions,
   buildChairSpec,
+  chairSpecItems,
   chairSurcharge,
   getChairOptions,
   isHighBack,
@@ -151,7 +152,8 @@ export function ChairConfigurator({
   const unitPrice = variant ? segmentPrice(variant, watchSegment) + surcharge : 0
   const typeCode = variant ? typeCodeOf(variant, options) : ""
   const productTitle = model && variant ? `${model.name} ${variant.chairType || ""}`.trim() : ""
-  const componentSpec = variant ? buildChairSpec(config, variant.chairType) : ""
+  const specItems = variant ? chairSpecItems(config, variant.chairType, variant.dimensions) : []
+  const componentSpec = variant ? buildChairSpec(config, variant.chairType, variant.dimensions) : ""
   const isUpdate = !!currentProductId && currentProductId === variantId
 
   const handleModelChange = (key: string) => {
@@ -336,7 +338,15 @@ export function ChairConfigurator({
               <p className="text-sm font-medium">
                 <span className="font-mono">{variant.productCode}</span> &nbsp;|&nbsp; {productTitle}
               </p>
-              {componentSpec && <p className="text-xs text-muted-foreground">{componentSpec.replace(/; /g, " · ").replace(/\.$/, "")}</p>}
+              {specItems.length > 0 && (
+                <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+                  {specItems.map((s) => (
+                    <li key={s.label}>
+                      <span className="font-semibold text-foreground">{s.label}:</span> {s.value}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {showErrors && (missing.length > 0 || !qtyValid) && (

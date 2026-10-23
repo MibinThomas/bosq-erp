@@ -93,24 +93,59 @@ export function chairSurcharge(options: ChairOptions, config: ChairConfig, chair
   return total
 }
 
-/** Builds the component line for the quotation, e.g. "Headrest: Black; Backrest: Black; Seat: Black; Base: Nylon." */
-export function buildChairSpec(config: ChairConfig, chairType?: string | null): string {
-  const parts: string[] = []
+export interface SpecItem {
+  label: string
+  value: string
+}
+
+const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+
+/** One bullet per specification, e.g. <ul><li><strong>Headrest:</strong> Black</li>…</ul> (rich-text editor + PDF). */
+export function specListHtml(items: SpecItem[]): string {
+  const rows = items.filter((i) => i.value && i.value.trim())
+  if (rows.length === 0) return ""
+  return `<ul>${rows.map((i) => `<li><strong>${escapeHtml(i.label)}:</strong> ${escapeHtml(i.value.trim())}</li>`).join("")}</ul>`
+}
+
+/** Plain text with one specification per line, from text or the editor's HTML. */
+export function specToText(spec?: string | null): string {
+  return (spec || "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(li|p|div)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/;\s*/g, "\n")
+}
+
+/** Specification bullets for a configured chair: each component, then dimensions when known. */
+export function chairSpecItems(config: ChairConfig, chairType?: string | null, dimensions?: string | null): SpecItem[] {
+  const items: SpecItem[] = []
   for (const c of CHAIR_COMPONENTS) {
     if (c.key === "headrest" && !isHighBack(chairType)) continue
     const v = config[c.key]
-    if (v) parts.push(`${c.specLabel}: ${v}`)
+    if (v) items.push({ label: c.specLabel, value: v })
   }
-  return parts.length ? parts.join("; ") + "." : ""
+  const dims = (dimensions || "").trim()
+  if (dims && !/^standard$/i.test(dims)) items.push({ label: "Dimensions", value: dims })
+  return items
 }
 
-/** Reads a component line back into a configuration (used when re-opening a saved quotation line). */
+/** Builds the line's specifications as a bullet list: Headrest, Backrest, Seat, Base, Dimensions. */
+export function buildChairSpec(config: ChairConfig, chairType?: string | null, dimensions?: string | null): string {
+  return specListHtml(chairSpecItems(config, chairType, dimensions))
+}
+
+/** Reads a saved specification (bullet list or older "Headrest: X; Backrest: Y" text) back into a configuration. */
 export function parseChairSpec(spec?: string | null): ChairConfig {
   const config: ChairConfig = {}
-  if (!spec) return config
+  const text = specToText(spec)
+  if (!text) return config
   for (const c of CHAIR_COMPONENTS) {
-    const m = spec.match(new RegExp(`${c.specLabel}:\\s*([^;\\n.]+)`, "i"))
-    if (m) config[c.key] = m[1].trim()
+    const m = text.match(new RegExp(`(?:^|\\n)\\s*${c.specLabel}:\\s*([^\\n]+)`, "i"))
+    if (m) config[c.key] = m[1].trim().replace(/\.$/, "")
   }
   return config
 }

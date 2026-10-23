@@ -850,7 +850,11 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           .replace(/<p[^>]*>/gi, "")
           .replace(/<div[^>]*>/gi, "")
 
-        rawSegments = textWithNewlines.split(/\r?\n/)
+        // A line like "Headrest: Black; Backrest: Grey; Seat: Grey" holds several specifications —
+        // split before each "Label:" so every specification gets its own bullet
+        rawSegments = textWithNewlines
+          .split(/\r?\n/)
+          .flatMap((line) => line.split(/;\s*(?=[A-Za-z][\w\s/().&-]{0,30}:)/))
       } else {
         // Pre-split on period followed by space and a Key label (e.g. ". Remarks:")
         const preSplit = trimmed.replace(/\.\s+(?=[A-Z][a-zA-Z0-9\s_\-]{1,25}:)/g, "; ")
@@ -875,7 +879,9 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
         const colonIndex = item.indexOf(":")
         if (colonIndex > 0 && colonIndex < item.length - 1) {
           const key = item.substring(0, colonIndex).trim()
-          const val = item.substring(colonIndex + 1).trim()
+          // drop the closing full stop of a short "Base: Aluminium." style value
+          const rawVal = item.substring(colonIndex + 1).trim()
+          const val = rawVal.length < 60 ? rawVal.replace(/\.$/, "") : rawVal
           const formattedKey = key.charAt(0).toUpperCase() + key.slice(1)
           return `<li><strong>${formattedKey}:</strong> ${val}</li>`
         }

@@ -1,7 +1,7 @@
 // Workstation configuration helpers shared by the quotation workstation configurator and the product importer.
 // Safe for both client and server (no database access). Option lists use the same format as chairs:
 // comma-separated, with an optional customization charge, e.g. "1200 × 600 × 750, 1400 × 700 × 750 (+150)".
-import { type ChairOption as ConfigOption, parseOptionList } from "@/lib/chair-options"
+import { type ChairOption as ConfigOption, type SpecItem, parseOptionList, specListHtml, specToText } from "@/lib/chair-options"
 
 export type { ConfigOption }
 
@@ -66,24 +66,31 @@ export function workstationSurcharge(options: WorkstationOptions, config: Workst
   return total
 }
 
-/** "Dimensions: 2400 × 1200 × 750 mm; Tabletop: White; Leg frame: Black." */
-export function buildWorkstationSpec(config: WorkstationConfig): string {
-  const parts: string[] = []
-  if (config.dimensions) parts.push(`Dimensions: ${config.dimensions} mm`)
-  if (config.tableTop) parts.push(`Tabletop: ${config.tableTop}`)
-  if (config.legFrame) parts.push(`Leg frame: ${config.legFrame}`)
-  return parts.length ? parts.join("; ") + "." : ""
+/** Specification bullets for a configured workstation: dimensions, tabletop, leg frame, seats per unit. */
+export function workstationSpecItems(config: WorkstationConfig, seatsPerUnit?: number): SpecItem[] {
+  const items: SpecItem[] = []
+  if (config.dimensions) items.push({ label: "Dimensions", value: `${config.dimensions} mm` })
+  if (config.tableTop) items.push({ label: "Tabletop", value: config.tableTop })
+  if (config.legFrame) items.push({ label: "Leg frame", value: config.legFrame })
+  if (seatsPerUnit && seatsPerUnit > 1) items.push({ label: "Seats per unit", value: String(seatsPerUnit) })
+  return items
 }
 
-/** Reads the component line back into a configuration (used when re-opening a saved quotation line). */
+/** Builds the line's specifications as a bullet list (one per specification). */
+export function buildWorkstationSpec(config: WorkstationConfig, seatsPerUnit?: number): string {
+  return specListHtml(workstationSpecItems(config, seatsPerUnit))
+}
+
+/** Reads a saved specification (bullet list or older one-line text) back into a configuration. */
 export function parseWorkstationSpec(spec?: string | null): WorkstationConfig {
   const config: WorkstationConfig = {}
-  if (!spec) return config
-  const dims = spec.match(/Dimensions:\s*([^;\n]+?)\s*mm/i)
-  const top = spec.match(/Tabletop:\s*([^;\n.]+)/i)
-  const leg = spec.match(/Leg frame:\s*([^;\n.]+)/i)
+  const text = specToText(spec)
+  if (!text) return config
+  const dims = text.match(/(?:^|\n)\s*Dimensions:\s*([^\n]+?)\s*mm\.?\s*(?:\n|$)/i)
+  const top = text.match(/(?:^|\n)\s*Tabletop:\s*([^\n]+)/i)
+  const leg = text.match(/(?:^|\n)\s*Leg frame:\s*([^\n]+)/i)
   if (dims) config.dimensions = dims[1].trim()
-  if (top) config.tableTop = top[1].trim()
-  if (leg) config.legFrame = leg[1].trim()
+  if (top) config.tableTop = top[1].trim().replace(/\.$/, "")
+  if (leg) config.legFrame = leg[1].trim().replace(/\.$/, "")
   return config
 }
