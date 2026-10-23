@@ -45,13 +45,25 @@ const prismaClientSingleton = () => {
   })
 }
 
+type PrismaClientWithOmit = ReturnType<typeof prismaClientSingleton>
+
 declare const globalThis: {
-  prismaGlobal2: ReturnType<typeof prismaClientSingleton>;
+  prismaGlobal2: PrismaClientWithOmit | undefined;
 } & typeof global;
 
-const prisma = globalThis.prismaGlobal2 ?? prismaClientSingleton()
+// Reuse the client and connection pool across warm serverless invocations.
+// Created on first use, so building without DATABASE_URL works (no queries run at build time).
+function getClient(): PrismaClientWithOmit {
+  if (!globalThis.prismaGlobal2) globalThis.prismaGlobal2 = prismaClientSingleton()
+  return globalThis.prismaGlobal2
+}
+
+const prisma = new Proxy({} as PrismaClientWithOmit, {
+  get(_target, prop) {
+    const client = getClient()
+    const value = Reflect.get(client, prop, client)
+    return typeof value === "function" ? value.bind(client) : value
+  },
+})
 
 export default prisma
-
-// Reuse Prisma client and connection pool across warm serverless lambda invocations
-globalThis.prismaGlobal2 = prisma
