@@ -3,7 +3,7 @@ import ExcelJS from "exceljs"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
-import { hasPermission } from "@/lib/rbac"
+import { canUseCosting } from "@/lib/costing-access"
 import { parseCostingWorkbook } from "@/lib/costing-import"
 
 // Reads an updated costing workbook (exported from the Costing Workspace) and returns a preview of
@@ -11,18 +11,6 @@ import { parseCostingWorkbook } from "@/lib/costing-import"
 // the workspace applies the values on confirmation and the estimator saves as usual.
 const MAX_FILE_BYTES = 10 * 1024 * 1024
 
-async function canUseCosting(email: string) {
-  const dbUser = await prisma.user.findUnique({
-    where: { email },
-    include: { permissionOverrides: { where: { module: { in: ["QUOTATIONS", "COSTING_REQUESTS"] } } } },
-  })
-  if (!dbUser) return false
-  const role = (dbUser.role || "").toUpperCase()
-  if (["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER", "ESTIMATOR", "COST_ESTIMATOR"].includes(role)) return true
-  if (await hasPermission(dbUser.id, "QUOTATIONS", "canViewCostingBreakdown")) return true
-  if (await hasPermission(dbUser.id, "COSTING_REQUESTS", "edit")) return true
-  return dbUser.permissionOverrides.some((o) => (o.action === "costPriceVisible" || o.action === "canViewCostingBreakdown") && o.value === true)
-}
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -31,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!session || !session.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-    if (!(await canUseCosting(session.user.email))) {
+    if (!(await canUseCosting({ id: (session.user as any).id, email: session.user.email }))) {
       return NextResponse.json({ error: "Forbidden: You do not have permission to import costing." }, { status: 403 })
     }
 
