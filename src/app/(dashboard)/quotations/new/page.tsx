@@ -83,6 +83,7 @@ import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal
 import { AssignmentModal } from "@/components/clients/assignment-modal"
 import { ChairConfigurator } from "@/components/quotations/ChairConfigurator"
 import { WorkstationLayoutConfigurator } from "@/components/quotations/WorkstationLayoutConfigurator"
+import { ProductLineSummary } from "@/components/quotations/ProductLineSummary"
 import { PRODUCT_SELECTION_TABS, type ProductTab, productTabOf } from "@/lib/product-tabs"
 import { defaultQuotationDescription } from "@/lib/short-descriptions"
 import { ImageCropper } from "@/components/ui/image-cropper"
@@ -1004,6 +1005,8 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
     () => products.filter((p) => productTabOf(p, dbCategories) === productTab),
     [products, dbCategories, productTab]
   )
+  // Lines that already have a catalogue product show a compact summary; "Update" opens the selector
+  const [isEditingProduct, setIsEditingProduct] = useState<boolean>(() => !form.getValues(`items.${index}.productId`))
   const canUseConfigurator = true
   const currentItemVal = useWatch({ control, name: `items.${index}` }) || {}
   const includeCategoryName = useWatch({ control, name: "includeCategoryName" }) ?? true
@@ -1235,9 +1238,36 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
         </div>
       </div>
 
-      {/* Product selection: chairs use the chair configurator; other categories use catalog search */}
+      {/* Product selection: a compact summary once a product is on the line; "Update" opens the selectors
+          (chairs and workstations use configurators, other categories use catalog search) */}
+      {currentProductId && !isEditingProduct ? (
+        <ProductLineSummary
+          imageUrl={currentImg}
+          title={currentItemVal.description || products.find((p) => p.id === currentProductId)?.productName || "Product"}
+          productCode={products.find((p) => p.id === currentProductId)?.productCode}
+          tabLabel={PRODUCT_SELECTION_TABS.find((t) => t.key === productTab)?.label}
+          specifications={currentItemVal.specifications}
+          quantity={qtyNum}
+          unitPrice={unitPriceNum}
+          lineTotal={lineTotal}
+          disabled={isItemLocked}
+          onUpdate={() => setIsEditingProduct(true)}
+        />
+      ) : (
       <div className="space-y-2">
         <div className="flex items-center gap-1 flex-wrap bg-muted/40 p-1 rounded-lg border border-border/60" role="tablist">
+          {currentProductId && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditingProduct(false)}
+              className="order-last ml-auto h-8 text-xs px-3 font-semibold cursor-pointer"
+              title="Close the product selector without changes"
+            >
+              Done
+            </Button>
+          )}
           {PRODUCT_SELECTION_TABS.map((tab) => (
             <Button
               key={tab.key}
@@ -1283,6 +1313,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               form.setValue(`items.${index}.description`, `${selection.productTitle} — ${selection.itemCode}`, opts)
               form.setValue(`items.${index}.specifications`, selection.componentSpec, opts)
               form.setValue(`items.${index}.quantity`, selection.quantity, opts)
+              setIsEditingProduct(false)
               toast.success(`${selection.productTitle} added to line #${index + 1}`)
             }}
           />
@@ -1312,6 +1343,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
               form.setValue(`items.${index}.description`, selection.productTitle, opts)
               form.setValue(`items.${index}.specifications`, selection.componentSpec, opts)
               form.setValue(`items.${index}.quantity`, selection.quantity, opts)
+              setIsEditingProduct(false)
               toast.success(`${selection.productTitle} added to line #${index + 1}`)
             }}
           />
@@ -1320,7 +1352,10 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             productId={currentProductId}
             products={tabProducts}
             watchSegment={watchSegment}
-            onProductSelect={(prodId) => handleProductSelect(index, prodId)}
+            onProductSelect={(prodId) => {
+              handleProductSelect(index, prodId)
+              setIsEditingProduct(false)
+            }}
             onCustomProductClick={() => {
               form.setValue(`items.${index}.productId`, "")
               form.setValue(`items.${index}.priceSource`, "manual")
@@ -1329,6 +1364,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
           />
         )}
       </div>
+      )}
 
       {/* 2-Column Responsive Layout (Details & Pricing) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
