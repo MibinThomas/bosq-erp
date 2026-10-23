@@ -55,3 +55,10 @@ claude.md
 
 # scratch directory
 /scratch/
+
+# Private business data: never serve from public/ or commit
+/public/olddata/
+/public/BOQ/
+/public/Stocks/
+/imports/
+db_users_debug.json
