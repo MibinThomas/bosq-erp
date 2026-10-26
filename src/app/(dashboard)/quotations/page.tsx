@@ -61,6 +61,7 @@ interface Quotation {
   quotationNumber: string
   projectName: string | null
   date: string
+  createdAt?: string
   validityDate: string
   status: string
   poStatus: string | null
@@ -655,7 +656,14 @@ export default function QuotationsPage() {
                           {quote.quotationNumber}
                         </span>
                       </TableCell>
-                      <TableCell>{new Date(quote.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <div>{new Date(quote.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                        {quote.createdAt && (
+                          <div className="text-xs text-muted-foreground tabular-nums" title="Time the quotation was created (UAE time)">
+                            {new Date(quote.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Dubai" })}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="font-semibold">{quote.client.companyName}</div>
                         <div className="text-xs text-muted-foreground">{quote.projectName || "Office Furnishing"}</div>
