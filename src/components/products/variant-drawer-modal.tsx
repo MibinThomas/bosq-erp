@@ -109,6 +109,25 @@ interface VariantDrawerModalProps {
 }
 
 // Helper to extract clean sub-product model name (Level 2)
+
+/** Plain text for card previews (descriptions may contain HTML or wrapping quotes). */
+function cleanText(value: string) {
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;| /g, " ")
+    .replace(/^["'\s]+|["'\s]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+/** Specification HTML that wraps: non-breaking spaces removed, "a * b * c" text split into bullets. */
+function readableSpecHtml(html: string) {
+  const normalised = html.replace(/&nbsp;| /g, " ")
+  if (/<(ul|ol|li|p|br)\b/i.test(normalised)) return normalised
+  const parts = normalised.split(/\s+\*\s+|\n+/).map((p) => p.trim()).filter(Boolean)
+  return parts.length > 1 ? `<ul>${parts.map((p) => `<li>${p}</li>`).join("")}</ul>` : normalised
+}
+
 export function getSubProductName(v: ProductVariantItem, masterTitle: string): string {
   if (v.modelName && v.modelName.trim() && v.modelName !== "Standard" && v.modelName !== masterTitle) {
     return v.modelName.trim()
@@ -228,7 +247,7 @@ function AttributeCombobox({
       <PopoverContent className="w-[280px] p-2 bg-card border rounded-xl shadow-xl z-50 space-y-2" align="start">
         {/* Search Input */}
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             placeholder={`Search ${attrName}...`}
             value={search}
@@ -916,12 +935,12 @@ export function VariantDrawerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-2 sm:p-4 md:p-6 animate-in fade-in duration-200 overflow-x-hidden">
-      <div className="relative w-full max-w-6xl max-h-[94vh] bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-0 sm:p-4 md:p-6 animate-in fade-in duration-200 overflow-x-hidden" role="dialog" aria-modal="true" aria-label={`${masterProduct.productName} variants`}>
+      <div className="relative w-full max-w-6xl h-[100dvh] sm:h-auto sm:max-h-[94vh] bg-card sm:border rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
         
         {/* Model header: category trail, model name/code, what it contains, and actions */}
-        <div className="p-5 sm:p-6 border-b bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
-          <div className="space-y-1.5 min-w-0">
+        <div className="relative p-4 sm:p-6 border-b bg-muted/20 flex flex-col lg:flex-row lg:items-center justify-between gap-4 shrink-0">
+          <div className="space-y-1.5 min-w-0 pr-10 lg:pr-0">
             {categoryPath.length > 0 && (
               <nav aria-label="Category" className="flex items-center gap-1 flex-wrap text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 {categoryPath.map((name, i) => (
@@ -932,7 +951,7 @@ export function VariantDrawerModal({
                 ))}
               </nav>
             )}
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-baseline gap-2 flex-wrap">
+            <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight text-foreground flex items-baseline gap-2 flex-wrap break-words">
               {masterProduct.productName}
               {masterProduct.modelCode && masterProduct.modelCode.toLowerCase() !== masterProduct.productName.toLowerCase() && (
                 <span className="font-mono text-sm font-semibold text-muted-foreground">{masterProduct.modelCode}</span>
@@ -958,7 +977,7 @@ export function VariantDrawerModal({
             </p>
           </div>
 
-          <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap lg:flex-nowrap shrink-0">
             {canEditProduct && onEditMasterProduct && (
               <Button
                 variant="outline"
@@ -979,7 +998,7 @@ export function VariantDrawerModal({
                 {kind === "chairs" ? "Add Chair Type" : kind === "workstations" ? "Add Layout" : "Add Variant"}
               </Button>
             )}
-            <div className="text-right hidden sm:block">
+            <div className="order-first lg:order-none mr-auto lg:mr-0 lg:text-right">
               <span className="text-[10px] uppercase font-bold text-muted-foreground block">Total Stock</span>
               <span className={`text-sm font-extrabold ${totalStock > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600"}`}>
                 {totalStock} units
@@ -1007,7 +1026,7 @@ export function VariantDrawerModal({
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="rounded-full hover:bg-muted"
+              className="absolute right-3 top-3 lg:static rounded-full hover:bg-muted"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -1028,7 +1047,7 @@ export function VariantDrawerModal({
               </Badge>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
               {activeFilters.length > 0 && (
                 <Button
                   variant="ghost"
@@ -1039,13 +1058,13 @@ export function VariantDrawerModal({
                   Reset Filters
                 </Button>
               )}
-              <div className="relative w-48 sm:w-64">
+              <div className="relative flex-1 sm:flex-none sm:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder={kind === "chairs" ? "Search chair types, codes, colours…" : kind === "workstations" ? "Search layouts, codes, sizes…" : "Search variants or codes…"}
                   value={variantSearch}
                   onChange={(e) => setVariantSearch(e.target.value)}
-                  className="h-8 text-xs pl-8 bg-background"
+                  className="h-9 text-xs pl-8 bg-background"
                   aria-label="Search variants"
                 />
               </div>
@@ -1090,7 +1109,7 @@ export function VariantDrawerModal({
         </div>
 
         {/* Level 3: Variant Grid */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">     
+        <div className="p-3 sm:p-6 overflow-y-auto overflow-x-hidden space-y-5 flex-1 min-w-0">     
 
           {/* Add New Variant Form Card (Configuration-Based Variant Builder) */}
           {isAddingVariant && (
@@ -1476,7 +1495,7 @@ export function VariantDrawerModal({
             </div>
           ) : (
             /* Variant Cards Grid */
-            <div className="space-y-3">
+            <div className="space-y-3 min-w-0">
               {finalFilteredVariants.map((variant) => {
                 const isEditingThisDetails = editingVariantDetailsId === variant.id
                 const isStockEditing = editingStockId === variant.id
@@ -1642,13 +1661,13 @@ export function VariantDrawerModal({
                 }
 
                 return (
-                  <div
+                  <article
                     key={variant.id}
-                    className="border rounded-xl p-4 sm:p-5 bg-background hover:border-primary/40 transition-all shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4 group"
+                    className="border rounded-2xl bg-background hover:border-primary/40 transition-all shadow-sm min-w-0 overflow-hidden"
                   >
-                    {/* Variant Thumbnail & Primary Info */}
-                    <div className="flex items-start sm:items-center gap-4 flex-1 min-w-0">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-xl border bg-muted/30 shrink-0 overflow-hidden relative flex items-center justify-center group/img shadow-sm">
+                    <div className="p-4 sm:p-5 grid grid-cols-[64px_minmax(0,1fr)] sm:grid-cols-[88px_minmax(0,1fr)] lg:grid-cols-[88px_minmax(0,1fr)_240px] gap-x-4 gap-y-3">
+                      {/* Thumbnail */}
+                      <div className="h-16 w-16 sm:h-[88px] sm:w-[88px] rounded-xl border bg-muted/30 overflow-hidden relative flex items-center justify-center group/img shadow-sm">
                         {uploadingImageId === variant.id ? (
                           <div className="flex flex-col items-center justify-center gap-1 text-primary animate-pulse p-1 text-center">
                             <Loader2 className="h-5 w-5 animate-spin" />
@@ -1673,13 +1692,13 @@ export function VariantDrawerModal({
                                 )}
 
                                 {canEditProduct && (
-                                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer text-[10px] font-bold gap-1 p-1 text-center select-none z-10">
+                                  <label className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 focus-within:opacity-100 transition-opacity flex flex-col items-center justify-center text-white cursor-pointer text-[10px] font-bold gap-1 p-1 text-center select-none z-10">
                                     <Camera className="h-4 w-4 text-white" />
                                     <span>{formattedUrl && !isFailed ? "Change" : "Add Image"}</span>
                                     <input
                                       type="file"
                                       accept="image/*"
-                                      className="hidden"
+                                      className="sr-only"
                                       onChange={(e) => {
                                         const file = e.target.files?.[0]
                                         if (file) handleImageUpload(variant.id, file)
@@ -1693,12 +1712,13 @@ export function VariantDrawerModal({
                         )}
                       </div>
 
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs text-muted-foreground font-semibold px-2 py-0.5 rounded bg-muted">
+                      {/* Identity: code, type, name, short description */}
+                      <div className="min-w-0 space-y-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-[11px] text-muted-foreground font-semibold px-2 py-0.5 rounded bg-muted">
                             {variant.productCode}
                           </span>
-                          <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                          <Badge variant="secondary" className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 max-w-full truncate">
                             {typeLabel}
                           </Badge>
                           {fixedSize && !/^standard$/i.test(fixedSize) && (
@@ -1708,171 +1728,180 @@ export function VariantDrawerModal({
                           )}
                         </div>
 
-                        <h4 className="font-bold text-base text-foreground leading-snug truncate">
+                        <h4 className="font-bold text-base text-foreground leading-snug break-words">
                           {variant.productName}
                         </h4>
 
                         {variant.description && (
-                          <p className="text-[11px] text-muted-foreground line-clamp-1 italic bg-muted/30 px-2 py-0.5 rounded border border-border/40 max-w-xl">
-                            "{variant.description}"
+                          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 break-words [overflow-wrap:anywhere]" title={cleanText(variant.description)}>
+                            {cleanText(variant.description)}
                           </p>
                         )}
+                      </div>
 
-                        {variant.specifications && (
-                          <div className="text-[11px] text-muted-foreground bg-muted/20 px-2.5 py-1.5 rounded-lg border border-border/40 max-w-2xl space-y-1">
-                            <span className="font-bold text-[9px] uppercase tracking-wider text-primary/80 block">Variant Specifications:</span>
-                            <div className="prose prose-xs dark:prose-invert max-w-none text-[11px] leading-relaxed [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4 [&>p]:m-0" dangerouslySetInnerHTML={{ __html: variant.specifications }} />
+                      {/* Price, stock & actions: own row below on small screens, right column on desktop */}
+                      <div className="col-span-2 lg:col-span-1 lg:col-start-3 lg:row-start-1 lg:row-span-2 flex flex-wrap lg:flex-col items-center lg:items-stretch justify-between gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 lg:border-l lg:pl-4">
+                        <div className="flex items-end lg:items-start gap-5 lg:flex-col lg:gap-2">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                              Project Rate
+                            </span>
+                            <span className="text-lg sm:text-xl font-black text-primary tabular-nums whitespace-nowrap">
+                              AED {displayPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                            </span>
                           </div>
-                        )}
 
-                        {/* Options offered for this chair type / layout on quotations */}
-                        {options.length > 0 ? (
-                          <div className="space-y-1 pt-0.5 max-w-2xl">
-                            {options.map((o) => (
-                              <div key={o.label} className="flex items-start gap-2 text-[11px]">
-                                <span className="font-bold text-muted-foreground w-20 shrink-0 pt-0.5">{o.label}</span>
-                                <span className="flex flex-wrap gap-1">
-                                  {o.values.slice(0, 8).map((val) => (
-                                    <span key={val} className="bg-muted px-1.5 py-0.5 rounded border text-foreground font-medium">{val}</span>
-                                  ))}
-                                  {o.values.length > 8 && (
-                                    <span className="px-1.5 py-0.5 text-muted-foreground font-semibold">+{o.values.length - 8} more</span>
-                                  )}
-                                </span>
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                              Stock
+                            </span>
+                            {isStockEditing ? (
+                              <div className="flex items-center gap-1 mt-1">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  className="h-8 w-20 text-xs text-center font-bold"
+                                  value={draftStockVal}
+                                  onChange={(e) => setDraftStockVal(parseInt(e.target.value, 10) || 0)}
+                                  aria-label="Stock quantity"
+                                  autoFocus
+                                />
+                                <Button
+                                  size="sm"
+                                  className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                  disabled={savingStockId === variant.id}
+                                  onClick={() => handleStockSaveSubmit(variant.id)}
+                                  aria-label="Save stock"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => setEditingStockId(null)}
+                                  aria-label="Cancel stock edit"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
                               </div>
-                            ))}
+                            ) : (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span
+                                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap ${
+                                    variant.stock > 0
+                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                      : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
+                                  }`}
+                                >
+                                  {variant.stock > 0 ? `${variant.stock} available` : "Out of stock"}
+                                </span>
+                                {canEditProduct && onSaveStock && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 rounded-full hover:bg-muted text-muted-foreground"
+                                    onClick={() => {
+                                      setEditingStockId(variant.id)
+                                      setDraftStockVal(variant.stock || 0)
+                                    }}
+                                    title="Edit stock level"
+                                    aria-label="Edit stock level"
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          fixedColour && !/^standard$/i.test(fixedColour) && (
-                            <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground pt-0.5">
-                              <span className="bg-muted px-2 py-0.5 rounded border flex items-center gap-1">
+                        </div>
+
+                        <div className="flex items-center gap-2 lg:mt-auto">
+                          {hasQuoteAccess && (
+                            <Button
+                              onClick={() => onAddToCart(variant)}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow hover:shadow-md cursor-pointer flex items-center justify-center gap-1.5 h-10 px-4 rounded-xl text-xs lg:flex-1"
+                            >
+                              <ShoppingCart className="h-4 w-4" />
+                              <span>Add to Quote</span>
+                            </Button>
+                          )}
+                          {canEditProduct && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => startEditingVariant(variant)}
+                              className="h-10 w-10 rounded-xl border-muted-foreground/20 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 cursor-pointer"
+                              title="Edit variant details"
+                              aria-label="Edit variant details"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canDeleteProduct && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleDeleteVariant(variant.id, variant.productName)}
+                              disabled={deletingVariantId === variant.id}
+                              className="h-10 w-10 rounded-xl border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40 transition-colors shrink-0 cursor-pointer"
+                              title="Delete variant"
+                              aria-label="Delete variant"
+                            >
+                              {deletingVariantId === variant.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                              ) : (
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Options and specifications: full width under the identity */}
+                      {(options.length > 0 || variant.specifications || (fixedColour && !/^standard$/i.test(fixedColour))) && (
+                        <div className="col-span-2 lg:col-start-1 lg:col-end-3 min-w-0 space-y-3">
+                          {options.length > 0 ? (
+                            <dl className="space-y-1.5">
+                              {options.map((o) => (
+                                <div key={o.label} className="grid grid-cols-1 sm:grid-cols-[96px_minmax(0,1fr)] gap-1 sm:gap-2 text-[11px]">
+                                  <dt className="font-bold text-muted-foreground sm:pt-1">{o.label}</dt>
+                                  <dd className="flex flex-wrap gap-1 min-w-0">
+                                    {o.values.slice(0, 8).map((val) => (
+                                      <span key={val} className="bg-muted px-2 py-0.5 rounded-md border text-foreground font-medium break-words">{val}</span>
+                                    ))}
+                                    {o.values.length > 8 && (
+                                      <span className="px-1.5 py-0.5 text-muted-foreground font-semibold">+{o.values.length - 8} more</span>
+                                    )}
+                                  </dd>
+                                </div>
+                              ))}
+                            </dl>
+                          ) : (
+                            fixedColour && !/^standard$/i.test(fixedColour) && (
+                              <span className="inline-flex items-center gap-1 text-[11px] bg-muted px-2 py-0.5 rounded border">
                                 <Palette className="h-3 w-3 text-primary" />
                                 <strong className="text-foreground font-semibold">{fixedColour}</strong>
                               </span>
-                            </div>
-                          )
-                        )}
-                      </div>
+                            )
+                          )}
+
+                          {variant.specifications && (
+                            <details className="group/spec rounded-lg border border-border/60 bg-muted/20 open:bg-muted/30">
+                              <summary className="cursor-pointer select-none list-none flex items-center justify-between gap-2 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-primary/80 [&::-webkit-details-marker]:hidden">
+                                Specifications
+                                <ChevronRight className="h-3.5 w-3.5 transition-transform group-open/spec:rotate-90" />
+                              </summary>
+                              <div
+                                className="px-3 pb-3 text-xs text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere] [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-0.5 [&_ol]:list-decimal [&_ol]:pl-4 [&_p]:m-0"
+                                dangerouslySetInnerHTML={{ __html: readableSpecHtml(variant.specifications) }}
+                              />
+                            </details>
+                          )}
+                        </div>
+                      )}
                     </div>
-
-                    {/* Stock, Pricing & Actions */}
-                    <div className="flex items-center justify-between lg:justify-end gap-4 sm:gap-6 pt-3 lg:pt-0 border-t lg:border-t-0 shrink-0 flex-wrap sm:flex-nowrap">
-                      
-                      {/* Stock Level */}
-                      <div className="flex flex-col items-start sm:items-end">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Stock
-                        </span>
-                        {isStockEditing ? (
-                          <div className="flex items-center gap-1 mt-1">
-                            <Input
-                              type="number"
-                              min="0"
-                              className="h-7 w-20 text-xs text-center font-bold"
-                              value={draftStockVal}
-                              onChange={(e) => setDraftStockVal(parseInt(e.target.value, 10) || 0)}
-                              autoFocus
-                            />
-                            <Button
-                              size="sm"
-                              className="h-7 w-7 p-0 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-                              disabled={savingStockId === variant.id}
-                              onClick={() => handleStockSaveSubmit(variant.id)}
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0"
-                              onClick={() => setEditingStockId(null)}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span
-                              className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
-                                variant.stock > 0
-                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                                  : "bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20"
-                              }`}
-                            >
-                              {variant.stock > 0 ? `${variant.stock} available` : "Out of stock"}
-                            </span>
-                            {canEditProduct && onSaveStock && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 rounded-full hover:bg-muted text-muted-foreground"
-                                onClick={() => {
-                                  setEditingStockId(variant.id)
-                                  setDraftStockVal(variant.stock || 0)
-                                }}
-                                title="Edit stock level"
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Pricing Display */}
-                      <div className="text-right">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                          Project Rate
-                        </span>
-                        <span className="text-lg font-black text-primary">
-                          AED {displayPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {canEditProduct && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => startEditingVariant(variant)}
-                            className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl border-muted-foreground/20 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0 cursor-pointer"
-                            title="Edit Variant Details"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-
-                        {hasQuoteAccess && (
-                          <Button
-                            onClick={() => onAddToCart(variant)}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow hover:shadow-md cursor-pointer flex items-center gap-1.5 h-9 sm:h-10 px-3.5 sm:px-4 rounded-xl shrink-0 text-xs"
-                          >
-                            <ShoppingCart className="h-4 w-4" />
-                            <span>Add to Quote</span>
-                          </Button>
-                        )}
-
-                        {canDeleteProduct && (
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => handleDeleteVariant(variant.id, variant.productName)}
-                            disabled={deletingVariantId === variant.id}
-                            className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40 transition-colors shrink-0 cursor-pointer"
-                            title="Delete Variant"
-                          >
-                            {deletingVariantId === variant.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
-                            ) : (
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-
-                  </div>
+                  </article>
                 )
               })}
             </div>
@@ -1880,7 +1909,7 @@ export function VariantDrawerModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 border-t bg-muted/20 flex items-center justify-between shrink-0">
+        <div className="px-4 py-3 border-t bg-muted/20 flex items-center justify-between gap-3 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <p className="text-xs text-muted-foreground">
             Master SKU: <span className="font-mono font-bold text-foreground">{masterProduct.productCode}</span>
           </p>
