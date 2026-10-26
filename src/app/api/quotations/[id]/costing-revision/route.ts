@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
+import { canAccessQuotation } from "@/lib/data-scope"
 
 // POST /api/quotations/[id]/costing-revision
 // Request Costing Revision (IDC sends quotation back to Estimator with mandatory reason)
@@ -36,6 +37,9 @@ export async function POST(
 
     if (!existingQuote) {
       return NextResponse.json({ error: "Quotation not found" }, { status: 404 })
+    }
+    if (!(await canAccessQuotation({ id: (session.user as any).id, role: (session.user as any).role || "" }, existingQuote.id))) {
+      return NextResponse.json({ error: "Forbidden: You do not have access to this quotation" }, { status: 403 })
     }
 
     const updatedQuote = await prisma.quotation.update({
@@ -120,6 +124,9 @@ export async function PUT(
 
     if (!existingQuote) {
       return NextResponse.json({ error: "Quotation not found" }, { status: 404 })
+    }
+    if (!(await canAccessQuotation({ id: (session.user as any).id, role: (session.user as any).role || "" }, existingQuote.id))) {
+      return NextResponse.json({ error: "Forbidden: You do not have access to this quotation" }, { status: 403 })
     }
 
     const updatedQuote = await prisma.quotation.update({

@@ -13,6 +13,8 @@ import { authOptions } from "@/lib/authOptions"
 import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 import { cleanHtmlText } from "@/lib/utils"
+import { hasPermission } from "@/lib/rbac"
+import { canAccessQuotation, getCostVisibility, isUnrestrictedRole, keepHiddenCostFields, sanitizeLineItem } from "@/lib/data-scope"
 
 // Get single quotation with items and revisions history
 export async function GET(
@@ -193,20 +195,17 @@ export async function GET(
     const aynMuskLogoBase64 = await getAynMuskLogoBase64()
     const barcodeBase64 = generateCode128DataUri(quotation.quotationNumber)
 
-    const sanitizedItems = userRole === "INTERIOR_DESIGN_CONSULTANT"
-      ? quotation.items.map(item => ({
-          ...item,
-          materialCost: 0,
-          laborCost: 0,
-          overheadCost: 0,
-          transportCost: 0,
-          installationCost: 0,
-        }))
-      : quotation.items
+    // Costs, margins and internal product prices only for roles allowed to see them (Access Control)
+    const costVisibility = await getCostVisibility({ id: (session.user as any).id, role: userRole }, "QUOTATIONS")
+    const sanitizedItems = quotation.items.map((item) => sanitizeLineItem(item, costVisibility))
+    const sanitizedBoq = (quotation as any).boq && Array.isArray((quotation as any).boq.items)
+      ? { ...(quotation as any).boq, items: (quotation as any).boq.items.map((i: any) => sanitizeLineItem(i, costVisibility)) }
+      : (quotation as any).boq
 
     return NextResponse.json({
       ...quotation,
       items: sanitizedItems,
+      ...(sanitizedBoq !== undefined ? { boq: sanitizedBoq } : {}),
       revisions,
       seriesQuotations,
       supportingDocuments,
@@ -311,6 +310,31 @@ export async function PUT(
       })
 
       return isClientSalesperson || assignmentCount > 0 || !!hasApprovedRequest
+    }
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Record-level access: roles other than managers/admins (e.g. Interior Design Consultants)
+    // may only act on quotations assigned to them, whatever the action
+    const sessionActor = { id: logUserId, role: logUserRole }
+    if (!(await canAccessQuotation(sessionActor, existingQuotation.id))) {
+      return NextResponse.json(
+        { error: "Forbidden: You can only update quotations assigned to you" },
+        { status: 403 }
+      )
+    }
+
+    // Costing the user can't see is shown to them as 0; keep the stored values when they save
+    const costVisibility = await getCostVisibility(sessionActor, "QUOTATIONS")
+    if (Array.isArray(body.items) && (!costVisibility.cost || !costVisibility.margin)) {
+      const rootId = existingQuotation.parentId || existingQuotation.id
+      const seriesItems = await prisma.quotationItem.findMany({
+        where: { quotation: { OR: [{ id: rootId }, { parentId: rootId }] } },
+      })
+      const sourceFirst = [...[...existingQuotation.items].sort((a, b) => a.itemNo - b.itemNo), ...seriesItems.filter((s) => s.quotationId !== existingQuotation.id)]
+      body.items = keepHiddenCostFields(body.items, sourceFirst, costVisibility)
     }
 
     const isEditingOrCreate = body.isRevision === true || body.isUpdate === true
@@ -634,10 +658,13 @@ export async function PUT(
 
     // CASE 5: CONFIRM CLIENT-APPROVED REVISION AS FINAL QUOTATION
     if (body.action === "CONFIRM_FINAL") {
-      const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(logUserRole)
-      
-      if (!isManagerOrAdmin) {
+      // Managers, or roles granted "Can confirm quotation" in Access Control
+      const canConfirm = isUnrestrictedRole(logUserRole) || (await hasPermission(logUserId, "QUOTATIONS", "canConfirmQuotation"))
+      if (!canConfirm) {
         return NextResponse.json({ error: "Unauthorized: You do not have permission to confirm revisions as Final Quotation" }, { status: 403 })
+      }
+      if (["DRAFT", "CANCELLED", "LOST"].includes((existingQuotation.status || "").toUpperCase())) {
+        return NextResponse.json({ error: `A ${existingQuotation.status.toLowerCase()} quotation cannot be confirmed as final.` }, { status: 400 })
       }
 
       const rootId = existingQuotation.parentId || existingQuotation.id

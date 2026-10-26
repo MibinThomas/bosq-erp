@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { getCostVisibility, sanitizeProduct } from "@/lib/data-scope"
 
 // Get single product
 export async function GET(
@@ -35,7 +36,8 @@ export async function GET(
       return NextResponse.json({ error: "Product not found or out of stock" }, { status: 404 })
     }
 
-    return NextResponse.json(product)
+    const costVisibility = await getCostVisibility({ id: (session.user as any).id, role: userRole })
+    return NextResponse.json(sanitizeProduct(product, costVisibility))
   } catch (error) {
     console.error("Failed to fetch product:", error)
     return NextResponse.json(

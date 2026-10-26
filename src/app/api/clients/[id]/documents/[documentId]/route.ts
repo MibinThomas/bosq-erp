@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { deleteClientDocument } from "@/lib/sharepoint"
 import { hasPermission } from "@/lib/rbac"
+import { canAccessClient } from "@/lib/data-scope"
 
 export async function DELETE(
   request: Request,
@@ -27,6 +28,9 @@ export async function DELETE(
 
     if (!document || document.clientId !== id) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 })
+    }
+    if (!(await canAccessClient({ id: (session.user as any).id, role: (session.user as any).role || "" }, id))) {
+      return NextResponse.json({ error: "Forbidden: You can only manage documents of clients assigned to you" }, { status: 403 })
     }
 
     // Delete from SharePoint if we have an ID

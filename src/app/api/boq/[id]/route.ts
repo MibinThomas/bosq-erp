@@ -52,6 +52,7 @@ export async function GET(
     // Enforce ownership rule check
     const assignedUserIds = [
       ...(boq.client?.assignments?.map(a => a.userId) || []),
+      ...(boq.client?.salespersonId ? [boq.client.salespersonId] : []),
       ...(boq.estimatorId ? [boq.estimatorId] : [])
     ]
     const isOwner = await checkOwnership(
@@ -124,6 +125,7 @@ export async function PUT(
     // Enforce ownership check for edit operations
     const assignedUserIds = [
       ...(existingBoq.client?.assignments?.map(a => a.userId) || []),
+      ...(existingBoq.client?.salespersonId ? [existingBoq.client.salespersonId] : []),
       ...(existingBoq.estimatorId ? [existingBoq.estimatorId] : [])
     ]
     const isOwner = await checkOwnership(

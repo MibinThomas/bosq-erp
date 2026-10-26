@@ -7,6 +7,7 @@ import { generateShortDescription } from "@/lib/short-descriptions"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { getCostVisibility, sanitizeProduct } from "@/lib/data-scope"
 
 export async function GET(request: Request) {
   try {
@@ -47,11 +48,16 @@ export async function GET(request: Request) {
       // A parent category also matches products in its sub-categories
       ...(categoryId ? { categoryId: { in: await getCategoryIdsWithChildren(categoryId) } } : {}),
       ...(status ? { status } : {}),
-      ...(isInteriorConsultant ? { stock: { gt: 0 } } : {}),
     }
+    // Interior Design Consultants only see what can be sold now: in-stock products
+    const inStock: Prisma.ProductWhereInput = { stock: { gt: 0 } }
 
-    const paginate = <T>(items: T[], total: number) =>
-      page ? NextResponse.json({ items, total, page, pageSize }) : NextResponse.json(items)
+    // Cost / dealer prices only for roles allowed to see them (Access Control)
+    const costVisibility = await getCostVisibility({ id: (session.user as any).id, role: userRole })
+    const paginate = <T>(rawItems: T[], total: number) => {
+      const items = rawItems.map((p) => sanitizeProduct(p, costVisibility))
+      return page ? NextResponse.json({ items, total, page, pageSize }) : NextResponse.json(items)
+    }
 
     if (grouped) {
       // Master products and standalone products (parentProductId is null).
@@ -59,7 +65,11 @@ export async function GET(request: Request) {
       const where: Prisma.ProductWhereInput = {
         ...baseWhere,
         parentProductId: null,
-        ...(q ? { OR: [...textMatch, { variants: { some: { deletedAt: null, OR: textMatch } } }] } : {}),
+        AND: [
+          ...(q ? [{ OR: [...textMatch, { variants: { some: { deletedAt: null, OR: textMatch } } }] }] : []),
+          // Models carry no stock themselves: show a model when any of its variants is in stock
+          ...(isInteriorConsultant ? [{ OR: [inStock, { variants: { some: { deletedAt: null, ...inStock } } }] }] : []),
+        ],
       }
       const [masterProducts, total] = await Promise.all([
         prisma.product.findMany({
@@ -67,7 +77,7 @@ export async function GET(request: Request) {
           include: {
             category: true,
             variants: {
-              where: { deletedAt: null },
+              where: { deletedAt: null, ...(isInteriorConsultant ? inStock : {}) },
               include: { category: true },
               orderBy: { productCode: "asc" }
             }
@@ -80,7 +90,11 @@ export async function GET(request: Request) {
       return paginate(masterProducts, total)
     }
 
-    const where: Prisma.ProductWhereInput = { ...baseWhere, ...(q ? { OR: textMatch } : {}) }
+    const where: Prisma.ProductWhereInput = {
+      ...baseWhere,
+      ...(isInteriorConsultant ? inStock : {}),
+      ...(q ? { OR: textMatch } : {}),
+    }
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,

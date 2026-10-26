@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
+import { canAccessQuotation } from "@/lib/data-scope"
 
 export async function POST(
   request: Request,
@@ -11,6 +12,9 @@ export async function POST(
     const { id } = await params
     const session = await getServerSession(authOptions)
     const logUserId = (session?.user as any)?.id || ""
+    if (!logUserId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
 
     const body = await request.json()
     const { itemIds, estimatorId, notes } = body
@@ -24,6 +28,9 @@ export async function POST(
 
     if (!quotation) {
       return NextResponse.json({ error: "Quotation not found" }, { status: 404 })
+    }
+    if (!(await canAccessQuotation({ id: logUserId, role: (session?.user as any)?.role || "" }, quotation.id))) {
+      return NextResponse.json({ error: "Forbidden: You can only request costing for quotations assigned to you" }, { status: 403 })
     }
 
     let targetItemIds = Array.isArray(itemIds) ? itemIds : []

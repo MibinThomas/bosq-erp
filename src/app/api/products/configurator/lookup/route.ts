@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { getCostVisibility, sanitizeProduct } from "@/lib/data-scope"
 
 export async function POST(request: Request) {
   try {
@@ -88,9 +89,10 @@ export async function POST(request: Request) {
       )
     }
 
+    const costVisibility = await getCostVisibility({ id: (session.user as any).id, role: (session.user as any).role || "" })
     return NextResponse.json({
       success: true,
-      product: matchedProduct,
+      product: sanitizeProduct(matchedProduct, costVisibility),
     })
   } catch (error: any) {
     console.error("Failed to lookup variant product:", error)

@@ -51,6 +51,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { safeCopyToClipboard } from "@/lib/utils"
+import { ROLE_PRESETS, presetRows } from "@/lib/role-presets"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -253,6 +254,16 @@ export default function AccessControlPage() {
         [actionKey]: value
       }
     }))
+  }
+
+  // Load the recommended permission set for this role into the matrix (saved with "Save Permissions Matrix")
+  const rolePreset = selectedRole ? ROLE_PRESETS[selectedRole.name] : undefined
+  const handleApplyPreset = () => {
+    if (!selectedRole) return
+    const rows = presetRows(selectedRole.name, modules.map((m) => m.id))
+    if (!rows) return
+    setEditingPermissions(rows)
+    toast.info("Recommended permissions loaded. Review them and click \"Save Permissions Matrix\" to apply.")
   }
 
   // Save role permissions matrix
@@ -642,6 +653,18 @@ export default function AccessControlPage() {
                 <Badge variant="outline" className="px-3 py-2 text-xs font-mono font-bold bg-muted/50 border-border">
                   {assignedUsers.length} User(s) Assigned
                 </Badge>
+                {rolePreset && (
+                  <Button
+                    variant="outline"
+                    onClick={handleApplyPreset}
+                    disabled={savingMatrix}
+                    className="font-bold text-xs flex items-center gap-2 cursor-pointer h-10 px-4 rounded-xl"
+                    title={rolePreset.summary}
+                  >
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Apply Recommended
+                  </Button>
+                )}
                 {selectedRole && selectedRole.name !== "SUPER_ADMIN" && (
                   <Button
                     onClick={handleSaveRoleMatrix}
@@ -663,6 +686,17 @@ export default function AccessControlPage() {
               </div>
             )}
           </div>
+
+          {/* Interior Design Consultant: rules the server always enforces */}
+          {selectedRole?.name === "INTERIOR_DESIGN_CONSULTANT" && (
+            <div className="p-3.5 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900 rounded-xl text-sky-900 dark:text-sky-200 text-xs flex items-start gap-3">
+              <Info className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400 mt-0.5" />
+              <div className="space-y-1">
+                <p><strong>Always limited to assigned records:</strong> Interior Design Consultants only see and update clients, quotations, BOQs and dashboard figures assigned to them (created by them, owned by them, or shared with them), whatever the scope set below.</p>
+                <p><strong>Products:</strong> in-stock catalogue only. Cost price and estimator margins stay hidden unless <em>Cost Price Visible</em> / <em>Margin Visible</em> is switched on, and costings they can't see are never overwritten when they save a quotation.</p>
+              </div>
+            </div>
+          )}
 
           {/* Super Admin Notice */}
           {selectedRole?.name === "SUPER_ADMIN" && (
