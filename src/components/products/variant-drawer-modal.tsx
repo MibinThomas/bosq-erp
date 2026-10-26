@@ -37,6 +37,7 @@ import { cn, formatImageUrl } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import RichTextEditor from "@/components/ui/rich-text-editor"
 import { categoryTrail, facetDefsFor, optionSummary, variantKind, variantNoun, variantTypeLabel } from "@/lib/variant-facets"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 // Helper icon for dynamic attribute labels
 const getAttributeIcon = (name: string) => {
@@ -414,7 +415,7 @@ export function VariantDrawerModal({
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         const formData = new FormData()
-        formData.append("file", file)
+        formData.append("file", await prepareImageForUpload(file))
         const uploadRes = await fetch("/api/upload?type=products", {
           method: "POST",
           body: formData,
@@ -797,7 +798,7 @@ export function VariantDrawerModal({
     setUploadingImageId(variantId)
     try {
       const formData = new FormData()
-      formData.append("file", file)
+      formData.append("file", await prepareImageForUpload(file))
 
       const res = await fetch("/api/upload?type=products", {
         method: "POST",
@@ -840,7 +841,7 @@ export function VariantDrawerModal({
 
       if (newVariantImageFile) {
         const formData = new FormData()
-        formData.append("file", newVariantImageFile)
+        formData.append("file", await prepareImageForUpload(newVariantImageFile))
         const uploadRes = await fetch("/api/upload?type=products", {
           method: "POST",
           body: formData,

@@ -40,6 +40,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2, ChevronRight, UserPlus, Layers, Eye, Camera } from "lucide-react"
 import { VariantDrawerModal, getSubProductName } from "@/components/products/variant-drawer-modal"
 import { categoryTrail, variantKind, variantNoun, variantTypeLabel } from "@/lib/variant-facets"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 interface Product {
   id: string
@@ -102,7 +103,7 @@ export default function ProductsPage() {
     setUploadingCardImgId(productId)
     try {
       const formData = new FormData()
-      formData.append("file", file)
+      formData.append("file", await prepareImageForUpload(file))
 
       const res = await fetch("/api/upload?type=products", {
         method: "POST",

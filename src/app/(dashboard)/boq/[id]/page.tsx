@@ -51,6 +51,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 const boqSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
@@ -684,7 +685,7 @@ function NewBOQForm() {
       }
       const croppedFile = dataURLtoFile(croppedBase64, `product-cropped-${Date.now()}.png`)
       const formData = new FormData()
-      formData.append("file", croppedFile)
+      formData.append("file", await prepareImageForUpload(croppedFile))
       const uploadRes = await fetch("/api/upload?type=product", {
         method: "POST",
         body: formData,

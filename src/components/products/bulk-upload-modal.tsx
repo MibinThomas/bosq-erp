@@ -30,6 +30,7 @@ import { ImageCropper } from "@/components/ui/image-cropper"
 import { formatOptionList, getChairOptions } from "@/lib/chair-options"
 import { getWorkstationOptions } from "@/lib/workstation-options"
 import { normalizePricingTiers } from "@/lib/pricing-tiers"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 interface BulkUploadModalProps {
   isOpen: boolean
@@ -1040,7 +1041,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       // base64 in the product rows made the product list API exceed the 4.5 MB response limit.
       const uploadImage = async (blob: Blob, name: string): Promise<string | null> => {
         const formData = new FormData()
-        formData.append("file", blob, name)
+        formData.append("file", await prepareImageForUpload(blob, name))
         const res = await fetch("/api/upload?type=products", { method: "POST", body: formData })
         const data = await res.json().catch(() => ({}))
         if (!res.ok || !data.url) throw new Error(data.error || `Image upload failed for ${name}`)

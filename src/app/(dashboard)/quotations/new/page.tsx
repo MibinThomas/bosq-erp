@@ -104,6 +104,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 const SECTION_THEMES = [
   {
@@ -3355,7 +3356,7 @@ function NewQuotationForm() {
       const croppedBlob = await fetchRes.blob()
 
       const formData = new FormData()
-      formData.append("file", croppedBlob, "custom-product.jpg")
+      formData.append("file", await prepareImageForUpload(croppedBlob, "custom-product.jpg"))
 
       const res = await fetch("/api/upload", {
         method: "POST",
