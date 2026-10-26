@@ -16,6 +16,17 @@ export function resolveRoutePermission(path: string, method = "GET"): RoutePermi
 
   if (path === "/api/users/sales-agents") return { allow: true }
 
+  // Read-only settings every signed-in user needs (each route checks the session itself and
+  // returns only safe data): own permission profile, company details (secrets removed),
+  // payment terms / T&Cs for quotations and BOQs.
+  if (
+    path === "/api/settings/access-control/profile" ||
+    path === "/api/settings/access-control/check" ||
+    (method === "GET" && (path === "/api/settings/system" || path === "/api/settings/terms"))
+  ) {
+    return { allow: true }
+  }
+
   // 1. ACCESS CONTROL
   if (starts("/settings/access-control", "/api/settings/access-control")) {
     return { module: "ACCESS_CONTROL", action: isApi ? crudAction(method) : "view" }
