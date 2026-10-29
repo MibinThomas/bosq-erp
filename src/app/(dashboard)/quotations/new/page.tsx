@@ -1660,7 +1660,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                     <FormControl>
                       <NumericInput
                         name={field.name}
-                        disabled={isItemLocked || isCostingLockedForIDC}
+                        disabled={isItemLocked || isCostingLockedForIDC || currentPriceSource === "manual"}
                         className="h-9 text-xs sm:text-sm font-mono bg-primary/5 font-bold text-primary border-primary/40 focus:border-primary shadow-2xs"
                         value={field.value}
                         onChange={(val) => {
