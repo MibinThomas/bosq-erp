@@ -188,8 +188,9 @@ const quotationSchema = z.object({
       basePrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Base price must be at least 0"),
       unitPrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Price must be at least 0"),
       discount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Discount must be at least 0"),
-      discountType: z.enum(["PERCENTAGE", "AMOUNT"]).default("PERCENTAGE").optional(),
-      margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? -100 : Number(val)) >= -100, "Margin must be at least -100").refine(val => (val === "" ? 0 : Number(val)) < 100, "Margin must be less than 100%"),
+      discountType: z.enum(["PERCENTAGE", "FIXED", "AMOUNT"]).default("PERCENTAGE").optional(),
+      // Quotation prices use base * (1 + markup / 100), so 100%+ is valid.
+      margin: z.union([z.number(), z.string()]).refine(val => Number.isFinite(Number(val)) && Number(val) >= -100, "Margin must be a finite number of at least -100%"),
       manualMargin: z.union([z.number(), z.string()]).optional(),
       customImageUrl: z.string().nullable().optional(),
       productDescription: z.string().optional(),
@@ -3509,7 +3510,16 @@ function NewQuotationForm() {
       if (typeof errors.items.message === "string") {
         messages.push(errors.items.message)
       } else if (Array.isArray(errors.items)) {
-        messages.push("Please check product items pricing and quantity")
+        errors.items.forEach((itemErrors: Record<string, { message?: string }> | undefined, index: number) => {
+          if (!itemErrors) return
+          const item = form.getValues(`items.${index}`)
+          const label = `Item #${index + 1}${item?.description ? ` (${item.description})` : ""}`
+          Object.entries(itemErrors).forEach(([field, error]) => {
+            if (typeof error?.message === "string") {
+              messages.push(`${label} — ${field}: ${error.message}`)
+            }
+          })
+        })
       }
     }
 
