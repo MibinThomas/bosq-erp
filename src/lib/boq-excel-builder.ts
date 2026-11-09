@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs"
 import path from "path"
 import fs from "fs"
+import { BOQ_COST_FIELDS, boqCostBreakdown, boqUnitCost } from "./boq-costing"
 
 export interface BoqExportData {
   boqNumber: string
@@ -35,6 +36,12 @@ export interface BoqExportData {
     quantity: number
     factoryCost?: number | null
     accessoriesCost?: number | null
+    materialCost?: number | null
+    laborCost?: number | null
+    outsourcingCost?: number | null
+    overheadCost?: number | null
+    installationCost?: number | null
+    transportCost?: number | null
     unitCost?: number | null
     marginPercentage?: number | null
     negotiationPercentage?: number | null
@@ -673,22 +680,23 @@ Thank you`
       views: [{ showGridLines: true }]
     })
 
+    // B item no · C description · D picture · E qty · F–K the six cost categories (per unit)
+    // L unit cost · M line cost · N unit price · O amount (selling side, set by the consultant)
     wsCost.columns = [
       { key: "cA", width: 2.625 },
-      { key: "cB", width: 10 },    // Item No
-      { key: "cC", width: 40 },    // Description
-      { key: "cD", width: 25 },    // Picture
-      { key: "cE", width: 8 },     // Qty
-      { key: "cF", width: 14 },    // Factory Cost
-      { key: "cG", width: 14 },    // Accessories
-      { key: "cH", width: 14 },    // Base Price
-      { key: "cI", width: 12 },    // Margin %
-      { key: "cJ", width: 16 },    // Final Unit Price
-      { key: "cK", width: 18 },    // Amount
+      { key: "cB", width: 10 },
+      { key: "cC", width: 40 },
+      { key: "cD", width: 25 },
+      { key: "cE", width: 8 },
+      ...BOQ_COST_FIELDS.map((f) => ({ key: `cost_${f.key}`, width: 13 })),
+      { key: "cL", width: 14 },
+      { key: "cM", width: 16 },
+      { key: "cN", width: 14 },
+      { key: "cO", width: 16 },
     ]
 
     // Title
-    wsCost.mergeCells("B2:K2")
+    wsCost.mergeCells("B2:O2")
     const cTitle = wsCost.getCell("B2")
     cTitle.value = `BOQ ESTIMATOR & COSTING BREAKDOWN - ${boq.boqNumber}`
     cTitle.font = { name: "Arial", size: 14, bold: true, color: { argb: "FFFFFFFF" } }
@@ -700,8 +708,9 @@ Thank you`
     const costHeaderRow = wsCost.getRow(4)
     costHeaderRow.height = 25
     const costHeaders = [
-      "ITEM NO.", "DESCRIPTION", "PICTURE", "QTY", 
-      "FACTORY COST", "ACCESSORIES", "BASE COST", "MARGIN %", "UNIT PRICE", "TOTAL AMOUNT"
+      "ITEM NO.", "DESCRIPTION", "PICTURE", "QTY",
+      ...BOQ_COST_FIELDS.map((f) => f.label.toUpperCase()),
+      "UNIT COST", "LINE COST", "UNIT PRICE", "TOTAL AMOUNT"
     ]
     costHeaders.forEach((h, idx) => {
       const cell = costHeaderRow.getCell(idx + 2)
@@ -762,23 +771,27 @@ Thank you`
       wsCost.getCell(`E${cRow}`).value = item.quantity || 1
       wsCost.getCell(`E${cRow}`).alignment = { horizontal: "center", vertical: "middle" }
 
-      wsCost.getCell(`F${cRow}`).value = item.factoryCost || 0
-      wsCost.getCell(`F${cRow}`).numFmt = "#,##0.00"
+      // Six cost categories in F–K ("Other" includes legacy installation / transport)
+      const costCols = ["F", "G", "H", "I", "J", "K"]
+      const breakdown = boqCostBreakdown(item as Record<string, unknown>)
+      BOQ_COST_FIELDS.forEach((f, ci) => {
+        const cell = wsCost.getCell(`${costCols[ci]}${cRow}`)
+        cell.value = breakdown[f.breakdownKey] || 0
+        cell.numFmt = "#,##0.00"
+      })
+      const unitCost = boqUnitCost(item as Record<string, unknown>)
 
-      wsCost.getCell(`G${cRow}`).value = item.accessoriesCost || 0
-      wsCost.getCell(`G${cRow}`).numFmt = "#,##0.00"
+      wsCost.getCell(`L${cRow}`).value = { formula: `SUM(F${cRow}:K${cRow})`, result: unitCost }
+      wsCost.getCell(`L${cRow}`).numFmt = "#,##0.00"
 
-      wsCost.getCell(`H${cRow}`).value = { formula: `F${cRow}+G${cRow}`, result: (item.factoryCost || 0) + (item.accessoriesCost || 0) }
-      wsCost.getCell(`H${cRow}`).numFmt = "#,##0.00"
+      wsCost.getCell(`M${cRow}`).value = { formula: `E${cRow}*L${cRow}`, result: unitCost * (item.quantity || 1) }
+      wsCost.getCell(`M${cRow}`).numFmt = "#,##0.00"
 
-      wsCost.getCell(`I${cRow}`).value = (item.marginPercentage || 0) / 100
-      wsCost.getCell(`I${cRow}`).numFmt = "0.0%"
+      wsCost.getCell(`N${cRow}`).value = item.unitSellingPrice || 0
+      wsCost.getCell(`N${cRow}`).numFmt = "#,##0.00"
 
-      wsCost.getCell(`J${cRow}`).value = item.unitSellingPrice || 0
-      wsCost.getCell(`J${cRow}`).numFmt = "#,##0.00"
-
-      wsCost.getCell(`K${cRow}`).value = { formula: `E${cRow}*J${cRow}`, result: item.totalSellingPrice }
-      wsCost.getCell(`K${cRow}`).numFmt = "#,##0.00"
+      wsCost.getCell(`O${cRow}`).value = { formula: `E${cRow}*N${cRow}`, result: item.totalSellingPrice }
+      wsCost.getCell(`O${cRow}`).numFmt = "#,##0.00"
 
       cRow++
     }
