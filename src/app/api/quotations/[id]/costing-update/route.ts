@@ -4,7 +4,8 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { canUseCosting } from "@/lib/costing-access"
 import { computeQuotationTotals } from "@/lib/quotation-totals"
-import { computeApprovalMetrics, lineApprovalFields, resolveApprovalStatus } from "@/lib/approval-policy"
+import { computeApprovalMetrics, lineApprovalFields } from "@/lib/approval-policy"
+import { applyQuotationApproval, approvalDataFor, decideQuotationApproval } from "@/lib/approval-engine"
 
 const num = (v: unknown) => {
   const n = Number(v)
@@ -134,7 +135,14 @@ export async function PUT(
 
     // Discount approval audit and routing (shared policy with create/update)
     const approvalMetrics = computeApprovalMetrics(allItems, totals.appliedDiscountPercent)
-    const approvalStatus = resolveApprovalStatus(approvalMetrics, quotation)
+    const approvalDecision = await decideQuotationApproval({
+      historyDocumentIds: [quotation.id],
+      metrics: approvalMetrics,
+      amount: totals.grandTotal,
+      customerSegment: quotation.customerSegment,
+      preparedById: quotation.preparedById,
+      projectName: quotation.projectName,
+    })
 
     const pendingCount = allItems.filter((i: any) => i.costingStatus === "PENDING_COSTING" || i.costingStatus === "COSTING_IN_PROGRESS").length
     const completedCount = allItems.filter((i: any) => i.costingStatus === "COSTING_COMPLETED").length
@@ -158,14 +166,18 @@ export async function PUT(
         vatAmount: totals.vatAmount,
         grandTotal: totals.grandTotal,
         costingStatus: overallCostingStatus,
-        totalEstimatorSellingPrice: approvalMetrics.totalEstimatorSellingPrice,
-        totalConsultantDiscountAmount: approvalMetrics.totalConsultantDiscountAmount,
-        overallDiscountPercentage: approvalMetrics.overallDiscountPercentage,
-        maxDiscountPercentage: approvalMetrics.maxDiscountPercentage,
-        approvalStatus: approvalStatus,
+        ...approvalDataFor(approvalDecision, approvalMetrics),
         costingCompletedAt: overallCostingStatus === "COSTING_COMPLETED" ? (quotation.costingCompletedAt || new Date()) : quotation.costingCompletedAt,
         costedById: overallCostingStatus === "COSTING_COMPLETED" ? (logUserId || quotation.costedById) : quotation.costedById
       }
+    })
+
+    await applyQuotationApproval({
+      quotationId: quotation.id,
+      quotationNumber: quotation.quotationNumber,
+      decision: approvalDecision,
+      requestedById: quotation.preparedById,
+      openRequest: quotation.status !== "DRAFT",
     })
 
     // Log event in Quotation Journey timeline

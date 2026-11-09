@@ -75,6 +75,8 @@ export function resolveRoutePermission(path: string, method = "GET"): RoutePermi
   }
   // 7. QUOTATIONS
   if (starts("/quotations", "/api/quotations")) {
+    // Approval decisions/panel: approvers come from Settings → Approvals levels, checked in the route
+    if (/^\/api\/quotations\/[^/]+\/(approve|approval)$/.test(path)) return { allow: true }
     if (!isApi) return { module: "QUOTATIONS", action: "view" }
     return { module: "QUOTATIONS", action: path.includes("/approve") ? "approve" : crudAction(method) }
   }

@@ -3,7 +3,8 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
-import { PENDING_APPROVAL_STATUSES } from "@/lib/approval-policy"
+import { canApproveLevel } from "@/lib/approval-policy"
+import { getActiveWorkflow } from "@/lib/approval-engine"
 
 export async function GET(request: Request) {
   try {
@@ -15,8 +16,12 @@ export async function GET(request: Request) {
     const userRole = ((session.user as any).role || "").toUpperCase()
     const isManagerOrAdmin = ["ADMIN", "SUPER_ADMIN", "SALES_MANAGER", "MANAGER"].includes(userRole)
 
+    const workflow = await getActiveWorkflow("QUOTATION")
+    const approver = { id: userId, role: userRole }
+    const isConfiguredApprover = !!workflow && canApproveLevel(approver, workflow.levels, 1)
+
     const canViewApprovals = await hasPermission(userId, "APPROVALS", "view")
-    if (!canViewApprovals && !isManagerOrAdmin) {
+    if (!canViewApprovals && !isManagerOrAdmin && !isConfiguredApprover) {
       const canApprove = await hasPermission(userId, "QUOTATIONS", "approve")
       if (!canApprove) {
         return NextResponse.json({ error: "Forbidden: Management approval rights required" }, { status: 403 })
@@ -33,20 +38,41 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" }
     })
 
-    // 2. Fetch Quotations whose discount is awaiting approval
-    const pendingQuotations = await prisma.quotation.findMany({
-      where: {
-        approvalStatus: { in: PENDING_APPROVAL_STATUSES },
-        status: { notIn: ["REVISED", "CANCELLED", "LOST"] },
-        deletedAt: null
-      },
-      include: {
-        client: true,
-        preparedBy: selectUserFields()
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 20
-    })
+    // 2. Quotations with an open approval request (only while the Approval Module is on)
+    let pendingQuotations: any[] = []
+    if (workflow) {
+      const requests = await prisma.approvalRequest.findMany({
+        where: { module: "QUOTATION", status: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        take: 50,
+      })
+      const quotations = await prisma.quotation.findMany({
+        where: {
+          id: { in: requests.map((r) => r.documentId) },
+          status: { notIn: ["REVISED", "CANCELLED", "LOST"] },
+          deletedAt: null,
+        },
+        include: { client: true, preparedBy: selectUserFields() },
+      })
+      pendingQuotations = requests
+        .map((r) => {
+          const q = quotations.find((x) => x.id === r.documentId)
+          if (!q) return null
+          return {
+            ...q,
+            approvalRequest: {
+              id: r.id,
+              levelName: r.levelName,
+              levelRank: r.levelRank,
+              reason: r.reason,
+              metrics: r.metrics,
+              createdAt: r.createdAt,
+            },
+            canDecide: canApproveLevel(approver, workflow.levels, r.levelRank),
+          }
+        })
+        .filter(Boolean)
+    }
 
     // 3. Fetch BOQs awaiting cost review or management sign-off
     const pendingBoqs = await prisma.boq.findMany({
@@ -64,6 +90,7 @@ export async function GET(request: Request) {
     })
 
     return NextResponse.json({
+      approvalModuleEnabled: !!workflow,
       clientAccessRequests,
       pendingQuotations,
       pendingBoqs

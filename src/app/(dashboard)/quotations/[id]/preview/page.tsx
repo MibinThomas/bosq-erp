@@ -936,6 +936,13 @@ export default function QuotationHtmlPreviewPage() {
       
       {/* Main Executive Workspace Area */}
       <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-950 p-4 sm:p-6 md:p-8 flex flex-col print:hidden overflow-y-auto">
+        {/* Approval Module panel: renders nothing when approvals are off or not needed */}
+        <div className="shrink-0 [&>div]:mt-0">
+          <ApprovalMatrixBanner
+            quotationId={quotation.id}
+            refreshKey={`${(quotation as any).updatedAt || ""}|${quotation.status}`}
+          />
+        </div>
         {activeViewMode === "costing" && isAuthorizedForCosting ? (
           <div className="w-full max-w-none space-y-4">
             {/* 13-Column Reference Audit Table Only (Full Width) */}

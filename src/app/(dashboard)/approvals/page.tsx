@@ -85,6 +85,35 @@ export default function ApprovalsPage() {
     }
   }
 
+  const handleQuotationDecision = async (quote: any, action: "APPROVE" | "REJECT") => {
+    let comment = ""
+    if (action === "REJECT") {
+      const reason = window.prompt(`Why are you rejecting ${quote.quotationNumber}? (required)`)
+      if (reason === null) return
+      if (!reason.trim()) {
+        toast.error("A rejection reason is required.")
+        return
+      }
+      comment = reason.trim()
+    }
+    setProcessingId(quote.id)
+    try {
+      const res = await fetch(`/api/quotations/${quote.id}/approve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, comment }),
+      })
+      const result = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(result.message || "Failed to update the approval")
+      toast.success(action === "APPROVE" ? `${quote.quotationNumber} approved.` : `${quote.quotationNumber} rejected.`)
+      fetchData()
+    } catch (err: any) {
+      toast.error(err.message || "Action failed")
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
   return (
     <div className="p-6 sm:p-8 space-y-8 max-w-7xl mx-auto">
       {/* Header Banner */}
@@ -268,16 +297,18 @@ export default function ApprovalsPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <FileText className="w-5 h-5 text-emerald-500" />
-                Special Discount & Quote Review
+                Quotation Approvals
               </h2>
               <Badge variant="secondary" className="font-mono text-xs">
-                {data.pendingQuotations?.length || 0} Active
+                {data.pendingQuotations?.length || 0} Pending
               </Badge>
             </div>
 
             {(!data.pendingQuotations || data.pendingQuotations.length === 0) ? (
               <Card className="rounded-xl border p-6 text-center text-xs text-muted-foreground bg-muted/20">
-                No active quotations requiring special discount sign-off.
+                {data.approvalModuleEnabled === false
+                  ? "The Approval Module is turned off, so quotations don't need approval. A Super Admin can turn it on in Settings → Approvals."
+                  : "No quotations are waiting for approval."}
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -304,7 +335,24 @@ export default function ApprovalsPage() {
                           <span>{quote.specialDiscountType === "PERCENTAGE" ? `${quote.specialDiscountValue}%` : `AED ${quote.specialDiscountValue}`}</span>
                         </div>
                       )}
+                      {typeof quote.approvalRequest?.metrics?.discountPct === "number" && (
+                        <div className="flex justify-between font-mono">
+                          <span className="text-muted-foreground">Highest discount:</span>
+                          <span className="font-bold text-foreground">{quote.approvalRequest.metrics.discountPct.toFixed(1)}%</span>
+                        </div>
+                      )}
                     </div>
+
+                    {quote.approvalRequest && (
+                      <div className="text-xs space-y-1">
+                        <Badge variant="outline" className="text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                          Needs: {quote.approvalRequest.levelName}
+                        </Badge>
+                        {quote.approvalRequest.reason && (
+                          <p className="text-muted-foreground">Rule: {quote.approvalRequest.reason}</p>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between text-xs pt-1">
                       <span className="text-muted-foreground">Prepared by: <strong>{quote.preparedBy?.name || "N/A"}</strong></span>
@@ -317,6 +365,31 @@ export default function ApprovalsPage() {
                         Inspect Quote <ArrowRight className="w-3.5 h-3.5 ml-1" />
                       </Button>
                     </div>
+
+                    {quote.canDecide && (
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={processingId === quote.id}
+                          onClick={() => handleQuotationDecision(quote, "REJECT")}
+                          className="flex-1 h-8 text-xs text-rose-600 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                        >
+                          <XCircle className="w-3.5 h-3.5 mr-1" /> Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={processingId === quote.id}
+                          onClick={() => handleQuotationDecision(quote, "APPROVE")}
+                          className="flex-1 h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
+                        >
+                          {processingId === quote.id
+                            ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                            : <CheckCircle2 className="w-3.5 h-3.5 mr-1" />}
+                          Approve
+                        </Button>
+                      </div>
+                    )}
                   </Card>
                 ))}
               </div>

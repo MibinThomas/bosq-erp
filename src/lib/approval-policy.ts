@@ -1,34 +1,30 @@
 /**
- * Discount approval policy — the single source of truth for:
+ * Approval policy — pure logic, no database access (see approval-engine.ts for that).
  *  - how a quotation's discount metrics are measured,
- *  - which approval tier those discounts require,
- *  - who may approve each tier, and
- *  - whether a quotation may be released to the client.
+ *  - which configured rules match a document and which level they require,
+ *  - whether a previous decision still covers the document, and
+ *  - whether a document may be released to the client.
  *
  * Line `discount` is an absolute amount per unit (amount = (unitPrice - discount) * qty).
  * Discount % is measured against the estimator's price when the line was costed,
  * otherwise against the line's unit price.
  */
 
-export const APPROVAL_TIERS = {
-  NONE: "AUTO_APPROVED",
-  IDC: "PENDING_IDC_APPROVAL",
-  MANAGER: "PENDING_MANAGER_APPROVAL",
-  GM: "PENDING_GM_APPROVAL",
+/** Quotation.approvalStatus values. Legacy PENDING_*_APPROVAL values are treated as pending. */
+export const APPROVAL_STATUS = {
+  AUTO_APPROVED: "AUTO_APPROVED",
+  PENDING: "PENDING_APPROVAL",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
 } as const
 
-export const PENDING_APPROVAL_STATUSES: string[] = [
-  APPROVAL_TIERS.IDC,
-  APPROVAL_TIERS.MANAGER,
-  APPROVAL_TIERS.GM,
-]
+export function isPendingApproval(status?: string | null) {
+  return !!status && status.startsWith("PENDING")
+}
 
-/** Tier thresholds: above GM_PCT → GM, above MANAGER_PCT → Manager, above 0 → IDC review. */
-export const MANAGER_PCT = 10
-export const GM_PCT = 20
-
-const MANAGER_ROLES = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER"]
-const GM_ROLES = ["SUPER_ADMIN", "ADMIN"]
+export function isApprovalBlocking(status?: string | null) {
+  return isPendingApproval(status) || status === APPROVAL_STATUS.REJECTED
+}
 
 /** Statuses where the quotation is in (or past) the client's hands. */
 export const CLIENT_RELEASE_STATUSES: string[] = [
@@ -44,11 +40,15 @@ export const CLIENT_RELEASE_STATUSES: string[] = [
   "COMPLETED",
 ]
 
+export const CUSTOMER_SEGMENTS = ["Dealer", "Interior", "Project", "Special"]
+
 const EPS = 0.01
 const num = (v: unknown) => {
   const n = typeof v === "number" ? v : parseFloat(String(v ?? ""))
   return Number.isFinite(n) ? n : 0
 }
+
+// ─── Discount metrics ─────────────────────────────────────────────────
 
 type LineInput = {
   quantity?: unknown
@@ -90,7 +90,7 @@ export type ApprovalMetrics = {
   overallDiscountPercentage: number
   maxDiscountPercentage: number
   specialDiscountPercentage: number
-  /** The percentage that decides the tier. */
+  /** The discount % rules are evaluated against: the largest of line, overall and special discount. */
   routingPct: number
 }
 
@@ -118,117 +118,165 @@ export function computeApprovalMetrics(lines: LineInput[], specialPct: number): 
   }
 }
 
-export function tierForPct(pct: number): string {
-  if (pct > GM_PCT + 1e-9) return APPROVAL_TIERS.GM
-  if (pct > MANAGER_PCT + 1e-9) return APPROVAL_TIERS.MANAGER
-  if (pct > 1e-9) return APPROVAL_TIERS.IDC
-  return APPROVAL_TIERS.NONE
+/** Fields persisted on Quotation for reporting. */
+export function quotationMetricFields(m: ApprovalMetrics) {
+  return {
+    maxDiscountPercentage: m.maxDiscountPercentage,
+    overallDiscountPercentage: m.overallDiscountPercentage,
+    totalEstimatorSellingPrice: m.totalEstimatorSellingPrice,
+    totalConsultantDiscountAmount: m.totalConsultantDiscountAmount,
+  }
 }
 
-/** The quotation as it was before this save (a Quotation row is fine). */
-export type PreviousApproval = {
-  approvalStatus?: string | null
-  maxDiscountPercentage?: number | null
-  overallDiscountPercentage?: number | null
-  specialDiscountType?: string | null
-  specialDiscountValue?: number | null
-  subtotal?: number | null
-  deliveryCharge?: number | null
+// ─── Rules ────────────────────────────────────────────────────────────
+
+export type LevelConfig = {
+  id: string
+  rank: number
+  name: string
+  approverRoles: string[]
+  approverUserIds: string[]
 }
 
-/**
- * Decide the approval status after a save.
- * - No discount → AUTO_APPROVED.
- * - A manager's APPROVED decision survives as long as no discount went up.
- * - A REJECTED decision survives only while nothing changed; any change re-routes it.
- */
-export function resolveApprovalStatus(metrics: ApprovalMetrics, previous?: PreviousApproval | null): string {
-  const routed = tierForPct(metrics.routingPct)
-  if (routed === APPROVAL_TIERS.NONE || !previous) return routed
-
-  const prevMax = previous.maxDiscountPercentage || 0
-  const prevOverall = previous.overallDiscountPercentage || 0
-  const prevSpecial = specialDiscountPercent({
-    specialDiscountType: previous.specialDiscountType,
-    specialDiscountValue: previous.specialDiscountValue,
-    subtotal: previous.subtotal,
-    additionalCost: previous.deliveryCharge,
-  })
-
-  const noIncrease =
-    metrics.maxDiscountPercentage <= prevMax + EPS &&
-    metrics.overallDiscountPercentage <= prevOverall + EPS &&
-    metrics.specialDiscountPercentage <= prevSpecial + EPS
-  if (previous.approvalStatus === "APPROVED" && noIncrease) return "APPROVED"
-
-  const unchanged =
-    Math.abs(metrics.maxDiscountPercentage - prevMax) < EPS &&
-    Math.abs(metrics.overallDiscountPercentage - prevOverall) < EPS &&
-    Math.abs(metrics.specialDiscountPercentage - prevSpecial) < EPS
-  if (previous.approvalStatus === "REJECTED" && unchanged) return "REJECTED"
-
-  return routed
+export type RuleConfig = {
+  id: string
+  name: string
+  isActive: boolean
+  levelId: string
+  minDiscountPct?: number | null
+  minAmount?: number | null
+  customerSegments?: string[]
+  departments?: string[]
+  projectKeyword?: string | null
 }
 
-export function isApprovalBlocking(approvalStatus?: string | null) {
-  return !!approvalStatus && (PENDING_APPROVAL_STATUSES.includes(approvalStatus) || approvalStatus === "REJECTED")
+/** What a rule is evaluated against. */
+export type ApprovalContext = {
+  discountPct: number
+  amount: number
+  customerSegment?: string | null
+  department?: string | null
+  projectName?: string | null
 }
 
-/** Which tier a quotation needs, from its stored metrics (used by the approve endpoint). */
-export function requiredTierForQuotation(q: {
-  maxDiscountPercentage?: number | null
-  overallDiscountPercentage?: number | null
-  specialDiscountType?: string | null
-  specialDiscountValue?: number | null
-  subtotal?: number | null
-  deliveryCharge?: number | null
-}) {
-  const special = specialDiscountPercent({
-    specialDiscountType: q.specialDiscountType,
-    specialDiscountValue: q.specialDiscountValue,
-    subtotal: q.subtotal,
-    additionalCost: q.deliveryCharge,
-  })
-  return tierForPct(Math.max(q.maxDiscountPercentage || 0, q.overallDiscountPercentage || 0, special))
+const lower = (s?: string | null) => (s || "").trim().toLowerCase()
+
+export function ruleMatches(rule: RuleConfig, ctx: ApprovalContext) {
+  if (!rule.isActive) return false
+  if (rule.minDiscountPct != null && !(ctx.discountPct > rule.minDiscountPct + 1e-9)) return false
+  if (rule.minAmount != null && !(ctx.amount >= rule.minAmount)) return false
+  if (rule.customerSegments && rule.customerSegments.length > 0 &&
+      !rule.customerSegments.some((s) => lower(s) === lower(ctx.customerSegment))) return false
+  if (rule.departments && rule.departments.length > 0 &&
+      !rule.departments.some((d) => lower(d) === lower(ctx.department))) return false
+  if (rule.projectKeyword && rule.projectKeyword.trim() &&
+      !lower(ctx.projectName).includes(lower(rule.projectKeyword))) return false
+  return true
 }
 
-const TIER_RANK: Record<string, number> = {
-  [APPROVAL_TIERS.NONE]: 0,
-  [APPROVAL_TIERS.IDC]: 1,
-  [APPROVAL_TIERS.MANAGER]: 2,
-  [APPROVAL_TIERS.GM]: 3,
+/** The most senior level required by the matching rules, or null when no rule matches. */
+export function requiredLevel(levels: LevelConfig[], rules: RuleConfig[], ctx: ApprovalContext) {
+  const matched = rules.filter((r) => ruleMatches(r, ctx))
+  let level: LevelConfig | null = null
+  for (const r of matched) {
+    const l = levels.find((x) => x.id === r.levelId)
+    if (l && (!level || l.rank > level.rank)) level = l
+  }
+  return { level, matchedRules: matched }
 }
 
-/** The strictest of the given tiers (unknown values such as APPROVED/REJECTED count as none). */
-export function highestTier(...tiers: (string | null | undefined)[]) {
-  return tiers.reduce<string>(
-    (best, t) => ((TIER_RANK[t ?? ""] ?? 0) > TIER_RANK[best] ? (t as string) : best),
-    APPROVAL_TIERS.NONE
+/** Approvers of a level may approve that level and any lower one. Super Admin may approve anything. */
+export function canApproveLevel(
+  user: { id: string; role?: string | null },
+  levels: LevelConfig[],
+  requiredRank: number
+) {
+  const role = (user.role || "").toUpperCase()
+  if (role === "SUPER_ADMIN") return true
+  return levels.some((l) =>
+    l.rank >= requiredRank &&
+    (l.approverRoles.map((r) => r.toUpperCase()).includes(role) || l.approverUserIds.includes(user.id))
   )
 }
 
-export function canApproveTier(role: string | null | undefined, tier: string) {
-  const r = (role || "").toUpperCase()
-  if (tier === APPROVAL_TIERS.GM) return GM_ROLES.includes(r)
-  return MANAGER_ROLES.includes(r)
+// ─── Decisions ────────────────────────────────────────────────────────
+
+/** Snapshot stored on each approval request. */
+export type ApprovalSnapshot = {
+  discountPct: number
+  maxDiscountPct: number
+  overallDiscountPct: number
+  specialDiscountPct: number
+  amount: number
 }
 
-export function tierLabel(tier: string) {
-  if (tier === APPROVAL_TIERS.GM) return "General Manager / Director"
-  if (tier === APPROVAL_TIERS.MANAGER) return "Sales Manager"
-  if (tier === APPROVAL_TIERS.IDC) return "Manager review"
-  return "No approval"
+export function snapshotOf(m: ApprovalMetrics, amount: number): ApprovalSnapshot {
+  return {
+    discountPct: m.routingPct,
+    maxDiscountPct: m.maxDiscountPercentage,
+    overallDiscountPct: m.overallDiscountPercentage,
+    specialDiscountPct: m.specialDiscountPercentage,
+    amount,
+  }
+}
+
+/** An earlier approval still covers the document if it was at least as senior and nothing went up. */
+export function approvalStillCovers(
+  approved: { levelRank: number; metrics?: Partial<ApprovalSnapshot> | null },
+  requiredRank: number,
+  now: ApprovalSnapshot
+) {
+  if (approved.levelRank < requiredRank) return false
+  const m = approved.metrics || {}
+  return (
+    now.discountPct <= (m.discountPct ?? 0) + EPS &&
+    now.maxDiscountPct <= (m.maxDiscountPct ?? 0) + EPS &&
+    now.overallDiscountPct <= (m.overallDiscountPct ?? 0) + EPS &&
+    now.specialDiscountPct <= (m.specialDiscountPct ?? 0) + EPS &&
+    now.amount <= (m.amount ?? 0) + 1
+  )
+}
+
+/** A rejection stands until the discounts or value change. */
+export function rejectionStillApplies(rejected: { metrics?: Partial<ApprovalSnapshot> | null }, now: ApprovalSnapshot) {
+  const m = rejected.metrics || {}
+  return (
+    Math.abs(now.discountPct - (m.discountPct ?? 0)) < EPS &&
+    Math.abs(now.specialDiscountPct - (m.specialDiscountPct ?? 0)) < EPS &&
+    Math.abs(now.amount - (m.amount ?? 0)) < 1
+  )
 }
 
 /**
  * Returns an error message when moving to `newStatus` would release a quotation
- * to the client while its discount approval is pending or rejected; otherwise null.
+ * to the client while its approval is pending or rejected; otherwise null.
  */
-export function releaseBlockedReason(currentStatus: string, newStatus: string, approvalStatus?: string | null) {
+export function releaseBlockedReason(
+  currentStatus: string,
+  newStatus: string,
+  approvalStatus?: string | null,
+  levelName?: string | null
+) {
   const releasing = CLIENT_RELEASE_STATUSES.includes(newStatus) && !CLIENT_RELEASE_STATUSES.includes(currentStatus)
   if (!releasing || !isApprovalBlocking(approvalStatus)) return null
-  if (approvalStatus === "REJECTED") {
-    return "The discount on this quotation was rejected. Revise the pricing and get it approved before sending it to the client."
+  if (approvalStatus === APPROVAL_STATUS.REJECTED) {
+    return "This quotation's approval was rejected. Revise it and get it approved before sending it to the client."
   }
-  return `This quotation's discount needs approval (${tierLabel(approvalStatus!)}) before it can be sent to the client.`
+  return `This quotation needs approval${levelName ? ` (${levelName})` : ""} before it can be sent to the client.`
+}
+
+// ─── Defaults ─────────────────────────────────────────────────────────
+
+/** Seeded on first use; mirrors the original fixed tiers. */
+export const DEFAULT_QUOTATION_WORKFLOW = {
+  levels: [
+    { rank: 1, name: "Manager review", approverRoles: ["SALES_MANAGER", "MANAGER", "ADMIN"] },
+    { rank: 2, name: "Sales Manager", approverRoles: ["SALES_MANAGER", "MANAGER", "ADMIN"] },
+    { rank: 3, name: "General Manager / Director", approverRoles: ["ADMIN"] },
+  ],
+  rules: [
+    { name: "Any discount", levelRank: 1, minDiscountPct: 0 },
+    { name: "Discount above 10%", levelRank: 2, minDiscountPct: 10 },
+    { name: "Discount above 20%", levelRank: 3, minDiscountPct: 20 },
+  ],
 }

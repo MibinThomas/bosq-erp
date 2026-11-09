@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { isPendingApproval } from "@/lib/approval-policy"
 
 export const dynamic = "force-dynamic"
 
@@ -174,7 +175,7 @@ export async function GET(request: Request) {
     const totalProposedRevenue = quotations.reduce((a, b) => a + (b.grandTotal || 0), 0)
     const totalDiscountAmount = quotations.reduce((a, b) => a + (b.totalConsultantDiscountAmount || 0), 0)
     const avgDiscountPct = totalEstimatorRevenue > 0 ? (totalDiscountAmount / totalEstimatorRevenue) * 100 : 0
-    const pendingApprovals = quotations.filter(q => ["PENDING_MANAGER_APPROVAL", "PENDING_GM_APPROVAL"].includes(q.approvalStatus)).length
+    const pendingApprovals = quotations.filter(q => isPendingApproval(q.approvalStatus)).length
 
     return NextResponse.json({
       totalCreated,

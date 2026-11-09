@@ -15,7 +15,8 @@ import { hasPermission } from "@/lib/rbac"
 import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 import { cleanHtmlText } from "@/lib/utils"
-import { computeApprovalMetrics, lineApprovalFields, releaseBlockedReason, resolveApprovalStatus } from "@/lib/approval-policy"
+import { computeApprovalMetrics, lineApprovalFields, releaseBlockedReason } from "@/lib/approval-policy"
+import { applyQuotationApproval, approvalDataFor, decideQuotationApproval } from "@/lib/approval-engine"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -617,14 +618,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Discount approval: measured and routed on the server, never trusted from the client
-    const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
-    const approvalStatus = resolveApprovalStatus(approvalMetrics)
-    const releaseBlocked = releaseBlockedReason("DRAFT", resolvedStatus, approvalStatus)
-    if (releaseBlocked) {
-      return NextResponse.json({ error: releaseBlocked }, { status: 400 })
-    }
-
     // Calculate Taxable Amount, VAT, and Grand Total
     const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - discountAmt)
     let vatAmount = 0
@@ -636,6 +629,21 @@ export async function POST(request: Request) {
     } else {
       vatAmount = taxableAmount * 0.05
       grandTotal = Math.round(taxableAmount + vatAmount)
+    }
+
+    // Approval (Approval Module): decided on the server from the configured rules, never by the client
+    const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
+    const approvalDecision = await decideQuotationApproval({
+      historyDocumentIds: [],
+      metrics: approvalMetrics,
+      amount: grandTotal,
+      customerSegment: segment,
+      preparedById: creatorUser.id,
+      projectName,
+    })
+    const releaseBlocked = releaseBlockedReason("DRAFT", resolvedStatus, approvalDecision.status, approvalDecision.level?.name)
+    if (releaseBlocked) {
+      return NextResponse.json({ error: releaseBlocked }, { status: 400 })
     }
 
     // 4. Get Terms & Conditions for the PDF & Database
@@ -789,11 +797,7 @@ export async function POST(request: Request) {
         specialDiscountReason: specialDiscountReason || null,
         vatMode: resolvedVatMode,
         additionalCharges: parsedAdditionalCharges as any,
-        approvalStatus,
-        maxDiscountPercentage: approvalMetrics.maxDiscountPercentage,
-        overallDiscountPercentage: approvalMetrics.overallDiscountPercentage,
-        totalEstimatorSellingPrice: approvalMetrics.totalEstimatorSellingPrice,
-        totalConsultantDiscountAmount: approvalMetrics.totalConsultantDiscountAmount,
+        ...approvalDataFor(approvalDecision, approvalMetrics),
         sharepointUrl: "",
         notes: notes || null,
         disclaimerTitle: disclaimerTitle || null,
@@ -863,6 +867,14 @@ export async function POST(request: Request) {
         items: true,
         revisions: true,
       }
+    })
+
+    await applyQuotationApproval({
+      quotationId: newQuotation.id,
+      quotationNumber: newQuotation.quotationNumber,
+      decision: approvalDecision,
+      requestedById: loggedInUserId || creatorUser.id,
+      openRequest: resolvedStatus !== "DRAFT",
     })
 
     // 7. Upload the finalized quotation PDF to SharePoint

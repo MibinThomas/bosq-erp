@@ -15,45 +15,13 @@ import { generateCode128DataUri } from "@/lib/pdf/barcode"
 import { cleanHtmlText } from "@/lib/utils"
 import { hasPermission } from "@/lib/rbac"
 import { canAccessQuotation, getCostVisibility, isUnrestrictedRole, keepHiddenCostFields, sanitizeLineItem } from "@/lib/data-scope"
+import { computeApprovalMetrics, lineApprovalFields, releaseBlockedReason } from "@/lib/approval-policy"
 import {
-  computeApprovalMetrics,
-  lineApprovalFields,
-  releaseBlockedReason,
-  resolveApprovalStatus,
-  specialDiscountPercent,
-} from "@/lib/approval-policy"
-
-/**
- * Before a status change releases a quotation to the client, re-measure its discounts from the
- * stored lines (older records may never have been routed) and block the move while approval is
- * pending or rejected. A newly detected pending status is saved so it shows in the approvals queue.
- */
-async function checkReleaseApproval(quotation: any, newStatus: string): Promise<string | null> {
-  const items = Array.isArray(quotation.items)
-    ? quotation.items
-    : await prisma.quotationItem.findMany({ where: { quotationId: quotation.id } })
-  const metrics = computeApprovalMetrics(items, specialDiscountPercent({
-    specialDiscountType: quotation.specialDiscountType,
-    specialDiscountValue: quotation.specialDiscountValue,
-    subtotal: quotation.subtotal,
-    additionalCost: quotation.deliveryCharge,
-  }))
-  const approvalStatus = resolveApprovalStatus(metrics, quotation)
-  const blocked = releaseBlockedReason(quotation.status, newStatus, approvalStatus)
-  if (blocked && approvalStatus !== quotation.approvalStatus) {
-    await prisma.quotation.update({
-      where: { id: quotation.id },
-      data: {
-        approvalStatus,
-        maxDiscountPercentage: metrics.maxDiscountPercentage,
-        overallDiscountPercentage: metrics.overallDiscountPercentage,
-        totalEstimatorSellingPrice: metrics.totalEstimatorSellingPrice,
-        totalConsultantDiscountAmount: metrics.totalConsultantDiscountAmount,
-      },
-    })
-  }
-  return blocked
-}
+  applyQuotationApproval,
+  approvalDataFor,
+  checkQuotationRelease,
+  decideQuotationApproval,
+} from "@/lib/approval-engine"
 
 // Get single quotation with items and revisions history
 export async function GET(
@@ -541,7 +509,7 @@ export async function PUT(
         return NextResponse.json({ error: "Unauthorized: Downstream status changes require Manager or Admin authorization" }, { status: 403 })
       }
 
-      const releaseBlocked = await checkReleaseApproval(existingQuotation, newStatus)
+      const releaseBlocked = await checkQuotationRelease(existingQuotation, newStatus, logUserId)
       if (releaseBlocked) {
         return NextResponse.json({ error: releaseBlocked }, { status: 400 })
       }
@@ -1061,30 +1029,6 @@ export async function PUT(
         }
       }
 
-      // Discount approval, measured on the server. A prior approval carries over if no discount went up.
-      // A new revision starts as a fresh record, so it is "released" only by this save.
-      const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
-      const approvalStatus = resolveApprovalStatus(approvalMetrics, existingQuotation)
-      const releaseBlocked = releaseBlockedReason(
-        body.isRevision === true ? "DRAFT" : existingQuotation.status,
-        resolvedStatus,
-        approvalStatus
-      )
-      if (releaseBlocked) {
-        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
-      }
-      const approvalData = {
-        approvalStatus,
-        maxDiscountPercentage: approvalMetrics.maxDiscountPercentage,
-        overallDiscountPercentage: approvalMetrics.overallDiscountPercentage,
-        totalEstimatorSellingPrice: approvalMetrics.totalEstimatorSellingPrice,
-        totalConsultantDiscountAmount: approvalMetrics.totalConsultantDiscountAmount,
-        // A changed decision clears the previous approver
-        ...(approvalStatus !== existingQuotation.approvalStatus && approvalStatus !== "APPROVED"
-          ? { approvedById: null, approvedAt: null }
-          : {}),
-      }
-
       // Calculate Taxable Amount, VAT, and Grand Total
       const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - discountAmt)
       let vatAmount = 0
@@ -1097,6 +1041,29 @@ export async function PUT(
         vatAmount = taxableAmount * 0.05
         grandTotal = Math.round(taxableAmount + vatAmount)
       }
+
+      // Approval (Approval Module), decided on the server. An earlier approval of this quotation
+      // (or of a revision's source) carries over if nothing went up. A new revision is a fresh
+      // record, so only this save can release it to the client.
+      const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
+      const approvalDecision = await decideQuotationApproval({
+        historyDocumentIds: [existingQuotation.id],
+        metrics: approvalMetrics,
+        amount: grandTotal,
+        customerSegment: body.customerSegment || existingQuotation.customerSegment,
+        preparedById: body.preparedById || existingQuotation.preparedById || logUserId,
+        projectName: projectName || existingQuotation.projectName,
+      })
+      const releaseBlocked = releaseBlockedReason(
+        body.isRevision === true ? "DRAFT" : existingQuotation.status,
+        resolvedStatus,
+        approvalDecision.status,
+        approvalDecision.level?.name
+      )
+      if (releaseBlocked) {
+        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+      }
+      const approvalData = approvalDataFor(approvalDecision, approvalMetrics)
 
       // Fetch Terms & Conditions
       let termsArray: string[] = []
@@ -1337,9 +1304,6 @@ export async function PUT(
             vatMode: resolvedVatMode,
             additionalCharges: parsedAdditionalCharges as any,
             ...approvalData,
-            ...(approvalStatus === "APPROVED"
-              ? { approvedById: existingQuotation.approvedById, approvedAt: existingQuotation.approvedAt }
-              : {}),
             sharepointUrl,
             notes: body.revisionNotes || notes || existingQuotation.notes || null,
             disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || null,
@@ -1406,6 +1370,13 @@ export async function PUT(
         })
       }, { maxWait: 15000, timeout: 30000 })
 
+      await applyQuotationApproval({
+        quotationId: updatedQuotation.id,
+        quotationNumber: updatedQuotation.quotationNumber,
+        decision: approvalDecision,
+        requestedById: logUserId,
+        openRequest: resolvedStatus !== "DRAFT",
+      })
 
       // Autosaves are frequent background persistence and should not create activity noise.
       if (!isAutoSave) {
@@ -1645,30 +1616,6 @@ export async function PUT(
         }
       }
 
-      // Discount approval, measured on the server. A prior approval carries over if no discount went up.
-      // A new revision starts as a fresh record, so it is "released" only by this save.
-      const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
-      const approvalStatus = resolveApprovalStatus(approvalMetrics, existingQuotation)
-      const releaseBlocked = releaseBlockedReason(
-        body.isRevision === true ? "DRAFT" : existingQuotation.status,
-        resolvedStatus,
-        approvalStatus
-      )
-      if (releaseBlocked) {
-        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
-      }
-      const approvalData = {
-        approvalStatus,
-        maxDiscountPercentage: approvalMetrics.maxDiscountPercentage,
-        overallDiscountPercentage: approvalMetrics.overallDiscountPercentage,
-        totalEstimatorSellingPrice: approvalMetrics.totalEstimatorSellingPrice,
-        totalConsultantDiscountAmount: approvalMetrics.totalConsultantDiscountAmount,
-        // A changed decision clears the previous approver
-        ...(approvalStatus !== existingQuotation.approvalStatus && approvalStatus !== "APPROVED"
-          ? { approvedById: null, approvedAt: null }
-          : {}),
-      }
-
       // Calculate Taxable Amount, VAT, and Grand Total
       const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - discountAmt)
       let vatAmount = 0
@@ -1681,6 +1628,29 @@ export async function PUT(
         vatAmount = taxableAmount * 0.05
         grandTotal = Math.round(taxableAmount + vatAmount)
       }
+
+      // Approval (Approval Module), decided on the server. An earlier approval of this quotation
+      // (or of a revision's source) carries over if nothing went up. A new revision is a fresh
+      // record, so only this save can release it to the client.
+      const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
+      const approvalDecision = await decideQuotationApproval({
+        historyDocumentIds: [existingQuotation.id],
+        metrics: approvalMetrics,
+        amount: grandTotal,
+        customerSegment: body.customerSegment || existingQuotation.customerSegment,
+        preparedById: body.preparedById || existingQuotation.preparedById || logUserId,
+        projectName: projectName || existingQuotation.projectName,
+      })
+      const releaseBlocked = releaseBlockedReason(
+        body.isRevision === true ? "DRAFT" : existingQuotation.status,
+        resolvedStatus,
+        approvalDecision.status,
+        approvalDecision.level?.name
+      )
+      if (releaseBlocked) {
+        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+      }
+      const approvalData = approvalDataFor(approvalDecision, approvalMetrics)
 
       const shouldGeneratePdf = resolvedStatus !== "DRAFT"
 
@@ -2016,6 +1986,14 @@ export async function PUT(
         })
       }, { maxWait: 15000, timeout: 30000 })
 
+      await applyQuotationApproval({
+        quotationId: updatedQuotation.id,
+        quotationNumber: updatedQuotation.quotationNumber,
+        decision: approvalDecision,
+        requestedById: logUserId,
+        openRequest: resolvedStatus !== "DRAFT",
+      })
+
       // Autosaves are frequent background persistence and should not create activity noise.
       if (!isAutoSave) {
         try {
@@ -2075,7 +2053,7 @@ export async function PUT(
     }
 
     if (status && status !== existingQuotation.status) {
-      const releaseBlocked = await checkReleaseApproval(existingQuotation, status)
+      const releaseBlocked = await checkQuotationRelease(existingQuotation, status, logUserId)
       if (releaseBlocked) {
         return NextResponse.json({ error: releaseBlocked }, { status: 400 })
       }
