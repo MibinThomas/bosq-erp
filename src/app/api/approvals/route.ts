@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { PENDING_APPROVAL_STATUSES } from "@/lib/approval-policy"
 
 export async function GET(request: Request) {
   try {
@@ -22,9 +23,9 @@ export async function GET(request: Request) {
       }
     }
 
-    // 1. Fetch pending Client Access Requests
+    // 1. Fetch pending Client Access Requests (created with status "Requested")
     const clientAccessRequests = await prisma.clientAccessRequest.findMany({
-      where: { status: "PENDING" },
+      where: { status: { in: ["Requested", "PENDING"] } },
       include: {
         client: true,
         user: { select: { id: true, name: true, email: true, role: true } }
@@ -32,13 +33,11 @@ export async function GET(request: Request) {
       orderBy: { createdAt: "desc" }
     })
 
-    // 2. Fetch Quotations requiring Special Discount or Low Margin Approval
+    // 2. Fetch Quotations whose discount is awaiting approval
     const pendingQuotations = await prisma.quotation.findMany({
       where: {
-        OR: [
-          { status: "DRAFT", specialDiscountValue: { gt: 0 } },
-          { status: "SENT" },
-        ],
+        approvalStatus: { in: PENDING_APPROVAL_STATUSES },
+        status: { notIn: ["REVISED", "CANCELLED", "LOST"] },
         deletedAt: null
       },
       include: {

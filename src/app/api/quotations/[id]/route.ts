@@ -15,6 +15,45 @@ import { generateCode128DataUri } from "@/lib/pdf/barcode"
 import { cleanHtmlText } from "@/lib/utils"
 import { hasPermission } from "@/lib/rbac"
 import { canAccessQuotation, getCostVisibility, isUnrestrictedRole, keepHiddenCostFields, sanitizeLineItem } from "@/lib/data-scope"
+import {
+  computeApprovalMetrics,
+  lineApprovalFields,
+  releaseBlockedReason,
+  resolveApprovalStatus,
+  specialDiscountPercent,
+} from "@/lib/approval-policy"
+
+/**
+ * Before a status change releases a quotation to the client, re-measure its discounts from the
+ * stored lines (older records may never have been routed) and block the move while approval is
+ * pending or rejected. A newly detected pending status is saved so it shows in the approvals queue.
+ */
+async function checkReleaseApproval(quotation: any, newStatus: string): Promise<string | null> {
+  const items = Array.isArray(quotation.items)
+    ? quotation.items
+    : await prisma.quotationItem.findMany({ where: { quotationId: quotation.id } })
+  const metrics = computeApprovalMetrics(items, specialDiscountPercent({
+    specialDiscountType: quotation.specialDiscountType,
+    specialDiscountValue: quotation.specialDiscountValue,
+    subtotal: quotation.subtotal,
+    additionalCost: quotation.deliveryCharge,
+  }))
+  const approvalStatus = resolveApprovalStatus(metrics, quotation)
+  const blocked = releaseBlockedReason(quotation.status, newStatus, approvalStatus)
+  if (blocked && approvalStatus !== quotation.approvalStatus) {
+    await prisma.quotation.update({
+      where: { id: quotation.id },
+      data: {
+        approvalStatus,
+        maxDiscountPercentage: metrics.maxDiscountPercentage,
+        overallDiscountPercentage: metrics.overallDiscountPercentage,
+        totalEstimatorSellingPrice: metrics.totalEstimatorSellingPrice,
+        totalConsultantDiscountAmount: metrics.totalConsultantDiscountAmount,
+      },
+    })
+  }
+  return blocked
+}
 
 // Get single quotation with items and revisions history
 export async function GET(
@@ -502,6 +541,11 @@ export async function PUT(
         return NextResponse.json({ error: "Unauthorized: Downstream status changes require Manager or Admin authorization" }, { status: 403 })
       }
 
+      const releaseBlocked = await checkReleaseApproval(existingQuotation, newStatus)
+      if (releaseBlocked) {
+        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+      }
+
       // Update status and write activity log
       const updatedQuotation = await prisma.$transaction(async (tx) => {
         const rootId = existingQuotation.parentId || existingQuotation.id
@@ -978,7 +1022,9 @@ export async function PUT(
           negotiationPct: parseFloat(item.negotiationPct) || 0,
           estimatorNotes: item.estimatorNotes || null,
           estimatorId: item.estimatorId || null,
-          estimatorUnitPrice: parseFloat(item.estimatorUnitPrice) || 0,
+          estimatorUnitPrice: parseFloat(item.estimatorUnitPrice)
+            || existingQuotation.items.find((i: any) => i.id === item.id)?.estimatorUnitPrice
+            || 0,
           costingCompletedAt: item.costingCompletedAt ? new Date(item.costingCompletedAt) : null,
         }
       }))
@@ -1015,7 +1061,29 @@ export async function PUT(
         }
       }
 
-      // Discount limit check removed
+      // Discount approval, measured on the server. A prior approval carries over if no discount went up.
+      // A new revision starts as a fresh record, so it is "released" only by this save.
+      const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
+      const approvalStatus = resolveApprovalStatus(approvalMetrics, existingQuotation)
+      const releaseBlocked = releaseBlockedReason(
+        body.isRevision === true ? "DRAFT" : existingQuotation.status,
+        resolvedStatus,
+        approvalStatus
+      )
+      if (releaseBlocked) {
+        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+      }
+      const approvalData = {
+        approvalStatus,
+        maxDiscountPercentage: approvalMetrics.maxDiscountPercentage,
+        overallDiscountPercentage: approvalMetrics.overallDiscountPercentage,
+        totalEstimatorSellingPrice: approvalMetrics.totalEstimatorSellingPrice,
+        totalConsultantDiscountAmount: approvalMetrics.totalConsultantDiscountAmount,
+        // A changed decision clears the previous approver
+        ...(approvalStatus !== existingQuotation.approvalStatus && approvalStatus !== "APPROVED"
+          ? { approvedById: null, approvedAt: null }
+          : {}),
+      }
 
       // Calculate Taxable Amount, VAT, and Grand Total
       const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - discountAmt)
@@ -1268,6 +1336,10 @@ export async function PUT(
             specialDiscountReason: specialDiscountReason || null,
             vatMode: resolvedVatMode,
             additionalCharges: parsedAdditionalCharges as any,
+            ...approvalData,
+            ...(approvalStatus === "APPROVED"
+              ? { approvedById: existingQuotation.approvedById, approvedAt: existingQuotation.approvedAt }
+              : {}),
             sharepointUrl,
             notes: body.revisionNotes || notes || existingQuotation.notes || null,
             disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || null,
@@ -1307,6 +1379,7 @@ export async function PUT(
                 discount: item.discount,
                 margin: item.margin,
                 amount: item.amount,
+                ...lineApprovalFields(item),
                 costingStatus: item.costingStatus || "NOT_REQUIRED",
                 unitCost: item.unitCost || 0,
                 materialCost: item.materialCost || 0,
@@ -1531,6 +1604,8 @@ export async function PUT(
           marginPercentage: parseFloat(item.marginPercentage) || 0,
           // Estimator's negotiation % from the Costing Workspace; kept when the editor doesn't send it
           negotiationPct: parseFloat(item.negotiationPct) || existingItem?.negotiationPct || 0,
+          // Estimator's price is the reference for discount approval; the editor may not send it back
+          estimatorUnitPrice: parseFloat(item.estimatorUnitPrice) || existingItem?.estimatorUnitPrice || 0,
           estimatorNotes: item.estimatorNotes || null,
           estimatorId: item.estimatorId || null,
           costingRequestedAt: item.costingRequestedAt ? new Date(item.costingRequestedAt) : null,
@@ -1570,7 +1645,29 @@ export async function PUT(
         }
       }
 
-      // Discount limit check removed
+      // Discount approval, measured on the server. A prior approval carries over if no discount went up.
+      // A new revision starts as a fresh record, so it is "released" only by this save.
+      const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
+      const approvalStatus = resolveApprovalStatus(approvalMetrics, existingQuotation)
+      const releaseBlocked = releaseBlockedReason(
+        body.isRevision === true ? "DRAFT" : existingQuotation.status,
+        resolvedStatus,
+        approvalStatus
+      )
+      if (releaseBlocked) {
+        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+      }
+      const approvalData = {
+        approvalStatus,
+        maxDiscountPercentage: approvalMetrics.maxDiscountPercentage,
+        overallDiscountPercentage: approvalMetrics.overallDiscountPercentage,
+        totalEstimatorSellingPrice: approvalMetrics.totalEstimatorSellingPrice,
+        totalConsultantDiscountAmount: approvalMetrics.totalConsultantDiscountAmount,
+        // A changed decision clears the previous approver
+        ...(approvalStatus !== existingQuotation.approvalStatus && approvalStatus !== "APPROVED"
+          ? { approvedById: null, approvedAt: null }
+          : {}),
+      }
 
       // Calculate Taxable Amount, VAT, and Grand Total
       const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - discountAmt)
@@ -1787,6 +1884,7 @@ export async function PUT(
         discount: item.discount,
         margin: item.margin,
         amount: item.amount,
+        ...lineApprovalFields(item),
         costingStatus: item.costingStatus || "NOT_REQUIRED",
         unitCost: item.unitCost || 0,
         materialCost: item.materialCost || 0,
@@ -1820,6 +1918,7 @@ export async function PUT(
             specialDiscountReason: specialDiscountReason || null,
             vatMode: resolvedVatMode,
             additionalCharges: parsedAdditionalCharges as any,
+            ...approvalData,
             sharepointUrl,
             notes: body.revisionNotes || notes || existingQuotation.notes || null,
             disclaimerTitle: disclaimerTitle || null,
@@ -1973,6 +2072,13 @@ export async function PUT(
         error: "FORBIDDEN_WORKFLOW",
         message: "Only the Client Approved quotation can be transitioned to PO, Production, or Billing workflows. Please mark this revision as Client Approved first."
       }, { status: 400 })
+    }
+
+    if (status && status !== existingQuotation.status) {
+      const releaseBlocked = await checkReleaseApproval(existingQuotation, status)
+      if (releaseBlocked) {
+        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+      }
     }
 
     // Everyone can update the status of their own quotations without role limitations.

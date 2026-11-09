@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { canUseCosting } from "@/lib/costing-access"
 import { computeQuotationTotals } from "@/lib/quotation-totals"
+import { computeApprovalMetrics, lineApprovalFields, resolveApprovalStatus } from "@/lib/approval-policy"
 
 const num = (v: unknown) => {
   const n = Number(v)
@@ -92,9 +93,7 @@ export async function PUT(
       const disc = existingItem.discount || 0
       const computedAmount = Math.max(0, (computedUnitPrice - disc) * qty)
 
-      const estimatorPrice = computedUnitPrice
-      const discountAmt = Math.max(0, disc)
-      const discountPct = estimatorPrice > 0 ? (discountAmt / estimatorPrice) * 100 : 0
+      const approvalFields = lineApprovalFields({ unitPrice: computedUnitPrice, discount: disc, estimatorUnitPrice: computedUnitPrice })
 
       await prisma.quotationItem.update({
         where: { id: existingItem.id },
@@ -109,9 +108,7 @@ export async function PUT(
           negotiationPct,
           unitPrice: computedUnitPrice,
           amount: computedAmount,
-          estimatorUnitPrice: estimatorPrice,
-          consultantDiscountAmount: discountAmt,
-          consultantDiscountPct: discountPct,
+          ...approvalFields,
           costingStatus: status,
           estimatorNotes: itemUpdate.estimatorNotes ?? existingItem.estimatorNotes,
           // Only a completed costing is stamped as done by this estimator
@@ -135,41 +132,9 @@ export async function PUT(
       vatMode: quotation.vatMode
     })
 
-    // Calculate Managerial Discount & Approval Audit Metrics
-    let totalEstRev = 0
-    let totalDiscAmt = 0
-    let maxItemDiscountPct = 0
-
-    allItems.forEach((i: any) => {
-      const qty = i.quantity || 1
-      const estPrice = i.estimatorUnitPrice > 0 ? i.estimatorUnitPrice : i.unitPrice
-      const discAmt = i.consultantDiscountAmount || 0
-      const discPct = i.consultantDiscountPct || 0
-
-      totalEstRev += estPrice * qty
-      totalDiscAmt += discAmt * qty
-      if (discPct > maxItemDiscountPct) maxItemDiscountPct = discPct
-    })
-
-    const overallDiscountPct = totalEstRev > 0 ? (totalDiscAmt / totalEstRev) * 100 : 0
-
-    // Automatic Approval Routing Matrix (line discounts and the special discount)
-    const routingPct = Math.max(maxItemDiscountPct, overallDiscountPct, totals.appliedDiscountPercent)
-    let approvalStatus = "AUTO_APPROVED"
-    if (routingPct > 20) {
-      approvalStatus = "PENDING_GM_APPROVAL"
-    } else if (routingPct > 10) {
-      approvalStatus = "PENDING_MANAGER_APPROVAL"
-    } else if (routingPct > 0) {
-      approvalStatus = "PENDING_IDC_APPROVAL"
-    }
-    // Keep a manager's decision unless the discounts actually changed
-    const discountsUnchanged =
-      Math.abs((quotation.maxDiscountPercentage || 0) - maxItemDiscountPct) < 0.01 &&
-      Math.abs((quotation.overallDiscountPercentage || 0) - overallDiscountPct) < 0.01
-    if (discountsUnchanged && (quotation.approvalStatus === "APPROVED" || quotation.approvalStatus === "REJECTED")) {
-      approvalStatus = quotation.approvalStatus
-    }
+    // Discount approval audit and routing (shared policy with create/update)
+    const approvalMetrics = computeApprovalMetrics(allItems, totals.appliedDiscountPercent)
+    const approvalStatus = resolveApprovalStatus(approvalMetrics, quotation)
 
     const pendingCount = allItems.filter((i: any) => i.costingStatus === "PENDING_COSTING" || i.costingStatus === "COSTING_IN_PROGRESS").length
     const completedCount = allItems.filter((i: any) => i.costingStatus === "COSTING_COMPLETED").length
@@ -193,10 +158,10 @@ export async function PUT(
         vatAmount: totals.vatAmount,
         grandTotal: totals.grandTotal,
         costingStatus: overallCostingStatus,
-        totalEstimatorSellingPrice: totalEstRev,
-        totalConsultantDiscountAmount: totalDiscAmt,
-        overallDiscountPercentage: overallDiscountPct,
-        maxDiscountPercentage: maxItemDiscountPct,
+        totalEstimatorSellingPrice: approvalMetrics.totalEstimatorSellingPrice,
+        totalConsultantDiscountAmount: approvalMetrics.totalConsultantDiscountAmount,
+        overallDiscountPercentage: approvalMetrics.overallDiscountPercentage,
+        maxDiscountPercentage: approvalMetrics.maxDiscountPercentage,
         approvalStatus: approvalStatus,
         costingCompletedAt: overallCostingStatus === "COSTING_COMPLETED" ? (quotation.costingCompletedAt || new Date()) : quotation.costingCompletedAt,
         costedById: overallCostingStatus === "COSTING_COMPLETED" ? (logUserId || quotation.costedById) : quotation.costedById

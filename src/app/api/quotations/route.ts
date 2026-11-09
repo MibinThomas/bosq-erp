@@ -15,6 +15,7 @@ import { hasPermission } from "@/lib/rbac"
 import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 import { cleanHtmlText } from "@/lib/utils"
+import { computeApprovalMetrics, lineApprovalFields, releaseBlockedReason, resolveApprovalStatus } from "@/lib/approval-policy"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -576,6 +577,7 @@ export async function POST(request: Request) {
         transportCost: parseFloat(item.transportCost) || 0,
         installationCost: parseFloat(item.installationCost) || 0,
         marginPercentage: parseFloat(item.marginPercentage) || 0,
+        estimatorUnitPrice: parseFloat(item.estimatorUnitPrice) || 0,
         estimatorNotes: item.estimatorNotes || null,
         estimatorId: item.estimatorId || null,
         costingRequestedAt: item.costingRequestedAt ? new Date(item.costingRequestedAt) : null,
@@ -615,7 +617,13 @@ export async function POST(request: Request) {
       }
     }
 
-    // Discount limit check removed
+    // Discount approval: measured and routed on the server, never trusted from the client
+    const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
+    const approvalStatus = resolveApprovalStatus(approvalMetrics)
+    const releaseBlocked = releaseBlockedReason("DRAFT", resolvedStatus, approvalStatus)
+    if (releaseBlocked) {
+      return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+    }
 
     // Calculate Taxable Amount, VAT, and Grand Total
     const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - discountAmt)
@@ -781,6 +789,11 @@ export async function POST(request: Request) {
         specialDiscountReason: specialDiscountReason || null,
         vatMode: resolvedVatMode,
         additionalCharges: parsedAdditionalCharges as any,
+        approvalStatus,
+        maxDiscountPercentage: approvalMetrics.maxDiscountPercentage,
+        overallDiscountPercentage: approvalMetrics.overallDiscountPercentage,
+        totalEstimatorSellingPrice: approvalMetrics.totalEstimatorSellingPrice,
+        totalConsultantDiscountAmount: approvalMetrics.totalConsultantDiscountAmount,
         sharepointUrl: "",
         notes: notes || null,
         disclaimerTitle: disclaimerTitle || null,
@@ -819,6 +832,7 @@ export async function POST(request: Request) {
             discount: item.discount,
             margin: item.margin,
             amount: item.amount,
+            ...lineApprovalFields(item),
             costingStatus: item.costingStatus || "NOT_REQUIRED",
             unitCost: item.unitCost || 0,
             materialCost: item.materialCost || 0,
