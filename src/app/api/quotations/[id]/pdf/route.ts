@@ -11,6 +11,7 @@ import { getSettings } from "@/lib/settings"
 import { resolveImageUrl } from "@/lib/pdf/resolveImage"
 import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
+import { posterPagesForPdf } from "@/lib/posters"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -239,6 +240,7 @@ export async function GET(
       barcodeBase64: barcodeBase64 || null,
       watermarkUrl: watermarkBase64 || null,
       promotionalImageUrl: promotionalImageBase64,
+      posters: await posterPagesForPdf(quotation),
       bankDetails: systemSettings.company_bank_details || null,
       disclaimerTitle: quotation.disclaimerTitle || systemSettings.company_disclaimer_title || "Disclaimers",
       disclaimer: quotation.disclaimer || systemSettings.company_disclaimer || null,

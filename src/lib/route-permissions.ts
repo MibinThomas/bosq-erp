@@ -33,7 +33,7 @@ export function resolveRoutePermission(path: string, method = "GET"): RoutePermi
     (path === "/api/users" && method === "GET") ||
     starts(
       "/api/users/", "/api/notifications", "/api/upload", "/api/materials", "/api/approvals",
-      "/api/costing", "/api/estimators", "/api/restore", "/api/dev/"
+      "/api/costing", "/api/estimators", "/api/restore", "/api/dev/", "/api/posters"
     )
   ) {
     return { allow: true }

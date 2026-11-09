@@ -248,6 +248,11 @@ model Quotation {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  // Poster pages printed after the quotation. postersAuto: use every active poster linked to the
+  // quotation's products / categories (or marked for all quotations); otherwise exactly posterIds, in order.
+  postersAuto     Boolean   @default(false)
+  posterIds       String[]  @default([])
+
   boqId           String?
   boq             Boq?      @relation(fields: [boqId], references: [id])
 
@@ -646,6 +651,26 @@ model SequenceTracker {
   prefix      String?
   description String?
   updatedAt   DateTime @updatedAt
+}
+
+// ─── Poster library ───────────────────────────────────────────────────
+// Product posters / brochure pages printed as full pages in quotation PDFs.
+model Poster {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  imageUrl      String
+  tags          String[] @default([])
+  productIds    String[] @default([]) // linked products (variants match their master too)
+  categoryIds   String[] @default([]) // linked product categories (sub-categories match their parent too)
+  appliesToAll  Boolean  @default(false) // e.g. company profile: suggested for every quotation
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  uploadedById  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
 }
 
 // ─── Approval Management ──────────────────────────────────────────────

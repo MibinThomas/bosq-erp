@@ -53,6 +53,7 @@ import {
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { CreateCustomMaterialModal } from "@/components/quotations/create-custom-material-modal"
+import { QuotationPosterField } from "@/components/quotations/QuotationPosterPicker"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -167,6 +168,8 @@ const quotationSchema = z.object({
   includeSectionHeadings: z.boolean().default(true).optional(),
   includeMaterialsFinishes: z.boolean().default(false).optional(),
   selectedMaterials: z.array(z.any()).default([]).optional(),
+  postersAuto: z.boolean().default(true).optional(),
+  posterIds: z.array(z.string()).default([]).optional(),
   salesAgentId: z.string().optional(),
   salesAgentName: z.string().optional(),
   salesAgentTitle: z.string().optional(),
@@ -1958,6 +1961,8 @@ function NewQuotationForm() {
       includeSectionHeadings: true,
       includeMaterialsFinishes: false,
       selectedMaterials: [],
+      postersAuto: true,
+      posterIds: [],
       salesAgentId: "",
       salesAgentName: "",
       salesAgentTitle: "",
@@ -3080,6 +3085,8 @@ function NewQuotationForm() {
               includeSectionHeadings: activeData.includeSectionHeadings ?? true,
               includeMaterialsFinishes: activeData.includeMaterialsFinishes ?? false,
               selectedMaterials: Array.isArray(activeData.selectedMaterials) ? activeData.selectedMaterials : [],
+              postersAuto: activeData.postersAuto ?? false,
+              posterIds: Array.isArray(activeData.posterIds) ? activeData.posterIds : [],
               salesAgentId: activeData.salesAgentId || "",
               salesAgentName: activeData.salesAgentName || "",
               salesAgentTitle: activeData.salesAgentTitle || "",
@@ -5143,6 +5150,11 @@ function NewQuotationForm() {
                       )}
                     </div>
                   )}
+
+                {/* Poster pages from the Poster Library (printed after the quotation) */}
+                <div className="p-4 rounded-xl border bg-muted/20">
+                  <QuotationPosterField form={form} />
+                </div>
               </CardContent>
             </Card>
 

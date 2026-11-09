@@ -17,6 +17,7 @@ import { generateCode128DataUri } from "@/lib/pdf/barcode"
 import { cleanHtmlText } from "@/lib/utils"
 import { computeApprovalMetrics, lineApprovalFields, releaseBlockedReason } from "@/lib/approval-policy"
 import { applyQuotationApproval, approvalDataFor, decideQuotationApproval } from "@/lib/approval-engine"
+import { posterFieldsFromBody, posterPagesForPdf } from "@/lib/posters"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -654,6 +655,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: releaseBlocked }, { status: 400 })
     }
 
+    // Poster pages: new quotations pick posters for their products automatically unless the consultant chose
+    const posterFields = posterFieldsFromBody(body)
+
     // 4. Get Terms & Conditions for the PDF & Database
     let termsArray: string[] = []
     let storedTermsConditions: string | null = null
@@ -751,6 +755,9 @@ export async function POST(request: Request) {
       barcodeBase64: barcodeBase64 || null,
       watermarkUrl: watermarkBase64 || null,
       promotionalImageUrl: promotionalImageBase64,
+      posters: resolvedStatus !== "DRAFT"
+        ? await posterPagesForPdf({ ...posterFields, items: quotationItemsToCreate })
+        : [],
       bankDetails: companySettings.company_bank_details || null,
       disclaimerTitle: disclaimerTitle || companySettings.company_disclaimer_title || "Disclaimers",
       disclaimer: disclaimer || companySettings.company_disclaimer || null,
@@ -806,6 +813,7 @@ export async function POST(request: Request) {
         vatMode: resolvedVatMode,
         additionalCharges: parsedAdditionalCharges as any,
         ...approvalDataFor(approvalDecision, approvalMetrics),
+        ...posterFields,
         sharepointUrl: "",
         notes: notes || null,
         disclaimerTitle: disclaimerTitle || null,

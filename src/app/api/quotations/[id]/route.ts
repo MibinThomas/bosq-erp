@@ -22,6 +22,7 @@ import {
   checkQuotationRelease,
   decideQuotationApproval,
 } from "@/lib/approval-engine"
+import { posterFieldsFromBody, posterPagesForPdf } from "@/lib/posters"
 
 // Get single quotation with items and revisions history
 export async function GET(
@@ -1067,6 +1068,8 @@ export async function PUT(
         return NextResponse.json({ error: releaseBlocked }, { status: 400 })
       }
       const approvalData = approvalDataFor(approvalDecision, approvalMetrics)
+      // Poster pages: keep the quotation's choice unless the editor sent a new one
+      const posterFields = posterFieldsFromBody(body, existingQuotation)
 
       // Fetch Terms & Conditions
       let termsArray: string[] = []
@@ -1226,6 +1229,9 @@ export async function PUT(
         barcodeBase64: barcodeBase64 || null,
         watermarkUrl: watermarkBase64 || null,
         promotionalImageUrl: promotionalImageBase64,
+        posters: resolvedStatus !== "DRAFT"
+          ? await posterPagesForPdf({ ...posterFields, items: quotationItemsToCreate })
+          : [],
         bankDetails: companySettings.company_bank_details || null,
         disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || companySettings.company_disclaimer_title || "Disclaimers",
         disclaimer: disclaimer || existingQuotation.disclaimer || companySettings.company_disclaimer || null,
@@ -1319,6 +1325,7 @@ export async function PUT(
             vatMode: resolvedVatMode,
             additionalCharges: parsedAdditionalCharges as any,
             ...approvalData,
+            ...posterFields,
             sharepointUrl,
             notes: body.revisionNotes || notes || existingQuotation.notes || null,
             disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || null,
@@ -1668,6 +1675,8 @@ export async function PUT(
         return NextResponse.json({ error: releaseBlocked }, { status: 400 })
       }
       const approvalData = approvalDataFor(approvalDecision, approvalMetrics)
+      // Poster pages: keep the quotation's choice unless the editor sent a new one
+      const posterFields = posterFieldsFromBody(body, existingQuotation)
 
       const shouldGeneratePdf = resolvedStatus !== "DRAFT"
 
@@ -1810,6 +1819,9 @@ export async function PUT(
         barcodeBase64: barcodeBase64 || null,
         watermarkUrl: watermarkBase64 || null,
         promotionalImageUrl: promotionalImageBase64,
+        posters: resolvedStatus !== "DRAFT"
+          ? await posterPagesForPdf({ ...posterFields, items: quotationItemsToCreate })
+          : [],
         bankDetails: companySettings.company_bank_details || null,
         disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || companySettings.company_disclaimer_title || "Disclaimers",
         disclaimer: disclaimer || existingQuotation.disclaimer || companySettings.company_disclaimer || null,
@@ -1907,6 +1919,7 @@ export async function PUT(
             vatMode: resolvedVatMode,
             additionalCharges: parsedAdditionalCharges as any,
             ...approvalData,
+            ...posterFields,
             sharepointUrl,
             notes: body.revisionNotes || notes || existingQuotation.notes || null,
             disclaimerTitle: disclaimerTitle || null,

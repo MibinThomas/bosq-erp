@@ -84,6 +84,8 @@ export async function POST(
       data: {
         quotationNumber: newQuotationNumber,
         parentId: rootId,
+        postersAuto: sourceQuotation.postersAuto,
+        posterIds: sourceQuotation.posterIds,
         customerSegment: sourceQuotation.customerSegment,
         clientId: sourceQuotation.clientId,
         includeCompanySeal: sourceQuotation.includeCompanySeal,

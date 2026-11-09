@@ -618,6 +618,8 @@ export interface QuotationPdfProps {
   barcodeBase64?: string | null
   watermarkUrl?: string | null
   promotionalImageUrl?: string | null
+  /** Poster library pages printed after the quotation (images already embedded) */
+  posters?: { title: string; src: string }[] | null
   bankDetails?: string | null
   disclaimerTitle?: string | null
   disclaimer?: string | null
@@ -745,6 +747,7 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
   barcodeBase64,
   watermarkUrl,
   promotionalImageUrl,
+  posters = [],
   bankDetails,
   disclaimerTitle,
   disclaimer,
@@ -1778,11 +1781,35 @@ export const QuotationDocument: React.FC<QuotationPdfProps & { items: QuotationP
           </View>
           <Text 
             style={[styles.footerPageNum, { position: "absolute", right: 0, bottom: -12 }]} 
-            render={({ pageNumber, totalPages }) => `${pageNumber}`} 
+            render={({ pageNumber, totalPages }) => `${pageNumber}`}
           />
         </View>
 
       </Page>
+
+      {/* Poster library pages: one full page per poster, fitted inside the margins */}
+      {(posters || []).map((poster, idx) => (
+        <Page key={`poster-${idx}`} size="A4" style={{ padding: 28, paddingBottom: 48, backgroundColor: "#FFFFFF" }}>
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <PdfImage src={poster.src} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          </View>
+          <View style={styles.footer} fixed>
+            <View style={styles.footerColLeft}>
+              <Text style={{ fontSize: 8, color: "#64748B" }}>{poster.title}</Text>
+            </View>
+            <View style={styles.footerColMiddle}>
+              <Text style={styles.footerText}>{companyName}</Text>
+            </View>
+            <View style={styles.footerColRight}>
+              <Link src="https://bosq.ae/" style={styles.footerLink}>WWW.BOSQ.AE</Link>
+            </View>
+            <Text
+              style={[styles.footerPageNum, { position: "absolute", right: 0, bottom: -12 }]}
+              render={({ pageNumber }) => `${pageNumber}`}
+            />
+          </View>
+        </Page>
+      ))}
     </Document>
   )
 }

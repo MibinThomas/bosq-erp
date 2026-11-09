@@ -143,6 +143,8 @@ export async function POST(
           customerSegment: boq.customerSegment || "Project",
           preparedById: boq.preparedById || userId,
           items: quotationItems,
+          postersAuto: true, // posters for the BOQ's products are added automatically
+          posterIds: [],
         }),
       }))
       quotation = await createRes.json().catch(() => ({}))

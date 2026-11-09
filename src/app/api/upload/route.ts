@@ -56,6 +56,8 @@ export async function POST(request: Request) {
       folder = "avatars"
     } else if (type === "signature") {
       folder = "signatures"
+    } else if (type === "poster") {
+      folder = "posters"
     }
 
     const mimeToExt: Record<string, string> = {
