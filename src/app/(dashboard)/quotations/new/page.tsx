@@ -3106,9 +3106,11 @@ function NewQuotationForm() {
                 if (isCostedByEstimator && estimatorFinalSellingPrice > 0) {
                   // The Estimator's Final Selling Price becomes the Base Price for the Interior Design Consultant
                   loadedBase = estimatorFinalSellingPrice
-                  // IDC manual margin defaults to 0 (or uses saved manualMargin)
-                  marginVal = item.manualMargin !== undefined && item.manualMargin !== null
-                    ? Number(item.manualMargin)
+                  // The consultant's markup on top of it, recovered from the saved selling price
+                  // (there is no separate column, so it used to reset to 0 and drop the markup on save)
+                  const savedPrice = Number(item.unitPrice) || 0
+                  marginVal = savedPrice > 0
+                    ? Number((((savedPrice - loadedBase) / loadedBase) * 100).toFixed(2))
                     : 0
                 } else if (item.unitCost > 0) {
                   loadedBase = item.unitCost
@@ -3123,6 +3125,10 @@ function NewQuotationForm() {
 
                 let loadedUnitPrice = Number((loadedBase * (1 + marginVal / 100)).toFixed(2))
                 if (loadedUnitPrice === 0 && item.unitPrice > 0) {
+                  loadedUnitPrice = item.unitPrice
+                }
+                // Costed lines reopen at exactly the price that was saved (no rounding drift from the %)
+                if (isCostedByEstimator && estimatorFinalSellingPrice > 0 && item.unitPrice > 0) {
                   loadedUnitPrice = item.unitPrice
                 }
 

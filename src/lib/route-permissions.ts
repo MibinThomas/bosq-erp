@@ -27,6 +27,18 @@ export function resolveRoutePermission(path: string, method = "GET"): RoutePermi
     return { allow: true }
   }
 
+  // Signed-in users only: these routes check their own permissions / ownership (the proxy still
+  // enforces the sign-in). The staff directory GET /api/users feeds pickers on every form.
+  if (
+    (path === "/api/users" && method === "GET") ||
+    starts(
+      "/api/users/", "/api/notifications", "/api/upload", "/api/materials", "/api/approvals",
+      "/api/costing", "/api/estimators", "/api/restore", "/api/dev/"
+    )
+  ) {
+    return { allow: true }
+  }
+
   // 1. ACCESS CONTROL
   if (starts("/settings/access-control", "/api/settings/access-control")) {
     return { module: "ACCESS_CONTROL", action: isApi ? crudAction(method) : "view" }

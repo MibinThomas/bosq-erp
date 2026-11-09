@@ -993,6 +993,9 @@ export async function PUT(
           estimatorUnitPrice: parseFloat(item.estimatorUnitPrice)
             || existingQuotation.items.find((i: any) => i.id === item.id)?.estimatorUnitPrice
             || 0,
+          costBreakdown: (item.costBreakdown && typeof item.costBreakdown === "object"
+            ? item.costBreakdown
+            : existingQuotation.items.find((i: any) => i.id === item.id)?.costBreakdown) ?? undefined,
           costingCompletedAt: item.costingCompletedAt ? new Date(item.costingCompletedAt) : null,
         }
       }))
@@ -1116,13 +1119,25 @@ export async function PUT(
         include: { revisions: true }
       })
 
-      const maxRev = rootQuotation 
-        ? Math.max(1, ...rootQuotation.revisions.map(r => r.revisionNumber), existingQuotation.revisionNumber)
-        : existingQuotation.revisionNumber
-      const nextRevNo = maxRev + 1
+      // Highest revision so far: the revision log AND every quotation in the series (drafts included)
+      const seriesAggregate = await prisma.quotation.aggregate({
+        where: { OR: [{ id: rootId }, { parentId: rootId }] },
+        _max: { revisionNumber: true },
+      })
+      const maxRev = Math.max(
+        1,
+        existingQuotation.revisionNumber,
+        seriesAggregate._max.revisionNumber || 0,
+        ...(rootQuotation ? rootQuotation.revisions.map(r => r.revisionNumber) : []),
+      )
+      let nextRevNo = maxRev + 1
 
       const rootNumMatch = existingQuotation.quotationNumber.match(/^([IDP]\d+)/)
       const baseQuoteNo = rootNumMatch ? rootNumMatch[1] : existingQuotation.quotationNumber.split("-")[0]
+      // Skip any number already taken (e.g. legacy duplicates or a copy renamed to it)
+      while (await prisma.quotation.count({ where: { quotationNumber: `${baseQuoteNo}-${nextRevNo}` } })) {
+        nextRevNo++
+      }
       const revQuoteNum = `${baseQuoteNo}-${nextRevNo}`
 
       // Read both brand logos to base64 (only if not draft)
@@ -1353,6 +1368,7 @@ export async function PUT(
                 installationCost: item.installationCost || 0,
                 marginPercentage: item.marginPercentage || 0,
                 negotiationPct: item.negotiationPct || 0,
+                costBreakdown: item.costBreakdown,
                 estimatorNotes: item.estimatorNotes || null,
                 estimatorId: item.estimatorId || null,
                 costingRequestedAt: item.costingRequestedAt || null,
@@ -1577,6 +1593,7 @@ export async function PUT(
           negotiationPct: parseFloat(item.negotiationPct) || existingItem?.negotiationPct || 0,
           // Estimator's price is the reference for discount approval; the editor may not send it back
           estimatorUnitPrice: parseFloat(item.estimatorUnitPrice) || existingItem?.estimatorUnitPrice || 0,
+          costBreakdown: (item.costBreakdown && typeof item.costBreakdown === "object" ? item.costBreakdown : existingItem?.costBreakdown) ?? undefined,
           estimatorNotes: item.estimatorNotes || null,
           estimatorId: item.estimatorId || null,
           costingRequestedAt: item.costingRequestedAt ? new Date(item.costingRequestedAt) : null,
@@ -1864,6 +1881,7 @@ export async function PUT(
         installationCost: item.installationCost || 0,
         marginPercentage: item.marginPercentage || 0,
         negotiationPct: item.negotiationPct || 0,
+        costBreakdown: item.costBreakdown,
         estimatorNotes: item.estimatorNotes || null,
         estimatorId: item.estimatorId || null,
         costingRequestedAt: item.costingRequestedAt || null,
@@ -1932,6 +1950,10 @@ export async function PUT(
               const currentValue = existingItemValues.get(key)
               if (value instanceof Date && currentValue instanceof Date) {
                 return value.getTime() !== currentValue.getTime()
+              }
+              if (value === undefined) return false
+              if (value && typeof value === "object") {
+                return JSON.stringify(value) !== JSON.stringify(currentValue ?? null)
               }
               return currentValue !== value
             })

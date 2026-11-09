@@ -76,6 +76,10 @@ const SaveSchema = z.object({
       levelRank: z.number().int().min(1),
       minDiscountPct: optionalNumber,
       minAmount: optionalNumber,
+      maxMarginPct: z.preprocess(
+        (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+        z.number().finite().min(-100).max(100).nullable()
+      ),
       customerSegments: z.array(z.string()).default([]),
       departments: z.array(z.string()).default([]),
       projectKeyword: z.string().trim().nullable().optional(),
@@ -151,6 +155,7 @@ export async function PUT(request: Request) {
           isActive: r.isActive,
           minDiscountPct: r.minDiscountPct,
           minAmount: r.minAmount,
+          maxMarginPct: r.maxMarginPct,
           customerSegments: r.customerSegments,
           departments: r.departments,
           projectKeyword: r.projectKeyword || null,

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
+import { canAccessBoq } from "@/lib/data-scope"
+import { boqCostValues, boqUnitCost, priceFromMargin } from "@/lib/boq-costing"
 
 export async function POST(
   request: Request,
@@ -13,6 +15,10 @@ export async function POST(
     const userId = (session?.user as any)?.id
     const userName = (session?.user as any)?.name || "Estimator"
 
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await request.json().catch(() => ({}))
     const { items: updatedItems, notes: estimatorNotes } = body
 
@@ -21,7 +27,7 @@ export async function POST(
       include: { preparedBy: true, items: true }
     })
 
-    if (!boq) {
+    if (!boq || boq.deletedAt) {
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 })
     }
 
@@ -30,6 +36,23 @@ export async function POST(
     const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"].includes(userRole)
     const isEstimator = userRole === "ESTIMATOR" || userRole === "COST_ESTIMATOR" || boq.estimatorId === userId
     const isRestrictedEstimator = isEstimator && !isCreatorOrOwner && !isManagerOrAdmin
+
+    if (!isEstimator && !isManagerOrAdmin) {
+      return NextResponse.json({ error: "Forbidden: Only the estimator or a manager can complete costing." }, { status: 403 })
+    }
+    if (!(await canAccessBoq(userId, boq.id))) {
+      return NextResponse.json({ error: "Forbidden: You do not have access to this BOQ" }, { status: 403 })
+    }
+    // Costing can only be completed while the BOQ is with the estimator (managers may also re-save a completed costing)
+    const costingStatuses = ["SENT_TO_ESTIMATOR", "COSTING_IN_PROGRESS", "PENDING_COSTING", "NEEDS_REVISION"]
+    if (!costingStatuses.includes(boq.status) && !(boq.status === "COSTING_COMPLETED" && !isRestrictedEstimator)) {
+      return NextResponse.json(
+        { error: boq.status === "CONVERTED"
+            ? "This BOQ was already converted to a quotation; its costing can't be changed."
+            : "This BOQ hasn't been sent to the estimator yet." },
+        { status: 409 }
+      )
+    }
 
     if (isRestrictedEstimator && boq.status === "COSTING_COMPLETED") {
       return NextResponse.json(
@@ -45,6 +68,7 @@ export async function POST(
     let totalOverhead = 0
     let totalFactoryCost = 0
     let totalAccessoriesCost = 0
+    let totalOutsourcingCost = 0
     let totalCost = 0
     let totalSellingPrice = 0
 
@@ -52,67 +76,40 @@ export async function POST(
       if (Array.isArray(updatedItems) && updatedItems.length > 0) {
         for (let idx = 0; idx < updatedItems.length; idx++) {
           const item = updatedItems[idx]
-          const factoryCost = parseFloat(item.factoryCost) || 0
-          const accessoriesCost = parseFloat(item.accessoriesCost) || 0
-          const matCost = parseFloat(item.materialCost) || 0
-          const labCost = parseFloat(item.laborCost) || 0
-          const instCost = parseFloat(item.installationCost) || 0
-          const transCost = parseFloat(item.transportCost) || 0
-          const overCost = parseFloat(item.overheadCost) || 0
-          const qty = parseInt(item.quantity) || 1
-
-          const legacyUnitCost = matCost + labCost + instCost + transCost + overCost
-          const baseCost = (factoryCost > 0 || accessoriesCost > 0) ? (factoryCost + accessoriesCost) : legacyUnitCost
-          const itemTotalCost = baseCost * qty
-
-          const marginPct = parseFloat(item.marginPercentage ?? item.margin) || 0
-          const preNegPrice = baseCost > 0 ? Number((baseCost / (1 - Math.min(0.9999, marginPct / 100))).toFixed(2)) : 0
-
-          let negPct = parseFloat(item.negotiationPercentage ?? item.negotiationPct) || 0
-          let negAmt = parseFloat(item.negotiationAmount ?? item.negotiationAdj) || 0
-
-          if (negPct > 0 && (!item.negotiationAmount || parseFloat(item.negotiationAmount) === 0)) {
-            const negDec = Math.min(0.9999, negPct / 100)
-            const priceAfterNeg = preNegPrice > 0 ? (preNegPrice / (1 - negDec)) : 0
-            negAmt = preNegPrice > 0 ? Number((priceAfterNeg - preNegPrice).toFixed(2)) : 0
-          } else if (negAmt > 0 && negPct === 0 && preNegPrice > 0) {
-            const finalPrice = preNegPrice + negAmt
-            negPct = finalPrice > 0 ? Number(((1 - (preNegPrice / finalPrice)) * 100).toFixed(2)) : 0
-          }
-
-          let unitSelling = parseFloat(item.unitSellingPrice ?? item.unitPrice)
-          if (isNaN(unitSelling) || unitSelling <= 0 || (baseCost > 0 && (marginPct !== 0 || negAmt !== 0 || negPct !== 0))) {
-            const negDec = Math.min(0.9999, negPct / 100)
-            unitSelling = preNegPrice > 0 ? Number((preNegPrice / (1 - negDec)).toFixed(2)) : Number((preNegPrice + negAmt).toFixed(2))
-          }
-
-          const itemTotalSelling = Number((unitSelling * qty).toFixed(2))
 
           // Match by item.id OR fallback to item.itemNo or boq.items[idx]?.id
           const targetItem = boq.items.find(bi => (item.id && bi.id === item.id) || bi.itemNo === (item.itemNo || idx + 1)) || boq.items[idx]
           const targetItemId = targetItem?.id || item.id
+          if (!targetItemId) continue
 
-          if (targetItemId) {
-            await tx.boqItem.update({
-              where: { id: targetItemId },
-              data: {
-                factoryCost,
-                accessoriesCost,
-                materialCost: matCost,
-                laborCost: labCost,
-                installationCost: instCost,
-                transportCost: transCost,
-                overheadCost: overCost,
-                unitCost: baseCost,
-                totalCost: itemTotalCost,
-                marginPercentage: marginPct,
-                negotiationPercentage: negPct,
-                negotiationAmount: negAmt,
-                unitSellingPrice: unitSelling,
-                totalSellingPrice: itemTotalSelling,
-              }
-            })
-          }
+          // The estimator supplies costs only; quantity and margin stay as the consultant set them
+          const costs = boqCostValues(item)
+          const instCost = parseFloat(item.installationCost) || 0
+          const transCost = parseFloat(item.transportCost) || 0
+          const baseCost = boqUnitCost(item)
+          const qty = targetItem?.quantity || parseInt(item.quantity) || 1
+          const marginPct = targetItem?.marginPercentage || 0
+
+          // Costed lines are priced at cost plus the consultant's margin (0 until they set one)
+          const unitSelling = baseCost > 0
+            ? priceFromMargin(baseCost, marginPct)
+            : (targetItem?.unitSellingPrice || parseFloat(item.unitSellingPrice ?? item.unitPrice) || 0)
+
+          await tx.boqItem.update({
+            where: { id: targetItemId },
+            data: {
+              ...costs,
+              installationCost: instCost,
+              transportCost: transCost,
+              unitCost: baseCost,
+              totalCost: baseCost * qty,
+              marginPercentage: marginPct,
+              negotiationPercentage: 0,
+              negotiationAmount: 0,
+              unitSellingPrice: unitSelling,
+              totalSellingPrice: Number((unitSelling * qty).toFixed(2)),
+            }
+          })
         }
       }
 
@@ -131,6 +128,7 @@ export async function POST(
         totalOverhead += (item.overheadCost || 0) * qty
         totalFactoryCost += (item.factoryCost || 0) * qty
         totalAccessoriesCost += (item.accessoriesCost || 0) * qty
+        totalOutsourcingCost += (item.outsourcingCost || 0) * qty
         totalCost += item.totalCost || 0
         totalSellingPrice += item.totalSellingPrice || 0
       }
@@ -148,6 +146,8 @@ export async function POST(
           totalOverhead,
           totalFactoryCost,
           totalAccessoriesCost,
+          totalOutsourcingCost,
+          totalNegotiationAmount: 0,
           totalCost,
           marginAmount: marginAmt,
           totalSellingPrice,

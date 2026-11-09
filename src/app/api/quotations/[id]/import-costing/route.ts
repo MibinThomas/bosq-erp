@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { canUseCosting } from "@/lib/costing-access"
 import { parseCostingWorkbook } from "@/lib/costing-import"
+import { canAccessQuotation } from "@/lib/data-scope"
 
 // Reads an updated costing workbook (exported from the Costing Workspace) and returns a preview of
 // matched rows with their new values, plus invalid, duplicate and unmatched rows. Nothing is saved here —
@@ -24,10 +25,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const quotation = await prisma.quotation.findFirst({
-      where: { OR: [{ id }, { quotationNumber: id }] },
+      where: { OR: [{ id }, { quotationNumber: id }], deletedAt: null },
       include: { items: { include: { product: { select: { productCode: true } } }, orderBy: { itemNo: "asc" } } },
     })
     if (!quotation) return NextResponse.json({ error: "Quotation not found" }, { status: 404 })
+    const sessionUser = session.user as any
+    if (!(await canAccessQuotation({ id: sessionUser.id, role: sessionUser.role || "" }, quotation.id))) {
+      return NextResponse.json({ error: "Forbidden: You do not have access to this quotation." }, { status: 403 })
+    }
 
     const form = await request.formData()
     const file = form.get("file")

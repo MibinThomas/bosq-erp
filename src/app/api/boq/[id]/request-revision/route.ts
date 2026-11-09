@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
+import { canAccessBoq } from "@/lib/data-scope"
 
 export async function POST(
   request: Request,
@@ -25,18 +26,28 @@ export async function POST(
       include: { preparedBy: true, estimator: true }
     })
 
-    if (!boq) {
+    if (!boq || boq.deletedAt) {
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 })
     }
+    if (!(await canAccessBoq(userId, boq.id))) {
+      return NextResponse.json({ error: "Forbidden: You do not have access to this BOQ" }, { status: 403 })
+    }
 
-    // Update BOQ status to NEEDS_REVISION
-    const updatedBoq = await prisma.boq.update({
-      where: { id },
+    // Only a completed costing can be sent back for revision (conditional, so concurrent clicks are safe)
+    const result = await prisma.boq.updateMany({
+      where: { id, status: "COSTING_COMPLETED" },
       data: {
         status: "NEEDS_REVISION",
         notes: revisionNotes ? `[Revision Request]: ${revisionNotes}\n\n${boq.notes || ""}` : boq.notes
       }
     })
+    if (result.count === 0) {
+      return NextResponse.json(
+        { error: "A costing revision can only be requested once the estimator has completed the costing." },
+        { status: 409 }
+      )
+    }
+    const updatedBoq = await prisma.boq.findUnique({ where: { id } })
 
     // Log activity
     await prisma.activityLog.create({

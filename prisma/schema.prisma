@@ -170,7 +170,7 @@ model Product {
 
 model Quotation {
   id              String    @id @default(cuid())
-  quotationNumber String    // E.g., I1951
+  quotationNumber String    @unique // E.g., P1951-1 (revisions P1951-2…, copies "P1951-1 Copy 1")
   customerSegment String    @default("Project") // Dealer, Interior, Project, Special
   clientId        String
   client          Client    @relation(fields: [clientId], references: [id])
@@ -315,6 +315,9 @@ model QuotationItem {
   estimatorId          String?
   estimator            User?     @relation("EstimatorQuotationItems", fields: [estimatorId], references: [id])
   estimatorNotes       String?
+  // Per-unit cost by category carried over from the BOQ:
+  // { material, labour, outsourcing, hardware, factory, other }
+  costBreakdown        Json?
   costingRequestedAt   DateTime?
   costingCompletedAt   DateTime?
 
@@ -417,6 +420,7 @@ model Boq {
   totalOverhead     Float   @default(0.0)
   totalFactoryCost  Float   @default(0.0)
   totalAccessoriesCost Float @default(0.0)
+  totalOutsourcingCost Float @default(0.0)
   totalNegotiationAmount Float @default(0.0)
   totalCost         Float   @default(0.0)
   
@@ -472,9 +476,13 @@ model BoqItem {
   transportCost   Float     @default(0.0)
   overheadCost    Float     @default(0.0)
   
+  // Estimator cost categories (per unit): Material = materialCost, Labour = laborCost,
+  // Outsourcing = outsourcingCost, Hardware = accessoriesCost, Factory = factoryCost, Other = overheadCost.
+  // installationCost / transportCost are legacy and still count towards the unit cost.
   factoryCost     Float     @default(0.0)
   accessoriesCost Float     @default(0.0)
-  
+  outsourcingCost Float     @default(0.0)
+
   unitCost        Float     @default(0.0)
   totalCost       Float     @default(0.0)
   
@@ -682,6 +690,7 @@ model ApprovalRule {
   isActive         Boolean          @default(true)
   minDiscountPct   Float?           // discount % strictly above this
   minAmount        Float?           // document value (grand total) at or above this
+  maxMarginPct     Float?           // overall profit margin below this (only when costs are known)
   customerSegments String[]         @default([]) // any of: Dealer, Interior, Project, Special
   departments      String[]         @default([]) // preparer's department, any of
   projectKeyword   String?          // project name contains (case-insensitive)

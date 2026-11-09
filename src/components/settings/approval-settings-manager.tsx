@@ -22,6 +22,7 @@ type RuleDraft = {
   levelKey: string
   minDiscountPct: string
   minAmount: string
+  maxMarginPct: string
   customerSegments: string[]
   departments: string[]
   projectKeyword: string
@@ -36,7 +37,7 @@ type ModuleEntry = {
     levels: { id: string; rank: number; name: string; approverRoles: string[]; approverUserIds: string[] }[]
     rules: {
       id: string; name: string; isActive: boolean; levelId: string
-      minDiscountPct: number | null; minAmount: number | null
+      minDiscountPct: number | null; minAmount: number | null; maxMarginPct?: number | null
       customerSegments: string[]; departments: string[]; projectKeyword: string | null
     }[]
   }
@@ -134,6 +135,7 @@ export function ApprovalSettingsManager() {
           levelKey: r.levelId,
           minDiscountPct: r.minDiscountPct == null ? "" : String(r.minDiscountPct),
           minAmount: r.minAmount == null ? "" : String(r.minAmount),
+          maxMarginPct: r.maxMarginPct == null ? "" : String(r.maxMarginPct),
           customerSegments: r.customerSegments || [],
           departments: r.departments || [],
           projectKeyword: r.projectKeyword || "",
@@ -215,7 +217,7 @@ export function ApprovalSettingsManager() {
     }
     setRules((rs) => [...rs, {
       key: newKey(), name: "New rule", isActive: true, levelKey: levels[0].key,
-      minDiscountPct: "", minAmount: "", customerSegments: [], departments: [], projectKeyword: "",
+      minDiscountPct: "", minAmount: "", maxMarginPct: "", customerSegments: [], departments: [], projectKeyword: "",
     }])
     touch()
   }
@@ -224,6 +226,7 @@ export function ApprovalSettingsManager() {
     const parts: string[] = []
     if (r.minDiscountPct !== "") parts.push(`discount above ${r.minDiscountPct}%`)
     if (r.minAmount !== "") parts.push(`value at least AED ${Number(r.minAmount).toLocaleString()}`)
+    if (r.maxMarginPct !== "") parts.push(`margin below ${r.maxMarginPct}%`)
     if (r.customerSegments.length) parts.push(`segment is ${r.customerSegments.join(" / ")}`)
     if (r.departments.length) parts.push(`prepared by ${r.departments.join(" / ")}`)
     if (r.projectKeyword.trim()) parts.push(`project name contains "${r.projectKeyword.trim()}"`)
@@ -252,6 +255,7 @@ export function ApprovalSettingsManager() {
               levelRank: rankByKey.get(r.levelKey) ?? 0,
               minDiscountPct: r.minDiscountPct,
               minAmount: r.minAmount,
+              maxMarginPct: r.maxMarginPct,
               customerSegments: r.customerSegments,
               departments: r.departments,
               projectKeyword: r.projectKeyword || null,
@@ -402,6 +406,7 @@ export function ApprovalSettingsManager() {
             <CardDescription className="max-w-2xl">
               A rule applies when all of its filled-in conditions match. Leave a condition empty to ignore it.
               Discount is the largest of the line, overall and special discount. Value is the grand total.
+              Margin is the profit margin on lines with a known cost (e.g. from the estimator), after discounts.
             </CardDescription>
           </div>
           <Button type="button" size="sm" variant="outline" onClick={addRule} className="shrink-0"><Plus className="h-4 w-4 mr-1" /> Add rule</Button>
@@ -422,7 +427,7 @@ export function ApprovalSettingsManager() {
                   <Trash2 className="h-4 w-4 text-rose-500" />
                 </Button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Requires level</Label>
                   <select className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={r.levelKey}
@@ -439,6 +444,11 @@ export function ApprovalSettingsManager() {
                   <Label className="text-xs">Value at least (AED)</Label>
                   <Input type="number" min={0} step="1000" inputMode="decimal" placeholder="Any" value={r.minAmount}
                     onChange={(e) => updateRule(r.key, { minAmount: e.target.value })} className="h-9" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Margin below (%)</Label>
+                  <Input type="number" step="0.5" inputMode="decimal" placeholder="Any" value={r.maxMarginPct}
+                    onChange={(e) => updateRule(r.key, { maxMarginPct: e.target.value })} className="h-9" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Project name contains</Label>

@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { boqCostValues, boqUnitCost, priceFromMargin } from "@/lib/boq-costing"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -269,57 +270,34 @@ export async function POST(request: Request) {
     let totalOverhead = 0
     let totalFactoryCost = 0
     let totalAccessoriesCost = 0
-    let totalNegotiationAmount = 0
+    let totalOutsourcingCost = 0
+    const totalNegotiationAmount = 0
     let totalCost = 0
     let totalSellingPrice = 0
 
     const boqItemsToCreate = items.map((item: any, idx: number) => {
       const qty = parseInt(item.quantity) || 1
       
-      const factory = parseFloat(item.factoryCost) || 0
-      const accessories = parseFloat(item.accessoriesCost) || 0
-
-      const mat = parseFloat(item.materialCost) || 0
-      const lab = parseFloat(item.laborCost) || 0
+      const costs = boqCostValues(item)
       const inst = parseFloat(item.installationCost) || 0
       const trans = parseFloat(item.transportCost) || 0
-      const ovh = parseFloat(item.overheadCost) || 0
-
-      const legacyUnitCost = mat + lab + inst + trans + ovh
-      const baseCost = (factory > 0 || accessories > 0) ? (factory + accessories) : legacyUnitCost
+      const baseCost = boqUnitCost(item)
       const itemTotalCost = baseCost * qty
 
+      // The consultant's margin; costed lines are priced from cost, catalogue lines keep their price
       const margin = Math.min(99.99, parseFloat(item.marginPercentage ?? item.margin) || 0)
-      const preNegPrice = baseCost > 0 ? Number((baseCost / (1 - Math.min(0.9999, margin / 100))).toFixed(2)) : 0
-
-      let negPct = parseFloat(item.negotiationPercentage ?? item.negotiationPct) || 0
-      let negAmt = parseFloat(item.negotiationAmount ?? item.negotiationAdj) || 0
-
-      if (negPct > 0 && (!item.negotiationAmount || parseFloat(item.negotiationAmount) === 0)) {
-        const negDec = Math.min(0.9999, negPct / 100)
-        const priceAfterNeg = preNegPrice > 0 ? (preNegPrice / (1 - negDec)) : 0
-        negAmt = preNegPrice > 0 ? Number((priceAfterNeg - preNegPrice).toFixed(2)) : 0
-      } else if (negAmt > 0 && negPct === 0 && preNegPrice > 0) {
-        const finalPrice = preNegPrice + negAmt
-        negPct = finalPrice > 0 ? Number(((1 - (preNegPrice / finalPrice)) * 100).toFixed(2)) : 0
-      }
-
       let unitSell = parseFloat(item.unitSellingPrice ?? item.unitPrice)
-      if (isNaN(unitSell) || unitSell <= 0) {
-        const negDec = Math.min(0.9999, negPct / 100)
-        unitSell = preNegPrice > 0 ? Number((preNegPrice / (1 - negDec)).toFixed(2)) : Number((preNegPrice + negAmt).toFixed(2))
-      }
+      if (isNaN(unitSell) || unitSell <= 0) unitSell = priceFromMargin(baseCost, margin)
       const itemTotalSell = unitSell * qty
 
-      totalFactoryCost += factory * qty
-      totalAccessoriesCost += accessories * qty
-      totalNegotiationAmount += negAmt * qty
-
-      totalMaterialCost += mat * qty
-      totalLaborCost += lab * qty
+      totalFactoryCost += costs.factoryCost * qty
+      totalAccessoriesCost += costs.accessoriesCost * qty
+      totalOutsourcingCost += costs.outsourcingCost * qty
+      totalMaterialCost += costs.materialCost * qty
+      totalLaborCost += costs.laborCost * qty
       totalInstallation += inst * qty
       totalTransport += trans * qty
-      totalOverhead += ovh * qty
+      totalOverhead += costs.overheadCost * qty
       totalCost += itemTotalCost
       totalSellingPrice += itemTotalSell
 
@@ -339,18 +317,14 @@ export async function POST(request: Request) {
         batchHeading: item.batchHeading || null,
         quantity: qty,
         unit: item.unit || "Nos",
-        factoryCost: factory,
-        accessoriesCost: accessories,
-        materialCost: mat,
-        laborCost: lab,
+        ...costs,
         installationCost: inst,
         transportCost: trans,
-        overheadCost: ovh,
         unitCost: baseCost,
         totalCost: itemTotalCost,
         marginPercentage: margin,
-        negotiationPercentage: negPct,
-        negotiationAmount: negAmt,
+        negotiationPercentage: 0,
+        negotiationAmount: 0,
         unitSellingPrice: unitSell,
         totalSellingPrice: itemTotalSell
       }
@@ -373,6 +347,7 @@ export async function POST(request: Request) {
         totalOverhead,
         totalFactoryCost,
         totalAccessoriesCost,
+        totalOutsourcingCost,
         totalNegotiationAmount,
         totalCost,
         marginAmount,

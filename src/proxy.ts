@@ -64,11 +64,7 @@ export const config = {
     "/reports/:path*",
     "/settings/:path*",
     "/boq/:path*",
-    "/api/clients/:path*",
-    "/api/products/:path*",
-    "/api/quotations/:path*",
-    "/api/reports/:path*",
-    "/api/settings/:path*",
-    "/api/boq/:path*",
+    // Every API route except NextAuth's own (sign-in, session, password-reset request)
+    "/api/((?!auth/).*)",
   ],
 }

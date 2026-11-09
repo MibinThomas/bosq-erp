@@ -21,6 +21,33 @@ import { applyQuotationApproval, approvalDataFor, decideQuotationApproval } from
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
+/**
+ * Reserves the next base quotation number with one atomic increment, so two quotations created
+ * at the same moment can never get the same number. (A number whose create later fails is skipped.)
+ */
+async function reserveQuotationBaseNumber(): Promise<number> {
+  const TYPE = "QUOTATION_BASE"
+  const exists = await prisma.sequenceTracker.findUnique({ where: { type: TYPE }, select: { id: true } })
+  if (!exists) {
+    // First use: start from the highest number already issued
+    let maxNumber = 3670
+    const allQuotes = await prisma.quotation.findMany({ select: { quotationNumber: true } })
+    for (const q of allQuotes) {
+      const match = q.quotationNumber.match(/^[IDP](\d+)/)
+      if (match) maxNumber = Math.max(maxNumber, parseInt(match[1], 10))
+    }
+    await prisma.sequenceTracker.create({
+      data: { type: TYPE, lastValue: maxNumber, description: "Base quotation number sequence" },
+    }).catch(() => { /* created concurrently by another request */ })
+  }
+  const tracker = await prisma.sequenceTracker.update({
+    where: { type: TYPE },
+    data: { lastValue: { increment: 1 } },
+    select: { lastValue: true },
+  })
+  return tracker.lastValue
+}
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -462,27 +489,7 @@ export async function POST(request: Request) {
       else if (segment === "Dealer") prefix = "D"
       else if (segment === "Project" || segment === "Special") prefix = "P"
 
-      let tracker = await prisma.sequenceTracker.findUnique({ where: { type: "QUOTATION_BASE" } })
-      let maxNumber = 3670
-
-      if (tracker) {
-        maxNumber = tracker.lastValue
-      } else {
-        const allQuotes = await prisma.quotation.findMany({
-          select: { quotationNumber: true }
-        })
-        for (const q of allQuotes) {
-          const match = q.quotationNumber.match(/^[IDP](\d+)/)
-          if (match) {
-            const num = parseInt(match[1], 10)
-            if (num > maxNumber) {
-              maxNumber = num
-            }
-          }
-        }
-      }
-
-      usedBaseNumber = maxNumber + 1
+      usedBaseNumber = await reserveQuotationBaseNumber()
       nextQuoteNo = `${prefix}${usedBaseNumber}-1`
     } else {
       // Validate that the manually provided quotation number is unique
@@ -579,6 +586,7 @@ export async function POST(request: Request) {
         installationCost: parseFloat(item.installationCost) || 0,
         marginPercentage: parseFloat(item.marginPercentage) || 0,
         estimatorUnitPrice: parseFloat(item.estimatorUnitPrice) || 0,
+        costBreakdown: item.costBreakdown && typeof item.costBreakdown === "object" ? item.costBreakdown : undefined,
         estimatorNotes: item.estimatorNotes || null,
         estimatorId: item.estimatorId || null,
         costingRequestedAt: item.costingRequestedAt ? new Date(item.costingRequestedAt) : null,
@@ -845,6 +853,7 @@ export async function POST(request: Request) {
             transportCost: item.transportCost || 0,
             installationCost: item.installationCost || 0,
             marginPercentage: item.marginPercentage || 0,
+            costBreakdown: item.costBreakdown,
             estimatorNotes: item.estimatorNotes || null,
             estimatorId: item.estimatorId || null,
             costingRequestedAt: item.costingRequestedAt || null,
@@ -903,14 +912,6 @@ export async function POST(request: Request) {
           items: true,
           revisions: true,
         }
-      })
-    }
-
-    if (usedBaseNumber > 0) {
-      await prisma.sequenceTracker.upsert({
-        where: { type: "QUOTATION_BASE" },
-        update: { lastValue: usedBaseNumber },
-        create: { type: "QUOTATION_BASE", lastValue: usedBaseNumber, description: "Base quotation number sequence" }
       })
     }
 

@@ -4,6 +4,7 @@ import { uploadBoqExcel } from "@/lib/sharepoint"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { canAccessBoq } from "@/lib/data-scope"
 import { buildBoqExcelWorkbook } from "@/lib/boq-excel-builder"
 
 export async function POST(
@@ -60,8 +61,11 @@ export async function POST(
       }
     })
 
-    if (!boq) {
+    if (!boq || boq.deletedAt) {
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 })
+    }
+    if (!(await canAccessBoq(dbUser.id, boq.id))) {
+      return NextResponse.json({ error: "Forbidden: You do not have access to this BOQ" }, { status: 403 })
     }
 
     // Build rich Excel workbook using buildBoqExcelWorkbook

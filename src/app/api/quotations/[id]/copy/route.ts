@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { canAccessQuotation } from "@/lib/data-scope"
 
 export const dynamic = "force-dynamic"
 
@@ -35,38 +36,16 @@ export async function POST(
       },
     })
 
-    if (!sourceQuotation) {
+    if (!sourceQuotation || sourceQuotation.deletedAt) {
       return NextResponse.json({ error: "Source quotation not found" }, { status: 404 })
     }
 
-    // Check ownership / consultant access for SALES_EXECUTIVE & INTERIOR_DESIGN_CONSULTANT
-    if (["SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(userRole)) {
-      const rootId = sourceQuotation.parentId || sourceQuotation.id
-      const rootQuotation = sourceQuotation.parentId
-        ? await prisma.quotation.findUnique({ where: { id: rootId } })
-        : sourceQuotation
-
-      const isOwnerOrCreator = 
-        sourceQuotation.preparedById === userId ||
-        sourceQuotation.salesAgentId === userId ||
-        rootQuotation?.preparedById === userId ||
-        rootQuotation?.salesAgentId === userId
-
-      const isClientSalesperson = sourceQuotation.client?.salespersonId === userId
-      const assignmentCount = await prisma.clientAssignment.count({
-        where: { clientId: sourceQuotation.clientId, userId }
-      })
-      const hasApprovedRequest = await prisma.clientAccessRequest.findFirst({
-        where: { clientId: sourceQuotation.clientId, userId, status: "Approved" }
-      })
-
-      const canCopy = isOwnerOrCreator || isClientSalesperson || assignmentCount > 0 || !!hasApprovedRequest
-      if (!canCopy) {
-        return NextResponse.json(
-          { error: "Unauthorized: You can only copy your own or assigned quotations" },
-          { status: 403 }
-        )
-      }
+    // Same record-level rule as opening the quotation (covers every scoped role, not just two)
+    if (!(await canAccessQuotation({ id: userId, role: userRole || "" }, sourceQuotation.id))) {
+      return NextResponse.json(
+        { error: "Unauthorized: You can only copy your own or assigned quotations" },
+        { status: 403 }
+      )
     }
 
     const sourceNumber = sourceQuotation.quotationNumber.replace(/\s+Copy.*$/gi, "").trim()

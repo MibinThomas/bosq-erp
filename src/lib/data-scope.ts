@@ -2,7 +2,7 @@
 // visibility, shared by API routes. Managers and admins see everything; every other role
 // (Interior Design Consultants, Sales Executives, …) is limited to records assigned to them.
 import prisma from "@/lib/prisma"
-import { hasPermission } from "@/lib/rbac"
+import { checkOwnership, hasPermission } from "@/lib/rbac"
 
 export const UNRESTRICTED_ROLES = ["SUPER_ADMIN", "ADMIN", "MANAGER", "SALES_MANAGER"]
 
@@ -71,6 +71,29 @@ export async function canAccessQuotation(user: { id: string; role: string }, quo
   return count > 0
 }
 
+/**
+ * True when the user may open/act on this BOQ — the same rule as the BOQ detail page:
+ * the Access Control ownership scope over its preparer, the client's team and its estimator.
+ */
+export async function canAccessBoq(userId: string, boqId: string) {
+  const boq = await prisma.boq.findUnique({
+    where: { id: boqId },
+    select: {
+      preparedById: true,
+      estimatorId: true,
+      preparedBy: { select: { department: true } },
+      client: { select: { salespersonId: true, assignments: { select: { userId: true } } } },
+    },
+  })
+  if (!boq) return false
+  const assignedUserIds = [
+    ...(boq.client?.assignments.map((a) => a.userId) || []),
+    ...(boq.client?.salespersonId ? [boq.client.salespersonId] : []),
+    ...(boq.estimatorId ? [boq.estimatorId] : []),
+  ]
+  return checkOwnership(userId, "BOQS", boq.preparedById, boq.preparedBy?.department || undefined, assignedUserIds)
+}
+
 /** True when the user may open/act on this client. */
 export async function canAccessClient(user: { id: string; role: string }, clientId: string) {
   if (!(await isRecordScoped(user, "CLIENTS"))) return true
@@ -109,7 +132,7 @@ export function sanitizeProduct<T>(product: T, visible: CostVisibility): T {
   return p
 }
 
-const ITEM_COST_FIELDS = ["materialCost", "laborCost", "overheadCost", "transportCost", "installationCost", "unitCost", "factoryCost", "accessoriesCost", "totalCost"]
+const ITEM_COST_FIELDS = ["materialCost", "laborCost", "overheadCost", "transportCost", "installationCost", "unitCost", "factoryCost", "accessoriesCost", "outsourcingCost", "totalCost"]
 const ITEM_MARGIN_FIELDS = ["marginPercentage", "negotiationPct"]
 
 /**
@@ -127,6 +150,7 @@ export function keepHiddenCostFields(items: any[], sourceItems: any[], visible: 
     const fields = [...(visible.cost ? [] : ITEM_COST_FIELDS), ...(visible.margin ? [] : ITEM_MARGIN_FIELDS)]
     for (const f of fields) next[f] = source ? source[f] ?? 0 : 0
     if (!visible.cost && source) {
+      next.costBreakdown = source.costBreakdown ?? null
       next.estimatorUnitPrice = source.estimatorUnitPrice ?? next.estimatorUnitPrice
       next.estimatorId = source.estimatorId ?? next.estimatorId
       next.costingCompletedAt = source.costingCompletedAt ?? next.costingCompletedAt
@@ -140,6 +164,7 @@ export function sanitizeLineItem<T>(item: T, visible: CostVisibility): T {
   if (!item || typeof item !== "object") return item
   const i: any = { ...(item as any) }
   if (!visible.cost) for (const f of ITEM_COST_FIELDS) if (f in i) i[f] = 0
+  if (!visible.cost && "costBreakdown" in i) i.costBreakdown = null
   if (!visible.margin) for (const f of ITEM_MARGIN_FIELDS) if (f in i) i[f] = 0
   if (i.product && typeof i.product === "object") i.product = sanitizeProduct(i.product, visible)
   return i

@@ -6,8 +6,8 @@
  *  - whether a document may be released to the client.
  *
  * Line `discount` is an absolute amount per unit (amount = (unitPrice - discount) * qty).
- * Discount % is measured against the estimator's price when the line was costed,
- * otherwise against the line's unit price.
+ * Discount % is measured against the line's selling (unit) price. Margin is measured on lines
+ * whose cost is known (unitCost), after line and special discounts.
  */
 
 /** Quotation.approvalStatus values. Legacy PENDING_*_APPROVAL values are treated as pending. */
@@ -55,13 +55,19 @@ type LineInput = {
   unitPrice?: unknown
   discount?: unknown
   estimatorUnitPrice?: unknown
+  unitCost?: unknown
+}
+
+/** The price a line's discount is measured against: its selling price (estimator price as fallback). */
+function referencePrice(line: LineInput) {
+  const unitPrice = num(line.unitPrice)
+  return unitPrice > 0 ? unitPrice : Math.max(0, num(line.estimatorUnitPrice))
 }
 
 /** Per-line audit fields persisted on QuotationItem. */
 export function lineApprovalFields(line: LineInput) {
-  const unitPrice = num(line.unitPrice)
   const estimatorUnitPrice = Math.max(0, num(line.estimatorUnitPrice))
-  const reference = estimatorUnitPrice > 0 ? estimatorUnitPrice : unitPrice
+  const reference = referencePrice(line)
   const consultantDiscountAmount = Math.max(0, num(line.discount))
   const consultantDiscountPct = reference > 0 ? (consultantDiscountAmount / reference) * 100 : 0
   return { estimatorUnitPrice, consultantDiscountAmount, consultantDiscountPct }
@@ -92,29 +98,44 @@ export type ApprovalMetrics = {
   specialDiscountPercentage: number
   /** The discount % rules are evaluated against: the largest of line, overall and special discount. */
   routingPct: number
+  /** Profit margin % on the lines whose cost is known, after discounts; null when no line has a cost. */
+  marginPct: number | null
 }
 
 export function computeApprovalMetrics(lines: LineInput[], specialPct: number): ApprovalMetrics {
-  let totalEst = 0
+  let totalRef = 0
   let totalDisc = 0
   let maxPct = 0
+  let costedRevenue = 0
+  let costedCost = 0
   for (const line of lines) {
     const qty = num(line.quantity) || 1
     const f = lineApprovalFields(line)
-    const reference = f.estimatorUnitPrice > 0 ? f.estimatorUnitPrice : num(line.unitPrice)
-    totalEst += reference * qty
+    const reference = referencePrice(line)
+    totalRef += reference * qty
     totalDisc += f.consultantDiscountAmount * qty
     if (f.consultantDiscountPct > maxPct) maxPct = f.consultantDiscountPct
+    const cost = num(line.unitCost)
+    if (cost > 0) {
+      costedRevenue += Math.max(0, reference - f.consultantDiscountAmount) * qty
+      costedCost += cost * qty
+    }
   }
-  const overall = totalEst > 0 ? (totalDisc / totalEst) * 100 : 0
+  const overall = totalRef > 0 ? (totalDisc / totalRef) * 100 : 0
   const special = Math.max(0, specialPct)
+  // The special discount applies to the whole quotation, so it reduces the margin too
+  const netCostedRevenue = costedRevenue * (1 - Math.min(100, special) / 100)
+  const marginPct = costedCost > 0
+    ? (netCostedRevenue > 0 ? ((netCostedRevenue - costedCost) / netCostedRevenue) * 100 : -100)
+    : null
   return {
-    totalEstimatorSellingPrice: totalEst,
+    totalEstimatorSellingPrice: totalRef,
     totalConsultantDiscountAmount: totalDisc,
     overallDiscountPercentage: overall,
     maxDiscountPercentage: maxPct,
     specialDiscountPercentage: special,
     routingPct: Math.max(maxPct, overall, special),
+    marginPct,
   }
 }
 
@@ -145,6 +166,7 @@ export type RuleConfig = {
   levelId: string
   minDiscountPct?: number | null
   minAmount?: number | null
+  maxMarginPct?: number | null
   customerSegments?: string[]
   departments?: string[]
   projectKeyword?: string | null
@@ -154,6 +176,8 @@ export type RuleConfig = {
 export type ApprovalContext = {
   discountPct: number
   amount: number
+  /** null when no line has a known cost */
+  marginPct?: number | null
   customerSegment?: string | null
   department?: string | null
   projectName?: string | null
@@ -165,6 +189,7 @@ export function ruleMatches(rule: RuleConfig, ctx: ApprovalContext) {
   if (!rule.isActive) return false
   if (rule.minDiscountPct != null && !(ctx.discountPct > rule.minDiscountPct + 1e-9)) return false
   if (rule.minAmount != null && !(ctx.amount >= rule.minAmount)) return false
+  if (rule.maxMarginPct != null && !(ctx.marginPct != null && ctx.marginPct < rule.maxMarginPct - 1e-9)) return false
   if (rule.customerSegments && rule.customerSegments.length > 0 &&
       !rule.customerSegments.some((s) => lower(s) === lower(ctx.customerSegment))) return false
   if (rule.departments && rule.departments.length > 0 &&
@@ -208,6 +233,7 @@ export type ApprovalSnapshot = {
   overallDiscountPct: number
   specialDiscountPct: number
   amount: number
+  marginPct?: number | null
 }
 
 export function snapshotOf(m: ApprovalMetrics, amount: number): ApprovalSnapshot {
@@ -217,7 +243,13 @@ export function snapshotOf(m: ApprovalMetrics, amount: number): ApprovalSnapshot
     overallDiscountPct: m.overallDiscountPercentage,
     specialDiscountPct: m.specialDiscountPercentage,
     amount,
+    marginPct: m.marginPct,
   }
+}
+
+/** A margin that went down (when both are known) means the earlier decision no longer applies. */
+function marginDropped(prev: number | null | undefined, now: number | null | undefined) {
+  return prev != null && now != null && now < prev - EPS
 }
 
 /** An earlier approval still covers the document if it was at least as senior and nothing went up. */
@@ -233,7 +265,8 @@ export function approvalStillCovers(
     now.maxDiscountPct <= (m.maxDiscountPct ?? 0) + EPS &&
     now.overallDiscountPct <= (m.overallDiscountPct ?? 0) + EPS &&
     now.specialDiscountPct <= (m.specialDiscountPct ?? 0) + EPS &&
-    now.amount <= (m.amount ?? 0) + 1
+    now.amount <= (m.amount ?? 0) + 1 &&
+    !marginDropped(m.marginPct, now.marginPct)
   )
 }
 
@@ -243,7 +276,8 @@ export function rejectionStillApplies(rejected: { metrics?: Partial<ApprovalSnap
   return (
     Math.abs(now.discountPct - (m.discountPct ?? 0)) < EPS &&
     Math.abs(now.specialDiscountPct - (m.specialDiscountPct ?? 0)) < EPS &&
-    Math.abs(now.amount - (m.amount ?? 0)) < 1
+    Math.abs(now.amount - (m.amount ?? 0)) < 1 &&
+    Math.abs((now.marginPct ?? 0) - (m.marginPct ?? 0)) < EPS
   )
 }
 

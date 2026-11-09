@@ -140,6 +140,7 @@ export async function decideQuotationApproval(input: QuotationApprovalInput): Pr
   const { level, matchedRules } = requiredLevel(wf.levels, wf.rules, {
     discountPct: input.metrics.routingPct,
     amount: input.amount,
+    marginPct: input.metrics.marginPct,
     customerSegment: input.customerSegment,
     department: preparer?.department,
     projectName: input.projectName,
@@ -294,7 +295,7 @@ async function notifyApprovers(
     data: approvers.map((u) => ({
       userId: u.id,
       title: "Approval Required",
-      message: `Quotation ${quotationNumber} needs ${level.name} approval (discount ${decision.snapshot.discountPct.toFixed(1)}%, value AED ${Math.round(decision.snapshot.amount).toLocaleString()}).`,
+      message: `Quotation ${quotationNumber} needs ${level.name} approval (discount ${decision.snapshot.discountPct.toFixed(1)}%${decision.snapshot.marginPct != null ? `, margin ${decision.snapshot.marginPct.toFixed(1)}%` : ""}, value AED ${Math.round(decision.snapshot.amount).toLocaleString()}).`,
       type: "APPROVAL_REQUEST",
       link: `/quotations/${quotationId}/preview`,
     })),

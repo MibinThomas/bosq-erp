@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { uploadBoqExcel } from "@/lib/sharepoint"
 import { buildBoqExcelWorkbook } from "@/lib/boq-excel-builder"
+import { canAccessBoq } from "@/lib/data-scope"
 
 export async function POST(
   request: Request,
@@ -34,8 +35,19 @@ export async function POST(
       }
     })
 
-    if (!boq) {
+    if (!boq || boq.deletedAt) {
       return NextResponse.json({ error: "BOQ not found" }, { status: 404 })
+    }
+    if (!(await canAccessBoq(userId, boq.id))) {
+      return NextResponse.json({ error: "Forbidden: You do not have access to this BOQ" }, { status: 403 })
+    }
+    if (!["DRAFT", "NEEDS_REVISION"].includes(boq.status)) {
+      return NextResponse.json(
+        { error: boq.status === "CONVERTED"
+            ? "This BOQ was already converted to a quotation."
+            : "This BOQ is already with the estimator or its costing is complete." },
+        { status: 409 }
+      )
     }
 
     // 1. Generate Excel with buildBoqExcelWorkbook matching template design

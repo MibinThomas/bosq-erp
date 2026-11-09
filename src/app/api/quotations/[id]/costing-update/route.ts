@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { canUseCosting } from "@/lib/costing-access"
+import { canAccessQuotation } from "@/lib/data-scope"
 import { computeQuotationTotals } from "@/lib/quotation-totals"
 import { computeApprovalMetrics, lineApprovalFields } from "@/lib/approval-policy"
 import { applyQuotationApproval, approvalDataFor, decideQuotationApproval } from "@/lib/approval-engine"
@@ -47,6 +48,10 @@ export async function PUT(
 
     if (!quotation) {
       return NextResponse.json({ error: "Quotation not found" }, { status: 404 })
+    }
+    const sessionRole = ((session?.user as any)?.role || "") as string
+    if (!(await canAccessQuotation({ id: logUserId, role: sessionRole }, quotation.id))) {
+      return NextResponse.json({ error: "Forbidden: You do not have access to this quotation." }, { status: 403 })
     }
 
     // Process each item costing update
