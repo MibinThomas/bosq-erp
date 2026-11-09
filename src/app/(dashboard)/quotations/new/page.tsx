@@ -1901,6 +1901,41 @@ function PendingCostingAction({
   )
 }
 
+// Unsaved revision edits live in this browser until the user explicitly saves the revision.
+// Creating the revision on the server allocates a new number and marks the original REVISED,
+// so it must never happen from a background autosave.
+const REVISION_DRAFT_PREFIX = "quoteRevisionDraft:"
+type LocalRevisionDraft = {
+  savedAt: string
+  sourceUpdatedAt?: string
+  values: QuotationFormValues
+  batches: { id: string; name: string }[]
+  revisionNotes: string
+}
+function readRevisionDraft(sourceId: string): LocalRevisionDraft | null {
+  try {
+    const raw = localStorage.getItem(REVISION_DRAFT_PREFIX + sourceId)
+    return raw ? (JSON.parse(raw) as LocalRevisionDraft) : null
+  } catch {
+    return null
+  }
+}
+function writeRevisionDraft(sourceId: string, draft: LocalRevisionDraft) {
+  try {
+    localStorage.setItem(REVISION_DRAFT_PREFIX + sourceId, JSON.stringify(draft))
+  } catch {
+    // Storage full or blocked: edits stay in the open form only
+  }
+}
+function clearRevisionDraft(sourceId: string | null | undefined) {
+  if (!sourceId) return
+  try {
+    localStorage.removeItem(REVISION_DRAFT_PREFIX + sourceId)
+  } catch {
+    // ignore
+  }
+}
+
 function NewQuotationForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -3173,6 +3208,39 @@ function NewQuotationForm() {
                 ? activeData.additionalCharges
                 : [{ name: "", amount: "", notes: "" }],
             })
+
+            // Offer unsaved revision edits kept on this device, unless the quotation changed since
+            if (reviseId) {
+              // Baseline = the quotation as loaded, so opening it alone never triggers an autosave
+              lastSavedDataRef.current = JSON.stringify({
+                ...form.getValues(),
+                revisionNotes: activeData.notes || activeData.revisionNotes || "",
+              })
+              const localDraft = readRevisionDraft(activeData.id)
+              if (localDraft && localDraft.sourceUpdatedAt && activeData.updatedAt &&
+                  localDraft.sourceUpdatedAt !== activeData.updatedAt) {
+                clearRevisionDraft(activeData.id)
+              } else if (localDraft) {
+                toast("You have unsaved revision changes for this quotation.", {
+                  description: `Last edited ${new Date(localDraft.savedAt).toLocaleString()}`,
+                  duration: 20000,
+                  action: {
+                    label: "Restore",
+                    onClick: () => {
+                      form.reset(localDraft.values)
+                      if (Array.isArray(localDraft.batches) && localDraft.batches.length > 0) {
+                        setBatches(localDraft.batches)
+                      }
+                      setRevisionNotes(localDraft.revisionNotes || "")
+                    },
+                  },
+                  cancel: {
+                    label: "Discard",
+                    onClick: () => clearRevisionDraft(activeData.id),
+                  },
+                })
+              }
+            }
           }
         } else {
           if (sysDisclaimerTitle) form.setValue("disclaimerTitle", sysDisclaimerTitle)
@@ -3687,6 +3755,7 @@ function NewQuotationForm() {
       }
 
       const result = await res.json()
+      if (isRevisionMode) clearRevisionDraft(existingQuote?.id)
       toast.success(
         isRevisionMode
           ? (resolvedStatus === "DRAFT"
@@ -3740,6 +3809,20 @@ function NewQuotationForm() {
     const dataString = JSON.stringify({ ...currentData, revisionNotes })
     if (dataString === lastSavedDataRef.current) return
 
+    // Revising: keep edits on this device until the user explicitly saves the revision
+    if (isRevision && existingQuote && !autoSavedQuoteId) {
+      writeRevisionDraft(existingQuote.id, {
+        savedAt: new Date().toISOString(),
+        sourceUpdatedAt: existingQuote.updatedAt,
+        values: currentData,
+        batches,
+        revisionNotes,
+      })
+      lastSavedDataRef.current = dataString
+      setLastAutoSavedAt(new Date())
+      return
+    }
+
     autoSaveInFlightRef.current = true
     setIsAutoSaving(true)
     try {
@@ -3780,8 +3863,10 @@ function NewQuotationForm() {
         const hasManual = item.manualMargin !== undefined && item.manualMargin !== ""
         const finalMargin = hasManual ? item.manualMargin : item.margin
         const price = item.unitPrice === "" ? 0 : Number(item.unitPrice)
-        const discPercent = item.discount === "" ? 0 : Number(item.discount)
-        const absoluteDiscount = price * (discPercent / 100)
+        // Same conversion as the explicit submit: PERCENTAGE is a % of the unit price, FIXED/AMOUNT is per unit
+        const discVal = item.discount === "" ? 0 : Number(item.discount)
+        const discType = item.discountType || "PERCENTAGE"
+        const absoluteDiscount = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
 
         formattedItems.push({
           ...item,
@@ -4144,7 +4229,10 @@ function NewQuotationForm() {
             ) : lastAutoSavedAt ? (
               <>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Saved {lastAutoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span>
+                  {isRevision && !autoSavedQuoteId ? "Saved on this device" : "Saved"}{" "}
+                  {lastAutoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </>
             ) : (
               <span>Draft ready</span>
