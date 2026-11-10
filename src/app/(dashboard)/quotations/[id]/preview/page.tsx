@@ -814,7 +814,12 @@ export default function QuotationHtmlPreviewPage() {
   const parseSpecifications = (specs: string | null | undefined) => {
     if (!specs) return [];
     const rawText = sanitizeHtmlToText(specs);
-    const lines = rawText.split('\n').map(line => line.trim()).filter(line => line !== "");
+    // One specification per line; "Headrest: Black; Backrest: Grey" is split before each "Label:"
+    const lines = rawText
+      .split('\n')
+      .flatMap(line => line.split(/;\s*(?=[A-Za-z][\w\s/().&-]{0,30}:)/))
+      .map(line => line.replace(/^•\s*/, '').trim())
+      .filter(line => line !== "");
     const parsedSpecs: { key?: string; value: string }[] = [];
 
     lines.forEach((line) => {
@@ -931,6 +936,13 @@ export default function QuotationHtmlPreviewPage() {
       
       {/* Main Executive Workspace Area */}
       <div className="flex-1 w-full h-full bg-slate-100 dark:bg-slate-950 p-4 sm:p-6 md:p-8 flex flex-col print:hidden overflow-y-auto">
+        {/* Approval Module panel: renders nothing when approvals are off or not needed */}
+        <div className="shrink-0 [&>div]:mt-0">
+          <ApprovalMatrixBanner
+            quotationId={quotation.id}
+            refreshKey={`${(quotation as any).updatedAt || ""}|${quotation.status}`}
+          />
+        </div>
         {activeViewMode === "costing" && isAuthorizedForCosting ? (
           <div className="w-full max-w-none space-y-4">
             {/* 13-Column Reference Audit Table Only (Full Width) */}

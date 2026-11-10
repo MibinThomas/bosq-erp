@@ -28,6 +28,7 @@ import {
   Info
 } from "lucide-react"
 import { cleanHtmlText } from "@/lib/utils"
+import { BOQ_COST_FIELDS } from "@/lib/boq-costing"
 
 export interface CostingItemData {
   id?: string
@@ -47,7 +48,10 @@ export interface CostingItemData {
   installationCost?: number
   transportCost?: number
   overheadCost?: number
-  
+  outsourcingCost?: number
+  /** Per-unit split carried from the BOQ onto a quotation line */
+  costBreakdown?: Record<string, number> | null
+
   // Unit & Total Costs
   unitCost?: number | null
   totalCost?: number | null
@@ -89,11 +93,19 @@ export function CostingBreakdownModal({
   const transCost = Number(item.transportCost || 0)
   const overCost = Number(item.overheadCost || 0)
 
-  // Direct base unit cost calculation
-  const legacyUnitCost = matCost + labCost + instCost + transCost + overCost
-  const unitCost = Number(item.unitCost) > 0 
-    ? Number(item.unitCost) 
-    : (factoryCost > 0 || accessoriesCost > 0 ? factoryCost + accessoriesCost : legacyUnitCost)
+  // Cost categories: a quotation line carries the BOQ's split in costBreakdown; a BOQ line has the fields
+  const breakdown = item.costBreakdown && typeof item.costBreakdown === "object" ? item.costBreakdown : null
+  const costCategories = BOQ_COST_FIELDS.map((f) => ({
+    label: f.label,
+    value: breakdown
+      ? Number(breakdown[f.breakdownKey] || 0)
+      : Number((item as any)[f.key] || 0) + (f.key === "overheadCost" ? instCost + transCost : 0),
+  }))
+
+  // Unit cost: stored value, else the sum of the categories
+  const unitCost = Number(item.unitCost) > 0
+    ? Number(item.unitCost)
+    : costCategories.reduce((sum, c) => sum + c.value, 0)
   
   const totalCost = Number(item.totalCost) > 0 ? Number(item.totalCost) : unitCost * qty
 
@@ -212,57 +224,21 @@ export function CostingBreakdownModal({
         {/* Cost Components Breakdown */}
         <div className="space-y-5 py-2">
           
-          {/* Section 1: Materials & Hardware */}
+          {/* Estimator cost categories (per unit) */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5 text-blue-500" />
-              Direct Materials &amp; Hardware
+              Cost Breakdown (per unit)
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3.5 bg-card border rounded-xl text-xs space-y-1 shadow-2xs">
-                <span className="text-muted-foreground text-[11px] font-medium block">Raw Material Cost</span>
-                <span className="font-extrabold text-foreground text-base whitespace-nowrap">{currency} {formatCurrency(matCost)}</span>
-                <span className="text-[10px] text-muted-foreground block font-mono">per unit</span>
-              </div>
-              <div className="p-3.5 bg-card border rounded-xl text-xs space-y-1 shadow-2xs">
-                <span className="text-muted-foreground text-[11px] font-medium block">Factory Base Cost</span>
-                <span className="font-extrabold text-foreground text-base whitespace-nowrap">{currency} {formatCurrency(factoryCost)}</span>
-                <span className="text-[10px] text-muted-foreground block font-mono">base production</span>
-              </div>
-              <div className="p-3.5 bg-card border rounded-xl text-xs space-y-1 shadow-2xs">
-                <span className="text-muted-foreground text-[11px] font-medium block">Accessories &amp; Hardware</span>
-                <span className="font-extrabold text-foreground text-base whitespace-nowrap">{currency} {formatCurrency(accessoriesCost)}</span>
-                <span className="text-[10px] text-muted-foreground block font-mono">fittings &amp; locks</span>
-              </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {costCategories.map((c) => (
+                <div key={c.label} className="p-3.5 bg-card border rounded-xl text-xs space-y-1 shadow-2xs">
+                  <span className="text-muted-foreground text-[11px] font-medium block">{c.label}</span>
+                  <span className="font-extrabold text-foreground text-base whitespace-nowrap">{currency} {formatCurrency(c.value)}</span>
+                </div>
+              ))}
             </div>
           </div>
-
-          {/* Section 2: Labor, Factory & Logistics */}
-          <div className="space-y-2.5">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Wrench className="h-3.5 w-3.5 text-amber-500" />
-              Labor, Overheads &amp; Logistics
-            </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 bg-card border rounded-xl text-xs space-y-1 shadow-2xs">
-                <span className="text-muted-foreground text-[10px] font-medium block uppercase tracking-wider">Labor Cost</span>
-                <span className="font-bold text-foreground text-sm whitespace-nowrap">{currency} {formatCurrency(labCost)}</span>
-              </div>
-              <div className="p-3 bg-card border rounded-xl text-xs space-y-1 shadow-2xs">
-                <span className="text-muted-foreground text-[10px] font-medium block uppercase tracking-wider">Factory Overhead</span>
-                <span className="font-bold text-foreground text-sm whitespace-nowrap">{currency} {formatCurrency(overCost)}</span>
-              </div>
-              <div className="p-3 bg-card border rounded-xl text-xs space-y-1 shadow-2xs">
-                <span className="text-muted-foreground text-[10px] font-medium block uppercase tracking-wider">Transport Logistics</span>
-                <span className="font-bold text-foreground text-sm whitespace-nowrap">{currency} {formatCurrency(transCost)}</span>
-              </div>
-              <div className="p-3 bg-card border rounded-lg text-xs space-y-1 shadow-2xs">
-                <span className="text-muted-foreground text-[10px] font-medium block uppercase tracking-wider">Site Installation</span>
-                <span className="font-bold text-foreground text-sm whitespace-nowrap">{currency} {formatCurrency(instCost)}</span>
-              </div>
-            </div>
-          </div>
-
           {/* Section 3: Summary Comparison Cards */}
           <div className="border-t pt-4 space-y-3">
             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">

@@ -1,37 +1,43 @@
 "use client"
 
-import React, { useEffect, useState, useMemo } from "react"
+import React, { useEffect, useId, useMemo, useRef, useState } from "react"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { 
-  Loader2, 
-  Calculator, 
-  Check, 
-  Coins, 
-  Percent, 
-  FileText, 
-  Package, 
-  Sparkles, 
-  Building2, 
-  User, 
-  Clock,
-  Layers,
-  Save,
-  Tag,
-  Maximize2,
-  Info,
+import {
+  AlertTriangle,
+  Building2,
+  Calculator,
+  Check,
+  ChevronDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
+  CircleAlert,
   FileSpreadsheet,
+  Layers,
+  Loader2,
+  Maximize2,
+  Package,
+  Save,
+  Upload,
+  User,
+  X,
 } from "lucide-react"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
+import {
+  COSTING_FIELD_LABELS,
+  type CostingField,
+  type CostingImportPreview,
+  type CostingImportRow,
+} from "@/lib/costing-template"
 
 export interface CostingItemData {
   id: string
@@ -51,6 +57,7 @@ export interface CostingItemData {
   transportCost: number
   installationCost: number
   marginPercentage: number // Margin %
+  negotiationPct?: number  // Negotiation buffer %
   costingStatus: string
   estimatorNotes: string | null
   costingRequestedAt: string | null
@@ -106,6 +113,8 @@ interface QuotationCostingWorkspaceModalProps {
 function cleanHtmlText(htmlStr?: string | null): string {
   if (!htmlStr) return ""
   return htmlStr
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|li|div)>/gi, "\n")
     .replace(/<[^>]*>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
@@ -113,8 +122,10 @@ function cleanHtmlText(htmlStr?: string | null): string {
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, " ")
-    .trim()
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n")
 }
 
 interface EditableItemState {
@@ -133,6 +144,31 @@ const parseNum = (val: any): number => {
   const n = parseFloat(val)
   return isNaN(n) ? 0 : n
 }
+
+const aed = (n: number) => `AED ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+/** Margin health: red below 10%, amber below 20%, green from 20%. */
+const marginTone = (pct: number) => (pct <= 0 ? "muted" : pct < 10 ? "low" : pct < 20 ? "mid" : "good")
+const toneText: Record<string, string> = {
+  muted: "text-muted-foreground",
+  low: "text-rose-600 dark:text-rose-400",
+  mid: "text-amber-600 dark:text-amber-400",
+  good: "text-emerald-600 dark:text-emerald-400",
+}
+const toneBg: Record<string, string> = {
+  muted: "bg-muted-foreground/30",
+  low: "bg-rose-500",
+  mid: "bg-amber-500",
+  good: "bg-emerald-500",
+}
+const tonePill: Record<string, string> = {
+  muted: "bg-muted text-muted-foreground border-border",
+  low: "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30",
+  mid: "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30",
+  good: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+}
+
+const QUICK_MARGINS = [10, 15, 20, 25, 30]
 
 /**
  * Formula Calculation Engine:
@@ -181,6 +217,19 @@ export function calculateProductPrice(
   }
 }
 
+const initialStateFor = (item: CostingItemData): EditableItemState => ({
+  id: item.id,
+  factoryCost: item.materialCost ? item.materialCost : "",
+  accessoriesCost: item.laborCost ? item.laborCost : "",
+  marginPercentage: item.marginPercentage ? item.marginPercentage : "",
+  negotiationPct: item.negotiationPct ? item.negotiationPct : "",
+  unitPrice: 0,
+  estimatorNotes: item.estimatorNotes || "",
+  costingStatus: item.costingStatus || "PENDING_COSTING",
+})
+
+type ItemFilter = "all" | "pending" | "costed"
+
 export function QuotationCostingWorkspaceModal({
   quotationGroup,
   open,
@@ -189,31 +238,35 @@ export function QuotationCostingWorkspaceModal({
 }: QuotationCostingWorkspaceModalProps) {
   const [loading, setLoading] = useState(false)
   const [itemStates, setItemStates] = useState<Record<string, EditableItemState>>({})
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [filter, setFilter] = useState<ItemFilter>("all")
   const [enlargedImage, setEnlargedImage] = useState<{ url: string; title: string } | null>(null)
+  const [importedIds, setImportedIds] = useState<Set<string>>(new Set())
+  const [importing, setImporting] = useState(false)
+  const [importPreview, setImportPreview] = useState<CostingImportPreview | null>(null)
+  const [importFileName, setImportFileName] = useState("")
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Initialize editable state when modal opens or quotationGroup changes
+  const items = useMemo(() => quotationGroup?.items || [], [quotationGroup])
+
+  // Initialize editable state when the workspace opens (or switches quotation); expand the first line
+  // still needing costing. Keyed on the quotation id so a parent re-render can't wipe unsaved edits.
+  const quotationKey = quotationGroup?.quotationId
   useEffect(() => {
     if (quotationGroup && open) {
       const initial: Record<string, EditableItemState> = {}
       quotationGroup.items.forEach((item) => {
-        initial[item.id] = {
-          id: item.id,
-          factoryCost: item.materialCost ? item.materialCost : "",
-          accessoriesCost: item.laborCost ? item.laborCost : "",
-          marginPercentage: item.marginPercentage ? item.marginPercentage : "",
-          negotiationPct: "",
-          unitPrice: 0,
-          estimatorNotes: item.estimatorNotes || "",
-          costingStatus: item.costingStatus || "PENDING_COSTING"
-        }
+        initial[item.id] = initialStateFor(item)
       })
       setItemStates(initial)
+      const firstPending = quotationGroup.items.find((i) => !(i.materialCost || i.laborCost))
+      setExpanded(firstPending ? { [firstPending.id]: true } : quotationGroup.items[0] ? { [quotationGroup.items[0].id]: true } : {})
+      setImportedIds(new Set())
+      setImportPreview(null)
+      setFilter("all")
     }
-  }, [quotationGroup, open])
-
-  if (!quotationGroup) return null
-
-  const items = quotationGroup.items || []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quotationKey, open])
 
   // Helper to update a specific field of an item
   const updateItemField = (itemId: string, field: keyof EditableItemState, value: any) => {
@@ -228,44 +281,71 @@ export function QuotationCostingWorkspaceModal({
         estimatorNotes: "",
         costingStatus: "PENDING_COSTING"
       }
-      const updated = {
-        ...curr,
-        [field]: value
-      }
+      const updated = { ...curr, [field]: value }
       if (field === "factoryCost" || field === "accessoriesCost" || field === "marginPercentage" || field === "negotiationPct") {
         updated.unitPrice = 0
       }
-      return {
-        ...prev,
-        [itemId]: updated
-      }
+      return { ...prev, [itemId]: updated }
     })
   }
 
-  // Calculate quotation-level totals dynamically using corrected formulas
+  // Per-line calculations used by the cards, the totals and the filters
+  const lineCalcs = useMemo(() => {
+    const map: Record<string, ReturnType<typeof calculateProductPrice> & {
+      qty: number
+      lineCost: number
+      lineRevenue: number
+      lineProfit: number
+      linePct: number
+      costed: boolean
+    }> = {}
+    for (const item of items) {
+      const state = itemStates[item.id] || initialStateFor(item)
+      const calc = calculateProductPrice(
+        parseNum(state.factoryCost),
+        parseNum(state.accessoriesCost),
+        parseNum(state.marginPercentage),
+        parseNum(state.negotiationPct),
+        state.unitPrice
+      )
+      const qty = item.quantity || 1
+      const lineRevenue = calc.finalSellingPrice * qty
+      const lineCost = calc.totalCost * qty
+      const lineProfit = lineRevenue - lineCost
+      map[item.id] = {
+        ...calc,
+        qty,
+        lineCost,
+        lineRevenue,
+        lineProfit,
+        linePct: lineRevenue > 0 ? (lineProfit / lineRevenue) * 100 : 0,
+        costed: calc.totalCost > 0,
+      }
+    }
+    return map
+  }, [items, itemStates])
+
+  // Quotation-level totals
   const quotationTotals = useMemo(() => {
     let grandFactoryCost = 0
     let grandAccessoriesCost = 0
     let grandTotalCost = 0
     let grandBaseSellingPrice = 0
     let grandFinalSellingPrice = 0
+    let grandNegotiation = 0
+    let costedCount = 0
 
     items.forEach((item) => {
       const state = itemStates[item.id]
-      const qty = item.quantity || 1
-      
-      const facCost = parseNum(state?.factoryCost)
-      const accCost = parseNum(state?.accessoriesCost)
-      const marginPct = parseNum(state?.marginPercentage)
-      const negotiationPct = parseNum(state?.negotiationPct)
-
-      const calc = calculateProductPrice(facCost, accCost, marginPct, negotiationPct, state?.unitPrice)
-
-      grandFactoryCost += facCost * qty
-      grandAccessoriesCost += accCost * qty
-      grandTotalCost += calc.totalCost * qty
-      grandBaseSellingPrice += calc.baseSellingPrice * qty
-      grandFinalSellingPrice += calc.finalSellingPrice * qty
+      const c = lineCalcs[item.id]
+      if (!c) return
+      grandFactoryCost += parseNum(state?.factoryCost) * c.qty
+      grandAccessoriesCost += parseNum(state?.accessoriesCost) * c.qty
+      grandTotalCost += c.lineCost
+      grandBaseSellingPrice += c.baseSellingPrice * c.qty
+      grandFinalSellingPrice += c.lineRevenue
+      grandNegotiation += c.negotiationValue * c.qty
+      if (c.costed) costedCount++
     })
 
     const grandTotalProfit = grandFinalSellingPrice - grandTotalCost
@@ -277,13 +357,91 @@ export function QuotationCostingWorkspaceModal({
       grandTotalCost,
       grandBaseSellingPrice,
       grandFinalSellingPrice,
+      grandNegotiation,
       grandTotalProfit,
-      overallMarginPct
+      overallMarginPct,
+      costedCount,
     }
-  }, [items, itemStates])
+  }, [items, itemStates, lineCalcs])
+
+  const pendingCount = items.length - quotationTotals.costedCount
+  const visibleItems = items.filter((item) =>
+    filter === "all" ? true : filter === "costed" ? lineCalcs[item.id]?.costed : !lineCalcs[item.id]?.costed
+  )
+
+  // ---------- Import updated costing ----------
+  const currentValue = (itemId: string, field: CostingField): number | string => {
+    const s = itemStates[itemId]
+    if (!s) return field === "estimatorNotes" ? "" : 0
+    if (field === "factoryCost") return parseNum(s.factoryCost)
+    if (field === "accessoriesCost") return parseNum(s.accessoriesCost)
+    if (field === "marginPct") return parseNum(s.marginPercentage)
+    if (field === "negotiationPct") return parseNum(s.negotiationPct)
+    return s.estimatorNotes || ""
+  }
+
+  /** Field changes of an imported row against the workspace's current (possibly unsaved) values. */
+  const rowChanges = (row: CostingImportRow) => {
+    if (!row.itemId || row.errors.length) return []
+    const changes: { field: CostingField; from: number | string; to: number | string }[] = []
+    for (const [field, to] of Object.entries(row.values) as [CostingField, number | string][]) {
+      const from = currentValue(row.itemId, field)
+      const same = typeof to === "number" ? Math.abs(Number(from) - to) < 0.005 : String(from).trim() === String(to).trim()
+      if (!same) changes.push({ field, from, to })
+    }
+    return changes
+  }
+
+  const handleImportFile = async (file: File) => {
+    if (!quotationGroup) return
+    setImporting(true)
+    setImportFileName(file.name)
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const res = await fetch(`/api/quotations/${quotationGroup.quotationId}/import-costing`, { method: "POST", body: formData })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to read the costing file")
+      setImportPreview(data)
+    } catch (err: any) {
+      toast.error(err.message || "Failed to read the costing file")
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+    }
+  }
+
+  const applyImport = () => {
+    if (!importPreview) return
+    const applied = new Set<string>()
+    setItemStates((prev) => {
+      const next = { ...prev }
+      for (const row of importPreview.rows) {
+        if (!row.itemId || row.errors.length || rowChanges(row).length === 0) continue
+        const curr = next[row.itemId]
+        if (!curr) continue
+        const v = row.values
+        next[row.itemId] = {
+          ...curr,
+          factoryCost: v.factoryCost !== undefined ? v.factoryCost : curr.factoryCost,
+          accessoriesCost: v.accessoriesCost !== undefined ? v.accessoriesCost : curr.accessoriesCost,
+          marginPercentage: v.marginPct !== undefined ? v.marginPct : curr.marginPercentage,
+          negotiationPct: v.negotiationPct !== undefined ? v.negotiationPct : curr.negotiationPct,
+          estimatorNotes: v.estimatorNotes !== undefined ? String(v.estimatorNotes) : curr.estimatorNotes,
+          unitPrice: 0, // recalculated from the imported values
+        }
+        applied.add(row.itemId)
+      }
+      return next
+    })
+    setImportedIds(applied)
+    setImportPreview(null)
+    toast.success(`Imported costing for ${applied.size} line(s). Review the figures, then Save Progress or mark Costing Completed.`)
+  }
 
   // Save changes API handler
   const handleSaveCosting = async (isComplete: boolean) => {
+    if (!quotationGroup) return
     setLoading(true)
     try {
       const payloadItems = items.map((item) => {
@@ -303,6 +461,7 @@ export function QuotationCostingWorkspaceModal({
           transportCost: 0,
           installationCost: 0,
           marginPercentage: marginPct,
+          negotiationPct,
           unitPrice: calc.finalSellingPrice,
           estimatorNotes: state.estimatorNotes || "",
           costingStatus: isComplete ? "COSTING_COMPLETED" : (state.costingStatus || "COSTING_IN_PROGRESS")
@@ -335,489 +494,643 @@ export function QuotationCostingWorkspaceModal({
     }
   }
 
+  if (!quotationGroup) return null
+
+  const overallTone = marginTone(quotationTotals.overallMarginPct)
+  const allExpanded = visibleItems.length > 0 && visibleItems.every((i) => expanded[i.id])
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-6xl lg:max-w-7xl max-h-[94vh] flex flex-col p-0 overflow-hidden rounded-2xl border shadow-2xl bg-card">
-          {/* Workspace Header */}
-          <DialogHeader className="p-5 sm:p-6 border-b bg-muted/20 shrink-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center space-x-3.5">
-                <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-2xs">
-                  <Calculator className="h-6 w-6" />
+        <DialogContent className="max-w-6xl sm:max-w-6xl lg:max-w-7xl max-h-[94vh] flex flex-col gap-0 p-0 overflow-hidden rounded-2xl border shadow-2xl bg-card">
+          {/* Header: quotation, client, and the offline costing actions */}
+          <DialogHeader className="px-5 sm:px-6 py-4 border-b shrink-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pr-8">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                  <Calculator className="h-5 w-5" />
                 </div>
-                <div>
-                  <DialogTitle className="text-lg sm:text-xl font-extrabold text-foreground flex items-center gap-2.5 flex-wrap">
-                    Quotation Costing Workspace
-                    <Badge variant="outline" className="font-mono text-xs bg-background border-amber-400 text-amber-900 dark:text-amber-300 font-bold px-2.5 py-0.5">
-                      {quotationGroup.quotationNumber}
-                    </Badge>
+                <div className="min-w-0">
+                  <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2 flex-wrap">
+                    Costing Workspace
+                    <Badge variant="outline" className="font-mono text-xs">{quotationGroup.quotationNumber}</Badge>
                   </DialogTitle>
-                  <DialogDescription className="text-xs text-muted-foreground flex items-center gap-3 flex-wrap mt-0.5">
-                    <span className="flex items-center gap-1 font-semibold text-foreground">
+                  <DialogDescription className="text-xs text-muted-foreground flex items-center gap-x-3 gap-y-0.5 flex-wrap mt-0.5">
+                    <span className="flex items-center gap-1 font-medium text-foreground">
                       <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                       {quotationGroup.client?.companyName || "Client"}
                     </span>
-                    {quotationGroup.projectName && (
-                      <span className="text-muted-foreground truncate max-w-[220px]">
-                        • Project: {quotationGroup.projectName}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                      • <User className="h-3.5 w-3.5" /> IDC: {quotationGroup.preparedBy?.name || "Sales Team"}
+                    {quotationGroup.projectName && <span className="truncate max-w-[240px]">Project: {quotationGroup.projectName}</span>}
+                    <span className="flex items-center gap-1">
+                      <User className="h-3.5 w-3.5" /> {quotationGroup.preparedBy?.name || "Sales Team"}
                     </span>
                   </DialogDescription>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+              <div className="flex items-center gap-2 flex-wrap shrink-0">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => window.open(`/api/quotations/${quotationGroup.quotationId}/export-costing`, "_blank")}
-                  className="h-8 text-xs font-bold border-emerald-600/60 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 dark:text-emerald-400 cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                  title="Export full costing breakdown to Excel spreadsheet"
+                  className="h-8 text-xs font-semibold cursor-pointer"
+                  title="Download the costing breakdown as an Excel template you can update offline"
                 >
-                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>Export Costing (Excel)</span>
+                  <FileSpreadsheet className="mr-1.5 h-3.5 w-3.5 text-emerald-600" />
+                  Export Costing Breakdown
                 </Button>
-                <Badge variant="secondary" className="font-mono text-xs font-bold px-3 py-1">
-                  {items.length} Product(s) Total
-                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={importing}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-8 text-xs font-semibold cursor-pointer"
+                  title="Upload the exported Excel file after updating costs offline"
+                >
+                  {importing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Upload className="mr-1.5 h-3.5 w-3.5 text-primary" />}
+                  Import Updated Costing
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) handleImportFile(f)
+                  }}
+                />
               </div>
             </div>
           </DialogHeader>
 
-          {/* Quotation-Level Financial Summary (Top Dock) */}
-          <div className="bg-slate-900 text-white p-4 sm:p-5 border-b border-slate-800 shrink-0 shadow-inner">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-amber-400" />
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                  Quotation Financial Audit Summary ({quotationGroup.quotationNumber})
-                </span>
-              </div>
-              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono text-xs px-3 py-0.5">
-                {quotationTotals.overallMarginPct.toFixed(1)}% Overall Gross Margin
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-center">
-              <div className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                <span className="text-[10px] text-slate-400 font-semibold uppercase block">Factory Cost</span>
-                <span className="font-mono font-bold text-xs sm:text-sm text-slate-200 mt-0.5 block">
-                  AED {quotationTotals.grandFactoryCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-
-              <div className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                <span className="text-[10px] text-slate-400 font-semibold uppercase block">Accessories Cost</span>
-                <span className="font-mono font-bold text-xs sm:text-sm text-slate-200 mt-0.5 block">
-                  AED {quotationTotals.grandAccessoriesCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-
-              <div className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                <span className="text-[10px] text-slate-400 font-semibold uppercase block">Total Cost</span>
-                <span className="font-mono font-extrabold text-xs sm:text-sm text-amber-300 mt-0.5 block">
-                  AED {quotationTotals.grandTotalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-
-              <div className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                <span className="text-[10px] text-slate-400 font-semibold uppercase block">Overall Margin</span>
-                <span className="font-mono font-extrabold text-xs sm:text-sm text-teal-300 mt-0.5 block">
+          {/* Key figures */}
+          <div className="px-5 sm:px-6 py-4 border-b bg-muted/20 shrink-0 space-y-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <KpiCard label="Total Cost" value={aed(quotationTotals.grandTotalCost)} hint="Factory + accessories × qty" />
+              <KpiCard label="Selling Price" value={aed(quotationTotals.grandFinalSellingPrice)} hint="Revenue incl. negotiation buffer" accent="text-foreground" />
+              <KpiCard
+                label="Profit"
+                value={aed(quotationTotals.grandTotalProfit)}
+                hint="Selling price − cost"
+                accent={quotationTotals.grandTotalProfit < 0 ? toneText.low : toneText.good}
+              />
+              <div className="rounded-xl border bg-card p-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Margin</div>
+                <div className={cn("text-xl font-bold tabular-nums", toneText[overallTone])}>
                   {quotationTotals.overallMarginPct.toFixed(1)}%
-                </span>
+                </div>
+                <div className="mt-1.5 h-1.5 rounded-full bg-muted overflow-hidden" aria-hidden>
+                  <div className={cn("h-full rounded-full", toneBg[overallTone])} style={{ width: `${Math.min(100, Math.max(0, quotationTotals.overallMarginPct))}%` }} />
+                </div>
               </div>
-
-              <div className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                <span className="text-[10px] text-slate-400 font-semibold uppercase block">Selling Price</span>
-                <span className="font-mono font-bold text-xs sm:text-sm text-emerald-300 mt-0.5 block">
-                  AED {quotationTotals.grandBaseSellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="flex items-center gap-x-5 gap-y-1 flex-wrap text-xs text-muted-foreground">
+              <span>Factory <strong className="text-foreground tabular-nums">{aed(quotationTotals.grandFactoryCost)}</strong></span>
+              <span>Accessories <strong className="text-foreground tabular-nums">{aed(quotationTotals.grandAccessoriesCost)}</strong></span>
+              <span>Negotiation buffer <strong className="text-foreground tabular-nums">{aed(quotationTotals.grandNegotiation)}</strong></span>
+              <span className="flex items-center gap-2 ml-auto">
+                Costing progress
+                <span className="inline-block w-24 h-1.5 rounded-full bg-muted overflow-hidden" aria-hidden>
+                  <span
+                    className="block h-full bg-primary rounded-full"
+                    style={{ width: `${items.length ? (quotationTotals.costedCount / items.length) * 100 : 0}%` }}
+                  />
                 </span>
-              </div>
-
-              <div className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                <span className="text-[10px] text-slate-400 font-semibold uppercase block">Total Revenue</span>
-                <span className="font-mono font-extrabold text-xs sm:text-sm text-emerald-400 mt-0.5 block">
-                  AED {quotationTotals.grandFinalSellingPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-
-              <div className="p-2 rounded-xl bg-slate-800/60 border border-slate-700/50 col-span-2 sm:col-span-1">
-                <span className="text-[10px] text-slate-400 font-semibold uppercase block">Total Profit</span>
-                <span className={`font-mono font-extrabold text-xs sm:text-sm mt-0.5 block ${quotationTotals.grandTotalProfit >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                  AED {quotationTotals.grandTotalProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
+                <strong className="text-foreground">{quotationTotals.costedCount} of {items.length} costed</strong>
+              </span>
             </div>
           </div>
 
-          {/* Scrollable Products List Workspace */}
-          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
-            {items.map((item, idx) => {
-              const state = itemStates[item.id] || {
-                id: item.id,
-                factoryCost: item.materialCost || 0,
-                accessoriesCost: item.laborCost || 0,
-                marginPercentage: item.marginPercentage ?? 0,
-                negotiationPct: 0,
-                unitPrice: item.unitPrice || 0,
-                estimatorNotes: item.estimatorNotes || "",
-                costingStatus: item.costingStatus || "PENDING_COSTING"
-              }
+          {/* Toolbar */}
+          <div className="px-5 sm:px-6 py-2.5 border-b flex items-center justify-between gap-2 flex-wrap shrink-0">
+            <div className="flex items-center gap-1 bg-muted/50 p-0.5 rounded-lg" role="tablist" aria-label="Filter products">
+              {([
+                { key: "all", label: `All (${items.length})` },
+                { key: "pending", label: `Pending (${pendingCount})` },
+                { key: "costed", label: `Costed (${quotationTotals.costedCount})` },
+              ] as const).map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={filter === t.key}
+                  onClick={() => setFilter(t.key)}
+                  className={cn(
+                    "px-3 h-7 text-xs font-semibold rounded-md cursor-pointer transition-colors",
+                    filter === t.key ? "bg-background shadow-xs text-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs cursor-pointer"
+              onClick={() => setExpanded(allExpanded ? {} : Object.fromEntries(visibleItems.map((i) => [i.id, true])))}
+            >
+              {allExpanded ? <ChevronsDownUp className="mr-1.5 h-3.5 w-3.5" /> : <ChevronsUpDown className="mr-1.5 h-3.5 w-3.5" />}
+              {allExpanded ? "Collapse all" : "Expand all"}
+            </Button>
+          </div>
 
-              const qty = item.quantity || 1
-              const cleanedSpecs = cleanHtmlText(item.specifications || item.productDescription || (item.product as any)?.specifications)
-              const cleanedDescription = cleanHtmlText(item.productDescription || item.description || item.productNotes || (item.product as any)?.description)
-              const productImg = item.imageUrl || item.customImageUrl || item.product?.imageUrl || (item.product as any)?.customImageUrl || null
-              const modelCode = item.product?.sku || item.description
-
-              // Calculations via Engine
-              const calc = calculateProductPrice(
-                parseNum(state.factoryCost),
-                parseNum(state.accessoriesCost),
-                parseNum(state.marginPercentage),
-                parseNum(state.negotiationPct),
-                state.unitPrice
-              )
-
-              const lineTotalRevenue = calc.finalSellingPrice * qty
-              const lineTotalCost = calc.totalCost * qty
-              const lineNetProfit = lineTotalRevenue - lineTotalCost
-              const lineProfitPct = lineTotalRevenue > 0 ? (lineNetProfit / lineTotalRevenue) * 100 : 0
+          {/* Product cards */}
+          <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-4 space-y-3">
+            {visibleItems.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-10">
+                {filter === "pending" ? "Every product has been costed." : "No products costed yet."}
+              </p>
+            )}
+            {visibleItems.map((item) => {
+              const state = itemStates[item.id] || initialStateFor(item)
+              const c = lineCalcs[item.id]
+              const isOpen = !!expanded[item.id]
+              const tone = marginTone(c.linePct)
+              const productImg = item.imageUrl || item.customImageUrl || item.product?.imageUrl || null
+              const specs = cleanHtmlText(item.specifications || (item.product as any)?.specifications)
+              const notes = cleanHtmlText(item.productDescription || item.productNotes)
+              const index = items.indexOf(item) + 1
+              const imported = importedIds.has(item.id)
 
               return (
-                <div 
+                <div
                   key={item.id}
-                  className="p-5 sm:p-6 rounded-2xl border bg-card shadow-sm space-y-5 transition-all hover:border-amber-400/60"
+                  className={cn(
+                    "rounded-xl border bg-card transition-colors",
+                    isOpen && "shadow-sm border-primary/30",
+                    imported && "ring-1 ring-sky-400/60"
+                  )}
                 >
-                  {/* Card Header Row */}
-                  <div className="flex items-center justify-between border-b pb-3 gap-3 flex-wrap">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-xs font-extrabold bg-muted/70 text-muted-foreground px-2.5 py-1 rounded-lg shrink-0">
-                        Product #{idx + 1}
-                      </span>
-                      {item.categoryName && (
-                        <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-wider">
-                          {item.categoryName} {item.chairType ? `• ${item.chairType}` : ""}
-                        </Badge>
-                      )}
-                      {item.batchHeading && item.batchHeading !== "General Items" && (
-                        <Badge variant="outline" className="text-[10px] bg-muted/40 font-mono">
-                          <Layers className="h-3 w-3 mr-1" /> {item.batchHeading}
-                        </Badge>
-                      )}
+                  {/* Card header — always visible */}
+                  <button
+                    type="button"
+                    onClick={() => setExpanded((p) => ({ ...p, [item.id]: !p[item.id] }))}
+                    aria-expanded={isOpen}
+                    className="w-full flex items-center gap-3 p-3 text-left cursor-pointer"
+                  >
+                    <span className="font-mono text-xs font-bold text-muted-foreground w-6 text-center shrink-0">{index}</span>
+                    <div className="h-11 w-11 rounded-lg border bg-white flex items-center justify-center overflow-hidden shrink-0">
+                      {productImg ? <img src={productImg} alt="" className="h-full w-full object-contain" /> : <Package className="h-5 w-5 text-muted-foreground/40" />}
                     </div>
-
-                    <Badge className="bg-primary text-primary-foreground font-mono text-xs font-extrabold px-3 py-1 shrink-0">
-                      Quantity: {qty}
-                    </Badge>
-                  </div>
-
-                  {/* 2-Column Split Layout */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    {/* LEFT COLUMN: Product Specifications & Visual Information */}
-                    <div className="lg:col-span-5 space-y-4 border-r-0 lg:border-r pr-0 lg:pr-6 border-border/80">
-                      {/* Product Image & Title */}
-                      <div className="flex items-start gap-4">
-                        <div className="relative group shrink-0">
-                          {productImg ? (
-                            <img 
-                              src={productImg} 
-                              alt={item.description} 
-                              onClick={() => setEnlargedImage({ url: productImg, title: item.description })}
-                              className="w-32 h-32 rounded-2xl object-cover border-2 border-border shadow-sm bg-white cursor-pointer transition-transform duration-200 group-hover:scale-105" 
-                            />
-                          ) : (
-                            <div className="w-32 h-32 rounded-2xl border-2 border-dashed bg-muted flex flex-col items-center justify-center text-[10px] text-muted-foreground shrink-0 font-medium">
-                              <Package className="h-8 w-8 text-muted-foreground/40 mb-1" />
-                              No Image
-                            </div>
-                          )}
-                          {productImg && (
-                            <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                              <Maximize2 className="h-5 w-5 text-white" />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-1.5 min-w-0 flex-1">
-                          <h3 className="font-extrabold text-sm sm:text-base text-foreground leading-snug">
-                            {item.description}
-                          </h3>
-
-                          {modelCode && (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono font-semibold">
-                              <Tag className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                              <span className="truncate">{modelCode}</span>
-                            </div>
-                          )}
-
-                          {item.categoryName && (
-                            <div className="text-xs text-muted-foreground font-medium pt-0.5">
-                              Category: <span className="font-semibold text-foreground">{item.categoryName}</span>
-                            </div>
-                          )}
-                        </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-foreground truncate">{item.description}</div>
+                      <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+                        {item.categoryName && <span>{item.categoryName}</span>}
+                        {item.batchHeading && item.batchHeading !== "General Items" && (
+                          <span className="flex items-center gap-1"><Layers className="h-3 w-3" />{item.batchHeading}</span>
+                        )}
+                        <span>Qty {c.qty}</span>
+                        {c.costed ? (
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">Costed</span>
+                        ) : (
+                          <span className="font-semibold text-amber-600 dark:text-amber-400">Needs costing</span>
+                        )}
+                        {imported && <span className="font-semibold text-sky-600 dark:text-sky-400">Imported</span>}
                       </div>
-
-                      {/* Product Specifications */}
-                      {cleanedSpecs && (
-                        <div className="p-3.5 bg-muted/40 rounded-xl border border-border/70 space-y-1">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                            <FileText className="h-3.5 w-3.5 text-primary" />
-                            Product Specifications
-                          </span>
-                          <p className="text-xs text-foreground leading-relaxed font-sans whitespace-pre-wrap">
-                            {cleanedSpecs}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Product Description & Sales Notes */}
-                      {cleanedDescription && (
-                        <div className="p-3.5 bg-amber-500/5 rounded-xl border border-amber-500/20 space-y-1">
-                          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1">
-                            <Info className="h-3.5 w-3.5 text-amber-600" />
-                            Sales Team Description &amp; Notes
-                          </span>
-                          <p className="text-xs text-amber-950 dark:text-amber-200 leading-relaxed italic">
-                            {cleanedDescription}
-                          </p>
-                        </div>
-                      )}
                     </div>
-
-                    {/* RIGHT COLUMN: Simplified Costing Inputs & Calculations */}
-                    <div className="lg:col-span-7 space-y-4">
-                      <div className="flex items-center justify-between border-b pb-2">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                          <Coins className="h-4 w-4 text-amber-600" />
-                          Costing Inputs &amp; Pricing Model
-                        </h4>
-                        <Badge variant="outline" className="font-mono text-[10px]">
-                          Unit Pricing (AED)
-                        </Badge>
-                      </div>
-
-                      {/* 4 Costing Inputs Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        {/* Factory Cost */}
-                        <div className="space-y-1 p-3 rounded-xl border bg-card shadow-2xs">
-                          <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                            <span>Factory Cost</span>
-                            <span className="text-[10px] text-muted-foreground font-normal">Base Production</span>
-                          </label>
-                          <div className="relative">
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={state.factoryCost ?? ""}
-                              onChange={(e) => updateItemField(item.id, "factoryCost", e.target.value)}
-                              placeholder="0.00"
-                              className="font-mono font-bold h-9 text-xs pl-8 bg-background"
-                            />
-                            <span className="absolute left-2.5 top-2.5 text-xs font-bold text-muted-foreground pointer-events-none">AED</span>
-                          </div>
-                        </div>
-
-                        {/* Accessories Cost */}
-                        <div className="space-y-1 p-3 rounded-xl border bg-card shadow-2xs">
-                          <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                            <span>Accessories Cost</span>
-                            <span className="text-[10px] text-muted-foreground font-normal">Hardware &amp; Fittings</span>
-                          </label>
-                          <div className="relative">
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={state.accessoriesCost ?? ""}
-                              onChange={(e) => updateItemField(item.id, "accessoriesCost", e.target.value)}
-                              placeholder="0.00"
-                              className="font-mono font-bold h-9 text-xs pl-8 bg-background"
-                            />
-                            <span className="absolute left-2.5 top-2.5 text-xs font-bold text-muted-foreground pointer-events-none">AED</span>
-                          </div>
-                        </div>
-
-                        {/* Margin % */}
-                        <div className="space-y-1 p-3 rounded-xl border bg-teal-500/5 border-teal-500/20 shadow-2xs">
-                          <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                            <span>Margin %</span>
-                            <span className="text-[10px] text-teal-600 dark:text-teal-400 font-medium">Profit Target</span>
-                          </label>
-                          <div className="relative">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="99"
-                              step="0.1"
-                              value={state.marginPercentage ?? ""}
-                              onChange={(e) => updateItemField(item.id, "marginPercentage", e.target.value)}
-                              placeholder="0%"
-                              className="font-mono font-bold h-9 text-xs pr-7 bg-background"
-                            />
-                            <span className="absolute right-2.5 top-2.5 text-xs font-bold text-muted-foreground pointer-events-none">%</span>
-                          </div>
-                        </div>
-
-                        {/* Negotiation % */}
-                        <div className="space-y-1 p-3 rounded-xl border bg-purple-500/5 border-purple-500/20 shadow-2xs">
-                          <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                            <span>Negotiation %</span>
-                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">Buffer / Discount</span>
-                          </label>
-                          <div className="relative">
-                            <Input
-                              type="number"
-                              min="0"
-                              max="50"
-                              step="0.1"
-                              value={state.negotiationPct ?? ""}
-                              onChange={(e) => updateItemField(item.id, "negotiationPct", e.target.value)}
-                              placeholder="0%"
-                              className="font-mono font-bold h-9 text-xs pr-7 bg-background"
-                            />
-                            <span className="absolute right-2.5 top-2.5 text-xs font-bold text-muted-foreground pointer-events-none">%</span>
-                          </div>
+                    <div className="hidden md:flex items-center gap-5 text-right shrink-0">
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Unit cost → price</div>
+                        <div className="text-xs font-semibold tabular-nums">
+                          {c.totalCost.toFixed(2)} → {c.finalSellingPrice.toFixed(2)}
                         </div>
                       </div>
-
-                      {/* Estimator Technical Notes Input */}
-                      <div className="space-y-1 pt-1">
-                        <label className="text-xs font-semibold text-muted-foreground flex justify-between">
-                          <span>Estimator Technical Notes &amp; Remarks</span>
-                          <span className="text-[10px]">Internal pricing reference</span>
-                        </label>
-                        <Input
-                          type="text"
-                          value={state.estimatorNotes || ""}
-                          onChange={(e) => updateItemField(item.id, "estimatorNotes", e.target.value)}
-                          placeholder="Add technical notes on materials, veneer specs, or supplier cost references..."
-                          className="h-8 text-xs bg-background"
-                        />
-                      </div>
-
-                      {/* Financial Audit Summary Box (Per Product) */}
-                      <div className="p-4 bg-slate-900 text-white rounded-xl space-y-3 font-sans shadow-md border border-slate-800">
-                        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
-                            Product Cost &amp; Profit Audit
-                          </span>
-                          <Badge className="bg-emerald-500/20 text-emerald-300 border-0 font-mono text-[10px]">
-                            {lineProfitPct.toFixed(1)}% Line Margin
-                          </Badge>
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center">
-                          <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
-                            <span className="text-[9px] text-slate-400 font-semibold block uppercase">Total Cost (Unit)</span>
-                            <span className="font-mono font-bold text-xs text-slate-200 mt-0.5 block">
-                              AED {calc.totalCost.toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
-                            <span className="text-[9px] text-slate-400 font-semibold block uppercase">Margin Value (Unit)</span>
-                            <span className="font-mono font-bold text-xs text-teal-300 mt-0.5 block">
-                              AED {calc.marginValue.toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
-                            <span className="text-[9px] text-slate-400 font-semibold block uppercase">Negotiation Buffer</span>
-                            <span className="font-mono font-bold text-xs text-purple-300 mt-0.5 block">
-                              AED {calc.negotiationValue.toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
-                            <span className="text-[9px] text-slate-400 font-semibold block uppercase">Final Selling Price</span>
-                            <span className="font-mono font-bold text-xs text-emerald-400 mt-0.5 block">
-                              AED {calc.finalSellingPrice.toFixed(2)}
-                            </span>
-                          </div>
-
-                          <div className="p-2 rounded-lg bg-slate-800/60 border border-slate-700/50">
-                            <span className="text-[9px] text-slate-400 font-semibold block uppercase">Expected Line Profit</span>
-                            <span className={`font-mono font-extrabold text-xs mt-0.5 block ${lineNetProfit >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                              AED {lineNetProfit.toFixed(2)}
-                            </span>
-                          </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Line profit</div>
+                        <div className={cn("text-xs font-semibold tabular-nums", c.lineProfit < 0 ? toneText.low : "text-foreground")}>
+                          {aed(c.lineProfit)}
                         </div>
                       </div>
                     </div>
-                  </div>
+                    <span className={cn("text-xs font-bold tabular-nums px-2 py-0.5 rounded-full border shrink-0", tonePill[tone])}>
+                      {c.linePct.toFixed(1)}%
+                    </span>
+                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", isOpen && "rotate-180")} />
+                  </button>
+
+                  {isOpen && (
+                    <div className="border-t p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-5">
+                      {/* 1. Product information */}
+                      <section className="lg:col-span-4 space-y-3">
+                        <SectionTitle n={1} title="Product information" />
+                        <div className="flex items-start gap-3">
+                          <button
+                            type="button"
+                            disabled={!productImg}
+                            onClick={() => productImg && setEnlargedImage({ url: productImg, title: item.description })}
+                            className="relative group h-24 w-24 rounded-lg border bg-white flex items-center justify-center overflow-hidden shrink-0 cursor-pointer disabled:cursor-default"
+                            aria-label="Enlarge product image"
+                          >
+                            {productImg ? <img src={productImg} alt={item.description} className="h-full w-full object-contain" /> : <Package className="h-7 w-7 text-muted-foreground/40" />}
+                            {productImg && (
+                              <span className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                <Maximize2 className="h-4 w-4 text-white" />
+                              </span>
+                            )}
+                          </button>
+                          <div className="text-xs space-y-1 min-w-0">
+                            <div className="font-semibold text-foreground leading-snug">{item.description}</div>
+                            {item.product?.sku && <div className="font-mono text-muted-foreground">{item.product.sku}</div>}
+                            <div className="text-muted-foreground">Quantity: <strong className="text-foreground">{c.qty}</strong></div>
+                          </div>
+                        </div>
+                        {specs && (
+                          <details className="group rounded-lg border bg-muted/30 px-3 py-2 text-xs" open={specs.length < 240}>
+                            <summary className="cursor-pointer font-semibold text-muted-foreground list-none flex items-center justify-between">
+                              Specifications
+                              <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                            </summary>
+                            <p className="mt-1.5 whitespace-pre-line leading-relaxed text-foreground">{specs}</p>
+                          </details>
+                        )}
+                        {notes && (
+                          <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs">
+                            <div className="font-semibold text-amber-800 dark:text-amber-300">Sales notes</div>
+                            <p className="mt-0.5 text-foreground leading-relaxed">{notes}</p>
+                          </div>
+                        )}
+                      </section>
+
+                      <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {/* 2. Cost inputs */}
+                        <section className="space-y-3">
+                          <SectionTitle n={2} title="Cost inputs" note="per unit" />
+                          <MoneyField
+                            label="Factory cost"
+                            hint="Base production"
+                            value={state.factoryCost}
+                            onChange={(v) => updateItemField(item.id, "factoryCost", v)}
+                          />
+                          <MoneyField
+                            label="Accessories cost"
+                            hint="Hardware & fittings"
+                            value={state.accessoriesCost}
+                            onChange={(v) => updateItemField(item.id, "accessoriesCost", v)}
+                          />
+                          <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-xs">
+                            <span className="text-muted-foreground">Total unit cost</span>
+                            <strong className="tabular-nums">{aed(c.totalCost)}</strong>
+                          </div>
+                        </section>
+
+                        {/* 3. Margin & negotiation */}
+                        <section className="space-y-3">
+                          <SectionTitle n={3} title="Margin & negotiation" />
+                          <PercentField
+                            label="Margin %"
+                            hint="Profit target"
+                            value={state.marginPercentage}
+                            onChange={(v) => updateItemField(item.id, "marginPercentage", v)}
+                          />
+                          <div className="flex items-center gap-1 flex-wrap -mt-1">
+                            {QUICK_MARGINS.map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => updateItemField(item.id, "marginPercentage", m)}
+                                className={cn(
+                                  "text-[11px] px-2 h-6 rounded-md border cursor-pointer tabular-nums",
+                                  parseNum(state.marginPercentage) === m ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"
+                                )}
+                              >
+                                {m}%
+                              </button>
+                            ))}
+                          </div>
+                          <PercentField
+                            label="Negotiation %"
+                            hint="Buffer for client discounts"
+                            value={state.negotiationPct}
+                            onChange={(v) => updateItemField(item.id, "negotiationPct", v)}
+                          />
+                        </section>
+
+                        {/* 4. Cost summary */}
+                        <section className="space-y-2">
+                          <SectionTitle n={4} title="Cost summary" note="per unit" />
+                          <dl className="rounded-lg border divide-y text-xs">
+                            <SummaryRow label="Total cost" value={aed(c.totalCost)} />
+                            <SummaryRow label="+ Margin" value={aed(c.marginValue)} />
+                            <SummaryRow label="+ Negotiation buffer" value={aed(c.negotiationValue)} />
+                            <SummaryRow label="Selling price" value={aed(c.finalSellingPrice)} strong />
+                          </dl>
+                        </section>
+
+                        {/* 5. Profit analysis */}
+                        <section className="space-y-2">
+                          <SectionTitle n={5} title="Profit analysis" note={`× ${c.qty}`} />
+                          <dl className="rounded-lg border divide-y text-xs">
+                            <SummaryRow label="Line revenue" value={aed(c.lineRevenue)} />
+                            <SummaryRow label="Line cost" value={aed(c.lineCost)} />
+                            <SummaryRow
+                              label="Line profit"
+                              value={aed(c.lineProfit)}
+                              strong
+                              valueClass={c.lineProfit < 0 ? toneText.low : toneText.good}
+                            />
+                          </dl>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-muted-foreground">Margin</span>
+                            <span className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden" aria-hidden>
+                              <span className={cn("block h-full rounded-full", toneBg[tone])} style={{ width: `${Math.min(100, Math.max(0, c.linePct))}%` }} />
+                            </span>
+                            <strong className={cn("tabular-nums", toneText[tone])}>{c.linePct.toFixed(1)}%</strong>
+                          </div>
+                        </section>
+
+                        <div className="md:col-span-2 space-y-1">
+                          <label htmlFor={`notes-${item.id}`} className="text-xs font-semibold text-muted-foreground">
+                            Estimator notes <span className="font-normal">(internal)</span>
+                          </label>
+                          <Input
+                            id={`notes-${item.id}`}
+                            type="text"
+                            value={state.estimatorNotes || ""}
+                            onChange={(e) => updateItemField(item.id, "estimatorNotes", e.target.value)}
+                            placeholder="Materials, veneer specs, supplier quote references…"
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             })}
           </div>
 
-          {/* Workspace Footer Actions */}
-          <DialogFooter className="p-4 sm:p-5 bg-muted/30 border-t flex flex-row items-center justify-between gap-3 shrink-0">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onOpenChange(false)}
-              disabled={loading}
-              className="text-xs h-10 px-4 font-semibold cursor-pointer rounded-xl"
-            >
-              Cancel
-            </Button>
-
+          {/* Footer */}
+          <div className="px-5 sm:px-6 py-3 border-t flex items-center justify-between gap-3 flex-wrap shrink-0 bg-card">
+            <span className="text-xs text-muted-foreground">
+              {pendingCount > 0 ? `${pendingCount} product(s) still need costing.` : "All products are costed."}
+              {importedIds.size > 0 && ` ${importedIds.size} line(s) updated from Excel — not saved yet.`}
+            </span>
             <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => handleSaveCosting(false)}
-                disabled={loading}
-                className="text-xs h-10 px-4 font-semibold cursor-pointer rounded-xl border-amber-300 text-amber-800 dark:text-amber-300 bg-amber-50/50 hover:bg-amber-100"
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1 text-amber-600" />}
+              <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={loading} className="h-9 cursor-pointer">
+                Cancel
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleSaveCosting(false)} disabled={loading} className="h-9 cursor-pointer">
+                {loading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
                 Save Progress
               </Button>
-
               <Button
-                type="button"
                 size="sm"
                 onClick={() => handleSaveCosting(true)}
                 disabled={loading}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 px-6 flex items-center gap-2 cursor-pointer shadow-md rounded-xl transition-colors"
+                className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                title={pendingCount > 0 ? `${pendingCount} product(s) have no cost yet` : undefined}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" /> Saving &amp; Completing...
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4 stroke-[3]" /> Costing Completed
-                  </>
-                )}
+                {loading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
+                Costing Completed
               </Button>
             </div>
-          </DialogFooter>
+          </div>
+
+          {/* Import preview */}
+          {importPreview && (
+            <ImportPreviewPanel
+              preview={importPreview}
+              fileName={importFileName}
+              rowChanges={rowChanges}
+              onCancel={() => setImportPreview(null)}
+              onApply={applyImport}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
-      {/* High-Resolution Image Preview Lightbox */}
-      {enlargedImage && (
-        <Dialog open={!!enlargedImage} onOpenChange={() => setEnlargedImage(null)}>
-          <DialogContent className="max-w-2xl p-4 bg-card rounded-2xl">
-            <DialogHeader className="pb-2">
-              <DialogTitle className="text-sm font-bold truncate">{enlargedImage.title}</DialogTitle>
-            </DialogHeader>
-            <div className="flex items-center justify-center p-2 bg-black/5 dark:bg-black/40 rounded-xl overflow-hidden">
-              <img src={enlargedImage.url} alt={enlargedImage.title} className="max-h-[75vh] w-auto object-contain rounded-lg" />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* Enlarged image */}
+      <Dialog open={!!enlargedImage} onOpenChange={(o) => !o && setEnlargedImage(null)}>
+        <DialogContent className="max-w-3xl sm:max-w-3xl p-4">
+          <DialogHeader>
+            <DialogTitle className="text-sm">{enlargedImage?.title}</DialogTitle>
+          </DialogHeader>
+          {enlargedImage && <img src={enlargedImage.url} alt={enlargedImage.title} className="w-full max-h-[75vh] object-contain rounded-lg bg-white" />}
+        </DialogContent>
+      </Dialog>
     </>
+  )
+}
+
+// ---------- small building blocks ----------
+
+function KpiCard({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
+  return (
+    <div className="rounded-xl border bg-card p-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className={cn("text-xl font-bold tabular-nums truncate", accent || "text-foreground")} title={value}>{value}</div>
+      {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
+    </div>
+  )
+}
+
+function SectionTitle({ n, title, note }: { n: number; title: string; note?: string }) {
+  return (
+    <h4 className="flex items-center gap-2 text-xs font-semibold text-foreground">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">{n}</span>
+      {title}
+      {note && <span className="font-normal text-muted-foreground">· {note}</span>}
+    </h4>
+  )
+}
+
+function MoneyField({ label, hint, value, onChange }: { label: string; hint: string; value: number | string; onChange: (v: string) => void }) {
+  const id = useId()
+  return (
+    <div className="space-y-1">
+      <label htmlFor={id} className="text-xs font-medium text-foreground flex justify-between">
+        {label}
+        <span className="text-[11px] font-normal text-muted-foreground">{hint}</span>
+      </label>
+      <div className="relative">
+        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-muted-foreground pointer-events-none">AED</span>
+        <Input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="0.00"
+          className="h-9 pl-11 text-sm font-semibold tabular-nums"
+        />
+      </div>
+    </div>
+  )
+}
+
+function PercentField({ label, hint, value, onChange }: { label: string; hint: string; value: number | string; onChange: (v: string) => void }) {
+  const id = useId()
+  return (
+    <div className="space-y-1">
+      <label htmlFor={id} className="text-xs font-medium text-foreground flex justify-between">
+        {label}
+        <span className="text-[11px] font-normal text-muted-foreground">{hint}</span>
+      </label>
+      <div className="relative">
+        <Input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          min="0"
+          max="99"
+          step="0.1"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="0"
+          className="h-9 pr-8 text-sm font-semibold tabular-nums"
+        />
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground pointer-events-none">%</span>
+      </div>
+    </div>
+  )
+}
+
+function SummaryRow({ label, value, strong, valueClass }: { label: string; value: string; strong?: boolean; valueClass?: string }) {
+  return (
+    <div className="flex items-center justify-between px-3 py-1.5">
+      <dt className={cn("text-muted-foreground", strong && "text-foreground font-semibold")}>{label}</dt>
+      <dd className={cn("tabular-nums", strong ? "font-bold" : "font-medium", valueClass)}>{value}</dd>
+    </div>
+  )
+}
+
+function ImportPreviewPanel({
+  preview,
+  fileName,
+  rowChanges,
+  onCancel,
+  onApply,
+}: {
+  preview: CostingImportPreview
+  fileName: string
+  rowChanges: (row: CostingImportRow) => { field: CostingField; from: number | string; to: number | string }[]
+  onCancel: () => void
+  onApply: () => void
+}) {
+  const rows = preview.rows.map((r) => ({ ...r, diff: rowChanges(r) }))
+  const changed = rows.filter((r) => r.itemId && !r.errors.length && r.diff.length > 0)
+  const unchanged = rows.filter((r) => r.itemId && !r.errors.length && r.diff.length === 0)
+  const invalid = rows.filter((r) => r.errors.length > 0)
+  const blocked = preview.fileErrors.some((e) => /exported for quotation/i.test(e))
+  const fmt = (field: CostingField, v: number | string) =>
+    field === "estimatorNotes" ? (String(v) || "—") : field === "marginPct" || field === "negotiationPct" ? `${Number(v).toFixed(1)}%` : Number(v).toFixed(2)
+
+  return (
+    <div className="absolute inset-0 z-20 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl max-h-full bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden" role="dialog" aria-label="Import preview">
+        <div className="px-5 py-4 border-b flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-bold flex items-center gap-2">
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600" /> Review imported costing
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {fileName} · {preview.templateRecognised ? "BOSQ costing template" : "Unrecognised template — columns matched by name"}
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onCancel} aria-label="Close preview">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="px-5 py-3 border-b grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+          <Stat label="Will update" value={changed.length} tone="text-sky-600 dark:text-sky-400" />
+          <Stat label="No change" value={unchanged.length} tone="text-muted-foreground" />
+          <Stat label="Invalid" value={invalid.filter((r) => r.matchedBy).length} tone="text-rose-600 dark:text-rose-400" />
+          <Stat label="Unmatched" value={rows.filter((r) => !r.matchedBy).length} tone="text-amber-600 dark:text-amber-400" />
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
+          {preview.fileErrors.map((e) => (
+            <div key={e} className="flex items-start gap-2 rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-xs text-rose-700 dark:text-rose-300">
+              <CircleAlert className="h-4 w-4 shrink-0 mt-0.5" /> {e}
+            </div>
+          ))}
+
+          <table className="w-full text-xs">
+            <thead className="text-left text-muted-foreground">
+              <tr className="border-b">
+                <th className="py-1.5 pr-2 font-semibold">Row</th>
+                <th className="py-1.5 pr-2 font-semibold">Product</th>
+                <th className="py-1.5 font-semibold">Changes / issues</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => {
+                const status = r.errors.length ? "error" : r.diff.length ? "change" : "same"
+                return (
+                  <tr
+                    key={r.row}
+                    className={cn(
+                      "border-b align-top",
+                      status === "error" && "bg-rose-500/5",
+                      status === "change" && "bg-sky-500/5"
+                    )}
+                  >
+                    <td className="py-2 pr-2 font-mono text-muted-foreground">{r.row}</td>
+                    <td className="py-2 pr-2">
+                      <div className="font-medium text-foreground">{r.description || "—"}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {r.slNo && `#${r.slNo}`} {r.itemCode && `· ${r.itemCode}`}
+                        {r.matchedBy && ` · matched by ${r.matchedBy === "lineItemId" ? "Line Item ID" : r.matchedBy === "itemCode" ? "Item Code" : "Sl No"}`}
+                      </div>
+                    </td>
+                    <td className="py-2 space-y-0.5">
+                      {r.errors.map((e) => (
+                        <div key={e} className="flex items-start gap-1 text-rose-700 dark:text-rose-300"><CircleAlert className="h-3.5 w-3.5 shrink-0 mt-px" />{e}</div>
+                      ))}
+                      {!r.errors.length && r.diff.map((d) => (
+                        <div key={d.field}>
+                          <span className="text-muted-foreground">{COSTING_FIELD_LABELS[d.field]}:</span>{" "}
+                          <span className="line-through text-muted-foreground">{fmt(d.field, d.from)}</span>{" "}
+                          → <strong className="text-foreground">{fmt(d.field, d.to)}</strong>
+                        </div>
+                      ))}
+                      {!r.errors.length && r.diff.length === 0 && <span className="text-muted-foreground">No change</span>}
+                      {r.warnings.map((w) => (
+                        <div key={w} className="flex items-start gap-1 text-amber-700 dark:text-amber-300"><AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />{w}</div>
+                      ))}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+
+          {preview.missingItems.length > 0 && (
+            <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs">
+              <div className="font-semibold text-foreground">Not in the file (left unchanged)</div>
+              <div className="text-muted-foreground">{preview.missingItems.map((m) => `#${m.itemNo} ${m.description}`).join(" · ")}</div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t flex items-center justify-between gap-3 flex-wrap">
+          <span className="text-xs text-muted-foreground">
+            Rows with errors are skipped. Applied values update the workspace; save to keep them.
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onCancel} className="h-9 cursor-pointer">Cancel</Button>
+            <Button size="sm" onClick={onApply} disabled={blocked || changed.length === 0} className="h-9 cursor-pointer">
+              <Check className="mr-1.5 h-4 w-4" />
+              Apply {changed.length} update{changed.length === 1 ? "" : "s"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div className="rounded-lg border px-2 py-1.5">
+      <div className={cn("text-lg font-bold tabular-nums", tone)}>{value}</div>
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+    </div>
   )
 }

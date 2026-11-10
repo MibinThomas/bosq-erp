@@ -39,10 +39,13 @@ import {
   Check,
   Sparkles,
   HelpCircle,
-  RotateCcw
+  RotateCcw,
+  ShieldCheck
 } from "lucide-react"
 import { MaterialsFinishesManager } from "@/components/settings/materials-finishes-manager"
 import { RecycleBinManager } from "@/components/settings/recycle-bin-manager"
+import { ApprovalSettingsManager } from "@/components/settings/approval-settings-manager"
+import { PosterLibraryManager } from "@/components/settings/poster-library-manager"
 
 interface PaymentTerm {
   id: string
@@ -535,8 +538,16 @@ export default function SettingsPage() {
               Materials Catalog
             </TabsTrigger>
 
-            <TabsTrigger 
-              value="integrations" 
+            <TabsTrigger
+              value="posters"
+              className="flex items-center gap-2.5 py-3 px-5 sm:px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs transition-all cursor-pointer whitespace-nowrap"
+            >
+              <ImageIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+              Poster Library
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="integrations"
               className="flex items-center gap-2.5 py-3 px-5 sm:px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs transition-all cursor-pointer whitespace-nowrap"
             >
               <Key className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
@@ -544,8 +555,18 @@ export default function SettingsPage() {
             </TabsTrigger>
 
             {userRole === "SUPER_ADMIN" && (
-              <TabsTrigger 
-                value="recovery" 
+              <TabsTrigger
+                value="approvals"
+                className="flex items-center gap-2.5 py-3 px-5 sm:px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs transition-all cursor-pointer whitespace-nowrap"
+              >
+                <ShieldCheck className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                Approvals
+              </TabsTrigger>
+            )}
+
+            {userRole === "SUPER_ADMIN" && (
+              <TabsTrigger
+                value="recovery"
                 className="flex items-center gap-2.5 py-3 px-5 sm:px-6 rounded-2xl font-extrabold text-xs sm:text-sm text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-xs transition-all cursor-pointer whitespace-nowrap"
               >
                 <RotateCcw className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-purple-500" />
@@ -555,12 +576,24 @@ export default function SettingsPage() {
           </TabsList>
         </div>
 
+        {/* ── Tab: Approval Management (Super Admin) ── */}
+        {userRole === "SUPER_ADMIN" && (
+          <TabsContent value="approvals" className="mt-0">
+            <ApprovalSettingsManager />
+          </TabsContent>
+        )}
+
         {/* ── Tab: Data Recovery & Recycle Bin (Super Admin) ── */}
         {userRole === "SUPER_ADMIN" && (
           <TabsContent value="recovery" className="mt-0">
             <RecycleBinManager userRole={userRole} />
           </TabsContent>
         )}
+
+        {/* ── Tab: Poster Library (quotation PDF poster pages) ── */}
+        <TabsContent value="posters" className="mt-0">
+          <PosterLibraryManager />
+        </TabsContent>
 
         {/* ── Tab 1: Materials & Finishes Catalog ── */}
         <TabsContent value="materials" className="mt-0">

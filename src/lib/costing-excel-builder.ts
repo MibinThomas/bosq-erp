@@ -1,6 +1,14 @@
 import ExcelJS from "exceljs"
 import path from "path"
 import fs from "fs"
+import {
+  COSTING_COLUMNS,
+  COSTING_EDITABLE_COLUMNS,
+  COSTING_HEADER_LABELS,
+  COSTING_META_SHEET,
+  COSTING_SHEET,
+  COSTING_TEMPLATE_ID,
+} from "./costing-template"
 
 export interface CostingExportItem {
   id: string
@@ -25,6 +33,10 @@ export interface CostingExportItem {
   costingStatusText: string
   discountByIDC: string | number
   finalPriceUnit: number
+  /** Estimator notes (editable in the template) */
+  estimatorNotes?: string | null
+  /** Product code used to match rows on import */
+  itemCode?: string | null
   customImageUrl?: string | null
   imageUrl?: string | null
   product?: {
@@ -34,6 +46,7 @@ export interface CostingExportItem {
 }
 
 export interface CostingExportData {
+  quotationId?: string
   quotationNumber: string
   projectName?: string | null
   date?: string | Date | null
@@ -151,11 +164,18 @@ export async function buildCostingExcelWorkbook(data: CostingExportData): Promis
   workbook.lastModifiedBy = data.preparedBy?.name || "BOSQ ERP"
   workbook.created = new Date()
 
-  const ws = workbook.addWorksheet("Costing Breakdown", {
+  const ws = workbook.addWorksheet(COSTING_SHEET, {
     views: [{ showGridLines: true }]
   })
 
-  // Set column widths matching 13-column audit table
+  // Hidden marker sheet: lets "Import Updated Costing" recognise this template and its quotation
+  const meta = workbook.addWorksheet(COSTING_META_SHEET, { state: "veryHidden" })
+  meta.addRow(["template", COSTING_TEMPLATE_ID])
+  meta.addRow(["quotationId", data.quotationId || ""])
+  meta.addRow(["quotationNumber", data.quotationNumber])
+  meta.addRow(["exportedAt", new Date().toISOString()])
+
+  // Set column widths: 13-column audit table + estimator notes and matching keys
   ws.columns = [
     { key: "colA", width: 2.5 },   // A: Left margin
     { key: "colB", width: 8.5 },   // B: Sl No
@@ -171,7 +191,10 @@ export async function buildCostingExcelWorkbook(data: CostingExportData): Promis
     { key: "colL", width: 24.0 },  // L: Costing Done/ Not
     { key: "colM", width: 28.0 },  // M: Discount added By IDC
     { key: "colN", width: 18.0 },  // N: Final Price
-    { key: "colO", width: 2.5 },   // O: Right margin
+    { key: "colO", width: 34.0 },  // O: Estimator Notes (editable)
+    { key: "colP", width: 18.0 },  // P: Item Code (matching key)
+    { key: "colQ", width: 30.0 },  // Q: Line Item ID (matching key, do not edit)
+    { key: "colR", width: 2.5 },   // R: Right margin
   ]
 
   // Embed logo if available
@@ -200,7 +223,7 @@ export async function buildCostingExcelWorkbook(data: CostingExportData): Promis
 
   // Row 2: Top Banner Title
   ws.getRow(2).height = 32
-  ws.mergeCells("B2:N2")
+  ws.mergeCells("B2:Q2")
   const titleCell = ws.getCell("B2")
   titleCell.value = "BOSQ ERP — QUOTATION COSTING BREAKDOWN & MANAGERIAL AUDIT"
   titleCell.font = { name: "Arial", size: 15, bold: true, color: { argb: "FFFFFFFF" } }
@@ -246,26 +269,30 @@ export async function buildCostingExcelWorkbook(data: CostingExportData): Promis
   ws.getCell("L5").value = data.assignedEstimator?.name || "Cost Estimator"
   ws.getCell("L5").font = { name: "Arial", size: 11 }
 
+  // Row 6: How to update costing offline
+  ws.mergeCells("B6:Q6")
+  const helpCell = ws.getCell("B6")
+  helpCell.value =
+    "To update costing offline: edit only the yellow columns (Factory Cost, Accessories Cost, Margin %, Negotiation %, Estimator Notes), " +
+    "keep Item Code and Line Item ID unchanged, save the file, then use \"Import Updated Costing\" in the Costing Workspace."
+  helpCell.font = { name: "Arial", size: 9.5, italic: true, color: { argb: "FF92400E" } }
+  helpCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } }
+  helpCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true }
+  ws.getRow(6).height = 30
+
   // Row 7: Table Headers Row
   const headerRowIndex = 7
   const hRow = ws.getRow(headerRowIndex)
   hRow.height = 36.0
 
-  const tableHeaders = [
-    { col: 2, label: "Sl No", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 3, label: "Product Image", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 4, label: "Product Specifications", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 5, label: "QTY", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 6, label: "Factory Cost", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 7, label: "Accessories Cost", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 8, label: "Total Unit Cost", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 9, label: "Margin %", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 10, label: "Negotiation %", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 11, label: "Final Estimated Price (Unit)", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 12, label: "Costing Done/ Not", fill: "FF000000", color: "FFFFFFFF" },
-    { col: 13, label: "Discount added By Interior Design Consultant", fill: "FF020617", color: "FF34D399" }, // Highlighted IDC column
-    { col: 14, label: "Final Price", fill: "FF000000", color: "FFFFFFFF" },
-  ]
+  const editableCols = new Set<number>(COSTING_EDITABLE_COLUMNS.map((k) => COSTING_COLUMNS[k]))
+  const tableHeaders = (Object.keys(COSTING_COLUMNS) as (keyof typeof COSTING_COLUMNS)[]).map((key) => {
+    const col = COSTING_COLUMNS[key]
+    if (key === "idcDiscount") return { col, label: COSTING_HEADER_LABELS[key], fill: "FF020617", color: "FF34D399" } // Highlighted IDC column
+    if (editableCols.has(col)) return { col, label: COSTING_HEADER_LABELS[key], fill: "FFB45309", color: "FFFFFFFF" } // Editable offline
+    if (key === "lineItemId" || key === "itemCode") return { col, label: COSTING_HEADER_LABELS[key], fill: "FF475569", color: "FFFFFFFF" }
+    return { col, label: COSTING_HEADER_LABELS[key], fill: "FF000000", color: "FFFFFFFF" }
+  })
 
   tableHeaders.forEach((h) => {
     const cell = hRow.getCell(h.col)
@@ -294,13 +321,13 @@ export async function buildCostingExcelWorkbook(data: CostingExportData): Promis
     if (currentBatch && currentBatch !== prevBatch && currentBatch !== "General Items") {
       const sRow = ws.getRow(currentRow)
       sRow.height = 24
-      ws.mergeCells(`B${currentRow}:N${currentRow}`)
+      ws.mergeCells(`B${currentRow}:Q${currentRow}`)
       const sCell = ws.getCell(`B${currentRow}`)
       sCell.value = `📁 SECTION: ${currentBatch.toUpperCase()}`
       sCell.font = { name: "Arial", size: 10, bold: true, color: { argb: "FFFFFFFF" } }
       sCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } }
       sCell.alignment = { horizontal: "left", vertical: "middle" }
-      applyBorders(ws, currentRow, 2, 14)
+      applyBorders(ws, currentRow, 2, 17)
       currentRow++
     }
 
@@ -362,19 +389,23 @@ export async function buildCostingExcelWorkbook(data: CostingExportData): Promis
     eCell.alignment = { horizontal: "center", vertical: "middle" }
     eCell.numFmt = "#,##0"
 
-    // F: Factory Cost
+    const editableFill: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF9C3" } }
+
+    // F: Factory Cost (editable, exact value)
     const fCell = ws.getCell(`F${currentRow}`)
-    fCell.value = Math.round(item.factoryCost || 0)
+    fCell.value = Number(item.factoryCost || 0)
     fCell.font = { name: "Arial", size: 10.5 }
     fCell.alignment = { horizontal: "right", vertical: "middle" }
     fCell.numFmt = "#,##0.00"
+    fCell.fill = editableFill
 
-    // G: Accessories Cost
+    // G: Accessories Cost (editable, exact value)
     const gCell = ws.getCell(`G${currentRow}`)
-    gCell.value = Math.round(item.accessoriesCost || 0)
+    gCell.value = Number(item.accessoriesCost || 0)
     gCell.font = { name: "Arial", size: 10.5 }
     gCell.alignment = { horizontal: "right", vertical: "middle" }
     gCell.numFmt = "#,##0.00"
+    gCell.fill = editableFill
 
     // H: Total Unit Cost
     const hCell = ws.getCell(`H${currentRow}`)
@@ -391,18 +422,23 @@ export async function buildCostingExcelWorkbook(data: CostingExportData): Promis
     iCell.value = (item.marginPct || 0) / 100
     iCell.font = { name: "Arial", size: 10.5 }
     iCell.alignment = { horizontal: "center", vertical: "middle" }
-    iCell.numFmt = "0%"
+    iCell.numFmt = "0.0%"
+    iCell.fill = editableFill
 
     // J: Negotiation %
     const jCell = ws.getCell(`J${currentRow}`)
     jCell.value = (item.negotiationPct || 0) / 100
     jCell.font = { name: "Arial", size: 10.5 }
     jCell.alignment = { horizontal: "center", vertical: "middle" }
-    jCell.numFmt = "0%"
+    jCell.numFmt = "0.0%"
+    jCell.fill = editableFill
 
-    // K: Final Estimated Price (Unit)
+    // K: Final Estimated Price (Unit) — recalculates offline: cost ÷ (1 − margin) ÷ (1 − negotiation)
     const kCell = ws.getCell(`K${currentRow}`)
-    kCell.value = item.estimatorPriceUnit || 0
+    kCell.value = {
+      formula: `IF(H${currentRow}=0,0,ROUND(H${currentRow}/(1-MIN(MAX(I${currentRow},0),0.999))/(1-MIN(MAX(J${currentRow},0),0.999)),2))`,
+      result: item.estimatorPriceUnit || 0,
+    }
     kCell.font = { name: "Arial", size: 10.5, bold: true }
     kCell.alignment = { horizontal: "right", vertical: "middle" }
     kCell.numFmt = "#,##0.00"
@@ -427,7 +463,24 @@ export async function buildCostingExcelWorkbook(data: CostingExportData): Promis
     nCell.alignment = { horizontal: "right", vertical: "middle" }
     nCell.numFmt = "#,##0.00"
 
-    applyBorders(ws, currentRow, 2, 14)
+    // O: Estimator Notes (editable)
+    const oCell = ws.getCell(`O${currentRow}`)
+    oCell.value = item.estimatorNotes || ""
+    oCell.font = { name: "Arial", size: 9.5 }
+    oCell.alignment = { horizontal: "left", vertical: "middle", wrapText: true }
+    oCell.fill = editableFill
+
+    // P: Item Code and Q: Line Item ID — used to match rows when the file is imported back
+    const pCell = ws.getCell(`P${currentRow}`)
+    pCell.value = item.itemCode || ""
+    pCell.font = { name: "Arial", size: 9.5 }
+    pCell.alignment = { horizontal: "center", vertical: "middle", wrapText: true }
+    const qCell = ws.getCell(`Q${currentRow}`)
+    qCell.value = item.id
+    qCell.font = { name: "Consolas", size: 8.5, color: { argb: "FF94A3B8" } }
+    qCell.alignment = { horizontal: "center", vertical: "middle" }
+
+    applyBorders(ws, currentRow, 2, 17)
     currentRow++
   }
 
@@ -498,6 +551,9 @@ export async function buildCostingExcelWorkbook(data: CostingExportData): Promis
   nTot.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF08A" } } // Yellow highlight
 
   applyBorders(ws, currentRow, 2, 14)
+
+  // Freeze the header row so the column names stay visible while scrolling
+  ws.views = [{ state: "frozen", ySplit: headerRowIndex, showGridLines: true }]
 
   return workbook
 }

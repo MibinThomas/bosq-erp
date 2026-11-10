@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
+import { canAccessQuotation } from "@/lib/data-scope"
 import { hasPermission } from "@/lib/rbac"
 import { buildCostingExcelWorkbook, CostingExportItem } from "@/lib/costing-excel-builder"
 
@@ -41,10 +42,10 @@ export async function GET(
     ].includes(userRole)
 
     const canViewCostingPerm = await hasPermission(dbUser.id, "QUOTATIONS", "canViewCostingBreakdown")
-    const canExportCostingPerm = await hasPermission(dbUser.id, "QUOTATIONS", "export")
     const costPriceVisibleOverride = dbUser.permissionOverrides.find(o => o.action === "costPriceVisible" || o.action === "canViewCostingBreakdown")?.value
 
-    const isAuthorized = isManagerialRole || canViewCostingPerm || canExportCostingPerm || costPriceVisibleOverride === true
+    // The generic "export" permission is not enough: this file contains costs and margins
+    const isAuthorized = isManagerialRole || canViewCostingPerm || costPriceVisibleOverride === true
 
     if (!isAuthorized) {
       return NextResponse.json(
@@ -79,6 +80,9 @@ export async function GET(
 
     if (!quotation) {
       return NextResponse.json({ error: "Quotation not found" }, { status: 404 })
+    }
+    if (!(await canAccessQuotation({ id: dbUser.id, role: dbUser.role }, quotation.id))) {
+      return NextResponse.json({ error: "Forbidden: You do not have access to this quotation" }, { status: 403 })
     }
 
     const boqItems = quotation.boq?.items || []
@@ -121,7 +125,7 @@ export async function GET(
         batchHeading: qItem.batchHeading || null,
         description: qItem.description || qItem.product?.productName || "Product Item",
         specifications: qItem.specifications || qItem.productDescription || qItem.productNotes || null,
-        modelCode: qItem.product?.sku || qItem.product?.modelCode || qItem.description,
+        modelCode: qItem.product?.productCode || qItem.product?.modelCode || qItem.description,
         productType: qItem.categoryName || qItem.chairType || qItem.product?.category?.name || null,
         upholsteryMaterial: qItem.product?.upholsteryMaterial || null,
         baseType: qItem.product?.baseType || null,
@@ -138,6 +142,8 @@ export async function GET(
         costingStatusText: statusText,
         discountByIDC: discPct > 0 ? `${discPct}%` : "0%",
         finalPriceUnit: consPrice,
+        estimatorNotes: qItem.estimatorNotes || null,
+        itemCode: qItem.product?.productCode || null,
         customImageUrl: qItem.customImageUrl || null,
         product: qItem.product ? {
           imageUrl: qItem.product.imageUrl || null,
@@ -147,6 +153,7 @@ export async function GET(
     })
 
     const workbook = await buildCostingExcelWorkbook({
+      quotationId: quotation.id,
       quotationNumber: quotation.quotationNumber,
       projectName: quotation.projectName,
       date: quotation.date,

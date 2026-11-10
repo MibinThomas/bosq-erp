@@ -108,9 +108,15 @@ model ProductCategory {
   id          String    @id @default(cuid())
   name        String    @unique
   description String?
+  // Optional parent for a two-level hierarchy, e.g. Chairs > Premium Chairs
+  parentId    String?
+  parent      ProductCategory?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ProductCategory[] @relation("CategoryTree")
   products    Product[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([parentId])
 }
 
 model Product {
@@ -156,11 +162,15 @@ model Product {
 
   quotationItems  QuotationItem[]
   boqItems        BoqItem[]
+
+  @@index([categoryId])
+  @@index([parentProductId])
+  @@index([deletedAt, status])
 }
 
 model Quotation {
   id              String    @id @default(cuid())
-  quotationNumber String    // E.g., I1951
+  quotationNumber String    @unique // E.g., P1951-1 (revisions P1951-2…, copies "P1951-1 Copy 1")
   customerSegment String    @default("Project") // Dealer, Interior, Project, Special
   clientId        String
   client          Client    @relation(fields: [clientId], references: [id])
@@ -238,6 +248,11 @@ model Quotation {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
+  // Poster pages printed after the quotation. postersAuto: use every active poster linked to the
+  // quotation's products / categories (or marked for all quotations); otherwise exactly posterIds, in order.
+  postersAuto     Boolean   @default(false)
+  posterIds       String[]  @default([])
+
   boqId           String?
   boq             Boq?      @relation(fields: [boqId], references: [id])
 
@@ -305,6 +320,9 @@ model QuotationItem {
   estimatorId          String?
   estimator            User?     @relation("EstimatorQuotationItems", fields: [estimatorId], references: [id])
   estimatorNotes       String?
+  // Per-unit cost by category carried over from the BOQ:
+  // { material, labour, outsourcing, hardware, factory, other }
+  costBreakdown        Json?
   costingRequestedAt   DateTime?
   costingCompletedAt   DateTime?
 
@@ -318,6 +336,8 @@ model QuotationItem {
   updatedAt       DateTime  @updatedAt
 
   @@index([sortOrder])
+  @@index([quotationId])
+  @@index([productId])
 }
 
 model QuotationRevision {
@@ -405,6 +425,7 @@ model Boq {
   totalOverhead     Float   @default(0.0)
   totalFactoryCost  Float   @default(0.0)
   totalAccessoriesCost Float @default(0.0)
+  totalOutsourcingCost Float @default(0.0)
   totalNegotiationAmount Float @default(0.0)
   totalCost         Float   @default(0.0)
   
@@ -460,9 +481,13 @@ model BoqItem {
   transportCost   Float     @default(0.0)
   overheadCost    Float     @default(0.0)
   
+  // Estimator cost categories (per unit): Material = materialCost, Labour = laborCost,
+  // Outsourcing = outsourcingCost, Hardware = accessoriesCost, Factory = factoryCost, Other = overheadCost.
+  // installationCost / transportCost are legacy and still count towards the unit cost.
   factoryCost     Float     @default(0.0)
   accessoriesCost Float     @default(0.0)
-  
+  outsourcingCost Float     @default(0.0)
+
   unitCost        Float     @default(0.0)
   totalCost       Float     @default(0.0)
   
@@ -471,9 +496,12 @@ model BoqItem {
   negotiationAmount Float   @default(0.0)
   unitSellingPrice Float    @default(0.0)
   totalSellingPrice Float   @default(0.0)
-  
+
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+  @@index([boqId])
+  @@index([productId])
 }
 
 model Role {
@@ -623,6 +651,101 @@ model SequenceTracker {
   prefix      String?
   description String?
   updatedAt   DateTime @updatedAt
+}
+
+// ─── Poster library ───────────────────────────────────────────────────
+// Product posters / brochure pages printed as full pages in quotation PDFs.
+model Poster {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  imageUrl      String
+  tags          String[] @default([])
+  productIds    String[] @default([]) // linked products (variants match their master too)
+  categoryIds   String[] @default([]) // linked product categories (sub-categories match their parent too)
+  appliesToAll  Boolean  @default(false) // e.g. company profile: suggested for every quotation
+  isActive      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  uploadedById  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+// ─── Approval Management ──────────────────────────────────────────────
+// The master on/off switch lives in SystemSetting "approval_module_enabled".
+// One workflow per document type (module), e.g. "QUOTATION".
+model ApprovalWorkflow {
+  id          String          @id @default(cuid())
+  module      String          @unique // QUOTATION (later: PURCHASE_ORDER, SALES_ORDER, PRODUCTION_REQUEST…)
+  name        String
+  enabled     Boolean         @default(true)
+  levels      ApprovalLevel[]
+  rules       ApprovalRule[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+// Approval levels, ranked: a higher rank is more senior. Approvers of a level may also approve any lower level.
+model ApprovalLevel {
+  id              String           @id @default(cuid())
+  workflowId      String
+  workflow        ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  rank            Int
+  name            String
+  approverRoles   String[]         @default([])
+  approverUserIds String[]         @default([])
+  rules           ApprovalRule[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([workflowId, rank])
+}
+
+// A rule requires its level when ALL of its set conditions match. When several rules match,
+// the most senior level wins. A rule with no conditions matches every document.
+model ApprovalRule {
+  id               String           @id @default(cuid())
+  workflowId       String
+  workflow         ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  levelId          String
+  level            ApprovalLevel    @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  name             String
+  isActive         Boolean          @default(true)
+  minDiscountPct   Float?           // discount % strictly above this
+  minAmount        Float?           // document value (grand total) at or above this
+  maxMarginPct     Float?           // overall profit margin below this (only when costs are known)
+  customerSegments String[]         @default([]) // any of: Dealer, Interior, Project, Special
+  departments      String[]         @default([]) // preparer's department, any of
+  projectKeyword   String?          // project name contains (case-insensitive)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([workflowId])
+}
+
+// One approval request per decision; also the audit trail.
+model ApprovalRequest {
+  id             String    @id @default(cuid())
+  module         String
+  documentId     String
+  documentNumber String
+  levelRank      Int
+  levelName      String
+  status         String    @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+  reason         String?   // matched rule names
+  metrics        Json?     // snapshot: discount %, value, segment… at request time
+  requestedById  String?
+  decidedById    String?
+  decidedByName  String?
+  decidedAt      DateTime?
+  comment        String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([module, documentId])
+  @@index([status, createdAt])
 }
 
 model PasswordResetRequest {

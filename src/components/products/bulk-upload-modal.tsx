@@ -27,6 +27,10 @@ import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { read, utils } from "xlsx"
 import { ImageCropper } from "@/components/ui/image-cropper"
+import { formatOptionList, getChairOptions } from "@/lib/chair-options"
+import { getWorkstationOptions } from "@/lib/workstation-options"
+import { normalizePricingTiers } from "@/lib/pricing-tiers"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 interface BulkUploadModalProps {
   isOpen: boolean
@@ -62,6 +66,22 @@ interface ParsedProduct {
   stock?: number
   modelName?: string
   masterTitle?: string
+  // True when the sheet supplied a selling/list price, which is used as-is (no margin markup)
+  priceFromList?: boolean
+  // Chair configurator fields: the chair model (masterTitle) groups chair types; option lists are
+  // comma-separated and may carry a customization charge, e.g. "Black, Grey (+108)"
+  modelCode?: string
+  typeCode?: string
+  headrestColours?: string
+  backrestColours?: string
+  seatColours?: string
+  baseTypes?: string
+  // Workstation configurator fields: layout under the product model, plus option lists
+  layout?: string
+  seatsPerUnit?: string
+  dimensionOptions?: string
+  tableTopColours?: string
+  legFrameColours?: string
 }
 
 export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalProps) {
@@ -115,7 +135,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       fetch("/api/settings/pricing")
         .then(res => res.json())
         .then(data => {
-          if (!data.error) setPricingTiers(data)
+          if (!data.error) setPricingTiers(normalizePricingTiers(data))
         })
         .catch(console.error)
 
@@ -156,22 +176,34 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     }).filter(row => row.length > 0 && row.some(cell => cell !== ""))
   }
 
+  // Same columns as /templates/bosq_master_product_bulk_import_template.xlsx (see scripts/generate-import-template.cjs)
   const CSV_HEADERS = [
-    "Main Product / Base Title",
-    "Sub-Product / Model",
-    "Product Code",
-    "Product Name",
     "Category",
+    "Product Model",
+    "Model Code",
+    "Chair Type",
+    "Type Code",
+    "Layout",
+    "Seats per Unit",
+    "Item Code",
+    "Product Name",
+    "Selling Price (AED)",
     "Base Price (AED)",
     "Stock Quantity",
-    "Short Description",
+    "Headrest Colours",
+    "Backrest Colours",
+    "Seat Colours",
+    "Base Types",
+    "Dimension Options",
+    "Table Top Colours",
+    "Leg Frame Colours",
     "Dimensions / Size",
+    "Color",
     "Table Top Finish / Wood",
     "Leg Type / Color",
     "Side Return Option",
-    "Chair Type",
-    "Color",
     "Warranty",
+    "Short Description",
     "Specifications / Details",
     "Image Filename"
   ]
@@ -212,32 +244,46 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
       if (!res.ok) throw new Error("Failed to fetch products")
       const productsList = await res.json()
 
-      const rows = productsList.map((p: any) => {
+      // Chair model masters are created by the import itself, so only sellable items are exported
+      const rows = productsList.filter((p: any) => !p.isMaster).map((p: any) => {
         let imageFilename = ""
-        if (p.imageUrl) {
-          try {
-            const urlParts = p.imageUrl.split("/")
-            imageFilename = urlParts[urlParts.length - 1] || p.imageUrl
-          } catch {
-            imageFilename = p.imageUrl
-          }
+        if (p.imageUrl && !String(p.imageUrl).startsWith("data:")) {
+          const urlParts = String(p.imageUrl).split("/")
+          imageFilename = urlParts[urlParts.length - 1] || ""
         }
+        const chair = getChairOptions(p.variantAttributes)
+        const ws = getWorkstationOptions(p.variantAttributes)
+        const attrs = (p.variantAttributes || {}) as Record<string, unknown>
+        const isModelItem = !!p.parentProduct && !!p.variantAttributes
         return [
-          p.masterTitle || p.modelName || "",
-          p.modelName || "",
+          p.category?.name || p.categoryName || "",
+          isModelItem ? p.parentProduct.productName || "" : "",
+          isModelItem ? p.parentProduct.modelCode || p.modelCode || "" : "",
+          p.chairType || "",
+          chair.typeCode,
+          ws.layout,
+          attrs.seatsPerUnit ? String(attrs.seatsPerUnit) : "",
           p.productCode || "",
           p.productName || "",
-          p.category?.name || p.categoryName || "",
-          typeof p.costPrice === "number" ? p.costPrice.toFixed(2) : "0.00",
+          // Cost-priced products export their cost (selling prices are re-derived from margins on import);
+          // list-priced products (no cost) export their selling price
+          !(p.costPrice > 0) && p.projectPrice > 0 ? Number(p.projectPrice).toFixed(2) : "",
+          p.costPrice > 0 ? Number(p.costPrice).toFixed(2) : "",
           p.stock !== undefined && p.stock !== null ? p.stock.toString() : "0",
-          p.description || "",
+          formatOptionList(chair.headrestColours),
+          formatOptionList(chair.backrestColours),
+          formatOptionList(chair.seatColours),
+          formatOptionList(chair.baseTypes),
+          formatOptionList(ws.dimensions),
+          formatOptionList(ws.tableTopColours),
+          formatOptionList(ws.legFrameColours),
           p.dimensions || "",
+          p.availableColors || "",
           p.tableTopFinish || "",
           p.legType || "",
           p.storageOptions || "",
-          p.chairType || "",
-          p.availableColors || "",
           p.warranty || "",
+          p.description || "",
           p.specifications || "",
           imageFilename
         ]
@@ -293,17 +339,78 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     return cleanCat || "General"
   }
 
+  // Derives all segment prices for an imported row. A selling/list price is used as-is for every
+  // segment; otherwise the base price is treated as cost and marked up by the pricing tiers.
+  const buildPrices = (basePrice: number, sellingPrice: number) => {
+    if (sellingPrice > 0) {
+      return {
+        costPrice: basePrice,
+        unitPrice: sellingPrice,
+        dealerPrice: sellingPrice,
+        interiorPrice: sellingPrice,
+        projectPrice: sellingPrice,
+        specialPrice: sellingPrice,
+        priceFromList: true,
+      }
+    }
+    const calculatePrice = (pct: number) => {
+      if (pct >= 100) return basePrice
+      return Number((basePrice / (1 - (pct / 100))).toFixed(2))
+    }
+    return {
+      costPrice: basePrice,
+      unitPrice: calculatePrice(pricingTiers.direct),
+      dealerPrice: calculatePrice(pricingTiers.dealer),
+      interiorPrice: calculatePrice(pricingTiers.interior),
+      projectPrice: calculatePrice(pricingTiers.direct),
+      specialPrice: basePrice,
+      priceFromList: false,
+    }
+  }
+
+  // Chair and workstation configurator columns (model code, type/layout and option lists)
+  const chairFields = (getVal: (key: string) => string) => ({
+    modelCode: getVal("modelCode") || undefined,
+    typeCode: getVal("typeCode") || undefined,
+    headrestColours: getVal("headrestColours") || undefined,
+    backrestColours: getVal("backrestColours") || undefined,
+    seatColours: getVal("seatColours") || undefined,
+    baseTypes: getVal("baseTypes") || undefined,
+    layout: getVal("layout") || undefined,
+    seatsPerUnit: getVal("seatsPerUnit") || undefined,
+    dimensionOptions: getVal("dimensionOptions") || undefined,
+    tableTopColours: getVal("tableTopColours") || undefined,
+    legFrameColours: getVal("legFrameColours") || undefined,
+  })
+
+  const parsePriceCell = (raw: string) => {
+    const val = parseFloat(raw.replace(/[^0-9.]/g, ""))
+    return isNaN(val) ? 0.0 : val
+  }
+
   // Auto-suggest and process data silently
   const processImportData = (fileHeaders: string[], fileRows: string[][], fileName: string, fileSize: number) => {
     const initialMappings: Record<string, string> = {}
     const targetFields = [
-      { key: "masterTitle", synonyms: ["main product / base title", "main product", "base_title", "base title", "master title", "master product"] },
+      { key: "masterTitle", synonyms: ["product model", "chair model", "workstation model", "main product / base title", "main product", "base_title", "base title", "master title", "master product"] },
+      { key: "modelCode", synonyms: ["model code", "modelcode", "series code"] },
+      { key: "typeCode", synonyms: ["type code", "typecode", "chair type code"] },
+      { key: "headrestColours", synonyms: ["headrest colours", "headrest colors", "headrest colour", "headrest color"] },
+      { key: "backrestColours", synonyms: ["backrest colours", "backrest colors", "backrest colour", "backrest color"] },
+      { key: "seatColours", synonyms: ["seat colours", "seat colors", "seat colour", "seat color"] },
+      { key: "baseTypes", synonyms: ["base types", "base type", "base options"] },
+      { key: "layout", synonyms: ["layout", "seater and layout", "seater / layout", "seater layout"] },
+      { key: "seatsPerUnit", synonyms: ["seats per unit", "seats"] },
+      { key: "dimensionOptions", synonyms: ["dimension options", "available dimensions", "dimensions options"] },
+      { key: "tableTopColours", synonyms: ["table top colours", "table top colors", "tabletop colours", "table top colour", "table top color"] },
+      { key: "legFrameColours", synonyms: ["leg frame colours", "leg frame colors", "leg frame colour", "leg frame color"] },
       { key: "modelName", synonyms: ["sub-product / model", "sub product / model", "model_title", "model title", "model name", "modelname", "sub-product", "sub product", "model"] },
       { key: "productCode", synonyms: ["product code", "code", "sku", "productcode", "itemcode", "id"] },
       { key: "productName", synonyms: ["product name", "name", "title", "productname", "chairname", "item"] },
       { key: "shortDescription", synonyms: ["short description", "shortdescription", "short desc", "summary", "brief description"] },
       { key: "description", synonyms: ["product description", "description", "full description"] },
       { key: "categoryName", synonyms: ["category", "category name", "categoryname", "product category", "productcategory", "item category", "categories", "category_name", "product_category", "type", "group", "class", "sub category", "subcategory"] },
+      { key: "sellingPrice", synonyms: ["selling price (aed)", "selling price", "list price (aed)", "list price"] },
       { key: "basePrice", synonyms: ["base price (aed)", "base price", "base_price", "price", "unitprice", "rate", "cost", "sellingprice", "selling rate", "baseprice", "costprice", "price(aed)"] },
       { key: "warranty", synonyms: ["warranty", "warranty period", "guarantee", "period"] },
       { key: "finishMaterial", synonyms: ["product type", "producttype", "finish / material", "finish/material", "finish material", "finishmaterial"] },
@@ -358,13 +465,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return ""
       }
 
-      const basePriceVal = parseFloat(getVal("basePrice").replace(/[^0-9.]/g, ""))
-      const basePrice = isNaN(basePriceVal) ? 0.0 : basePriceVal
-
-      const calculatePrice = (pct: number) => {
-        if (pct >= 100) return basePrice
-        return Number((basePrice / (1 - (pct / 100))).toFixed(2))
-      }
+      const prices = buildPrices(parsePriceCell(getVal("basePrice")), parsePriceCell(getVal("sellingPrice")))
 
       const stockRaw = getVal("stock")
       let stock: number | undefined = undefined
@@ -386,12 +487,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         description: shortDesc,
         shortDescription: shortDesc,
         specifications: fullSpecs,
-        unitPrice: calculatePrice(pricingTiers.direct),
-        costPrice: basePrice,
-        dealerPrice: calculatePrice(pricingTiers.dealer),
-        interiorPrice: calculatePrice(pricingTiers.interior),
-        projectPrice: calculatePrice(pricingTiers.direct),
-        specialPrice: basePrice,
+        ...prices,
         warranty: getVal("warranty") || "5 Years",
         finishMaterial: getVal("finishMaterial"),
         chairType: getVal("chairType"),
@@ -404,6 +500,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         stock: stock,
         modelName: getVal("modelName") || undefined,
         masterTitle: getVal("masterTitle") || undefined,
+        ...chairFields(getVal),
         status: "ACTIVE"
       }
     })
@@ -580,11 +677,18 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         })
       }
 
-      if (typeof p.costPrice !== "number" || isNaN(p.costPrice) || p.costPrice <= 0) {
+      if (typeof p.costPrice !== "number" || isNaN(p.costPrice) || p.costPrice < 0) {
         errorsList.push({
           row: csvRowNum,
           column: currentMappings["basePrice"] || "Base Price (AED)",
-          message: "Base price must be a valid positive number.",
+          message: "Base price must be a valid number (0 or greater).",
+          key: "costPrice"
+        })
+      } else if (!p.priceFromList && p.costPrice === 0) {
+        warningsList.push({
+          row: csvRowNum,
+          column: currentMappings["basePrice"] || "Base Price (AED)",
+          message: "No price — product will be imported at 0. Set its price before quoting.",
           key: "costPrice"
         })
       }
@@ -601,6 +705,56 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
 
 
 
+
+      const isWorkstationRow = !!(p.layout || p.dimensionOptions || p.tableTopColours || p.legFrameColours)
+
+      // Workstation rows (a layout under a Product Model) feed the quotation workstation configurator
+      if (p.masterTitle && isWorkstationRow) {
+        if (!p.layout) {
+          warningsList.push({
+            row: csvRowNum,
+            column: currentMappings["layout"] || "Layout",
+            message: "Layout is missing (e.g. Single Seater, Cluster Of 4) — the product name will be used instead.",
+            key: "layout"
+          })
+        }
+        if (!p.dimensionOptions || !p.tableTopColours || !p.legFrameColours) {
+          warningsList.push({
+            row: csvRowNum,
+            column: currentMappings["dimensionOptions"] || "Dimension Options",
+            message: "Dimension, table top or leg frame options are missing — those fields won't be offered in the quotation.",
+            key: "dimensionOptions"
+          })
+        }
+      }
+
+      // Chair rows (grouped under a Product Model) feed the quotation chair configurator
+      if (p.masterTitle && !isWorkstationRow) {
+        if (!p.chairType) {
+          warningsList.push({
+            row: csvRowNum,
+            column: currentMappings["chairType"] || "Chair Type",
+            message: "Chair Type is missing — the configurator will list this item without a type.",
+            key: "chairType"
+          })
+        }
+        if (!p.backrestColours && !p.seatColours && !p.baseTypes) {
+          warningsList.push({
+            row: csvRowNum,
+            column: currentMappings["backrestColours"] || "Backrest Colours",
+            message: "No component options (backrest, seat or base) — the chair can be quoted but not customized.",
+            key: "backrestColours"
+          })
+        }
+        if (p.headrestColours && !/high[\s-]?back/i.test(p.chairType || "")) {
+          warningsList.push({
+            row: csvRowNum,
+            column: currentMappings["headrestColours"] || "Headrest Colours",
+            message: "Headrest colours only apply to High Back chairs and will be ignored for this type.",
+            key: "headrestColours"
+          })
+        }
+      }
 
       // Non-blocking Warnings
       if (!p.warranty) {
@@ -699,13 +853,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return ""
       }
 
-      const basePriceVal = parseFloat(getVal("basePrice").replace(/[^0-9.]/g, ""))
-      const basePrice = isNaN(basePriceVal) ? 0.0 : basePriceVal
-
-      const calculatePrice = (pct: number) => {
-        if (pct >= 100) return basePrice
-        return Number((basePrice / (1 - (pct / 100))).toFixed(2))
-      }
+      const prices = buildPrices(parsePriceCell(getVal("basePrice")), parsePriceCell(getVal("sellingPrice")))
 
       const stockVal = parseInt(getVal("stock").replace(/[^0-9]/g, ""), 10)
       const stock = isNaN(stockVal) ? 0 : stockVal
@@ -720,12 +868,7 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         categoryName: inferCategoryName(pCat, pName, pCode),
         description: getVal("description") || getVal("shortDescription") || getVal("specifications") || "",
         specifications: getVal("specifications"),
-        unitPrice: calculatePrice(pricingTiers.direct),
-        costPrice: basePrice,
-        dealerPrice: calculatePrice(pricingTiers.dealer),
-        interiorPrice: calculatePrice(pricingTiers.interior),
-        projectPrice: calculatePrice(pricingTiers.direct),
-        specialPrice: basePrice, // Online Price = Base Price
+        ...prices,
         warranty: getVal("warranty"),
         finishMaterial: getVal("finishMaterial"),
         chairType: getVal("chairType"),
@@ -736,6 +879,9 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         dimensions: getVal("dimensions"),
         imageFilename: getVal("imageFilename"),
         stock: stock,
+        modelName: getVal("modelName") || undefined,
+        masterTitle: getVal("masterTitle") || undefined,
+        ...chairFields(getVal),
         status: "ACTIVE"
       }
     })
@@ -870,8 +1016,8 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
     
     updated[index] = { ...updated[index], [key]: parsedValue }
     
-    // If changing costPrice, recalculate prices
-    if (key === "costPrice") {
+    // If changing costPrice, recalculate prices (unless the row carries an explicit selling/list price)
+    if (key === "costPrice" && !updated[index].priceFromList) {
       const cost = parsedValue as number
       const calculatePrice = (pct: number) => {
         if (pct >= 100) return cost
@@ -891,32 +1037,57 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
   const handleImport = async () => {
     setUploading(true)
     try {
-      const finalizedProducts = []
-      
+      // Images are uploaded to file storage and products keep only the URL. Embedding images as
+      // base64 in the product rows made the product list API exceed the 4.5 MB response limit.
+      const uploadImage = async (blob: Blob, name: string): Promise<string | null> => {
+        const formData = new FormData()
+        formData.append("file", await prepareImageForUpload(blob, name))
+        const res = await fetch("/api/upload?type=products", { method: "POST", body: formData })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !data.url) throw new Error(data.error || `Image upload failed for ${name}`)
+        return data.url as string
+      }
+
+      const finalizedProducts: any[] = []
+      const imageFailures: string[] = []
+      let imageUploadBlocked: string | null = null
+
       for (let i = 0; i < products.length; i++) {
         const prod = products[i]
-        
+
         // Skip products with blocking errors
         const hasErrors = validationErrors.some(err => err.row === (i + 2))
         if (hasErrors) continue
 
-        let uploadedUrl = null
-        if (prod.previewUrl && prod.previewUrl.startsWith("data:image/")) {
-          uploadedUrl = prod.previewUrl
-        } else if (prod.localImageFile) {
-          const base64Data = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader()
-            reader.onloadend = () => resolve(reader.result as string)
-            reader.onerror = () => reject(new Error("Failed to read image"))
-            reader.readAsDataURL(prod.localImageFile!)
-          })
-          uploadedUrl = base64Data
+        let uploadedUrl: string | null = null
+        if (!imageUploadBlocked && (prod.previewUrl?.startsWith("data:image/") || prod.localImageFile)) {
+          try {
+            const blob = prod.previewUrl?.startsWith("data:image/")
+              ? await (await fetch(prod.previewUrl)).blob() // cropped image
+              : prod.localImageFile!
+            const name = prod.localImageFile?.name || `${prod.productCode || "product"}.jpg`
+            uploadedUrl = await uploadImage(blob, name)
+          } catch (imgErr: any) {
+            imageFailures.push(prod.productCode || prod.productName)
+            // A storage configuration error will fail for every image — stop retrying and import without images
+            if (/not configured|not linked|does not exist|unauthori/i.test(imgErr?.message || "")) {
+              imageUploadBlocked = imgErr.message
+            }
+          }
         }
 
         finalizedProducts.push({
           ...prod,
+          localImageFile: undefined,
+          previewUrl: undefined,
           imageUrl: uploadedUrl
         })
+      }
+
+      if (imageUploadBlocked) {
+        toast.error(`Images could not be uploaded: ${imageUploadBlocked} Products will be imported without images.`, { duration: 12000 })
+      } else if (imageFailures.length > 0) {
+        toast.warning(`${imageFailures.length} image(s) failed to upload and were skipped: ${imageFailures.slice(0, 3).join(", ")}${imageFailures.length > 3 ? "…" : ""}`, { duration: 10000 })
       }
 
       if (finalizedProducts.length === 0) {
@@ -925,20 +1096,35 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
         return
       }
 
-      const res = await fetch("/api/products/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ products: finalizedProducts })
-      })
-
-      if (!res.ok) throw new Error("Bulk import failed")
-      const data = await res.json()
+      // Send in batches to keep each request small
+      const BATCH_SIZE = 20
+      let importedCount = 0
+      const skippedRows: string[] = []
+      for (let start = 0; start < finalizedProducts.length; start += BATCH_SIZE) {
+        const batch = finalizedProducts.slice(start, start + BATCH_SIZE)
+        const res = await fetch("/api/products/bulk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ products: batch })
+        })
+        if (!res.ok) {
+          throw new Error(`Bulk import failed at products ${start + 1}–${start + batch.length}${importedCount ? ` (${importedCount} already imported)` : ""}`)
+        }
+        const data = await res.json()
+        importedCount += data.count || 0
+        for (const s of data.skipped || []) {
+          skippedRows.push(`${batch[s.row - 1]?.productCode || `#${start + s.row}`}: ${s.reason}`)
+        }
+      }
 
       setShowSuccessOverlay(true)
-      toast.success(`Successfully imported ${data.count} products!`)
-    } catch (err) {
+      toast.success(`Successfully imported ${importedCount} products!`)
+      if (skippedRows.length > 0) {
+        toast.warning(`${skippedRows.length} product(s) were skipped: ${skippedRows.slice(0, 3).join("; ")}${skippedRows.length > 3 ? "…" : ""}`, { duration: 10000 })
+      }
+    } catch (err: any) {
       console.error(err)
-      toast.error("Bulk upload failed. Please verify spreadsheet structure.")
+      toast.error(err?.message || "Bulk upload failed. Please verify spreadsheet structure.")
     } finally {
       setUploading(false)
     }
@@ -1734,11 +1920,24 @@ export function BulkUploadModal({ isOpen, onClose, onSuccess }: BulkUploadModalP
                         { key: "categoryName", label: "Category", required: true },
                         { key: "finishMaterial", label: "Product Type (Finish)", required: false },
                         { key: "basePrice", label: "Base Price Only (AED)", required: true },
+                        { key: "sellingPrice", label: "Selling / List Price (AED, no markup)", required: false },
+                        { key: "masterTitle", label: "Product Model (chairs / workstations)", required: false },
+                        { key: "modelCode", label: "Model Code", required: false },
+                        { key: "chairType", label: "Chair Type", required: false },
+                        { key: "typeCode", label: "Type Code", required: false },
+                        { key: "headrestColours", label: "Headrest Colours (High Back)", required: false },
+                        { key: "backrestColours", label: "Backrest Colours", required: false },
+                        { key: "seatColours", label: "Seat Colours", required: false },
+                        { key: "baseTypes", label: "Base Types", required: false },
+                        { key: "layout", label: "Workstation Layout", required: false },
+                        { key: "seatsPerUnit", label: "Seats per Unit", required: false },
+                        { key: "dimensionOptions", label: "Dimension Options (mm)", required: false },
+                        { key: "tableTopColours", label: "Table Top Colours", required: false },
+                        { key: "legFrameColours", label: "Leg Frame Colours", required: false },
                         { key: "description", label: "Product Description", required: false },
                         { key: "specifications", label: "Specifications", required: false },
                         { key: "warranty", label: "Warranty period", required: false },
                         { key: "dimensions", label: "Dimensions", required: false },
-                        { key: "chairType", label: "Chair Type", required: false },
                         { key: "availableColors", label: "Color (for chairs)", required: false },
                         { key: "tableTopFinish", label: "Table Top Finish", required: false },
                         { key: "legType", label: "Leg Type", required: false },

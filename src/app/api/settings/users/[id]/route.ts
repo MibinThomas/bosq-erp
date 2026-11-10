@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { hashPassword } from "@/lib/auth"
 import { hasPermission } from "@/lib/rbac"
+import { checkUserChange, isPrivilegedRole } from "@/lib/role-policy"
 
 export async function GET(
   request: Request,
@@ -91,6 +92,11 @@ export async function POST(
 
     const body = await request.json()
     if (body.action === "restore") {
+      const target = await prisma.user.findUnique({ where: { id }, select: { role: true } })
+      if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 })
+      if (isPrivilegedRole(target.role) && !isSuperAdmin) {
+        return NextResponse.json({ error: "Only a Super Admin can restore admin or manager accounts" }, { status: 403 })
+      }
       const restored = await prisma.user.update({
         where: { id },
         data: {
@@ -172,6 +178,16 @@ export async function PATCH(
       }
     }
 
+    // Shared policy: no self role change, no deactivating yourself, keep one active Super Admin
+    const policyError = await checkUserChange({
+      actorId: userId,
+      actorRole: userRole,
+      target: { id: targetUser.id, role: targetUser.role, isActive: targetUser.isActive },
+      newRole: role,
+      newIsActive: isActive === undefined ? undefined : !!isActive,
+    })
+    if (policyError) return NextResponse.json({ error: policyError }, { status: 403 })
+
     // Only Super Admin or Admin can change password (reset access) or toggle active status
     if (!isSuperAdmin && userRole !== "ADMIN") {
       if (password && password.trim() !== "") {
@@ -194,7 +210,7 @@ export async function PATCH(
 
     const updateData: any = {
       name,
-      email,
+      email: String(email).trim().toLowerCase(),
       phone: phone || null,
       department: department || null,
       designation: designation || null,
@@ -206,7 +222,7 @@ export async function PATCH(
     }
 
     if (password && password.trim() !== "") {
-      const hashedPassword = hashPassword(password)
+      const hashedPassword = hashPassword(password.trim())
       updateData.password = hashedPassword
     }
 

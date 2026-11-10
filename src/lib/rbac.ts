@@ -144,6 +144,11 @@ export async function checkOwnership(
     }
   }
 
+  // Interior Design Consultants and Sales Executives only ever work on their own / assigned records
+  if (["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(user.role) && (ownershipRule === "ALL" || ownershipRule === "DEPARTMENT")) {
+    ownershipRule = "ASSIGNED"
+  }
+
   switch (ownershipRule) {
     case "ALL":
       return true

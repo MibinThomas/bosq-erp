@@ -139,7 +139,8 @@ export async function GET(request: Request) {
           transportCost: 0,
           installationCost: 0,
           unitCost: 0,
-          marginPercentage: 0
+          marginPercentage: 0,
+          negotiationPct: 0
         }
       }
       return mapped

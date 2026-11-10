@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server"
+import { Prisma } from "@prisma/client"
 import prisma from "@/lib/prisma"
+import { generateProductCode } from "@/lib/product-code"
+import { getCategoryIdsWithChildren } from "@/lib/product-categories"
+import { generateShortDescription } from "@/lib/short-descriptions"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { getCostVisibility, sanitizeProduct } from "@/lib/data-scope"
 
 export async function GET(request: Request) {
   try {
@@ -21,90 +26,88 @@ export async function GET(request: Request) {
     const userRole = (session?.user as any)?.role || ""
     const isInteriorConsultant = userRole === "INTERIOR_DESIGN_CONSULTANT"
 
-    if (grouped) {
-      // 1. Auto-consolidate any unlinked products if needed
-      const unlinkedProducts = await prisma.product.findMany({
-        where: {
-          deletedAt: null,
-          parentProductId: null,
-          isMaster: false,
-        }
-      })
+    // Optional server-side filtering & pagination. Without `page` the full list is returned (legacy behaviour).
+    const q = searchParams.get("q")?.trim()
+    const categoryId = searchParams.get("categoryId") || undefined
+    const status = searchParams.get("status") || undefined
+    const pageParam = searchParams.get("page")
+    const page = pageParam ? Math.max(1, parseInt(pageParam, 10) || 1) : null
+    const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get("pageSize") || "50", 10) || 50))
 
-      if (unlinkedProducts.length > 0) {
-        const brandGroups: Record<string, typeof unlinkedProducts> = {}
-        for (const p of unlinkedProducts) {
-          const brand = p.productName.trim().split(" ")[0]
-          if (!brandGroups[brand]) brandGroups[brand] = []
-          brandGroups[brand].push(p)
-        }
+    const textMatch: Prisma.ProductWhereInput[] = q
+      ? [
+          { productName: { contains: q, mode: "insensitive" } },
+          { productCode: { contains: q, mode: "insensitive" } },
+          { modelName: { contains: q, mode: "insensitive" } },
+          { description: { contains: q, mode: "insensitive" } },
+        ]
+      : []
 
-        for (const [brand, items] of Object.entries(brandGroups)) {
-          let master = await prisma.product.findFirst({
-            where: {
-              deletedAt: null,
-              isMaster: true,
-              productName: { equals: brand, mode: "insensitive" }
-            }
-          })
+    const baseWhere: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      // A parent category also matches products in its sub-categories
+      ...(categoryId ? { categoryId: { in: await getCategoryIdsWithChildren(categoryId) } } : {}),
+      ...(status ? { status } : {}),
+    }
+    // Interior Design Consultants only see what can be sold now: in-stock products
+    const inStock: Prisma.ProductWhereInput = { stock: { gt: 0 } }
 
-          if (!master) {
-            const masterCode = `MASTER-${brand.toUpperCase().replace(/[^A-Z0-9]/g, "")}`
-            master = await prisma.product.create({
-              data: {
-                productCode: masterCode,
-                productName: brand,
-                isMaster: true,
-                categoryId: items[0].categoryId,
-                description: `${brand} Series Seating Collection`,
-                status: "ACTIVE",
-                warranty: "3 Years",
-              }
-            })
-          }
-
-          await prisma.product.updateMany({
-            where: { id: { in: items.map(i => i.id) } },
-            data: {
-              isMaster: false,
-              parentProductId: master.id
-            }
-          })
-        }
-      }
-
-      // 2. Fetch Master products and standalone products (parentProductId is null)
-      const masterProducts = await prisma.product.findMany({
-        where: {
-          deletedAt: null,
-          parentProductId: null,
-          ...(isInteriorConsultant ? { stock: { gt: 0 } } : {})
-        },
-        include: {
-          category: true,
-          variants: {
-            where: { deletedAt: null },
-            include: { category: true },
-            orderBy: { productCode: "asc" }
-          }
-        },
-        orderBy: { productName: "asc" },
-      })
-      return NextResponse.json(masterProducts)
+    // Cost / dealer prices only for roles allowed to see them (Access Control)
+    const costVisibility = await getCostVisibility({ id: (session.user as any).id, role: userRole })
+    const paginate = <T>(rawItems: T[], total: number) => {
+      const items = rawItems.map((p) => sanitizeProduct(p, costVisibility))
+      return page ? NextResponse.json({ items, total, page, pageSize }) : NextResponse.json(items)
     }
 
-    const products = await prisma.product.findMany({
-      where: { 
-        deletedAt: null,
-        ...(isInteriorConsultant ? { stock: { gt: 0 } } : {})
-      },
-      include: {
-        category: true,
-        parentProduct: { select: { id: true, productName: true } }
-      },
-      orderBy: { productCode: "asc" },
-    })
-    return NextResponse.json(products)
+    if (grouped) {
+      // Master products and standalone products (parentProductId is null).
+      // A search term matches the master itself or any of its variants.
+      const where: Prisma.ProductWhereInput = {
+        ...baseWhere,
+        parentProductId: null,
+        AND: [
+          ...(q ? [{ OR: [...textMatch, { variants: { some: { deletedAt: null, OR: textMatch } } }] }] : []),
+          // Models carry no stock themselves: show a model when any of its variants is in stock
+          ...(isInteriorConsultant ? [{ OR: [inStock, { variants: { some: { deletedAt: null, ...inStock } } }] }] : []),
+        ],
+      }
+      const [masterProducts, total] = await Promise.all([
+        prisma.product.findMany({
+          where,
+          include: {
+            category: true,
+            variants: {
+              where: { deletedAt: null, ...(isInteriorConsultant ? inStock : {}) },
+              include: { category: true },
+              orderBy: { productCode: "asc" }
+            }
+          },
+          orderBy: { productName: "asc" },
+          ...(page ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
+        }),
+        page ? prisma.product.count({ where }) : Promise.resolve(0),
+      ])
+      return paginate(masterProducts, total)
+    }
+
+    const where: Prisma.ProductWhereInput = {
+      ...baseWhere,
+      ...(isInteriorConsultant ? inStock : {}),
+      ...(q ? { OR: textMatch } : {}),
+    }
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          category: true,
+          parentProduct: { select: { id: true, productName: true, modelCode: true, imageUrl: true } }
+        },
+        orderBy: { productCode: "asc" },
+        ...(page ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
+      }),
+      page ? prisma.product.count({ where }) : Promise.resolve(0),
+    ])
+    return paginate(products, total)
   } catch (error) {
     console.error("Failed to fetch products:", error)
     return NextResponse.json(
@@ -172,23 +175,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Generate master code if not provided
-    let finalCode = productCode
-    if (!finalCode) {
-      const prefix = categoryName.substring(0, 2).toUpperCase()
-      const lastProduct = await prisma.product.findFirst({
-        where: { productCode: { startsWith: prefix } },
-        orderBy: { productCode: "desc" },
-      })
-
-      let nextNum = 1
-      if (lastProduct) {
-        const lastNumPart = parseInt(lastProduct.productCode.replace(prefix + "-", ""), 10)
-        if (!isNaN(lastNumPart)) {
-          nextNum = lastNumPart + 1
-        }
-      }
-      finalCode = `${prefix}-${nextNum.toString().padStart(2, "0")}`
-    }
+    const finalCode = productCode || await generateProductCode(categoryName)
 
     // 3. Save master product
     const masterProduct = await prisma.product.create({
@@ -198,7 +185,11 @@ export async function POST(request: Request) {
         categoryId: category.id,
         parentProductId: body.parentProductId || null,
         modelName: body.modelName || null,
-        description: description || null,
+        // Default quotation description, generated from the spec when none is entered
+        description:
+          description ||
+          generateShortDescription({ productName, specifications, chairType, dimensions, availableColors, category: { name: categoryName } }) ||
+          null,
         specifications: specifications || null,
         unitPrice: parseFloat(unitPrice) || 0.0,
         costPrice: parseFloat(costPrice) || 0.0,
@@ -238,7 +229,20 @@ export async function POST(request: Request) {
             categoryId: category.id,
             modelName: varItem.modelName || null,
             modelCode: varItem.modelCode || null,
-            description: varItem.description || description || null,
+            description:
+              varItem.description ||
+              description ||
+              generateShortDescription({
+                productName: varItem.productName || productName,
+                specifications: varItem.specifications || specifications,
+                chairType: varItem.chairType || chairType,
+                dimensions: varItem.dimensions || dimensions,
+                availableColors: varItem.availableColors || availableColors,
+                variantAttributes: varItem.variantAttributes,
+                category: { name: categoryName },
+                parentProduct: { productName },
+              }) ||
+              null,
             specifications: varItem.specifications || specifications || null,
             costPrice: parseFloat(varItem.costPrice) || parseFloat(costPrice) || 0.0,
             unitPrice: parseFloat(varItem.unitPrice) || parseFloat(unitPrice) || 0.0,

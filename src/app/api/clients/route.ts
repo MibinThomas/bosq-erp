@@ -120,6 +120,25 @@ export async function GET(request: Request) {
 
       const isAssigned = canViewAllClients || isClientUserAssigned
 
+      // Pickers (?all=true) list every approved client so users can request access, but
+      // contact details of clients not assigned to the user stay hidden
+      const ownAccessRequests = Array.isArray(client.accessRequests) ? client.accessRequests : []
+      const hasFullView = isManagerialRole || isEstimatorRole || userOverride?.ownership === "ALL" || isClientUserAssigned
+      if (all && !hasFullView) {
+        return {
+          id: client.id,
+          clientId: client.clientId,
+          companyName: client.companyName,
+          status: client.status,
+          clientType: client.clientType,
+          priceCategory: client.priceCategory,
+          accessRequests: ownAccessRequests,
+          assignments: [],
+          isAssigned: false,
+          allowRequestAgain
+        }
+      }
+
       return {
         ...client,
         isAssigned,

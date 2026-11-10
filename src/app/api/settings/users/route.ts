@@ -74,7 +74,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, email, password, role, phone, department, designation, employeeId } = body
+    const { name, password, role, phone, department, designation, employeeId } = body
+    // Login lowercases and trims, so store the same form
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : body.email
 
     if ((role === "SUPER_ADMIN" || role === "ADMIN" || role === "SALES_MANAGER" || role === "MANAGER") && creatorRole !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden: Only Super Admin can assign Super Admin, Admin, or Manager roles" }, { status: 403 })
@@ -91,7 +93,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 400 })
     }
 
-    const hashedPassword = hashPassword(password)
+    if (String(password).trim().length < 8) {
+      return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 })
+    }
+    const hashedPassword = hashPassword(String(password).trim())
     const newUser = await prisma.user.create({
       data: {
         name,

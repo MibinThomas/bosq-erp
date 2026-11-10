@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { validateCategoryParent } from "@/lib/product-categories"
 
 export async function GET() {
   try {
@@ -43,12 +44,18 @@ export async function POST(request: Request) {
 
     const body = await request.json()
     const { name, description } = body
+    const parentId: string | null = body.parentId || null
 
     if (!name || !name.trim()) {
       return NextResponse.json(
         { error: "Category name is required" },
         { status: 400 }
       )
+    }
+
+    if (parentId) {
+      const parentError = await validateCategoryParent(null, parentId)
+      if (parentError) return NextResponse.json({ error: parentError }, { status: 400 })
     }
 
     const cleanName = name.trim()
@@ -69,6 +76,7 @@ export async function POST(request: Request) {
       data: {
         name: cleanName,
         description: description?.trim() || `${cleanName} category`,
+        parentId,
       },
     })
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import {
-  Upload, Download, Plus, Search, Trash2, Edit, AlertCircle, FileSpreadsheet, PackageOpen, LayoutGrid, List, CheckCircle2, MoreVertical, X, Filter, FolderPlus, Tag, Boxes, LayoutDashboard, Copy, MoreHorizontal, Pencil, SlidersHorizontal
+  Upload, Download, Plus, Search, Trash2, Edit, AlertCircle, FileSpreadsheet, PackageOpen, LayoutGrid, List, CheckCircle2, MoreVertical, X, Filter, FolderPlus, Tag, Boxes, LayoutDashboard, Copy, MoreHorizontal, Pencil, SlidersHorizontal, FileText
 } from "lucide-react"
 import { usePermissions } from "@/components/providers/PermissionsProvider"
 import { useRouter } from "next/navigation"
@@ -39,6 +39,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Check, ChevronsUpDown, ShoppingCart, Package, Sparkles, Loader2, ChevronRight, UserPlus, Layers, Eye, Camera } from "lucide-react"
 import { VariantDrawerModal, getSubProductName } from "@/components/products/variant-drawer-modal"
+import { categoryTrail, variantKind, variantNoun, variantTypeLabel } from "@/lib/variant-facets"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 interface Product {
   id: string
@@ -82,6 +84,7 @@ export default function ProductsPage() {
   const canDeleteProduct = hasPermission("PRODUCTS", "delete")
   const canBulkUploadProduct = hasPermission("PRODUCTS", "uploadFiles")
   const canManageCategory = hasPermission("PRODUCTS", "manage")
+  const canExportProduct = hasPermission("PRODUCTS", "export")
   const hasQuoteAccess = hasPermission("PRODUCTS", "share")
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -100,7 +103,7 @@ export default function ProductsPage() {
     setUploadingCardImgId(productId)
     try {
       const formData = new FormData()
-      formData.append("file", file)
+      formData.append("file", await prepareImageForUpload(file))
 
       const res = await fetch("/api/upload?type=products", {
         method: "POST",
@@ -164,14 +167,70 @@ export default function ProductsPage() {
     }
   }
   const [selectedCategory, setSelectedCategory] = useState("")
+  const [selectedSubCategory, setSelectedSubCategory] = useState("")
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isEditOpen, setIsEditOpen] = useState(false)
-  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; description: string | null; _count?: { products: number } }[]>([])
+  const [categoriesList, setCategoriesList] = useState<{ id: string; name: string; description: string | null; parentId?: string | null; _count?: { products: number } }[]>([])
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
   const [newCategoryDesc, setNewCategoryDesc] = useState("")
+  const [newCategoryParentId, setNewCategoryParentId] = useState("")
   const [creatingCategory, setCreatingCategory] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; description: string } | null>(null)
+  const [editingCategory, setEditingCategory] = useState<{ id: string; name: string; description: string; parentId: string } | null>(null)
+
+  // Categories ordered as a tree: each top-level category followed by its sub-categories
+  const topLevelCategories = categoriesList.filter(c => !c.parentId || !categoriesList.some(p => p.id === c.parentId))
+  const categoryTree = topLevelCategories.flatMap(parent => [
+    { ...parent, depth: 0 },
+    ...categoriesList.filter(c => c.parentId === parent.id).map(child => ({ ...child, depth: 1 })),
+  ])
+  // The category filter shows main categories; a main category with sub-categories (e.g. Chairs)
+  // reveals a second filter to narrow to one sub-category (e.g. Premium Chairs).
+  const selectedCategoryObj = categoriesList.find(c => c.name === selectedCategory)
+  const subCategoryOptions = selectedCategoryObj ? categoriesList.filter(c => c.parentId === selectedCategoryObj.id) : []
+  const activeFilterCategory = (selectedSubCategory && categoriesList.find(c => c.name === selectedSubCategory)) || selectedCategoryObj
+  const selectedCategoryNames = new Set(
+    selectedSubCategory
+      ? [selectedSubCategory]
+      : selectedCategoryObj
+        ? [selectedCategoryObj.name, ...subCategoryOptions.map(c => c.name)]
+        : selectedCategory ? [selectedCategory] : []
+  )
+  // Generate short quotation descriptions for catalogue products (preview first, then apply)
+  const [isDescriptionsOpen, setIsDescriptionsOpen] = useState(false)
+  const [descriptionsMode, setDescriptionsMode] = useState<"missing" | "all">("missing")
+  const [descriptionsBusy, setDescriptionsBusy] = useState(false)
+  const [descriptionsPreview, setDescriptionsPreview] = useState<{
+    count: number
+    totalProducts: number
+    samples: { productCode: string; productName: string; before: string; after: string }[]
+  } | null>(null)
+
+  const runDescriptions = async (mode: "missing" | "all", apply: boolean) => {
+    setDescriptionsBusy(true)
+    try {
+      const res = await fetch("/api/products/descriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, apply }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to generate descriptions")
+      if (apply) {
+        toast.success(`Updated short descriptions for ${data.count} product(s).`)
+        setIsDescriptionsOpen(false)
+        setDescriptionsPreview(null)
+        fetchProducts()
+      } else {
+        setDescriptionsPreview(data)
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate descriptions")
+    } finally {
+      setDescriptionsBusy(false)
+    }
+  }
+
   const [updatingCategory, setUpdatingCategory] = useState(false)
   const [deletingCatId, setDeletingCatId] = useState<string | null>(null)
 
@@ -215,13 +274,13 @@ export default function ProductsPage() {
     }
   }, [isAttributeModalOpen])
 
-  const handleUpdateCategory = async (id: string, name: string, description: string) => {
+  const handleUpdateCategory = async (id: string, name: string, description: string, parentId: string) => {
     setUpdatingCategory(true)
     try {
       const res = await fetch(`/api/products/categories/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description })
+        body: JSON.stringify({ name, description, parentId: parentId || null })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to update category")
@@ -236,7 +295,7 @@ export default function ProductsPage() {
   }
 
   const handleDeleteCategory = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete category "${name}"? Products in this category will be re-assigned to General.`)) return
+    if (!confirm(`Are you sure you want to delete category "${name}"? Products in this category will be re-assigned to General, and any sub-categories will become top-level categories.`)) return
     setDeletingCatId(id)
     try {
       const res = await fetch(`/api/products/categories/${id}`, {
@@ -659,7 +718,11 @@ export default function ProductsPage() {
       (product.category?.name && product.category.name.toLowerCase().includes(term)) ||
       Boolean(matchesVariants)
     )
-    const matchesCategory = selectedCategory ? product.category?.name === selectedCategory : true
+    // A group matches when the master or any of its variants belongs to the selected category
+    const matchesCategory = selectedCategory
+      ? selectedCategoryNames.has(product.category?.name || "") ||
+        Boolean(product.variants?.some(v => selectedCategoryNames.has(v.category?.name || "")))
+      : true
     return matchesSearch && matchesCategory
   })
 
@@ -732,6 +795,21 @@ export default function ProductsPage() {
               Manage Attributes
             </Button>
           )}
+          {canManageCategory && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDescriptionsOpen(true)
+                setDescriptionsPreview(null)
+                runDescriptions(descriptionsMode, false)
+              }}
+              className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+              title="Generate short quotation descriptions from product specifications"
+            >
+              <FileText className="h-4 w-4 text-primary" />
+              Generate Descriptions
+            </Button>
+          )}
           {canBulkUploadProduct && (
             <Button 
               variant="outline" 
@@ -741,6 +819,23 @@ export default function ProductsPage() {
               <Sparkles className="h-4 w-4 text-primary animate-pulse" />
               Bulk Upload
             </Button>
+          )}
+          {canExportProduct && (
+            <a
+              href={`/api/products/export?${new URLSearchParams({
+                ...(searchTerm.trim() ? { q: searchTerm.trim() } : {}),
+                ...(activeFilterCategory ? { categoryId: activeFilterCategory.id } : {}),
+              }).toString()}`}
+              download
+            >
+              <Button
+                variant="outline"
+                className="border-primary/20 hover:border-primary/45 hover:bg-primary/5 text-foreground cursor-pointer flex items-center gap-2"
+              >
+                <Download className="h-4 w-4 text-primary" />
+                Export
+              </Button>
+            </a>
           )}
           {canCreateProduct && (
             <Link href="/products/new">
@@ -767,15 +862,35 @@ export default function ProductsPage() {
           <select
             className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer hover:bg-muted/40 transition-colors max-w-[200px]"
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value)
+              setSelectedSubCategory("")
+            }}
           >
             <option value="">All Categories</option>
-            {categoriesList.map((cat) => (
+            {topLevelCategories.map((cat) => (
               <option key={cat.id} value={cat.name}>
                 {cat.name}
               </option>
             ))}
           </select>
+
+          {/* Sub-category filter, shown only for a main category that has sub-categories (e.g. Chairs) */}
+          {subCategoryOptions.length > 0 && (
+            <select
+              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer hover:bg-muted/40 transition-colors max-w-[200px]"
+              value={selectedSubCategory}
+              onChange={(e) => setSelectedSubCategory(e.target.value)}
+              aria-label={`${selectedCategory} sub-category`}
+            >
+              <option value="">All {selectedCategory}</option>
+              {subCategoryOptions.map((cat) => (
+                <option key={cat.id} value={cat.name}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           <select
             className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm cursor-pointer hover:bg-muted/40 transition-colors max-w-[200px]"
@@ -855,8 +970,10 @@ export default function ProductsPage() {
               // Total stock across variants
               const totalVariantStock = isMasterModel ? variantList.reduce((sum, v) => sum + (v.stock || 0), 0) : (product.stock || 0)
 
-              // Distinct sub-models list (Level 2)
-              const subModelNames = isMasterModel ? Array.from(new Set(variantList.map(v => getSubProductName(v as any, product.productName)).filter(Boolean))) : []
+              // Chair types / workstation layouts / variants of this model, labelled like the variants window
+              const modelKind = variantKind(product.category, variantList as any)
+              const subModelNames = isMasterModel ? Array.from(new Set(variantList.map(v => variantTypeLabel(v as any, modelKind, product.productName)).filter(Boolean))) : []
+              const productCategoryPath = categoryTrail(modelKind, product.category?.name)
 
               return (
                 <div 
@@ -888,7 +1005,7 @@ export default function ProductsPage() {
                     {isMasterModel ? (
                       <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-extrabold text-xs shadow-sm flex items-center gap-1">
                         <Layers className="h-3.5 w-3.5" />
-                        {subModelNames.length} Models • {variantList.length} Variations
+                        {variantNoun(modelKind, variantList.length)}
                       </Badge>
                     ) : (
                       <Badge variant={product.status === "ACTIVE" ? "default" : "destructive"} className="shadow-sm">
@@ -962,7 +1079,7 @@ export default function ProductsPage() {
                       </h3>
                       
                       <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                        Category: <span className="text-foreground">{product.category.name}</span>
+                        <span className="text-foreground">{productCategoryPath.join(" › ") || product.category.name}</span>
                       </p>
 
                       {subModelNames.length > 0 && (
@@ -974,7 +1091,7 @@ export default function ProductsPage() {
                           ))}
                           {subModelNames.length > 4 && (
                             <span className="text-[10px] font-bold text-muted-foreground">
-                              +{subModelNames.length - 4} more models
+                              +{subModelNames.length - 4} more
                             </span>
                           )}
                         </div>
@@ -1092,11 +1209,12 @@ export default function ProductsPage() {
                   
                   const totalVariantStock = isMasterModel ? variantList.reduce((sum, v) => sum + (v.stock || 0), 0) : (product.stock || 0)
 
-                  // Sub-products grouping (Level 2)
+                  // Group by chair type / workstation layout / variant, labelled like the variants window
+                  const modelKind = variantKind(product.category, variantList as any)
                   const subProductsMap = new Map<string, typeof variantList>()
                   if (isMasterModel) {
                     for (const v of variantList) {
-                      const subName = getSubProductName(v as any, product.productName)
+                      const subName = variantTypeLabel(v as any, modelKind, product.productName)
                       if (!subProductsMap.has(subName)) subProductsMap.set(subName, [])
                       subProductsMap.get(subName)!.push(v)
                     }
@@ -1135,11 +1253,11 @@ export default function ProductsPage() {
                         </TableCell>
                         <TableCell className="font-mono font-medium text-primary">{product.productCode}</TableCell>
                         <TableCell className="font-bold text-base">{product.productName}</TableCell>
-                        <TableCell>{product.category.name}</TableCell>
+                        <TableCell>{categoryTrail(modelKind, product.category?.name).join(" › ") || product.category.name}</TableCell>
                         <TableCell>
                           {isMasterModel ? (
                             <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 font-bold">
-                              {subProductsMap.size} Models • {variantList.length} Variations
+                              {variantNoun(modelKind, variantList.length)}
                             </Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs">Single Item</span>
@@ -1185,7 +1303,7 @@ export default function ProductsPage() {
                         </TableCell>
                       </TableRow>
 
-                      {/* Expandable Sub-table for Master Model Variants grouped by Sub-Products */}
+                      {/* Expandable sub-table: the model's chair types / layouts / variants */}
                       {isExpanded && isMasterModel && (
                         <TableRow key={`${product.id}-variants`} className="bg-muted/15 border-y">
                           <TableCell colSpan={10} className="p-4">
@@ -1193,7 +1311,7 @@ export default function ProductsPage() {
                               <div className="flex items-center justify-between">
                                 <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
                                   <Layers className="h-4 w-4 text-primary" />
-                                  Sub-Products & Variations under {product.productName} ({subProductsMap.size} Sub-Products, {variantList.length} Items)
+                                  {product.productName}: {variantNoun(modelKind, variantList.length)}
                                 </h4>
                               </div>
 
@@ -1202,12 +1320,12 @@ export default function ProductsPage() {
                                   <div className="bg-muted/40 px-3 py-2 border-b flex items-center justify-between">
                                     <span className="font-bold text-xs text-foreground flex items-center gap-1.5">
                                       <Badge variant="outline" className="text-[10px] font-bold bg-primary/10 text-primary border-primary/20">
-                                        Sub-Product
+                                        {modelKind === "chairs" ? "Chair Type" : modelKind === "workstations" ? "Layout" : "Variant"}
                                       </Badge>
                                       {subName}
                                     </span>
                                     <span className="text-[11px] font-semibold text-muted-foreground">
-                                      {items.length} Variations
+                                      {items.length} item{items.length === 1 ? "" : "s"}
                                     </span>
                                   </div>
                                   <Table>
@@ -1265,8 +1383,103 @@ export default function ProductsPage() {
       <BulkUploadModal 
         isOpen={isBulkOpen}
         onClose={() => setIsBulkOpen(false)}
-        onSuccess={fetchProducts}
+        onSuccess={() => {
+          fetchProducts()
+          fetchCategories()
+        }}
       />
+
+      {/* Generate Descriptions Modal */}
+      {isDescriptionsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-3xl bg-card rounded-2xl border shadow-2xl flex flex-col p-6 space-y-5 max-h-[90vh] overflow-hidden">
+            <div className="flex items-start justify-between border-b pb-4 shrink-0 gap-4">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Generate Short Descriptions
+                </h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Creates a one-line, customer-facing description from each product&apos;s specification. It is added to
+                  quotation lines by default and can be edited on each line before finalizing.
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setIsDescriptionsOpen(false)} className="rounded-full h-8 w-8 shrink-0" aria-label="Close">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 shrink-0" role="radiogroup" aria-label="Which products">
+              {([
+                { value: "missing", title: "Missing or placeholder only", hint: "Keeps descriptions you have written" },
+                { value: "all", title: "Regenerate all", hint: "Replaces every product's description" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={descriptionsMode === opt.value}
+                  onClick={() => {
+                    setDescriptionsMode(opt.value)
+                    runDescriptions(opt.value, false)
+                  }}
+                  className={`flex-1 text-left rounded-xl border p-3 cursor-pointer transition-colors ${
+                    descriptionsMode === opt.value ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+                  }`}
+                >
+                  <span className="text-sm font-bold text-foreground block">{opt.title}</span>
+                  <span className="text-xs text-muted-foreground">{opt.hint}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-[160px] border rounded-xl bg-muted/10">
+              {descriptionsBusy && !descriptionsPreview ? (
+                <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Checking products…
+                </div>
+              ) : descriptionsPreview ? (
+                descriptionsPreview.count === 0 ? (
+                  <p className="p-6 text-sm text-muted-foreground text-center">
+                    All {descriptionsPreview.totalProducts} products already have a suitable description.
+                  </p>
+                ) : (
+                  <div className="divide-y">
+                    <p className="p-3 text-xs font-semibold text-muted-foreground">
+                      {descriptionsPreview.count} of {descriptionsPreview.totalProducts} products will be updated. Examples:
+                    </p>
+                    {descriptionsPreview.samples.map((s) => (
+                      <div key={s.productCode} className="p-3 space-y-1 text-xs">
+                        <div className="font-semibold text-foreground">
+                          <span className="font-mono text-muted-foreground mr-2">{s.productCode}</span>
+                          {s.productName}
+                        </div>
+                        {s.before && <div className="text-muted-foreground line-through decoration-muted-foreground/50 line-clamp-1">{s.before}</div>}
+                        <div className="text-foreground">{s.after}</div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : null}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t shrink-0">
+              <Button variant="outline" size="sm" onClick={() => setIsDescriptionsOpen(false)} className="cursor-pointer">
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                disabled={descriptionsBusy || !descriptionsPreview || descriptionsPreview.count === 0}
+                onClick={() => runDescriptions(descriptionsMode, true)}
+                className="cursor-pointer"
+              >
+                {descriptionsBusy && descriptionsPreview ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1.5 h-3.5 w-3.5" />}
+                Update {descriptionsPreview?.count ?? ""} product{descriptionsPreview?.count === 1 ? "" : "s"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Manage Categories Modal */}
       {isCategoryModalOpen && (
@@ -1290,7 +1503,8 @@ export default function ProductsPage() {
                   setEditingCategory(null)
                   setNewCategoryName("")
                   setNewCategoryDesc("")
-                }} 
+                  setNewCategoryParentId("")
+                }}
                 className="rounded-full h-8 w-8"
               >
                 <X className="h-4 w-4" />
@@ -1313,6 +1527,7 @@ export default function ProductsPage() {
                     body: JSON.stringify({
                       name: newCategoryName.trim(),
                       description: newCategoryDesc.trim() || undefined,
+                      parentId: newCategoryParentId || null,
                     })
                   })
                   const data = await res.json()
@@ -1322,6 +1537,7 @@ export default function ProductsPage() {
                   toast.success(`Category "${data.name}" created successfully!`)
                   setNewCategoryName("")
                   setNewCategoryDesc("")
+                  setNewCategoryParentId("")
                   fetchCategories()
                 } catch (err: any) {
                   toast.error(err.message || "Failed to create category.")
@@ -1332,20 +1548,31 @@ export default function ProductsPage() {
               className="bg-muted/30 p-4 rounded-xl border space-y-3 shrink-0"
             >
               <span className="text-xs font-bold text-foreground block">Add New Category</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input 
-                  value={newCategoryName} 
-                  onChange={(e) => setNewCategoryName(e.target.value)} 
-                  placeholder="Category Name (e.g. Acoustic Pods)" 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Input
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Category Name (e.g. Acoustic Pods)"
                   className="h-9 text-xs bg-background"
                   required
                 />
-                <Input 
-                  value={newCategoryDesc} 
-                  onChange={(e) => setNewCategoryDesc(e.target.value)} 
-                  placeholder="Description (Optional)" 
+                <Input
+                  value={newCategoryDesc}
+                  onChange={(e) => setNewCategoryDesc(e.target.value)}
+                  placeholder="Description (Optional)"
                   className="h-9 text-xs bg-background"
                 />
+                <select
+                  value={newCategoryParentId}
+                  onChange={(e) => setNewCategoryParentId(e.target.value)}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-xs cursor-pointer"
+                  title="Parent category"
+                >
+                  <option value="">No parent (top-level)</option>
+                  {topLevelCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>Under: {cat.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex justify-end">
                 <Button 
@@ -1381,19 +1608,33 @@ export default function ProductsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
-                  {categoriesList.map((cat) => {
+                  {categoryTree.map((cat) => {
                     const isEditingThis = editingCategory?.id === cat.id
+                    const hasChildren = categoriesList.some(c => c.parentId === cat.id)
 
                     return (
                       <TableRow key={cat.id} className="hover:bg-muted/20">
                         {isEditingThis ? (
                           <>
-                            <TableCell>
-                              <Input 
+                            <TableCell className="space-y-1.5">
+                              <Input
                                 value={editingCategory.name}
                                 onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
                                 className="h-8 text-xs font-semibold"
                               />
+                              {!hasChildren && (
+                                <select
+                                  value={editingCategory.parentId}
+                                  onChange={(e) => setEditingCategory({ ...editingCategory, parentId: e.target.value })}
+                                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs cursor-pointer"
+                                  title="Parent category"
+                                >
+                                  <option value="">No parent (top-level)</option>
+                                  {topLevelCategories.filter(p => p.id !== cat.id).map((p) => (
+                                    <option key={p.id} value={p.id}>Under: {p.name}</option>
+                                  ))}
+                                </select>
+                              )}
                             </TableCell>
                             <TableCell>
                               <Input 
@@ -1411,7 +1652,7 @@ export default function ProductsPage() {
                                   size="icon" 
                                   variant="ghost" 
                                   className="h-7 w-7 text-emerald-600 hover:bg-emerald-50"
-                                  onClick={() => handleUpdateCategory(cat.id, editingCategory.name, editingCategory.description)}
+                                  onClick={() => handleUpdateCategory(cat.id, editingCategory.name, editingCategory.description, editingCategory.parentId)}
                                   disabled={updatingCategory}
                                   title="Save Changes"
                                 >
@@ -1431,7 +1672,10 @@ export default function ProductsPage() {
                           </>
                         ) : (
                           <>
-                            <TableCell className="font-semibold text-foreground">{cat.name}</TableCell>
+                            <TableCell className={cat.depth > 0 ? "pl-8 text-foreground" : "font-semibold text-foreground"}>
+                              {cat.depth > 0 && <span className="text-muted-foreground mr-1.5">└</span>}
+                              {cat.name}
+                            </TableCell>
                             <TableCell className="text-muted-foreground">{cat.description || "—"}</TableCell>
                             <TableCell className="text-center">
                               <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
@@ -1444,7 +1688,7 @@ export default function ProductsPage() {
                                   size="icon" 
                                   variant="ghost" 
                                   className="h-7 w-7 text-muted-foreground hover:text-foreground cursor-pointer"
-                                  onClick={() => setEditingCategory({ id: cat.id, name: cat.name, description: cat.description || "" })}
+                                  onClick={() => setEditingCategory({ id: cat.id, name: cat.name, description: cat.description || "", parentId: cat.parentId || "" })}
                                   title="Edit Category"
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
@@ -2206,7 +2450,10 @@ export default function ProductsPage() {
           setIsEditOpen(false)
           setEditingProduct(null)
         }}
-        onSuccess={fetchProducts}
+        onSuccess={() => {
+          fetchProducts()
+          fetchCategories()
+        }}
       />
 
       <ProductDetailsModal

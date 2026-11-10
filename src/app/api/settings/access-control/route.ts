@@ -3,6 +3,11 @@ import { authOptions } from "@/lib/authOptions"
 import prisma from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { hashPassword } from "@/lib/auth"
+import { checkUserChange } from "@/lib/role-policy"
+import crypto from "crypto"
+
+/** Random temporary password (shown once to the admin, never stored in plain text). */
+const generateTempPassword = () => "Bq-" + crypto.randomBytes(9).toString("base64url")
 
 let isMigrated = false
 
@@ -243,6 +248,7 @@ export async function GET(request: Request) {
     }
 
     const passwordResetRequests = await prisma.passwordResetRequest.findMany({
+      omit: { tempPassword: true },
       include: {
         user: {
           select: {
@@ -302,13 +308,22 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "A user with this email address already exists" }, { status: 400 })
       }
 
-      const hashedPassword = password && password.trim() ? hashPassword(password.trim()) : hashPassword("Bosq@2026")
+      const newRole = role || "INTERIOR_DESIGN_CONSULTANT"
+      const roleError = await checkUserChange({ actorId: user.id, actorRole: user.role, target: null, newRole })
+      if (roleError) return NextResponse.json({ error: roleError }, { status: 403 })
+
+      const providedPassword = typeof password === "string" ? password.trim() : ""
+      if (providedPassword && providedPassword.length < 8) {
+        return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 })
+      }
+      const initialPassword = providedPassword || generateTempPassword()
+      const hashedPassword = hashPassword(initialPassword)
       const newUser = await prisma.user.create({
         data: {
           name: name || "New User",
           email: cleanEmail,
           password: hashedPassword,
-          role: role || "INTERIOR_DESIGN_CONSULTANT",
+          role: newRole,
           department: department || null,
           designation: designation || null,
           employeeId: employeeId || null,
@@ -327,7 +342,8 @@ export async function POST(request: Request) {
         }
       })
 
-      return NextResponse.json({ success: true, user: newUser })
+      // A generated password is returned once so the admin can hand it over
+      return NextResponse.json({ success: true, user: newUser, ...(providedPassword ? {} : { tempPassword: initialPassword }) })
     }
 
     if (action === "create_role") {
@@ -646,21 +662,31 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: "Forbidden: Only Super Admin can update SUPER_ADMIN profile" }, { status: 403 })
       }
 
+      const newIsActive = status === undefined ? undefined : status === "Active"
+      const policyError = await checkUserChange({
+        actorId: user.id,
+        actorRole: user.role,
+        target: { id: targetUser.id, role: targetUser.role, isActive: targetUser.isActive },
+        newRole: role,
+        newIsActive,
+      })
+      if (policyError) return NextResponse.json({ error: policyError }, { status: 403 })
+
       const userUpdatePayload: any = {
         name,
-        email,
-        role,
+        email: typeof email === "string" ? email.trim().toLowerCase() : email,
+        role: role || undefined,
         department,
         employeeId,
-        status,
-        isActive: status === "Active",
+        // Leaving status out keeps the current status (it used to deactivate the user)
+        ...(status !== undefined ? { status, isActive: newIsActive } : {}),
       }
 
       if (password && password.trim() !== "") {
         if (user.role !== "SUPER_ADMIN") {
           return NextResponse.json({ error: "Forbidden: Only Super Admin can reset user passwords" }, { status: 403 })
         }
-        userUpdatePayload.password = hashPassword(password)
+        userUpdatePayload.password = hashPassword(password.trim())
       }
 
       // Update user details
@@ -1123,6 +1149,10 @@ export async function PUT(request: Request) {
     }
 
     if (type === "resolve_password_reset") {
+      // Resetting someone else's password grants access to their account: Super Admin only
+      if (user.role !== "SUPER_ADMIN") {
+        return NextResponse.json({ error: "Forbidden: Only a Super Admin can resolve password reset requests" }, { status: 403 })
+      }
       const { requestId, action: resetAction, newPassword, notes } = body
       const resetReq = await prisma.passwordResetRequest.findUnique({
         where: { id: requestId },
@@ -1133,7 +1163,14 @@ export async function PUT(request: Request) {
       }
 
       if (resetAction === "APPROVE") {
-        const finalPassword = newPassword && newPassword.trim() !== "" ? newPassword.trim() : "Bosq@" + Math.floor(1000 + Math.random() * 9000)
+        if (resetReq.userId === user.id) {
+          return NextResponse.json({ error: "Another Super Admin must approve a reset of your own account" }, { status: 403 })
+        }
+        const chosen = typeof newPassword === "string" ? newPassword.trim() : ""
+        if (chosen && chosen.length < 8) {
+          return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 })
+        }
+        const finalPassword = chosen || generateTempPassword()
         const hashedPassword = hashPassword(finalPassword)
 
         await prisma.user.update({
@@ -1147,7 +1184,7 @@ export async function PUT(request: Request) {
             status: "RESOLVED",
             resolvedAt: new Date(),
             resolvedBy: user.id,
-            tempPassword: finalPassword,
+            tempPassword: null, // never store passwords in plain text
             notes: notes || "Approved and password reset by Super Admin"
           }
         })
@@ -1156,7 +1193,7 @@ export async function PUT(request: Request) {
           data: {
             userId: resetReq.userId,
             title: "Password Reset Approved",
-            message: `Your password reset request has been approved. Your new password is: ${finalPassword}`,
+            message: "Your password reset request has been approved. Your administrator will give you the temporary password; please change it after signing in.",
             type: "SYSTEM"
           }
         })

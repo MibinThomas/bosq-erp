@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
 import { getSetting } from "@/lib/settings"
+import { hasPermission } from "@/lib/rbac"
 
 // Helper to clean up string values
 const cleanStr = (val: any): string | null => {
@@ -115,6 +116,10 @@ export async function GET() {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const canView = await hasPermission((session.user as any).id, "PRODUCTS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view products" }, { status: 403 })
     }
 
     const userRole = (session.user as any).role || ""

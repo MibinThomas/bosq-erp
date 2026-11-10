@@ -19,6 +19,7 @@ import { toast } from "sonner"
 import { ImageCropper } from "@/components/ui/image-cropper"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
@@ -94,7 +95,7 @@ export function QuotationItemImageDropzone({
     try {
       const formData = new FormData()
       const filename = originalFileName || (fileOrBlob instanceof File ? fileOrBlob.name : "custom-product.jpg")
-      formData.append("file", fileOrBlob, filename)
+      formData.append("file", await prepareImageForUpload(fileOrBlob, filename))
 
       const response = await fetch("/api/upload?type=product", {
         method: "POST",

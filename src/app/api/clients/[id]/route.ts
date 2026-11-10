@@ -148,7 +148,10 @@ export async function PUT(
       return NextResponse.json({ error: "Forbidden: You do not have permission to edit clients" }, { status: 403 })
     }
 
-    const { clientId, companyName, contactPerson, phone, email, address, trn, clientType, notes, status } = body
+    const { clientId, companyName, contactPerson, phone, email, address, trn, clientType, notes } = body
+    // Approving/rejecting a client needs the Clients "approve" permission, not just edit
+    const requestedStatus = body.status
+    const status = requestedStatus && (await hasPermission(currentUserId, "CLIENTS", "approve")) ? requestedStatus : undefined
 
     if (!companyName) {
       return NextResponse.json({ error: "Company name is required" }, { status: 400 })

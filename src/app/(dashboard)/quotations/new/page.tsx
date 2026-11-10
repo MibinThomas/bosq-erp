@@ -1,8 +1,8 @@
 "use client"
 
-import React, { useState, useEffect, useMemo, Suspense, useRef } from "react"
+import React, { useState, useEffect, useMemo, Suspense, useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useForm, useFieldArray, useWatch } from "react-hook-form"
+import { useForm, useFieldArray, useWatch, type Control } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { 
@@ -53,6 +53,7 @@ import {
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { CreateCustomMaterialModal } from "@/components/quotations/create-custom-material-modal"
+import { QuotationPosterField } from "@/components/quotations/QuotationPosterPicker"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -81,7 +82,11 @@ import { toast } from "sonner"
 import { QuickAddProductModal } from "@/components/products/quick-add-product-modal"
 import { QuickAddClientModal } from "@/components/clients/quick-add-client-modal"
 import { AssignmentModal } from "@/components/clients/assignment-modal"
-import { WorkstationConfigurator } from "@/components/products/workstation-configurator"
+import { ChairConfigurator } from "@/components/quotations/ChairConfigurator"
+import { WorkstationLayoutConfigurator } from "@/components/quotations/WorkstationLayoutConfigurator"
+import { ProductLineSummary } from "@/components/quotations/ProductLineSummary"
+import { PRODUCT_SELECTION_TABS, type ProductTab, productTabOf } from "@/lib/product-tabs"
+import { defaultQuotationDescription } from "@/lib/short-descriptions"
 import { ImageCropper } from "@/components/ui/image-cropper"
 import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
 import { QuotationSuccessModal } from "@/components/quotations/QuotationSuccessModal"
@@ -100,6 +105,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 const SECTION_THEMES = [
   {
@@ -162,6 +168,8 @@ const quotationSchema = z.object({
   includeSectionHeadings: z.boolean().default(true).optional(),
   includeMaterialsFinishes: z.boolean().default(false).optional(),
   selectedMaterials: z.array(z.any()).default([]).optional(),
+  postersAuto: z.boolean().default(true).optional(),
+  posterIds: z.array(z.string()).default([]).optional(),
   salesAgentId: z.string().optional(),
   salesAgentName: z.string().optional(),
   salesAgentTitle: z.string().optional(),
@@ -173,6 +181,7 @@ const quotationSchema = z.object({
   disclaimer: z.string().optional(),
   items: z.array(
     z.object({
+      id: z.string().optional(),
       productId: z.string().nullable().optional(),
       priceSource: z.enum(["standard", "manual"]).default("standard"),
       description: z.string().optional(),
@@ -182,8 +191,9 @@ const quotationSchema = z.object({
       basePrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Base price must be at least 0"),
       unitPrice: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Price must be at least 0"),
       discount: z.union([z.number(), z.string()]).refine(val => (val === "" ? 0 : Number(val)) >= 0, "Discount must be at least 0"),
-      discountType: z.enum(["PERCENTAGE", "AMOUNT"]).default("PERCENTAGE").optional(),
-      margin: z.union([z.number(), z.string()]).refine(val => (val === "" ? -100 : Number(val)) >= -100, "Margin must be at least -100").refine(val => (val === "" ? 0 : Number(val)) < 100, "Margin must be less than 100%"),
+      discountType: z.enum(["PERCENTAGE", "FIXED", "AMOUNT"]).default("PERCENTAGE").optional(),
+      // Quotation prices use base * (1 + markup / 100), so 100%+ is valid.
+      margin: z.union([z.number(), z.string()]).refine(val => Number.isFinite(Number(val)) && Number(val) >= -100, "Margin must be a finite number of at least -100%"),
       manualMargin: z.union([z.number(), z.string()]).optional(),
       customImageUrl: z.string().nullable().optional(),
       productDescription: z.string().optional(),
@@ -686,6 +696,23 @@ function useQuotationFinancials(control: any) {
   }
 }
 
+function usePendingCostingItems(control: Control<QuotationFormValues>) {
+  const watchItems = useWatch({ control, name: "items" })
+
+  const pendingCostingCount = useMemo(() => {
+    return (watchItems || []).filter((item) =>
+      item.costingStatus === "ADDED_FOR_COSTING" ||
+      item.costingStatus === "PENDING_COSTING" ||
+      item.costingStatus === "COSTING_IN_PROGRESS"
+    ).length
+  }, [watchItems])
+
+  return {
+    pendingCostingCount,
+    hasPendingCostingItems: pendingCostingCount > 0,
+  }
+}
+
 function CalculationSummaryPanel({ control }: { control: any }) {
   const {
     subtotal,
@@ -853,22 +880,39 @@ function StickyDockSummaryPanel({ control, submitting, form, onSubmit, onInvalid
   )
 }
 
-function BatchSectionSubtotal({ control, batchName, fields }: { control: any; batchName: string; fields: any[] }) {
-  const watchItems = useWatch({ control, name: "items" }) || []
+function BatchSectionSubtotal({
+  control,
+  sectionItems,
+}: {
+  control: any
+  sectionItems: { originalIndex: number }[]
+}) {
+  if (sectionItems.length === 0) {
+    return (
+      <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+        <Badge variant="outline" className="text-[11px] font-mono shrink-0 bg-background">0 items</Badge>
+        <span className="text-xs font-semibold text-foreground font-mono">Subtotal: AED 0.00</span>
+      </div>
+    )
+  }
 
-  const itemsInBatch = fields.filter((_, idx) => {
-    const itemVal = watchItems[idx]
-    const itemBatch = (itemVal?.batchHeading || "").trim()
-    const isGeneralBatch = !batchName || batchName.trim().toLowerCase() === "general items"
-    if (isGeneralBatch) {
-      return !itemBatch || itemBatch.toLowerCase() === "general items"
-    }
-    return itemBatch === batchName
-  })
+  return <BatchSectionSubtotalValue control={control} sectionItems={sectionItems} />
+}
 
-  const batchSubtotal = itemsInBatch.reduce((sum, fieldItem) => {
-    const idx = fields.findIndex(f => f.id === fieldItem.id)
-    const itemVal = watchItems[idx] || {}
+function BatchSectionSubtotalValue({
+  control,
+  sectionItems,
+}: {
+  control: any
+  sectionItems: { originalIndex: number }[]
+}) {
+  const itemPaths = useMemo(
+    () => sectionItems.map(({ originalIndex }) => `items.${originalIndex}` as const),
+    [sectionItems]
+  )
+  const items = useWatch({ control, name: itemPaths }) || []
+
+  const batchSubtotal = items.reduce((sum, itemVal) => {
     const qty = itemVal.quantity === "" ? 0 : Number(itemVal.quantity) || 0
     const price = itemVal.unitPrice === "" ? 0 : Number(itemVal.unitPrice) || 0
     const discVal = itemVal.discount === "" ? 0 : Number(itemVal.discount) || 0
@@ -881,7 +925,7 @@ function BatchSectionSubtotal({ control, batchName, fields }: { control: any; ba
   return (
     <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
       <Badge variant="outline" className="text-[11px] font-mono shrink-0 bg-background">
-        {itemsInBatch.length} {itemsInBatch.length === 1 ? 'item' : 'items'}
+        {items.length} {items.length === 1 ? 'item' : 'items'}
       </Badge>
       <span className="text-xs font-semibold text-foreground font-mono">
         Subtotal: AED {formatCurrency(batchSubtotal)}
@@ -955,7 +999,19 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   onOpenCreateSection?: (index: number) => void
   onOpenEditSection?: (batch: any) => void
 }) {
-  const [selectionMode, setSelectionMode] = useState<"search" | "configurator">("search")
+  const [productTab, setProductTab] = useState<ProductTab>(() => {
+    const line = form.getValues(`items.${index}`) || {}
+    const prod = line.productId ? products.find((p) => p.id === line.productId) : null
+    if (prod) return productTabOf(prod, dbCategories)
+    // Custom (non-catalog) lines open on the search tab; new lines start with chairs
+    return line.description ? "others" : "chairs"
+  })
+  const tabProducts = useMemo(
+    () => products.filter((p) => productTabOf(p, dbCategories) === productTab),
+    [products, dbCategories, productTab]
+  )
+  // Lines that already have a catalogue product show a compact summary; "Update" opens the selector
+  const [isEditingProduct, setIsEditingProduct] = useState<boolean>(() => !form.getValues(`items.${index}.productId`))
   const canUseConfigurator = true
   const currentItemVal = useWatch({ control, name: `items.${index}` }) || {}
   const includeCategoryName = useWatch({ control, name: "includeCategoryName" }) ?? true
@@ -1187,59 +1243,133 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
         </div>
       </div>
 
-      {/* Product Search / Workstation Configurator Tabbed Selector */}
+      {/* Product selection: a compact summary once a product is on the line; "Update" opens the selectors
+          (chairs and workstations use configurators, other categories use catalog search) */}
+      {currentProductId && !isEditingProduct ? (
+        <ProductLineSummary
+          imageUrl={currentImg}
+          title={currentItemVal.description || products.find((p) => p.id === currentProductId)?.productName || "Product"}
+          productCode={products.find((p) => p.id === currentProductId)?.productCode}
+          tabLabel={PRODUCT_SELECTION_TABS.find((t) => t.key === productTab)?.label}
+          specifications={currentItemVal.specifications}
+          quantity={qtyNum}
+          unitPrice={unitPriceNum}
+          lineTotal={lineTotal}
+          disabled={isItemLocked}
+          onUpdate={() => setIsEditingProduct(true)}
+        />
+      ) : (
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap bg-muted/40 p-1.5 rounded-lg border border-border/60">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 flex-wrap bg-muted/40 p-1 rounded-lg border border-border/60" role="tablist">
+          {currentProductId && (
             <Button
               type="button"
-              variant={selectionMode === "configurator" ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              onClick={() => setSelectionMode(selectionMode === "configurator" ? "search" : "configurator")}
+              onClick={() => setIsEditingProduct(false)}
+              className="order-last ml-auto h-8 text-xs px-3 font-semibold cursor-pointer"
+              title="Close the product selector without changes"
+            >
+              Done
+            </Button>
+          )}
+          {PRODUCT_SELECTION_TABS.map((tab) => (
+            <Button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={productTab === tab.key}
+              variant={productTab === tab.key ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setProductTab(tab.key)}
               className={cn(
-                "h-8 text-xs px-3.5 font-bold transition-all cursor-pointer flex items-center gap-1.5 border",
-                selectionMode === "configurator"
-                  ? "bg-primary text-primary-foreground shadow-xs border-primary"
-                  : "bg-background text-primary border-primary/30 hover:bg-primary/10"
+                "h-8 text-xs px-3.5 font-semibold cursor-pointer",
+                productTab === tab.key ? "shadow-xs" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-              <span>Select Product by Attributes</span>
+              {tab.label}
             </Button>
-          </div>
-          <span className="text-[11px] text-muted-foreground hidden md:inline px-2">
-            {selectionMode === "search" ? "Search existing products by code/name" : "Dynamically filter product attributes by Model & Specifications"}
-          </span>
+          ))}
         </div>
 
-        {selectionMode === "search" ? (
+        {productTab === "chairs" ? (
+          <ChairConfigurator
+            key={`${index}-${currentProductId || "new"}`}
+            products={products}
+            categories={dbCategories}
+            watchSegment={watchSegment}
+            currentProductId={currentProductId}
+            currentSpecifications={currentItemVal.specifications}
+            currentQuantity={currentQuantity}
+            disabled={isItemLocked}
+            onApply={(selection) => {
+              const v = selection.variant
+              handleProductSelect(index, v.id, {
+                ...v,
+                imageUrl: v.imageUrl || v.parentProduct?.imageUrl || "",
+              })
+              // Segment price from the ERP price list plus approved customization charges
+              const segmentBase = Number(form.getValues(`items.${index}.basePrice`)) || 0
+              const base = Number((segmentBase + selection.surcharge).toFixed(2))
+              const marginVal = Number(form.getValues(`items.${index}.margin`)) || 0
+              const opts = { shouldValidate: true, shouldDirty: true }
+              form.setValue(`items.${index}.basePrice`, base, opts)
+              form.setValue(`items.${index}.unitPrice`, Number((base * (1 + marginVal / 100)).toFixed(2)), opts)
+              form.setValue(`items.${index}.description`, `${selection.productTitle} — ${selection.itemCode}`, opts)
+              form.setValue(`items.${index}.specifications`, selection.componentSpec, opts)
+              form.setValue(`items.${index}.quantity`, selection.quantity, opts)
+              setIsEditingProduct(false)
+              toast.success(`${selection.productTitle} added to line #${index + 1}`)
+            }}
+          />
+        ) : productTab === "workstations" ? (
+          <WorkstationLayoutConfigurator
+            key={`${index}-${currentProductId || "new"}`}
+            products={products}
+            categories={dbCategories}
+            watchSegment={watchSegment}
+            currentProductId={currentProductId}
+            currentSpecifications={currentItemVal.specifications}
+            currentQuantity={currentQuantity}
+            disabled={isItemLocked}
+            onApply={(selection) => {
+              const v = selection.variant
+              handleProductSelect(index, v.id, {
+                ...v,
+                imageUrl: v.imageUrl || v.parentProduct?.imageUrl || "",
+              })
+              // ERP price for the selected configuration (layout price + approved option charges)
+              const segmentBase = Number(form.getValues(`items.${index}.basePrice`)) || 0
+              const base = Number((segmentBase + selection.surcharge).toFixed(2))
+              const marginVal = Number(form.getValues(`items.${index}.margin`)) || 0
+              const opts = { shouldValidate: true, shouldDirty: true }
+              form.setValue(`items.${index}.basePrice`, base, opts)
+              form.setValue(`items.${index}.unitPrice`, Number((base * (1 + marginVal / 100)).toFixed(2)), opts)
+              form.setValue(`items.${index}.description`, selection.productTitle, opts)
+              form.setValue(`items.${index}.specifications`, selection.componentSpec, opts)
+              form.setValue(`items.${index}.quantity`, selection.quantity, opts)
+              setIsEditingProduct(false)
+              toast.success(`${selection.productTitle} added to line #${index + 1}`)
+            }}
+          />
+        ) : (
           <ProductSearchSelect
             productId={currentProductId}
-            products={products}
+            products={tabProducts}
             watchSegment={watchSegment}
-            onProductSelect={(prodId) => handleProductSelect(index, prodId)}
+            onProductSelect={(prodId) => {
+              handleProductSelect(index, prodId)
+              setIsEditingProduct(false)
+            }}
             onCustomProductClick={() => {
               form.setValue(`items.${index}.productId`, "")
               form.setValue(`items.${index}.priceSource`, "manual")
             }}
-            onOpenConfigurator={() => setSelectionMode("configurator")}
             disabled={isItemLocked}
-          />
-        ) : (
-          <WorkstationConfigurator
-            watchSegment={watchSegment}
-            onSelectVariant={(variantProduct) => {
-              if (handleVariantSelect) {
-                handleVariantSelect(index, variantProduct)
-              } else {
-                handleProductSelect(index, variantProduct.id, variantProduct)
-              }
-              setSelectionMode("search")
-            }}
-            onCancel={() => setSelectionMode("search")}
           />
         )}
       </div>
+      )}
 
       {/* 2-Column Responsive Layout (Details & Pricing) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-2">
@@ -1297,28 +1427,48 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
             />
           )}
 
-          {/* Detailed Product Description Field */}
+          {/* Short description: filled from the product by default, editable per quotation line */}
           <FormField
             control={control}
             name={`items.${index}.productDescription`}
-            render={({ field }) => (
-              <FormItem>
-                <div className="flex items-center justify-between">
-                  <FormLabel className="text-xs font-bold text-foreground">Detailed Product Description</FormLabel>
-                  <span className="text-[11px] text-muted-foreground font-medium">Appears in PDF & Preview</span>
-                </div>
-                <FormControl>
-                  <Textarea
-                    disabled={isItemLocked}
-                    placeholder="Enter detailed product description (e.g. materials, mechanism, finish, fabric, warranty...)"
-                    className="min-h-[75px] text-xs bg-background leading-relaxed font-normal"
-                    {...field}
-                    value={field.value || ""}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              const lineProduct = currentProductId ? products.find((p) => p.id === currentProductId) : null
+              const defaultDescription = lineProduct ? cleanHtmlText(defaultQuotationDescription(lineProduct)) : ""
+              const isCustomised = !!defaultDescription && (field.value || "").trim() !== defaultDescription.trim()
+              return (
+                <FormItem>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <FormLabel className="text-xs font-bold text-foreground">
+                      Short Description
+                      {isCustomised && <span className="ml-1.5 text-[10px] font-semibold text-amber-600">· edited</span>}
+                    </FormLabel>
+                    <div className="flex items-center gap-2">
+                      {isCustomised && !isItemLocked && (
+                        <button
+                          type="button"
+                          onClick={() => form.setValue(`items.${index}.productDescription`, defaultDescription, { shouldDirty: true })}
+                          className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                          title={defaultDescription}
+                        >
+                          Reset to default
+                        </button>
+                      )}
+                      <span className="text-[11px] text-muted-foreground font-medium">Appears in PDF & Preview</span>
+                    </div>
+                  </div>
+                  <FormControl>
+                    <Textarea
+                      disabled={isItemLocked}
+                      placeholder="Short description shown under the product title on the quotation (materials, mechanism, finish…)"
+                      className="min-h-[75px] text-xs bg-background leading-relaxed font-normal"
+                      {...field}
+                      value={field.value || ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )
+            }}
           />
 
           {/* Special Notes Field */}
@@ -1514,7 +1664,7 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
                     <FormControl>
                       <NumericInput
                         name={field.name}
-                        disabled={isItemLocked || isCostingLockedForIDC}
+                        disabled={isItemLocked || isCostingLockedForIDC || currentPriceSource === "manual"}
                         className="h-9 text-xs sm:text-sm font-mono bg-primary/5 font-bold text-primary border-primary/40 focus:border-primary shadow-2xs"
                         value={field.value}
                         onChange={(val) => {
@@ -1619,28 +1769,27 @@ const QuotationItemCard = React.memo(function QuotationItemCard({
   )
 })
 function StickyFooterToolbar({
-  grandTotal,
   submitting,
   primaryButtonText,
   onSubmit,
   onInvalid,
   form,
+  control,
   handleSendToCostingClick,
-  pendingCostingCount,
-  hasPendingCostingItems,
   isQuotationLockedForCosting,
 }: {
-  grandTotal: number
   submitting: boolean
   primaryButtonText: string
   onSubmit: (data: any, status?: any) => void
   onInvalid: (errors: any) => void
   form: any
+  control: Control<QuotationFormValues>
   handleSendToCostingClick: () => void
-  pendingCostingCount: number
-  hasPendingCostingItems: boolean
   isQuotationLockedForCosting?: boolean
 }) {
+  const { grandTotal } = useQuotationFinancials(control)
+  const { pendingCostingCount, hasPendingCostingItems } = usePendingCostingItems(control)
+
   return (
     <div className="fixed bottom-0 left-0 md:left-64 right-0 z-40 bg-background/95 backdrop-blur-md border-t shadow-2xl py-3 px-4 sm:px-8">
       <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4">
@@ -1723,6 +1872,73 @@ function StickyFooterToolbar({
   )
 }
 
+function PendingCostingAction({
+  control,
+  isIDC,
+  isQuotationLockedForCosting,
+  submitting,
+  onClick,
+}: {
+  control: Control<QuotationFormValues>
+  isIDC: boolean
+  isQuotationLockedForCosting: boolean
+  submitting: boolean
+  onClick: () => void
+}) {
+  const { pendingCostingCount, hasPendingCostingItems } = usePendingCostingItems(control)
+
+  if (!isIDC || !hasPendingCostingItems || isQuotationLockedForCosting) return null
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={submitting}
+      onClick={onClick}
+      className="bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-xs h-8 px-2.5 cursor-pointer flex items-center gap-1 shadow-2xs"
+    >
+      <Calculator className="h-3.5 w-3.5 text-amber-600" />
+      <span className="hidden md:inline">Send to Estimator ({pendingCostingCount})</span>
+    </Button>
+  )
+}
+
+// Unsaved revision edits live in this browser until the user explicitly saves the revision.
+// Creating the revision on the server allocates a new number and marks the original REVISED,
+// so it must never happen from a background autosave.
+const REVISION_DRAFT_PREFIX = "quoteRevisionDraft:"
+type LocalRevisionDraft = {
+  savedAt: string
+  sourceUpdatedAt?: string
+  values: QuotationFormValues
+  batches: { id: string; name: string }[]
+  revisionNotes: string
+}
+function readRevisionDraft(sourceId: string): LocalRevisionDraft | null {
+  try {
+    const raw = localStorage.getItem(REVISION_DRAFT_PREFIX + sourceId)
+    return raw ? (JSON.parse(raw) as LocalRevisionDraft) : null
+  } catch {
+    return null
+  }
+}
+function writeRevisionDraft(sourceId: string, draft: LocalRevisionDraft) {
+  try {
+    localStorage.setItem(REVISION_DRAFT_PREFIX + sourceId, JSON.stringify(draft))
+  } catch {
+    // Storage full or blocked: edits stay in the open form only
+  }
+}
+function clearRevisionDraft(sourceId: string | null | undefined) {
+  if (!sourceId) return
+  try {
+    localStorage.removeItem(REVISION_DRAFT_PREFIX + sourceId)
+  } catch {
+    // ignore
+  }
+}
+
 function NewQuotationForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1745,6 +1961,8 @@ function NewQuotationForm() {
       includeSectionHeadings: true,
       includeMaterialsFinishes: false,
       selectedMaterials: [],
+      postersAuto: true,
+      posterIds: [],
       salesAgentId: "",
       salesAgentName: "",
       salesAgentTitle: "",
@@ -1785,18 +2003,10 @@ function NewQuotationForm() {
 
   const watchIncludeMaterialsFinishes = form.watch("includeMaterialsFinishes")
   const watchSelectedMaterials = form.watch("selectedMaterials") || []
-  const watchItems = form.watch("items") || []
 
   const [isCostingSelectionOpen, setIsCostingSelectionOpen] = useState(false)
   const [selectedCostingItemIndexes, setSelectedCostingItemIndexes] = useState<number[]>([])
-
-  const pendingCostingCount = useMemo(() => {
-    return watchItems.filter((item: any) => item.costingStatus === "ADDED_FOR_COSTING" || item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS").length
-  }, [watchItems])
-
-  const hasPendingCostingItems = useMemo(() => {
-    return watchItems.some((item: any) => item.costingStatus === "ADDED_FOR_COSTING" || item.costingStatus === "PENDING_COSTING" || item.costingStatus === "COSTING_IN_PROGRESS")
-  }, [watchItems])
+  const costingItems = form.getValues("items") || []
 
   const handleSendToCostingClick = async () => {
     if (submitting || isQuotationLockedForCosting) return
@@ -2086,19 +2296,19 @@ function NewQuotationForm() {
   const [sectionCreateTargetIndex, setSectionCreateTargetIndex] = useState<number | null>(null)
   const [editingSectionBatchId, setEditingSectionBatchId] = useState<string | null>(null)
 
-  const handleOpenCreateSection = (targetIndex?: number) => {
+  const handleOpenCreateSection = useCallback((targetIndex?: number) => {
     setEditingSectionBatchId(null)
     setNewSectionInputName("")
     setSectionCreateTargetIndex(targetIndex ?? null)
     setIsCreateSectionModalOpen(true)
-  }
+  }, [])
 
-  const handleOpenEditSection = (batch: { id: string; name: string }) => {
+  const handleOpenEditSection = useCallback((batch: { id: string; name: string }) => {
     setEditingSectionBatchId(batch.id)
     setNewSectionInputName(batch.name.trim() || "General Items")
     setSectionCreateTargetIndex(null)
     setIsCreateSectionModalOpen(true)
-  }
+  }, [])
 
   const handleConfirmSaveSection = () => {
     const trimmed = newSectionInputName.trim()
@@ -2200,12 +2410,13 @@ function NewQuotationForm() {
   }, [draggedIndex, draggedBatchId])
 
   const [selectedItemIndices, setSelectedItemIndices] = useState<number[]>([])
+  const autoSaveHandlerRef = useRef<() => Promise<any>>(async () => undefined)
 
-  const handleToggleSelectItem = (index: number) => {
+  const handleToggleSelectItem = useCallback((index: number) => {
     setSelectedItemIndices((prev) =>
       prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
     )
-  }
+  }, [])
 
   const handleToggleSelectBatch = (bName: string) => {
     const watchAllItems = form.getValues("items") || []
@@ -2276,7 +2487,10 @@ function NewQuotationForm() {
     if (selectedItemIndices.length === 0) return
     const currentItems = form.getValues("items") || []
     const sortedIndices = [...selectedItemIndices].sort((a, b) => a - b)
-    const itemsToDuplicate = sortedIndices.map((idx) => ({ ...currentItems[idx] }))
+    const itemsToDuplicate = sortedIndices.map((idx) => ({
+      ...currentItems[idx],
+      id: undefined,
+    }))
 
     const updatedItems = [...currentItems, ...itemsToDuplicate]
     form.setValue("items", updatedItems, { shouldDirty: true, shouldValidate: true })
@@ -2318,30 +2532,30 @@ function NewQuotationForm() {
     autoSaveStateRef.current = { isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes }
   }, [isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes])
 
-  const handleDragStart = (e: React.DragEvent, index: number) => {
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
     e.stopPropagation()
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', `item-${index}`)
     setDraggedIndex(index)
-  }
+  }, [])
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
     e.preventDefault()
     e.stopPropagation()
     e.dataTransfer.dropEffect = 'move'
     if (draggedIndex !== null && draggedIndex !== index && dragOverIndex !== index) {
       setDragOverIndex(index)
     }
-  }
+  }, [draggedIndex, dragOverIndex])
 
-  const handleDragEnd = () => {
+  const handleDragEnd = useCallback(() => {
     setDraggedIndex(null)
     setDragOverIndex(null)
     setDraggedBatchId(null)
     setDragOverBatchId(null)
-  }
+  }, [])
 
-  const handleDrop = (e: React.DragEvent, dropIndex: number, targetBatchName?: string) => {
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number, targetBatchName?: string) => {
     e.preventDefault()
     e.stopPropagation()
 
@@ -2405,9 +2619,9 @@ function NewQuotationForm() {
     } else {
       toast.success(formattedTargetName ? `Moved product to section "${formattedTargetName}"` : `Moved product`)
     }
-  }
+  }, [draggedIndex, selectedItemIndices, form, handleDragEnd])
 
-  const handleMoveItem = (index: number, direction: -1 | 1, batchName: string) => {
+  const handleMoveItem = useCallback((index: number, direction: -1 | 1, batchName: string) => {
     const currentItems = [...form.getValues("items")]
     if (index < 0 || index >= currentItems.length) return
 
@@ -2435,7 +2649,7 @@ function NewQuotationForm() {
     currentItems[targetIndex] = temp
 
     form.setValue("items", currentItems, { shouldDirty: true, shouldValidate: true })
-  }
+  }, [form])
 
   const handleBatchDragStart = (e: React.DragEvent, batchId: string) => {
     e.stopPropagation()
@@ -2871,6 +3085,8 @@ function NewQuotationForm() {
               includeSectionHeadings: activeData.includeSectionHeadings ?? true,
               includeMaterialsFinishes: activeData.includeMaterialsFinishes ?? false,
               selectedMaterials: Array.isArray(activeData.selectedMaterials) ? activeData.selectedMaterials : [],
+              postersAuto: activeData.postersAuto ?? false,
+              posterIds: Array.isArray(activeData.posterIds) ? activeData.posterIds : [],
               salesAgentId: activeData.salesAgentId || "",
               salesAgentName: activeData.salesAgentName || "",
               salesAgentTitle: activeData.salesAgentTitle || "",
@@ -2897,9 +3113,11 @@ function NewQuotationForm() {
                 if (isCostedByEstimator && estimatorFinalSellingPrice > 0) {
                   // The Estimator's Final Selling Price becomes the Base Price for the Interior Design Consultant
                   loadedBase = estimatorFinalSellingPrice
-                  // IDC manual margin defaults to 0 (or uses saved manualMargin)
-                  marginVal = item.manualMargin !== undefined && item.manualMargin !== null
-                    ? Number(item.manualMargin)
+                  // The consultant's markup on top of it, recovered from the saved selling price
+                  // (there is no separate column, so it used to reset to 0 and drop the markup on save)
+                  const savedPrice = Number(item.unitPrice) || 0
+                  marginVal = savedPrice > 0
+                    ? Number((((savedPrice - loadedBase) / loadedBase) * 100).toFixed(2))
                     : 0
                 } else if (item.unitCost > 0) {
                   loadedBase = item.unitCost
@@ -2914,6 +3132,10 @@ function NewQuotationForm() {
 
                 let loadedUnitPrice = Number((loadedBase * (1 + marginVal / 100)).toFixed(2))
                 if (loadedUnitPrice === 0 && item.unitPrice > 0) {
+                  loadedUnitPrice = item.unitPrice
+                }
+                // Costed lines reopen at exactly the price that was saved (no rounding drift from the %)
+                if (isCostedByEstimator && estimatorFinalSellingPrice > 0 && item.unitPrice > 0) {
                   loadedUnitPrice = item.unitPrice
                 }
 
@@ -2948,6 +3170,7 @@ function NewQuotationForm() {
                   : (item.costingStatus || (activeData.costingStatus === "COSTING_COMPLETED" ? "COSTING_COMPLETED" : "NOT_REQUIRED"))
 
                 return {
+                  id: copyId ? undefined : item.id,
                   productId: item.productId || "",
                   priceSource: resolvedPriceSource,
                   description: item.description,
@@ -2998,6 +3221,39 @@ function NewQuotationForm() {
                 ? activeData.additionalCharges
                 : [{ name: "", amount: "", notes: "" }],
             })
+
+            // Offer unsaved revision edits kept on this device, unless the quotation changed since
+            if (reviseId) {
+              // Baseline = the quotation as loaded, so opening it alone never triggers an autosave
+              lastSavedDataRef.current = JSON.stringify({
+                ...form.getValues(),
+                revisionNotes: activeData.notes || activeData.revisionNotes || "",
+              })
+              const localDraft = readRevisionDraft(activeData.id)
+              if (localDraft && localDraft.sourceUpdatedAt && activeData.updatedAt &&
+                  localDraft.sourceUpdatedAt !== activeData.updatedAt) {
+                clearRevisionDraft(activeData.id)
+              } else if (localDraft) {
+                toast("You have unsaved revision changes for this quotation.", {
+                  description: `Last edited ${new Date(localDraft.savedAt).toLocaleString()}`,
+                  duration: 20000,
+                  action: {
+                    label: "Restore",
+                    onClick: () => {
+                      form.reset(localDraft.values)
+                      if (Array.isArray(localDraft.batches) && localDraft.batches.length > 0) {
+                        setBatches(localDraft.batches)
+                      }
+                      setRevisionNotes(localDraft.revisionNotes || "")
+                    },
+                  },
+                  cancel: {
+                    label: "Discard",
+                    onClick: () => clearRevisionDraft(activeData.id),
+                  },
+                })
+              }
+            }
           }
         } else {
           if (sysDisclaimerTitle) form.setValue("disclaimerTitle", sysDisclaimerTitle)
@@ -3097,7 +3353,14 @@ function NewQuotationForm() {
     control: form.control,
   })
 
-  const watchAllItemsForGrouping = form.watch("items") || []
+  const batchHeadingFieldNames = useMemo(
+    () => fields.map((_, idx) => `items.${idx}.batchHeading` as const),
+    [fields]
+  )
+  const watchedBatchHeadings = useWatch({
+    control: form.control,
+    name: batchHeadingFieldNames,
+  })
 
   const groupedItemsByBatch = useMemo(() => {
     const map: Record<string, { fieldItem: any; originalIndex: number }[]> = {}
@@ -3109,8 +3372,7 @@ function NewQuotationForm() {
     })
 
     fields.forEach((fieldItem, idx) => {
-      const itemVal = watchAllItemsForGrouping[idx] || fieldItem
-      const itemBatch = (itemVal?.batchHeading || "").trim()
+      const itemBatch = (watchedBatchHeadings[idx] ?? fieldItem.batchHeading ?? "").trim()
       const isGeneral = !itemBatch || itemBatch.toLowerCase() === "general items"
 
       let targetBatchName = "General Items"
@@ -3133,7 +3395,7 @@ function NewQuotationForm() {
     })
 
     return map
-  }, [fields, watchAllItemsForGrouping, batches])
+  }, [fields, watchedBatchHeadings, batches])
 
   const { fields: additionalFields, append: appendAdditional, remove: removeAdditional } = useFieldArray({
     name: "additionalCharges",
@@ -3176,7 +3438,7 @@ function NewQuotationForm() {
       const croppedBlob = await fetchRes.blob()
 
       const formData = new FormData()
-      formData.append("file", croppedBlob, "custom-product.jpg")
+      formData.append("file", await prepareImageForUpload(croppedBlob, "custom-product.jpg"))
 
       const res = await fetch("/api/upload", {
         method: "POST",
@@ -3203,7 +3465,7 @@ function NewQuotationForm() {
     }
   }
 
-  const handleProductSelect = (index: number, productId: string, overrideProd?: any) => {
+  const handleProductSelect = useCallback((index: number, productId: string, overrideProd?: any) => {
     const prod = overrideProd || products.find((p) => p.id === productId)
     if (!prod) return
 
@@ -3243,7 +3505,8 @@ function NewQuotationForm() {
 
     form.setValue(`items.${index}.unitPrice`, calculatedUnitPrice, { shouldValidate: true, shouldDirty: true })
     form.setValue(`items.${index}.manualMargin`, marginVal, { shouldValidate: true, shouldDirty: true })
-    form.setValue(`items.${index}.productDescription`, cleanHtmlText(prod.description || ""), { shouldValidate: true, shouldDirty: true })
+    // Every product line starts with a short description (editable on the line before finalizing)
+    form.setValue(`items.${index}.productDescription`, cleanHtmlText(defaultQuotationDescription(prod)), { shouldValidate: true, shouldDirty: true })
 
     const category = prod.category?.name || prod.categoryName
     if (category) {
@@ -3252,9 +3515,9 @@ function NewQuotationForm() {
     if (prod.chairType) {
       form.setValue(`items.${index}.chairType`, prod.chairType, { shouldValidate: true, shouldDirty: true })
     }
-  }
+  }, [products, watchSegment, form])
 
-  const handleVariantSelect = (index: number, variantProduct: any) => {
+  const handleVariantSelect = useCallback((index: number, variantProduct: any) => {
     if (!variantProduct) return
     setProducts((prev) => {
       if (!prev.some((p) => p.id === variantProduct.id)) {
@@ -3265,18 +3528,18 @@ function NewQuotationForm() {
     handleProductSelect(index, variantProduct.id, variantProduct)
     lastSavedDataRef.current = ""
     setTimeout(() => {
-      handleAutoSave()
+      void autoSaveHandlerRef.current()
     }, 50)
-  }
+  }, [handleProductSelect])
 
-  const handleDuplicateItem = (index: number) => {
+  const handleDuplicateItem = useCallback((index: number) => {
     const itemToCopy = form.getValues(`items.${index}`)
     const { id, ...cleanItem } = (itemToCopy || {}) as any
     insert(index + 1, {
       ...cleanItem,
     })
     toast.success("Item duplicated")
-  }
+  }, [form, insert])
 
   const handleAddItemToBatch = (batchName: string) => {
     append({
@@ -3328,7 +3591,16 @@ function NewQuotationForm() {
       if (typeof errors.items.message === "string") {
         messages.push(errors.items.message)
       } else if (Array.isArray(errors.items)) {
-        messages.push("Please check product items pricing and quantity")
+        errors.items.forEach((itemErrors: Record<string, { message?: string }> | undefined, index: number) => {
+          if (!itemErrors) return
+          const item = form.getValues(`items.${index}`)
+          const label = `Item #${index + 1}${item?.description ? ` (${item.description})` : ""}`
+          Object.entries(itemErrors).forEach(([field, error]) => {
+            if (typeof error?.message === "string") {
+              messages.push(`${label} — ${field}: ${error.message}`)
+            }
+          })
+        })
       }
     }
 
@@ -3496,6 +3768,7 @@ function NewQuotationForm() {
       }
 
       const result = await res.json()
+      if (isRevisionMode) clearRevisionDraft(existingQuote?.id)
       toast.success(
         isRevisionMode
           ? (resolvedStatus === "DRAFT"
@@ -3532,15 +3805,38 @@ function NewQuotationForm() {
   }
 
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const autoSaveInFlightRef = useRef(false)
+  const autoSaveQueuedRef = useRef(false)
 
   const handleAutoSave = async () => {
     const currentData = form.getValues()
     if (!currentData.clientId || currentData.items.length === 0) return
+    if (autoSaveInFlightRef.current) {
+      autoSaveQueuedRef.current = true
+      return
+    }
 
     const { isRevision, isEdit, existingQuote, autoSavedQuoteId, revisionNotes } = autoSaveStateRef.current
+    // Finalized quotations are only saved explicitly via "Update Quotation"; never autosave them as drafts
+    if (!isRevision && existingQuote && existingQuote.status !== "DRAFT") return
     const dataString = JSON.stringify({ ...currentData, revisionNotes })
     if (dataString === lastSavedDataRef.current) return
 
+    // Revising: keep edits on this device until the user explicitly saves the revision
+    if (isRevision && existingQuote && !autoSavedQuoteId) {
+      writeRevisionDraft(existingQuote.id, {
+        savedAt: new Date().toISOString(),
+        sourceUpdatedAt: existingQuote.updatedAt,
+        values: currentData,
+        batches,
+        revisionNotes,
+      })
+      lastSavedDataRef.current = dataString
+      setLastAutoSavedAt(new Date())
+      return
+    }
+
+    autoSaveInFlightRef.current = true
     setIsAutoSaving(true)
     try {
 
@@ -3580,8 +3876,10 @@ function NewQuotationForm() {
         const hasManual = item.manualMargin !== undefined && item.manualMargin !== ""
         const finalMargin = hasManual ? item.manualMargin : item.margin
         const price = item.unitPrice === "" ? 0 : Number(item.unitPrice)
-        const discPercent = item.discount === "" ? 0 : Number(item.discount)
-        const absoluteDiscount = price * (discPercent / 100)
+        // Same conversion as the explicit submit: PERCENTAGE is a % of the unit price, FIXED/AMOUNT is per unit
+        const discVal = item.discount === "" ? 0 : Number(item.discount)
+        const discType = item.discountType || "PERCENTAGE"
+        const absoluteDiscount = discType === "PERCENTAGE" ? price * (discVal / 100) : discVal
 
         formattedItems.push({
           ...item,
@@ -3609,6 +3907,7 @@ function NewQuotationForm() {
           commonRemarkStyle: currentData.commonRemarkStyle || "AMBER",
           isRevision: sendIsRevision,
           isUpdate: isEdit || !!autoSavedQuoteId,
+          isAutoSave: true,
           revisionNotes: revisionNotes,
           status: "DRAFT",
         }),
@@ -3617,8 +3916,21 @@ function NewQuotationForm() {
       if (res.ok) {
         const result = await res.json()
         if (result.id) {
+          const previousQuote = autoSaveStateRef.current.existingQuote
+          const nextQuote = previousQuote
+            ? { ...previousQuote, ...result }
+            : result
+          autoSaveStateRef.current = {
+            ...autoSaveStateRef.current,
+            isEdit: true,
+            isRevision: false,
+            existingQuote: nextQuote,
+            autoSavedQuoteId: result.id,
+          }
           setAutoSavedQuoteId(result.id)
-          setExistingQuote(result)
+          if (!previousQuote || previousQuote.id !== result.id) {
+            setExistingQuote(nextQuote)
+          }
           setIsEdit(true)
           setIsRevision(false)
         }
@@ -3629,31 +3941,63 @@ function NewQuotationForm() {
     } catch (error) {
       console.error("Auto-save failed:", error)
     } finally {
+      autoSaveInFlightRef.current = false
       setIsAutoSaving(false)
+      if (autoSaveQueuedRef.current) {
+        autoSaveQueuedRef.current = false
+        if (autoSaveTimerRef.current) {
+          clearTimeout(autoSaveTimerRef.current)
+        }
+        autoSaveTimerRef.current = setTimeout(() => {
+          void handleAutoSave()
+        }, 0)
+      }
     }
+    autoSaveHandlerRef.current = handleAutoSave
   }
 
-  // Track Form Changes for Undo History Stack
-  useEffect(() => {
-    const subscription = form.watch((value) => {
-      if (isHistoryActionRef.current) return
-      
-      const snapshot = JSON.parse(JSON.stringify(value))
-      const lastSnapshot = historyStackRef.current[historyStackRef.current.length - 1]
-      
-      if (!lastSnapshot || JSON.stringify(snapshot) !== JSON.stringify(lastSnapshot)) {
-        historyStackRef.current.push(snapshot)
-        if (historyStackRef.current.length > 35) {
-          historyStackRef.current.shift()
-        }
-        redoStackRef.current = []
+  const saveHistorySnapshot = useCallback(() => {
+    if (isHistoryActionRef.current) return
+
+    const snapshot = JSON.parse(JSON.stringify(form.getValues()))
+    const lastSnapshot = historyStackRef.current[historyStackRef.current.length - 1]
+
+    if (!lastSnapshot || JSON.stringify(snapshot) !== JSON.stringify(lastSnapshot)) {
+      historyStackRef.current.push(snapshot)
+      if (historyStackRef.current.length > 35) {
+        historyStackRef.current.shift()
       }
-    })
-    return () => subscription.unsubscribe()
+      redoStackRef.current = []
+    }
   }, [form])
+
+  // Track Form Changes for Undo History Stack
+  const historySnapshotTimerRef = useRef<NodeJS.Timeout | null>(null)
+  useEffect(() => {
+    const subscription = form.watch(() => {
+      if (isHistoryActionRef.current) return
+
+      if (historySnapshotTimerRef.current) {
+        clearTimeout(historySnapshotTimerRef.current)
+      }
+      historySnapshotTimerRef.current = setTimeout(() => {
+        saveHistorySnapshot()
+      }, 1000)
+    })
+    return () => {
+      subscription.unsubscribe()
+      if (historySnapshotTimerRef.current) {
+        clearTimeout(historySnapshotTimerRef.current)
+      }
+    }
+  }, [form, saveHistorySnapshot])
 
   // Undo / Redo Handlers
   const performUndo = () => {
+    if (historySnapshotTimerRef.current) {
+      clearTimeout(historySnapshotTimerRef.current)
+    }
+    saveHistorySnapshot()
     if (historyStackRef.current.length <= 1) {
       toast.info("Nothing to undo")
       return
@@ -3674,6 +4018,10 @@ function NewQuotationForm() {
   }
 
   const performRedo = () => {
+    if (historySnapshotTimerRef.current) {
+      clearTimeout(historySnapshotTimerRef.current)
+    }
+    saveHistorySnapshot()
     if (redoStackRef.current.length === 0) {
       toast.info("Nothing to redo")
       return
@@ -3830,7 +4178,6 @@ function NewQuotationForm() {
   const primaryButtonText = isRevisionMode ? `Create Revision ${targetRevNo}` : isFinalizedQuote ? "Update Quotation" : "Create Quotation"
   const watchIncludeSectionHeadings = useWatch({ control: form.control, name: "includeSectionHeadings" }) ?? true
 
-  const { grandTotal: calculatedGrandTotal } = useQuotationFinancials(form.control)
   const currentUserRole = userRole || (session?.user as any)?.role || ""
   const isIDC = ["INTERIOR_DESIGN_CONSULTANT", "SALES_EXECUTIVE"].includes(currentUserRole)
   const currentCostingStatus = (existingQuote?.costingStatus || "").toUpperCase()
@@ -3895,7 +4242,10 @@ function NewQuotationForm() {
             ) : lastAutoSavedAt ? (
               <>
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Saved {lastAutoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span>
+                  {isRevision && !autoSavedQuoteId ? "Saved on this device" : "Saved"}{" "}
+                  {lastAutoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </>
             ) : (
               <span>Draft ready</span>
@@ -3929,20 +4279,13 @@ function NewQuotationForm() {
             <span>PDF Preview</span>
           </Button>
 
-          {/* Send to Estimator Action Button (if applicable for IDC) */}
-          {isIDC && hasPendingCostingItems && !isQuotationLockedForCosting && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={submitting}
-              onClick={handleSendToCostingClick}
-              className="bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-xs h-8 px-2.5 cursor-pointer flex items-center gap-1 shadow-2xs"
-            >
-              <Calculator className="h-3.5 w-3.5 text-amber-600" />
-              <span className="hidden md:inline">Send to Estimator ({pendingCostingCount})</span>
-            </Button>
-          )}
+          <PendingCostingAction
+            control={form.control}
+            isIDC={isIDC}
+            isQuotationLockedForCosting={isQuotationLockedForCosting}
+            submitting={submitting}
+            onClick={handleSendToCostingClick}
+          />
 
           {/* Primary Action Button (Create / Update / Save Revision) */}
           <Button
@@ -3983,8 +4326,6 @@ function NewQuotationForm() {
     submitting,
     isQuotationLockedForCosting,
     isIDC,
-    hasPendingCostingItems,
-    pendingCostingCount,
     primaryButtonText,
     setHeaderContent,
   ])
@@ -4809,6 +5150,11 @@ function NewQuotationForm() {
                       )}
                     </div>
                   )}
+
+                {/* Poster pages from the Poster Library (printed after the quotation) */}
+                <div className="p-4 rounded-xl border bg-muted/20">
+                  <QuotationPosterField form={form} />
+                </div>
               </CardContent>
             </Card>
 
@@ -4930,7 +5276,10 @@ function NewQuotationForm() {
                                 </div>
 
                                 <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
-                                  <BatchSectionSubtotal control={form.control} batchName={batch.name} fields={fields} />
+                                  <BatchSectionSubtotal
+                                    control={form.control}
+                                    sectionItems={sectionItems}
+                                  />
 
                                   {batches.length > 1 && (
                                     <Button
@@ -4989,8 +5338,8 @@ function NewQuotationForm() {
                                         isConfiguratorEnabled={isConfiguratorEnabled}
                                         isSelected={selectedItemIndices.includes(originalIndex)}
                                         handleToggleSelectItem={handleToggleSelectItem}
-                                        onOpenCreateSection={(itemIdx) => handleOpenCreateSection(itemIdx)}
-                                        onOpenEditSection={(targetBatch) => handleOpenEditSection(targetBatch)}
+                                        onOpenCreateSection={handleOpenCreateSection}
+                                        onOpenEditSection={handleOpenEditSection}
                                       />
                                     ))
                                   )}
@@ -5853,15 +6202,13 @@ function NewQuotationForm() {
 
       {/* STICKY FLOATING ACTION DOCK (MOBILE & DESKTOP) */}
       <StickyFooterToolbar
-        grandTotal={calculatedGrandTotal}
         submitting={submitting}
         primaryButtonText={primaryButtonText}
         onSubmit={onSubmit}
         onInvalid={onInvalid}
         form={form}
+        control={form.control}
         handleSendToCostingClick={handleSendToCostingClick}
-        pendingCostingCount={pendingCostingCount}
-        hasPendingCostingItems={hasPendingCostingItems}
         isQuotationLockedForCosting={isQuotationLockedForCosting}
       />
 
@@ -6185,25 +6532,25 @@ function NewQuotationForm() {
 
           <div className="space-y-3 my-2 max-h-[60vh] overflow-y-auto pr-1">
             <div className="flex items-center justify-between border-b pb-2 text-xs">
-              <span className="font-semibold text-muted-foreground">Quotation Line Items ({watchItems.length})</span>
+              <span className="font-semibold text-muted-foreground">Quotation Line Items ({costingItems.length})</span>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  if (selectedCostingItemIndexes.length === watchItems.length) {
+                  if (selectedCostingItemIndexes.length === costingItems.length) {
                     setSelectedCostingItemIndexes([])
                   } else {
-                    setSelectedCostingItemIndexes(watchItems.map((_: any, idx: number) => idx))
+                    setSelectedCostingItemIndexes(costingItems.map((_: any, idx: number) => idx))
                   }
                 }}
                 className="text-xs h-6 px-2 text-amber-700 hover:bg-amber-50 font-semibold cursor-pointer"
               >
-                {selectedCostingItemIndexes.length === watchItems.length ? "Deselect All" : "Select All"}
+                {selectedCostingItemIndexes.length === costingItems.length ? "Deselect All" : "Select All"}
               </Button>
             </div>
 
-            {watchItems.map((item: any, idx: number) => {
+            {costingItems.map((item: any, idx: number) => {
               const isChecked = selectedCostingItemIndexes.includes(idx)
               return (
                 <div

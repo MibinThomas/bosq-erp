@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { Loader2, Camera, Trash2, CheckCircle2 } from "lucide-react"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 interface UserProfile {
   id: string
@@ -48,7 +49,7 @@ export default function ProfilePage() {
 
   const handleUpload = async (file: File, field: "image" | "signature") => {
     const formData = new FormData()
-    formData.append("file", file)
+    formData.append("file", await prepareImageForUpload(file))
 
     const type = field === "image" ? "avatar" : "signature"
     const toastId = toast.loading("Uploading image...")

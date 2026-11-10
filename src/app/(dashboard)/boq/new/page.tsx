@@ -40,6 +40,8 @@ import { ImageCropper } from "@/components/ui/image-cropper"
 import { QuotationItemImageDropzone } from "@/components/quotations/QuotationItemImageDropzone"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
+import { BoqCostFields } from "@/components/boq/BoqCostFields"
+import { hasCostEntered } from "@/lib/boq-costing"
 import { Image as ImageIcon, UploadCloud } from "lucide-react"
 import {
   Dialog,
@@ -49,6 +51,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 const boqSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
@@ -97,6 +100,8 @@ const boqSchema = z.object({
       overheadCost: z.union([z.number(), z.string()]).optional(),
       factoryCost: z.union([z.number(), z.string()]).optional(),
       accessoriesCost: z.union([z.number(), z.string()]).optional(),
+
+      outsourcingCost: z.union([z.number(), z.string()]).optional(),
       negotiationPercentage: z.union([z.number(), z.string()]).optional(),
       negotiationAmount: z.union([z.number(), z.string()]).optional(),
     })
@@ -501,6 +506,8 @@ function NewBOQForm() {
       overheadCost: 0,
       factoryCost: 0,
       accessoriesCost: 0,
+
+      outsourcingCost: 0,
       unitCost: pi.basePrice,
       unitSellingPrice: pi.unitPrice,
       negotiationPercentage: 0,
@@ -666,7 +673,7 @@ function NewBOQForm() {
       }
       const croppedFile = dataURLtoFile(croppedBase64, `product-cropped-${Date.now()}.png`)
       const formData = new FormData()
-      formData.append("file", croppedFile)
+      formData.append("file", await prepareImageForUpload(croppedFile))
       const uploadRes = await fetch("/api/upload?type=product", {
         method: "POST",
         body: formData,
@@ -869,6 +876,8 @@ function NewBOQForm() {
                   isCostingRequired: item.isCostingRequired ?? true,
                   factoryCost: item.factoryCost || 0,
                   accessoriesCost: item.accessoriesCost || 0,
+
+                  outsourcingCost: item.outsourcingCost || 0,
                   materialCost: item.materialCost || 0,
                   laborCost: item.laborCost || 0,
                   installationCost: item.installationCost || 0,
@@ -1429,42 +1438,6 @@ function NewBOQForm() {
       toast.error(err.message || "Failed to export Admin BOQ Costing")
     } finally {
       setIsExportingAdmin(false)
-    }
-  }
-
-  const handleNewCostChange = (index: number, fieldName: string, value: string) => {
-    const parsedVal = value === "" ? "" : (parseFloat(value) || 0)
-    form.setValue(`items.${index}.${fieldName}` as any, parsedVal, { shouldValidate: false, shouldDirty: true })
-
-    const currentItem = form.getValues(`items.${index}`) || {}
-    const factory = fieldName === "factoryCost" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).factoryCost || 0)) || 0)
-    const accessories = fieldName === "accessoriesCost" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).accessoriesCost || 0)) || 0)
-
-    const basePrice = (factory > 0 || accessories > 0) ? (factory + accessories) : (parseFloat(String(currentItem.basePrice || 0)) || 0)
-    form.setValue(`items.${index}.basePrice`, basePrice, { shouldValidate: true, shouldDirty: true })
-
-    const marginPct = fieldName === "margin" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String(currentItem.margin || 0)) || 0)
-    const preNegPrice = basePrice > 0 ? (basePrice / (1 - Math.min(0.9999, marginPct / 100))) : 0
-
-    let negPct = fieldName === "negotiationPercentage" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).negotiationPercentage || 0)) || 0)
-    let negAmt = fieldName === "negotiationAmount" ? (parsedVal === "" ? 0 : Number(parsedVal)) : (parseFloat(String((currentItem as any).negotiationAmount || 0)) || 0)
-
-    if (fieldName === "negotiationPercentage" || fieldName === "margin" || fieldName === "factoryCost" || fieldName === "accessoriesCost") {
-      const negDec = Math.min(0.9999, negPct / 100)
-      const priceAfterNeg = preNegPrice > 0 ? (preNegPrice / (1 - negDec)) : 0
-      negAmt = preNegPrice > 0 ? Number((priceAfterNeg - preNegPrice).toFixed(2)) : 0
-      const finalUnitPrice = preNegPrice + negAmt
-      form.setValue(`items.${index}.negotiationAmount` as any, negAmt, { shouldValidate: false, shouldDirty: true })
-      form.setValue(`items.${index}.unitPrice`, Number(finalUnitPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
-    } else if (fieldName === "negotiationAmount") {
-      const finalUnitPrice = preNegPrice + negAmt
-      negPct = finalUnitPrice > 0 && preNegPrice > 0 ? Number(((1 - (preNegPrice / finalUnitPrice)) * 100).toFixed(2)) : 0
-      form.setValue(`items.${index}.negotiationPercentage` as any, negPct, { shouldValidate: false, shouldDirty: true })
-      form.setValue(`items.${index}.unitPrice`, Number(finalUnitPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
-    } else {
-      const negDec = Math.min(0.9999, negPct / 100)
-      const finalUnitPrice = preNegPrice > 0 ? (preNegPrice / (1 - negDec)) : (preNegPrice + negAmt)
-      form.setValue(`items.${index}.unitPrice`, Number(finalUnitPrice.toFixed(2)), { shouldValidate: true, shouldDirty: true })
     }
   }
 
@@ -3281,147 +3254,13 @@ function NewBOQForm() {
                               {/* Inject cost breakdown above pricing */}
 
                               
-                              {/* Cost & Negotiation Breakdown Section for Authorized Roles */}
-                              {(isManagerOrAdmin || isEstimatorRole || canEditCostingBreakdown) && (
-                                <div className="mt-4 bg-orange-50/40 dark:bg-orange-950/20 p-5 rounded-xl border border-orange-500/20 space-y-4">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <Sparkles className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                                      <span className="text-sm font-bold text-orange-950 dark:text-orange-200">Cost Structure & Negotiation Breakdown</span>
-                                    </div>
-                                    <Badge variant="outline" className="text-[10px] uppercase font-mono bg-background">
-                                      Authorized Management View
-                                    </Badge>
-                                  </div>
-
-                                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
-                                    {/* Factory Cost */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.factoryCost`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Factory Cost (AED)</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              min="0"
-                                              step="0.01"
-                                              className="h-9 text-xs font-mono bg-background border-border"
-                                              value={field.value ?? ""}
-                                              onChange={(val) => handleNewCostChange(index, "factoryCost", val)}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Accessories Cost */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.accessoriesCost`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Accessories Cost (AED)</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              min="0"
-                                              step="0.01"
-                                              className="h-9 text-xs font-mono bg-background border-border"
-                                              value={field.value ?? ""}
-                                              onChange={(val) => handleNewCostChange(index, "accessoriesCost", val)}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Base Price (Read-only sum) */}
-                                    <FormItem className="space-y-1">
-                                      <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Base Price (AED)</FormLabel>
-                                      <div className="h-9 px-3 rounded-md bg-muted/60 border border-border flex items-center font-mono text-xs font-semibold text-foreground">
-                                        {(() => {
-                                          const f = Number(watchItems[index]?.factoryCost) || 0
-                                          const a = Number(watchItems[index]?.accessoriesCost) || 0
-                                          const bp = Number(watchItems[index]?.basePrice) || (f + a)
-                                          return bp.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                        })()}
-                                      </div>
-                                    </FormItem>
-
-                                    {/* Margin % */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.margin`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Margin (%)</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              min="-100"
-                                              max="99.9"
-                                              step="0.1"
-                                              className="h-9 text-xs font-mono bg-background border-border"
-                                              value={field.value ?? ""}
-                                              onChange={(val) => handleNewCostChange(index, "margin", val)}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Negotiation (%) */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.negotiationPercentage`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Negotiation (%)</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              min="0"
-                                              max="100"
-                                              step="0.1"
-                                              className="h-9 text-xs font-mono bg-background border-border"
-                                              value={field.value ?? ""}
-                                              onChange={(val) => handleNewCostChange(index, "negotiationPercentage", val)}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-
-                                    {/* Negotiation Adj (AED) */}
-                                    <FormField
-                                      control={form.control}
-                                      name={`items.${index}.negotiationAmount`}
-                                      render={({ field }) => (
-                                        <FormItem className="space-y-1">
-                                          <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Negotiation Adj (AED)</FormLabel>
-                                          <FormControl>
-                                            <NumericInput
-                                              type="number"
-                                              min="0"
-                                              step="0.01"
-                                              className="h-9 text-xs font-mono bg-background border-border"
-                                              value={field.value ?? ""}
-                                              onChange={(val) => handleNewCostChange(index, "negotiationAmount", val)}
-                                            />
-                                          </FormControl>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-                                  </div>
-                                </div>
-                              )}
+                              {/* Estimator costing: Material, Labour, Outsourcing, Hardware, Factory, Other (costs only). */}
+                              {/* Others see the costs read-only once a costed line has them. */}
+                              {(isManagerOrAdmin || isEstimatorRole || canEditCostingBreakdown) ? (
+                                <BoqCostFields form={form} index={index} readOnly={!canEditCostingBreakdown && !isManagerOrAdmin && !isEstimatorRole} />
+                              ) : (watchItems[index]?.isCostingRequired && hasCostEntered((watchItems[index] || {}) as Record<string, unknown>)) ? (
+                                <BoqCostFields form={form} index={index} readOnly />
+                              ) : null}
 
 
                               <div className="flex flex-col xl:flex-row gap-6 justify-between items-start xl:items-center bg-primary/[0.03] p-5 rounded-xl border border-primary/10">

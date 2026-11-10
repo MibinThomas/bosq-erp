@@ -51,6 +51,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { safeCopyToClipboard } from "@/lib/utils"
+import { ROLE_PRESETS, presetRows } from "@/lib/role-presets"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -90,6 +91,13 @@ const matrixColumns = [
   { id: "canConfirmQuotation", label: "Confirm Quote", title: "Mark quote as Client Approved / Confirmed" },
   { id: "canSaveToCatalog", label: "Save to Catalog", title: "Save custom items into master product catalog" },
 ]
+
+/** Strong random initial password (no shared default password). */
+function randomInitialPassword() {
+  const bytes = new Uint8Array(9)
+  crypto.getRandomValues(bytes)
+  return "Bq-" + btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_")
+}
 
 export default function AccessControlPage() {
   const { data: session } = useSession()
@@ -146,7 +154,7 @@ export default function AccessControlPage() {
   const [newUserDepartment, setNewUserDepartment] = useState("")
   const [newUserRole, setNewUserRole] = useState("")
   const [newUserStatus, setNewUserStatus] = useState("Active")
-  const [newUserPassword, setNewUserPassword] = useState("Bosq@2026")
+  const [newUserPassword, setNewUserPassword] = useState("")
   const [submittingNewUser, setSubmittingNewUser] = useState(false)
 
   // Comprehensive Edit User modal state
@@ -246,6 +254,16 @@ export default function AccessControlPage() {
         [actionKey]: value
       }
     }))
+  }
+
+  // Load the recommended permission set for this role into the matrix (saved with "Save Permissions Matrix")
+  const rolePreset = selectedRole ? ROLE_PRESETS[selectedRole.name] : undefined
+  const handleApplyPreset = () => {
+    if (!selectedRole) return
+    const rows = presetRows(selectedRole.name, modules.map((m) => m.id))
+    if (!rows) return
+    setEditingPermissions(rows)
+    toast.info("Recommended permissions loaded. Review them and click \"Save Permissions Matrix\" to apply.")
   }
 
   // Save role permissions matrix
@@ -386,7 +404,7 @@ export default function AccessControlPage() {
       setNewUserPhone("")
       setNewUserDesignation("")
       setNewUserDepartment("")
-      setNewUserPassword("Bosq@2026")
+      setNewUserPassword(randomInitialPassword())
       await loadData()
     } catch (err: any) {
       toast.error(err.message || "Failed to create user account.")
@@ -505,7 +523,7 @@ export default function AccessControlPage() {
       if (!res.ok) throw new Error(data.error || "Failed to process password reset request")
 
       if (action === "APPROVE") {
-        toast.success(`Password reset approved! Temporary Password: ${data.tempPassword || resetTempPassword || "Generated"}`)
+        toast.success(`Password reset approved! Temporary password: ${data.tempPassword || resetTempPassword}. Share it with the user directly.`, { duration: 15000 })
       } else {
         toast.info("Password reset request rejected.")
       }
@@ -635,6 +653,18 @@ export default function AccessControlPage() {
                 <Badge variant="outline" className="px-3 py-2 text-xs font-mono font-bold bg-muted/50 border-border">
                   {assignedUsers.length} User(s) Assigned
                 </Badge>
+                {rolePreset && (
+                  <Button
+                    variant="outline"
+                    onClick={handleApplyPreset}
+                    disabled={savingMatrix}
+                    className="font-bold text-xs flex items-center gap-2 cursor-pointer h-10 px-4 rounded-xl"
+                    title={rolePreset.summary}
+                  >
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Apply Recommended
+                  </Button>
+                )}
                 {selectedRole && selectedRole.name !== "SUPER_ADMIN" && (
                   <Button
                     onClick={handleSaveRoleMatrix}
@@ -656,6 +686,17 @@ export default function AccessControlPage() {
               </div>
             )}
           </div>
+
+          {/* Interior Design Consultant: rules the server always enforces */}
+          {selectedRole?.name === "INTERIOR_DESIGN_CONSULTANT" && (
+            <div className="p-3.5 bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-900 rounded-xl text-sky-900 dark:text-sky-200 text-xs flex items-start gap-3">
+              <Info className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400 mt-0.5" />
+              <div className="space-y-1">
+                <p><strong>Always limited to assigned records:</strong> Interior Design Consultants only see and update clients, quotations, BOQs and dashboard figures assigned to them (created by them, owned by them, or shared with them), whatever the scope set below.</p>
+                <p><strong>Products:</strong> in-stock catalogue only. Cost price and estimator margins stay hidden unless <em>Cost Price Visible</em> / <em>Margin Visible</em> is switched on, and costings they can't see are never overwritten when they save a quotation.</p>
+              </div>
+            </div>
+          )}
 
           {/* Super Admin Notice */}
           {selectedRole?.name === "SUPER_ADMIN" && (
@@ -685,6 +726,7 @@ export default function AccessControlPage() {
                   variant="outline"
                   onClick={() => {
                     setNewUserRole(selectedRole?.name || "INTERIOR_DESIGN_CONSULTANT")
+                    setNewUserPassword(randomInitialPassword())
                     setIsAddUserOpen(true)
                   }}
                   className="h-8 text-xs font-bold border-rose-500 text-rose-600 hover:bg-rose-50 dark:border-rose-400 dark:text-rose-400 dark:hover:bg-rose-950/30 flex items-center gap-1.5 cursor-pointer shadow-2xs"

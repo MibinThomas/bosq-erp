@@ -13,6 +13,16 @@ import { authOptions } from "@/lib/authOptions"
 import { getLogoBase64, getWatermarkBase64, getAynMuskLogoBase64, getPromotionalImageBase64, getCompanySealBase64 } from "@/lib/pdf/logoCache"
 import { generateCode128DataUri } from "@/lib/pdf/barcode"
 import { cleanHtmlText } from "@/lib/utils"
+import { hasPermission } from "@/lib/rbac"
+import { canAccessQuotation, getCostVisibility, isUnrestrictedRole, keepHiddenCostFields, sanitizeLineItem } from "@/lib/data-scope"
+import { computeApprovalMetrics, lineApprovalFields, releaseBlockedReason } from "@/lib/approval-policy"
+import {
+  applyQuotationApproval,
+  approvalDataFor,
+  checkQuotationRelease,
+  decideQuotationApproval,
+} from "@/lib/approval-engine"
+import { posterFieldsFromBody, posterPagesForPdf } from "@/lib/posters"
 
 // Get single quotation with items and revisions history
 export async function GET(
@@ -193,20 +203,17 @@ export async function GET(
     const aynMuskLogoBase64 = await getAynMuskLogoBase64()
     const barcodeBase64 = generateCode128DataUri(quotation.quotationNumber)
 
-    const sanitizedItems = userRole === "INTERIOR_DESIGN_CONSULTANT"
-      ? quotation.items.map(item => ({
-          ...item,
-          materialCost: 0,
-          laborCost: 0,
-          overheadCost: 0,
-          transportCost: 0,
-          installationCost: 0,
-        }))
-      : quotation.items
+    // Costs, margins and internal product prices only for roles allowed to see them (Access Control)
+    const costVisibility = await getCostVisibility({ id: (session.user as any).id, role: userRole }, "QUOTATIONS")
+    const sanitizedItems = quotation.items.map((item) => sanitizeLineItem(item, costVisibility))
+    const sanitizedBoq = (quotation as any).boq && Array.isArray((quotation as any).boq.items)
+      ? { ...(quotation as any).boq, items: (quotation as any).boq.items.map((i: any) => sanitizeLineItem(i, costVisibility)) }
+      : (quotation as any).boq
 
     return NextResponse.json({
       ...quotation,
       items: sanitizedItems,
+      ...(sanitizedBoq !== undefined ? { boq: sanitizedBoq } : {}),
       revisions,
       seriesQuotations,
       supportingDocuments,
@@ -231,6 +238,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await request.json()
+    const isAutoSave = body.isAutoSave === true && body.status === "DRAFT"
     
     const originalQuotation = await prisma.quotation.findFirst({
       where: {
@@ -310,6 +318,31 @@ export async function PUT(
       })
 
       return isClientSalesperson || assignmentCount > 0 || !!hasApprovedRequest
+    }
+
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Record-level access: roles other than managers/admins (e.g. Interior Design Consultants)
+    // may only act on quotations assigned to them, whatever the action
+    const sessionActor = { id: logUserId, role: logUserRole }
+    if (!(await canAccessQuotation(sessionActor, existingQuotation.id))) {
+      return NextResponse.json(
+        { error: "Forbidden: You can only update quotations assigned to you" },
+        { status: 403 }
+      )
+    }
+
+    // Costing the user can't see is shown to them as 0; keep the stored values when they save
+    const costVisibility = await getCostVisibility(sessionActor, "QUOTATIONS")
+    if (Array.isArray(body.items) && (!costVisibility.cost || !costVisibility.margin)) {
+      const rootId = existingQuotation.parentId || existingQuotation.id
+      const seriesItems = await prisma.quotationItem.findMany({
+        where: { quotation: { OR: [{ id: rootId }, { parentId: rootId }] } },
+      })
+      const sourceFirst = [...[...existingQuotation.items].sort((a, b) => a.itemNo - b.itemNo), ...seriesItems.filter((s) => s.quotationId !== existingQuotation.id)]
+      body.items = keepHiddenCostFields(body.items, sourceFirst, costVisibility)
     }
 
     const isEditingOrCreate = body.isRevision === true || body.isUpdate === true
@@ -477,6 +510,11 @@ export async function PUT(
         return NextResponse.json({ error: "Unauthorized: Downstream status changes require Manager or Admin authorization" }, { status: 403 })
       }
 
+      const releaseBlocked = await checkQuotationRelease(existingQuotation, newStatus, logUserId)
+      if (releaseBlocked) {
+        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+      }
+
       // Update status and write activity log
       const updatedQuotation = await prisma.$transaction(async (tx) => {
         const rootId = existingQuotation.parentId || existingQuotation.id
@@ -633,10 +671,13 @@ export async function PUT(
 
     // CASE 5: CONFIRM CLIENT-APPROVED REVISION AS FINAL QUOTATION
     if (body.action === "CONFIRM_FINAL") {
-      const isManagerOrAdmin = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "MANAGER", "SALES_EXECUTIVE", "INTERIOR_DESIGN_CONSULTANT"].includes(logUserRole)
-      
-      if (!isManagerOrAdmin) {
+      // Managers, or roles granted "Can confirm quotation" in Access Control
+      const canConfirm = isUnrestrictedRole(logUserRole) || (await hasPermission(logUserId, "QUOTATIONS", "canConfirmQuotation"))
+      if (!canConfirm) {
         return NextResponse.json({ error: "Unauthorized: You do not have permission to confirm revisions as Final Quotation" }, { status: 403 })
+      }
+      if (["DRAFT", "CANCELLED", "LOST"].includes((existingQuotation.status || "").toUpperCase())) {
+        return NextResponse.json({ error: `A ${existingQuotation.status.toLowerCase()} quotation cannot be confirmed as final.` }, { status: 400 })
       }
 
       const rootId = existingQuotation.parentId || existingQuotation.id
@@ -947,9 +988,15 @@ export async function PUT(
           transportCost: parseFloat(item.transportCost) || 0,
           installationCost: parseFloat(item.installationCost) || 0,
           marginPercentage: parseFloat(item.marginPercentage) || 0,
+          negotiationPct: parseFloat(item.negotiationPct) || 0,
           estimatorNotes: item.estimatorNotes || null,
           estimatorId: item.estimatorId || null,
-          estimatorUnitPrice: parseFloat(item.estimatorUnitPrice) || 0,
+          estimatorUnitPrice: parseFloat(item.estimatorUnitPrice)
+            || existingQuotation.items.find((i: any) => i.id === item.id)?.estimatorUnitPrice
+            || 0,
+          costBreakdown: (item.costBreakdown && typeof item.costBreakdown === "object"
+            ? item.costBreakdown
+            : existingQuotation.items.find((i: any) => i.id === item.id)?.costBreakdown) ?? undefined,
           costingCompletedAt: item.costingCompletedAt ? new Date(item.costingCompletedAt) : null,
         }
       }))
@@ -986,8 +1033,6 @@ export async function PUT(
         }
       }
 
-      // Discount limit check removed
-
       // Calculate Taxable Amount, VAT, and Grand Total
       const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - discountAmt)
       let vatAmount = 0
@@ -1000,6 +1045,31 @@ export async function PUT(
         vatAmount = taxableAmount * 0.05
         grandTotal = Math.round(taxableAmount + vatAmount)
       }
+
+      // Approval (Approval Module), decided on the server. An earlier approval of this quotation
+      // (or of a revision's source) carries over if nothing went up. A new revision is a fresh
+      // record, so only this save can release it to the client.
+      const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
+      const approvalDecision = await decideQuotationApproval({
+        historyDocumentIds: [existingQuotation.id],
+        metrics: approvalMetrics,
+        amount: grandTotal,
+        customerSegment: body.customerSegment || existingQuotation.customerSegment,
+        preparedById: body.preparedById || existingQuotation.preparedById || logUserId,
+        projectName: projectName || existingQuotation.projectName,
+      })
+      const releaseBlocked = releaseBlockedReason(
+        body.isRevision === true ? "DRAFT" : existingQuotation.status,
+        resolvedStatus,
+        approvalDecision.status,
+        approvalDecision.level?.name
+      )
+      if (releaseBlocked) {
+        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+      }
+      const approvalData = approvalDataFor(approvalDecision, approvalMetrics)
+      // Poster pages: keep the quotation's choice unless the editor sent a new one
+      const posterFields = posterFieldsFromBody(body, existingQuotation)
 
       // Fetch Terms & Conditions
       let termsArray: string[] = []
@@ -1052,13 +1122,25 @@ export async function PUT(
         include: { revisions: true }
       })
 
-      const maxRev = rootQuotation 
-        ? Math.max(1, ...rootQuotation.revisions.map(r => r.revisionNumber), existingQuotation.revisionNumber)
-        : existingQuotation.revisionNumber
-      const nextRevNo = maxRev + 1
+      // Highest revision so far: the revision log AND every quotation in the series (drafts included)
+      const seriesAggregate = await prisma.quotation.aggregate({
+        where: { OR: [{ id: rootId }, { parentId: rootId }] },
+        _max: { revisionNumber: true },
+      })
+      const maxRev = Math.max(
+        1,
+        existingQuotation.revisionNumber,
+        seriesAggregate._max.revisionNumber || 0,
+        ...(rootQuotation ? rootQuotation.revisions.map(r => r.revisionNumber) : []),
+      )
+      let nextRevNo = maxRev + 1
 
       const rootNumMatch = existingQuotation.quotationNumber.match(/^([IDP]\d+)/)
       const baseQuoteNo = rootNumMatch ? rootNumMatch[1] : existingQuotation.quotationNumber.split("-")[0]
+      // Skip any number already taken (e.g. legacy duplicates or a copy renamed to it)
+      while (await prisma.quotation.count({ where: { quotationNumber: `${baseQuoteNo}-${nextRevNo}` } })) {
+        nextRevNo++
+      }
       const revQuoteNum = `${baseQuoteNo}-${nextRevNo}`
 
       // Read both brand logos to base64 (only if not draft)
@@ -1147,6 +1229,9 @@ export async function PUT(
         barcodeBase64: barcodeBase64 || null,
         watermarkUrl: watermarkBase64 || null,
         promotionalImageUrl: promotionalImageBase64,
+        posters: resolvedStatus !== "DRAFT"
+          ? await posterPagesForPdf({ ...posterFields, items: quotationItemsToCreate })
+          : [],
         bankDetails: companySettings.company_bank_details || null,
         disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || companySettings.company_disclaimer_title || "Disclaimers",
         disclaimer: disclaimer || existingQuotation.disclaimer || companySettings.company_disclaimer || null,
@@ -1239,6 +1324,8 @@ export async function PUT(
             specialDiscountReason: specialDiscountReason || null,
             vatMode: resolvedVatMode,
             additionalCharges: parsedAdditionalCharges as any,
+            ...approvalData,
+            ...posterFields,
             sharepointUrl,
             notes: body.revisionNotes || notes || existingQuotation.notes || null,
             disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || null,
@@ -1278,6 +1365,7 @@ export async function PUT(
                 discount: item.discount,
                 margin: item.margin,
                 amount: item.amount,
+                ...lineApprovalFields(item),
                 costingStatus: item.costingStatus || "NOT_REQUIRED",
                 unitCost: item.unitCost || 0,
                 materialCost: item.materialCost || 0,
@@ -1286,6 +1374,8 @@ export async function PUT(
                 transportCost: item.transportCost || 0,
                 installationCost: item.installationCost || 0,
                 marginPercentage: item.marginPercentage || 0,
+                negotiationPct: item.negotiationPct || 0,
+                costBreakdown: item.costBreakdown,
                 estimatorNotes: item.estimatorNotes || null,
                 estimatorId: item.estimatorId || null,
                 costingRequestedAt: item.costingRequestedAt || null,
@@ -1293,30 +1383,53 @@ export async function PUT(
               })),
             },
           },
-          include: {
-            client: true,
-            items: true,
-            revisions: true,
-          }
+          ...(!isAutoSave && {
+            include: {
+              client: true,
+              items: true,
+              revisions: true,
+            }
+          })
         })
       }, { maxWait: 15000, timeout: 30000 })
 
+      await applyQuotationApproval({
+        quotationId: updatedQuotation.id,
+        quotationNumber: updatedQuotation.quotationNumber,
+        decision: approvalDecision,
+        requestedById: logUserId,
+        openRequest: resolvedStatus !== "DRAFT",
+      })
 
-      // Log Activity
-      try {
-        if (logUserId) {
-          await prisma.activityLog.create({
-            data: {
-              userId: logUserId,
-              action: "REVISED_QUOTATION",
-              entityType: "QUOTATION",
-              entityId: updatedQuotation.id,
-              details: `Revised quotation ${existingQuotation.quotationNumber} to ${revQuoteNum}. Notes: ${revisionNotes}`,
-            },
-          })
+      // Autosaves are frequent background persistence and should not create activity noise.
+      if (!isAutoSave) {
+        try {
+          if (logUserId) {
+            await prisma.activityLog.create({
+              data: {
+                userId: logUserId,
+                action: "REVISED_QUOTATION",
+                entityType: "QUOTATION",
+                entityId: updatedQuotation.id,
+                details: `Revised quotation ${existingQuotation.quotationNumber} to ${revQuoteNum}. Notes: ${revisionNotes}`,
+              },
+            })
+          }
+        } catch (logError) {
+          console.error("Failed to write revised quotation activity log:", logError)
         }
-      } catch (logError) {
-        console.error("Failed to write revised quotation activity log:", logError)
+      }
+
+      if (isAutoSave) {
+        return NextResponse.json({
+          id: updatedQuotation.id,
+          quotationNumber: updatedQuotation.quotationNumber,
+          status: updatedQuotation.status,
+          revisionNumber: updatedQuotation.revisionNumber,
+          parentId: updatedQuotation.parentId,
+          costingStatus: updatedQuotation.costingStatus,
+          updatedAt: updatedQuotation.updatedAt,
+        })
       }
 
       return NextResponse.json(updatedQuotation)
@@ -1326,6 +1439,18 @@ export async function PUT(
     if (body.isUpdate === true) {
       if (!(await canManageQuotationSeries())) {
         return NextResponse.json({ error: "Unauthorized: You can only update your own or assigned quotations" }, { status: 403 })
+      }
+
+      // A finalized quotation has already been archived to SharePoint. Draft saves must never
+      // demote it back to DRAFT; edits to it go through an explicit "Update Quotation" or a revision.
+      if (existingQuotation.status !== "DRAFT" && body.status === "DRAFT") {
+        if (isAutoSave) {
+          return NextResponse.json({ ...existingQuotation, autoSaveSkipped: true })
+        }
+        return NextResponse.json(
+          { error: `Quotation ${existingQuotation.quotationNumber} is finalized and cannot be saved as a draft. Use "Update Quotation" or create a revision.` },
+          { status: 400 }
+        )
       }
 
       const {
@@ -1370,13 +1495,37 @@ export async function PUT(
       }
 
       const resolvedStatus = body.status || existingQuotation.status
+      const isDraftUpdate = resolvedStatus === "DRAFT" && body.isUpdate === true
 
-      // Prefetch products catalog details
-      const productIds = items.map((i: any) => i.productId).filter(Boolean)
-      const dbProducts = await prisma.product.findMany({
-        where: { id: { in: productIds } },
-        include: { category: true }
-      })
+      const existingItemsById = new Map(
+        existingQuotation.items.map((item) => [item.id, item])
+      )
+      const existingItemsByPosition = [...existingQuotation.items].sort(
+        (a, b) => a.itemNo - b.itemNo
+      )
+      const hasMatchingItemIds = items.some((item: any) =>
+        item.id && existingItemsById.has(item.id)
+      )
+      const existingItemsForRequest = items.map((item: any, idx: number) =>
+        (item.id && existingItemsById.get(item.id)) ||
+        (isDraftUpdate && !hasMatchingItemIds ? existingItemsByPosition[idx] : undefined)
+      )
+
+      // During autosave, only fetch catalog data for genuinely new or changed products.
+      const productIds: string[] = Array.from(new Set(items
+        .filter((item: any, idx: number) =>
+          !isDraftUpdate ||
+          !existingItemsForRequest[idx] ||
+          existingItemsForRequest[idx].productId !== (item.productId || null)
+        )
+        .map((item: any) => item.productId)
+        .filter((productId: unknown): productId is string => typeof productId === "string" && productId.length > 0)))
+      const dbProducts = productIds.length > 0
+        ? await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            include: { category: true }
+          })
+        : []
 
       // Validate out-of-stock products for Interior Design Consultants
       const userRole = (session?.user as any)?.role || ""
@@ -1408,6 +1557,7 @@ export async function PUT(
         const marginVal = parseFloat(item.margin) || 0.0
         const amt = (price - disc) * qty
 
+        const existingItem = existingItemsForRequest[idx]
         const matchedProd = dbProducts.find((p) => p.id === item.productId)
 
         const rawImageUrl = item.customImageUrl || item.imageUrl || matchedProd?.imageUrl || null;
@@ -1415,6 +1565,7 @@ export async function PUT(
         const resolvedImage = resolvedStatus !== "DRAFT" ? await resolveImageUrl(rawImageUrl) : null;
 
         return {
+          id: existingItem?.id,
           itemNo: idx + 1,
           sortOrder: idx + 1,
           productId: item.productId || null,
@@ -1429,13 +1580,13 @@ export async function PUT(
           margin: marginVal,
           amount: amt,
           imageUrl: resolvedImage,
-          categoryName: item.categoryName || matchedProd?.category?.name || "OFFICE FURNITURE",
-          chairType: item.chairType || matchedProd?.chairType || null,
+          categoryName: item.categoryName || matchedProd?.category?.name || existingItem?.categoryName || "OFFICE FURNITURE",
+          chairType: item.chairType || matchedProd?.chairType || existingItem?.chairType || null,
           productDescription: item.productDescription !== undefined && item.productDescription !== null
             ? cleanHtmlText(item.productDescription)
-            : (matchedProd?.description ? cleanHtmlText(matchedProd.description) : null),
-          dimensions: matchedProd?.dimensions || null,
-          warranty: matchedProd?.warranty || null,
+            : (matchedProd?.description ? cleanHtmlText(matchedProd.description) : existingItem?.productDescription || null),
+          dimensions: matchedProd?.dimensions || existingItem?.dimensions || null,
+          warranty: matchedProd?.warranty || existingItem?.warranty || null,
           batchHeading: item.batchHeading || null,
           costingStatus: item.costingStatus || "NOT_REQUIRED",
           unitCost: parseFloat(item.unitCost) || 0,
@@ -1445,6 +1596,11 @@ export async function PUT(
           transportCost: parseFloat(item.transportCost) || 0,
           installationCost: parseFloat(item.installationCost) || 0,
           marginPercentage: parseFloat(item.marginPercentage) || 0,
+          // Estimator's negotiation % from the Costing Workspace; kept when the editor doesn't send it
+          negotiationPct: parseFloat(item.negotiationPct) || existingItem?.negotiationPct || 0,
+          // Estimator's price is the reference for discount approval; the editor may not send it back
+          estimatorUnitPrice: parseFloat(item.estimatorUnitPrice) || existingItem?.estimatorUnitPrice || 0,
+          costBreakdown: (item.costBreakdown && typeof item.costBreakdown === "object" ? item.costBreakdown : existingItem?.costBreakdown) ?? undefined,
           estimatorNotes: item.estimatorNotes || null,
           estimatorId: item.estimatorId || null,
           costingRequestedAt: item.costingRequestedAt ? new Date(item.costingRequestedAt) : null,
@@ -1484,8 +1640,6 @@ export async function PUT(
         }
       }
 
-      // Discount limit check removed
-
       // Calculate Taxable Amount, VAT, and Grand Total
       const taxableAmount = Math.max(0, subtotal + totalAdditionalCost - discountAmt)
       let vatAmount = 0
@@ -1499,27 +1653,68 @@ export async function PUT(
         grandTotal = Math.round(taxableAmount + vatAmount)
       }
 
-      // Read brand logo to base64 (only if not draft)
-      const logoBase64 = await getLogoBase64()
-      const watermarkBase64 = await getWatermarkBase64()
-      const aynMuskLogoBase64 = await getAynMuskLogoBase64()
-      const companySealBase64 = await getCompanySealBase64()
-      const promotionalImageBase64 = await getPromotionalImageBase64()
+      // Approval (Approval Module), decided on the server. An earlier approval of this quotation
+      // (or of a revision's source) carries over if nothing went up. A new revision is a fresh
+      // record, so only this save can release it to the client.
+      const approvalMetrics = computeApprovalMetrics(quotationItemsToCreate, appliedDiscountPercent)
+      const approvalDecision = await decideQuotationApproval({
+        historyDocumentIds: [existingQuotation.id],
+        metrics: approvalMetrics,
+        amount: grandTotal,
+        customerSegment: body.customerSegment || existingQuotation.customerSegment,
+        preparedById: body.preparedById || existingQuotation.preparedById || logUserId,
+        projectName: projectName || existingQuotation.projectName,
+      })
+      const releaseBlocked = releaseBlockedReason(
+        body.isRevision === true ? "DRAFT" : existingQuotation.status,
+        resolvedStatus,
+        approvalDecision.status,
+        approvalDecision.level?.name
+      )
+      if (releaseBlocked) {
+        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+      }
+      const approvalData = approvalDataFor(approvalDecision, approvalMetrics)
+      // Poster pages: keep the quotation's choice unless the editor sent a new one
+      const posterFields = posterFieldsFromBody(body, existingQuotation)
+
+      const shouldGeneratePdf = resolvedStatus !== "DRAFT"
+
+      // Autosaving a draft does not use PDF assets; avoid repeated settings/storage reads.
+      const [
+        logoBase64,
+        watermarkBase64,
+        aynMuskLogoBase64,
+        companySealBase64,
+        promotionalImageBase64,
+      ] = shouldGeneratePdf
+        ? await Promise.all([
+            getLogoBase64(),
+            getWatermarkBase64(),
+            getAynMuskLogoBase64(),
+            getCompanySealBase64(),
+            getPromotionalImageBase64(),
+          ])
+        : ["", "", "", "", null]
       const barcodeBase64 = generateCode128DataUri(existingQuotation.quotationNumber)
 
-      const companySettings = await getSettings([
-        "company_name",
-        "company_address",
-        "company_trn",
-        "company_bank_details",
-        "company_disclaimer_title",
-        "company_disclaimer",
-      ])
+      const companySettings = shouldGeneratePdf
+        ? await getSettings([
+            "company_name",
+            "company_address",
+            "company_trn",
+            "company_bank_details",
+            "company_disclaimer_title",
+            "company_disclaimer",
+          ])
+        : {}
 
       // Re-fetch client in case it changed
-      const currentClient = await prisma.client.findUnique({
-        where: { id: clientId || existingQuotation.clientId }
-      })
+      const currentClient = shouldGeneratePdf
+        ? await prisma.client.findUnique({
+            where: { id: clientId || existingQuotation.clientId }
+          })
+        : existingQuotation.client
       if (!currentClient) {
         return NextResponse.json({ error: "Client not found" }, { status: 404 })
       }
@@ -1554,7 +1749,7 @@ export async function PUT(
         }
       }
 
-      if (termsArray.length === 0) {
+      if (termsArray.length === 0 && shouldGeneratePdf) {
         const dbTerms = await prisma.termsCondition.findMany({
           where: { isDefault: true },
         })
@@ -1571,13 +1766,15 @@ export async function PUT(
 
       // Resolve material swatch images for update PDF
       const rawSelectedMaterialsUpd = Array.isArray(selectedMaterials) ? selectedMaterials : []
-      const docSelectedMaterialsUpd = await Promise.all(
-        rawSelectedMaterialsUpd.map(async (mat: any) => ({
-          ...mat,
-          swatchUrl: mat.swatchUrl ? await resolveImageUrl(mat.swatchUrl) : null,
-          referenceImageUrl: mat.referenceImageUrl ? await resolveImageUrl(mat.referenceImageUrl) : null,
-        }))
-      )
+      const docSelectedMaterialsUpd = shouldGeneratePdf
+        ? await Promise.all(
+            rawSelectedMaterialsUpd.map(async (mat: any) => ({
+              ...mat,
+              swatchUrl: mat.swatchUrl ? await resolveImageUrl(mat.swatchUrl) : null,
+              referenceImageUrl: mat.referenceImageUrl ? await resolveImageUrl(mat.referenceImageUrl) : null,
+            }))
+          )
+        : rawSelectedMaterialsUpd
 
       const pdfProps = {
         quotationNumber: existingQuotation.quotationNumber,
@@ -1622,6 +1819,9 @@ export async function PUT(
         barcodeBase64: barcodeBase64 || null,
         watermarkUrl: watermarkBase64 || null,
         promotionalImageUrl: promotionalImageBase64,
+        posters: resolvedStatus !== "DRAFT"
+          ? await posterPagesForPdf({ ...posterFields, items: quotationItemsToCreate })
+          : [],
         bankDetails: companySettings.company_bank_details || null,
         disclaimerTitle: disclaimerTitle || existingQuotation.disclaimerTitle || companySettings.company_disclaimer_title || "Disclaimers",
         disclaimer: disclaimer || existingQuotation.disclaimer || companySettings.company_disclaimer || null,
@@ -1665,17 +1865,42 @@ export async function PUT(
         }
       }
 
-      // Execute transaction to delete and recreate items, and update parent quotation
-      const updatedQuotation = await prisma.$transaction(async (tx) => {
-        // 1. Delete existing items
-        await tx.quotationItem.deleteMany({
-          where: { quotationId: existingQuotation.id }
-        })
+      const quotationItemData = (item: any) => ({
+        itemNo: item.itemNo,
+        sortOrder: item.sortOrder,
+        productId: item.productId,
+        description: item.description,
+        specifications: item.specifications,
+        productNotes: item.productNotes,
+        customImageUrl: item.customImageUrl,
+        productDescription: item.productDescription,
+        categoryName: item.categoryName,
+        chairType: item.chairType,
+        batchHeading: item.batchHeading,
+        quantity: item.quantity,
+        basePrice: item.basePrice,
+        unitPrice: item.unitPrice,
+        discount: item.discount,
+        margin: item.margin,
+        amount: item.amount,
+        ...lineApprovalFields(item),
+        costingStatus: item.costingStatus || "NOT_REQUIRED",
+        unitCost: item.unitCost || 0,
+        materialCost: item.materialCost || 0,
+        laborCost: item.laborCost || 0,
+        overheadCost: item.overheadCost || 0,
+        transportCost: item.transportCost || 0,
+        installationCost: item.installationCost || 0,
+        marginPercentage: item.marginPercentage || 0,
+        negotiationPct: item.negotiationPct || 0,
+        costBreakdown: item.costBreakdown,
+        estimatorNotes: item.estimatorNotes || null,
+        estimatorId: item.estimatorId || null,
+        costingRequestedAt: item.costingRequestedAt || null,
+        costingCompletedAt: item.costingCompletedAt || null,
+      })
 
-        // 2. Update parent quotation
-        return await tx.quotation.update({
-          where: { id: existingQuotation.id },
-          data: {
+      const quotationUpdateData = {
             clientId: clientId || existingQuotation.clientId,
             preparedById: finalPreparedById,
             customerSegment: customerSegment || existingQuotation.customerSegment,
@@ -1693,6 +1918,8 @@ export async function PUT(
             specialDiscountReason: specialDiscountReason || null,
             vatMode: resolvedVatMode,
             additionalCharges: parsedAdditionalCharges as any,
+            ...approvalData,
+            ...posterFields,
             sharepointUrl,
             notes: body.revisionNotes || notes || existingQuotation.notes || null,
             disclaimerTitle: disclaimerTitle || null,
@@ -1712,38 +1939,78 @@ export async function PUT(
             salesAgentContactNumber: includeSalesAgent ? (salesAgentContactNumber || null) : null,
             salesAgentTitle: includeSalesAgent ? (salesAgentTitle || null) : null,
             salesAgentEmail: includeSalesAgent ? (salesAgentEmail || null) : null,
+      }
+
+      // Autosaves preserve existing item rows and only write rows that actually changed.
+      const updatedQuotation = await prisma.$transaction(async (tx) => {
+        if (isDraftUpdate) {
+          const retainedItemIds: string[] = []
+          const newItems: any[] = []
+
+          for (const item of quotationItemsToCreate) {
+            const data = quotationItemData(item)
+            const existingItem = item.id ? existingItemsById.get(item.id) : undefined
+            if (!existingItem) {
+              newItems.push(data)
+              continue
+            }
+
+            retainedItemIds.push(existingItem.id)
+            const dataKeys = Object.keys(data) as (keyof typeof data)[]
+            const existingItemValues = new Map(Object.entries(existingItem))
+            const hasChanges = dataKeys.some((key) => {
+              const value = data[key]
+              const currentValue = existingItemValues.get(key)
+              if (value instanceof Date && currentValue instanceof Date) {
+                return value.getTime() !== currentValue.getTime()
+              }
+              if (value === undefined) return false
+              if (value && typeof value === "object") {
+                return JSON.stringify(value) !== JSON.stringify(currentValue ?? null)
+              }
+              return currentValue !== value
+            })
+            if (hasChanges) {
+              await tx.quotationItem.update({
+                where: { id: existingItem.id },
+                data,
+              })
+            }
+          }
+
+          await tx.quotationItem.deleteMany({
+            where: {
+              quotationId: existingQuotation.id,
+              id: { notIn: retainedItemIds },
+            },
+          })
+
+          return tx.quotation.update({
+            where: { id: existingQuotation.id },
+            data: {
+              ...quotationUpdateData,
+              items: { create: newItems },
+            },
+            ...(!isAutoSave && {
+              include: {
+                client: true,
+                items: true,
+                revisions: true,
+              }
+            })
+          })
+        }
+
+        await tx.quotationItem.deleteMany({
+          where: { quotationId: existingQuotation.id }
+        })
+
+        return tx.quotation.update({
+          where: { id: existingQuotation.id },
+          data: {
+            ...quotationUpdateData,
             items: {
-              create: quotationItemsToCreate.map((item: any) => ({
-                itemNo: item.itemNo,
-                sortOrder: item.sortOrder,
-                productId: item.productId,
-                description: item.description,
-                specifications: item.specifications,
-                productNotes: item.productNotes,
-                customImageUrl: item.customImageUrl,
-                productDescription: item.productDescription,
-                categoryName: item.categoryName,
-                chairType: item.chairType,
-                batchHeading: item.batchHeading,
-                quantity: item.quantity,
-                basePrice: item.basePrice,
-                unitPrice: item.unitPrice,
-                discount: item.discount,
-                margin: item.margin,
-                amount: item.amount,
-                costingStatus: item.costingStatus || "NOT_REQUIRED",
-                unitCost: item.unitCost || 0,
-                materialCost: item.materialCost || 0,
-                laborCost: item.laborCost || 0,
-                overheadCost: item.overheadCost || 0,
-                transportCost: item.transportCost || 0,
-                installationCost: item.installationCost || 0,
-                marginPercentage: item.marginPercentage || 0,
-                estimatorNotes: item.estimatorNotes || null,
-                estimatorId: item.estimatorId || null,
-                costingRequestedAt: item.costingRequestedAt || null,
-                costingCompletedAt: item.costingCompletedAt || null,
-              })),
+              create: quotationItemsToCreate.map(quotationItemData),
             },
           },
           include: {
@@ -1754,21 +2021,43 @@ export async function PUT(
         })
       }, { maxWait: 15000, timeout: 30000 })
 
-      // Log Activity
-      try {
-        if (logUserId) {
-          await prisma.activityLog.create({
-            data: {
-              userId: logUserId,
-              action: "UPDATED_QUOTATION",
-              entityType: "QUOTATION",
-              entityId: updatedQuotation.id,
-              details: `Updated quotation draft details for ${existingQuotation.quotationNumber}`,
-            },
-          })
+      await applyQuotationApproval({
+        quotationId: updatedQuotation.id,
+        quotationNumber: updatedQuotation.quotationNumber,
+        decision: approvalDecision,
+        requestedById: logUserId,
+        openRequest: resolvedStatus !== "DRAFT",
+      })
+
+      // Autosaves are frequent background persistence and should not create activity noise.
+      if (!isAutoSave) {
+        try {
+          if (logUserId) {
+            await prisma.activityLog.create({
+              data: {
+                userId: logUserId,
+                action: "UPDATED_QUOTATION",
+                entityType: "QUOTATION",
+                entityId: updatedQuotation.id,
+                details: `Updated quotation draft details for ${existingQuotation.quotationNumber}`,
+              },
+            })
+          }
+        } catch (logError) {
+          console.error("Failed to write updated quotation activity log:", logError)
         }
-      } catch (logError) {
-        console.error("Failed to write updated quotation activity log:", logError)
+      }
+
+      if (isAutoSave) {
+        return NextResponse.json({
+          id: updatedQuotation.id,
+          quotationNumber: updatedQuotation.quotationNumber,
+          status: updatedQuotation.status,
+          revisionNumber: updatedQuotation.revisionNumber,
+          parentId: updatedQuotation.parentId,
+          costingStatus: updatedQuotation.costingStatus,
+          updatedAt: updatedQuotation.updatedAt,
+        })
       }
 
       return NextResponse.json(updatedQuotation)
@@ -1780,6 +2069,13 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized: You can only update your own or assigned quotations" }, { status: 403 })
     }
 
+    if (status === "DRAFT" && existingQuotation.status !== "DRAFT") {
+      return NextResponse.json(
+        { error: `Quotation ${existingQuotation.quotationNumber} is finalized and cannot be moved back to draft.` },
+        { status: 400 }
+      )
+    }
+
     // Block forward transition to PO/Production if not client approved
     const targetStatuses = ["PO_CONVERTED", "UNDER_PRODUCTION", "COMPLETED", "CLOSED", "PRODUCTION", "INVOICE", "INVOICED"]
     const isMovingForward = (status && targetStatuses.includes(status)) || poStatus === "RECEIVED"
@@ -1789,6 +2085,13 @@ export async function PUT(
         error: "FORBIDDEN_WORKFLOW",
         message: "Only the Client Approved quotation can be transitioned to PO, Production, or Billing workflows. Please mark this revision as Client Approved first."
       }, { status: 400 })
+    }
+
+    if (status && status !== existingQuotation.status) {
+      const releaseBlocked = await checkQuotationRelease(existingQuotation, status, logUserId)
+      if (releaseBlocked) {
+        return NextResponse.json({ error: releaseBlocked }, { status: 400 })
+      }
     }
 
     // Everyone can update the status of their own quotations without role limitations.

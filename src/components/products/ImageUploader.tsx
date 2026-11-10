@@ -5,6 +5,7 @@ import { UploadCloud, X, Star, Move, Image as ImageIcon, Loader2 } from "lucide-
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { ImageCropper } from "@/components/ui/image-cropper"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 interface ImageUploaderProps {
   images: string[]
@@ -86,7 +87,7 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
 
       const croppedFile = dataURLtoFile(croppedBase64, `product-cropped-${Date.now()}.png`)
       const formData = new FormData()
-      formData.append("file", croppedFile)
+      formData.append("file", await prepareImageForUpload(croppedFile))
 
       const uploadRes = await fetch("/api/upload?type=product", {
         method: "POST",

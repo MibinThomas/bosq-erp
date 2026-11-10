@@ -2,12 +2,18 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/authOptions"
+import { hasPermission } from "@/lib/rbac"
+import { getCostVisibility, sanitizeProduct } from "@/lib/data-scope"
 
 export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions)
     if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    const canView = await hasPermission((session.user as any).id, "PRODUCTS", "view")
+    if (!canView) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to view products" }, { status: 403 })
     }
 
     const body = await request.json().catch(() => ({}))
@@ -64,7 +70,16 @@ export async function POST(request: Request) {
           }
         }
         return true
-      }) || candidateProducts[0] || null
+      }) || null
+
+      // Only fall back to the first model match when the user hasn't selected any options;
+      // otherwise an unavailable combination would silently quote a different variant.
+      const hasSelectedOptions =
+        [legType, tableTopFinish, dimensions, storageOptions, finishMaterial].some(Boolean) ||
+        (attributes && typeof attributes === "object" && Object.values(attributes).some(Boolean))
+      if (!matchedProduct && !hasSelectedOptions) {
+        matchedProduct = candidateProducts[0] || null
+      }
     }
 
     if (!matchedProduct) {
@@ -74,9 +89,10 @@ export async function POST(request: Request) {
       )
     }
 
+    const costVisibility = await getCostVisibility({ id: (session.user as any).id, role: (session.user as any).role || "" })
     return NextResponse.json({
       success: true,
-      product: matchedProduct,
+      product: sanitizeProduct(matchedProduct, costVisibility),
     })
   } catch (error: any) {
     console.error("Failed to lookup variant product:", error)

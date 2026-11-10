@@ -1,8 +1,28 @@
 import { NextResponse } from "next/server"
+import { Prisma } from "@prisma/client"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/authOptions"
 import { hasPermission } from "@/lib/rbac"
+import { generateProductCode } from "@/lib/product-code"
+import { findOrCreateCategory } from "@/lib/product-categories"
+import { parseOptionList } from "@/lib/chair-options"
+import { generateShortDescription } from "@/lib/short-descriptions"
+
+// Parses a spreadsheet cell as a number. Empty / non-numeric cells return undefined ("leave unchanged"),
+// while an explicit 0 is preserved.
+const parseNum = (val: unknown): number | undefined => {
+  if (val === undefined || val === null) return undefined
+  const s = String(val).replace(/,/g, "").trim()
+  if (!s) return undefined
+  const n = Number(s)
+  return Number.isFinite(n) ? n : undefined
+}
+
+const parseInteger = (val: unknown): number | undefined => {
+  const n = parseNum(val)
+  return n === undefined ? undefined : Math.trunc(n)
+}
 
 export async function POST(request: Request) {
   try {
@@ -26,114 +46,126 @@ export async function POST(request: Request) {
       )
     }
 
-    const createdProducts = []
-    const defaultUser = await prisma.user.findFirst({
-      where: { role: "SALES_EXECUTIVE" },
-    })
+    const savedProducts: { id: string; productName: string; productCode: string; created: boolean }[] = []
+    const skipped: { row: number; reason: string }[] = []
+    const categoryCache = new Map<string, string>()
 
-    // Process products sequentially or in batch
-    for (const prod of products) {
+    const getCategoryId = async (rawName: string) => {
+      const name = rawName.trim()
+      const key = name.toLowerCase()
+      const cached = categoryCache.get(key)
+      if (cached) return cached
+
+      // Supports "Parent > Child" names, e.g. "Chairs > Premium Chairs"
+      const category = await findOrCreateCategory(name)
+      categoryCache.set(key, category.id)
+      return category.id
+    }
+
+    // Finds or creates the master product for a chair model (code MODEL-<model code>), e.g. "Ace" / HCY
+    const modelCache = new Map<string, string>()
+    const getChairModelId = async (title: string, code: string, categoryId: string, imageUrl: string | null) => {
+      const slug = (code || title).toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+      const masterCode = `MODEL-${slug}`
+      const cached = modelCache.get(masterCode)
+      if (cached) return cached
+      const existing = await prisma.product.findUnique({ where: { productCode: masterCode } })
+      const master = existing
+        ? await prisma.product.update({
+            where: { id: existing.id },
+            data: {
+              productName: title,
+              modelCode: code || null,
+              isMaster: true,
+              parentProductId: null,
+              categoryId,
+              status: "ACTIVE",
+              deletedAt: null,
+              ...(imageUrl && !existing.imageUrl ? { imageUrl } : {}),
+            },
+          })
+        : await prisma.product.create({
+            data: {
+              productCode: masterCode,
+              productName: title,
+              modelCode: code || null,
+              isMaster: true,
+              categoryId,
+              imageUrl,
+              description: `${title} product model`,
+              status: "ACTIVE",
+            },
+          })
+      modelCache.set(masterCode, master.id)
+      return master.id
+    }
+
+    for (const [index, prod] of products.entries()) {
+      const row = index + 1
       const {
         productCode,
         productName,
         categoryName,
         description,
         specifications,
-        unitPrice,
-        costPrice,
-        dealerPrice,
-        interiorPrice,
-        projectPrice,
-        specialPrice,
         warranty,
         availableColors,
         dimensions,
-        imageUrl,
         chairType,
         tableTopFinish,
         legType,
         storageOptions,
         finishMaterial,
-        stock,
         modelName,
+        masterTitle,
+        modelCode,
       } = prod
+      const chairModel = masterTitle ? String(masterTitle).trim() : ""
+      // Images must be uploaded to file storage first; inline base64 images bloat every product list response
+      const imageUrl = prod.imageUrl && !String(prod.imageUrl).startsWith("data:") ? prod.imageUrl : null
 
-      if (!productName || !categoryName) {
-        continue // Skip invalid rows gracefully
+      if (!productName || !String(productName).trim() || !categoryName || !String(categoryName).trim()) {
+        skipped.push({ row, reason: "Product name and category are required" })
+        continue
       }
 
-      // 1. Get or create category case-insensitively
-      let category = await prisma.productCategory.findFirst({
-        where: { name: { equals: categoryName.trim(), mode: "insensitive" } },
-      })
+      try {
+        const categoryId = await getCategoryId(String(categoryName))
 
-      if (!category) {
-        category = await prisma.productCategory.create({
-          data: {
-            name: categoryName.trim(),
-            description: `${categoryName.trim()} category`,
-          },
-        })
-      }
-
-      // 2. Generate code if not provided
-      let finalCode = productCode ? productCode.trim() : null
-      if (!finalCode) {
-        const prefix = categoryName.substring(0, 2).toUpperCase()
-        const lastProduct = await prisma.product.findFirst({
-          where: { productCode: { startsWith: prefix } },
-          orderBy: { productCode: "desc" },
-        })
-
-        let nextNum = 1
-        if (lastProduct) {
-          const lastNumPart = parseInt(lastProduct.productCode.replace(prefix + "-", ""), 10)
-          if (!isNaN(lastNumPart)) {
-            nextNum = lastNumPart + 1
-          }
+        const prices = {
+          unitPrice: parseNum(prod.unitPrice),
+          costPrice: parseNum(prod.costPrice),
+          dealerPrice: parseNum(prod.dealerPrice),
+          interiorPrice: parseNum(prod.interiorPrice),
+          projectPrice: parseNum(prod.projectPrice),
+          specialPrice: parseNum(prod.specialPrice),
         }
-        finalCode = `${prefix}-${nextNum.toString().padStart(2, "0")}`
-      }
+        const stock = parseInteger(prod.stock)
 
-      // 3. Upsert product (Create or Update if productCode exists)
-      const savedProduct = await prisma.product.upsert({
-        where: { productCode: finalCode },
-        update: {
-          productName: productName.trim() || undefined,
-          categoryId: category.id,
-          description: description ? description : undefined,
-          specifications: specifications ? specifications : undefined,
-          unitPrice: parseFloat(unitPrice) || undefined,
-          costPrice: parseFloat(costPrice) || undefined,
-          dealerPrice: parseFloat(dealerPrice) || undefined,
-          interiorPrice: parseFloat(interiorPrice) || undefined,
-          projectPrice: parseFloat(projectPrice) || undefined,
-          specialPrice: parseFloat(specialPrice) || undefined,
-          warranty: warranty ? warranty : undefined,
-          availableColors: availableColors ? availableColors : undefined,
-          dimensions: dimensions ? dimensions : undefined,
-          imageUrl: imageUrl ? imageUrl : undefined,
-          status: "ACTIVE",
-          chairType: chairType !== undefined ? chairType : undefined,
-          tableTopFinish: tableTopFinish !== undefined ? tableTopFinish : undefined,
-          legType: legType !== undefined ? legType : undefined,
-          storageOptions: storageOptions !== undefined ? storageOptions : undefined,
-          finishMaterial: finishMaterial !== undefined ? finishMaterial : undefined,
-          stock: stock !== undefined ? parseInt(stock) || 0 : undefined,
-          modelName: modelName ? modelName.trim() : undefined,
-        },
-        create: {
-          productCode: finalCode,
-          productName: productName.trim(),
-          categoryId: category.id,
-          description: description || null,
+        const createData = {
+          productName: String(productName).trim(),
+          categoryId,
+          // New products always get a quotation description: the file's Short Description, or one generated from the spec
+          description:
+            description ||
+            generateShortDescription({
+              productName: String(productName).trim(),
+              specifications,
+              chairType,
+              dimensions,
+              availableColors,
+              variantAttributes: { layout: prod.layout || "" },
+              category: { name: String(categoryName) },
+              parentProduct: chairModel ? { productName: chairModel } : null,
+            }) ||
+            null,
           specifications: specifications || null,
-          unitPrice: parseFloat(unitPrice) || 0.0,
-          costPrice: parseFloat(costPrice) || 0.0,
-          dealerPrice: parseFloat(dealerPrice) || 0.0,
-          interiorPrice: parseFloat(interiorPrice) || 0.0,
-          projectPrice: parseFloat(projectPrice) || 0.0,
-          specialPrice: parseFloat(specialPrice) || 0.0,
+          unitPrice: prices.unitPrice ?? 0,
+          costPrice: prices.costPrice ?? 0,
+          dealerPrice: prices.dealerPrice ?? 0,
+          interiorPrice: prices.interiorPrice ?? 0,
+          projectPrice: prices.projectPrice ?? 0,
+          specialPrice: prices.specialPrice ?? 0,
           warranty: warranty || "5 Years",
           availableColors: availableColors || "Standard",
           dimensions: dimensions || "Standard",
@@ -144,31 +176,103 @@ export async function POST(request: Request) {
           legType: legType || null,
           storageOptions: storageOptions || null,
           finishMaterial: finishMaterial || null,
-          stock: parseInt(stock) || 0,
-          modelName: modelName ? modelName.trim() : null,
-        },
-        include: {
-          category: true,
-        },
-      })
+          stock: stock ?? 0,
+          modelName: modelName ? String(modelName).trim() : null,
+        }
 
-      createdProducts.push(savedProduct)
+        // Chair / workstation rows: group the type or layout under its product model and store the
+        // configurator options (chairs: component colours & base; workstations: dimensions & colours)
+        const seats = parseInteger(prod.seatsPerUnit)
+        const chairData = chairModel
+          ? {
+              parentProductId: await getChairModelId(chairModel, modelCode ? String(modelCode).trim() : "", categoryId, imageUrl || null),
+              isMaster: false,
+              modelCode: modelCode ? String(modelCode).trim() : null,
+              modelName: chairModel,
+              variantAttributes: {
+                typeCode: prod.typeCode ? String(prod.typeCode).trim() : "",
+                headrestColours: parseOptionList(prod.headrestColours),
+                backrestColours: parseOptionList(prod.backrestColours),
+                seatColours: parseOptionList(prod.seatColours),
+                baseTypes: parseOptionList(prod.baseTypes),
+                layout: prod.layout ? String(prod.layout).trim() : "",
+                seatsPerUnit: seats && seats > 0 ? seats : null,
+                dimensionOptions: parseOptionList(prod.dimensionOptions),
+                tableTopColours: parseOptionList(prod.tableTopColours),
+                legFrameColours: parseOptionList(prod.legFrameColours),
+              } as unknown as Prisma.InputJsonObject,
+            }
+          : {}
+        Object.assign(createData, chairData)
 
-      // Log Activity
-      await prisma.activityLog.create({
-        data: {
-          userId: (session.user as any).id,
-          action: "CREATED_PRODUCT",
+        const providedCode = productCode ? String(productCode).trim() : ""
+
+        let saved
+        let created: boolean
+        if (!providedCode) {
+          // No code supplied → always a new product; never overwrite an existing one by a generated code
+          saved = await prisma.product.create({
+            data: { ...createData, productCode: await generateProductCode(String(categoryName)) },
+          })
+          created = true
+        } else {
+          const existing = await prisma.product.findUnique({
+            where: { productCode: providedCode },
+            select: { id: true },
+          })
+          saved = await prisma.product.upsert({
+            where: { productCode: providedCode },
+            update: {
+              productName: String(productName).trim(),
+              categoryId,
+              description: description ? description : undefined,
+              specifications: specifications ? specifications : undefined,
+              ...prices,
+              warranty: warranty ? warranty : undefined,
+              availableColors: availableColors ? availableColors : undefined,
+              dimensions: dimensions ? dimensions : undefined,
+              imageUrl: imageUrl ? imageUrl : undefined,
+              status: "ACTIVE",
+              deletedAt: null, // re-importing a removed product code restores it
+              chairType: chairType !== undefined ? chairType : undefined,
+              tableTopFinish: tableTopFinish !== undefined ? tableTopFinish : undefined,
+              legType: legType !== undefined ? legType : undefined,
+              storageOptions: storageOptions !== undefined ? storageOptions : undefined,
+              finishMaterial: finishMaterial !== undefined ? finishMaterial : undefined,
+              stock,
+              modelName: modelName ? String(modelName).trim() : undefined,
+              ...chairData,
+            },
+            create: { ...createData, productCode: providedCode },
+          })
+          created = !existing
+        }
+
+        savedProducts.push({ id: saved.id, productName: saved.productName, productCode: saved.productCode, created })
+      } catch (rowError: any) {
+        console.error(`Bulk product import failed on row ${row}:`, rowError)
+        skipped.push({ row, reason: rowError?.message || "Failed to save row" })
+      }
+    }
+
+    if (savedProducts.length > 0) {
+      await prisma.activityLog.createMany({
+        data: savedProducts.map((p) => ({
+          userId,
+          action: p.created ? "CREATED_PRODUCT" : "UPDATED_PRODUCT",
           entityType: "PRODUCT",
-          entityId: savedProduct.id,
-          details: `Bulk imported product ${productName} (${finalCode})`,
-        },
+          entityId: p.id,
+          details: `Bulk ${p.created ? "imported" : "updated"} product ${p.productName} (${p.productCode})`,
+        })),
       })
     }
 
     return NextResponse.json({
       success: true,
-      count: createdProducts.length,
+      count: savedProducts.length,
+      created: savedProducts.filter((p) => p.created).length,
+      updated: savedProducts.filter((p) => !p.created).length,
+      skipped,
     })
   } catch (error) {
     console.error("Failed to bulk import products:", error)

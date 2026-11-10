@@ -2,7 +2,11 @@ import "dotenv/config"
 import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import pg from "pg"
+import crypto from "crypto"
 import { hashPassword } from "../src/lib/auth"
+
+// Seed users get SEED_PASSWORD, or a random one printed once. Existing users keep their password.
+const seedPassword = process.env.SEED_PASSWORD || crypto.randomBytes(12).toString("base64url")
 
 const connectionString = process.env.DATABASE_URL
 const pool = new pg.Pool({ connectionString })
@@ -219,13 +223,12 @@ async function main() {
   const superAdminUser = await prisma.user.upsert({
     where: { email: "superadmin@bosq.ae" },
     update: {
-      password: hashPassword("SuperAdminPassword123"),
       role: "SUPER_ADMIN",
     },
     create: {
       name: "Super Admin User",
       email: "superadmin@bosq.ae",
-      password: hashPassword("SuperAdminPassword123"),
+      password: hashPassword(seedPassword),
       role: "SUPER_ADMIN",
     },
   })
@@ -233,13 +236,12 @@ async function main() {
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@bosq.ae" },
     update: {
-      password: hashPassword("AdminPassword123"),
       role: "ADMIN",
     },
     create: {
       name: "Admin User",
       email: "admin@bosq.ae",
-      password: hashPassword("AdminPassword123"),
+      password: hashPassword(seedPassword),
       role: "ADMIN",
     },
   })
@@ -247,18 +249,18 @@ async function main() {
   const salesUser = await prisma.user.upsert({
     where: { email: "sales@bosq.ae" },
     update: {
-      password: hashPassword("SalesPassword123"),
       role: "SALES_EXECUTIVE",
     },
     create: {
       name: "John Doe",
       email: "sales@bosq.ae",
-      password: hashPassword("SalesPassword123"),
+      password: hashPassword(seedPassword),
       role: "SALES_EXECUTIVE",
     },
   })
 
   console.log("Users seeded successfully.")
+  if (!process.env.SEED_PASSWORD) console.log("Password for newly created seed users:", seedPassword)
 
   // 3. Create Default Payment Terms
   const paymentTerms = [

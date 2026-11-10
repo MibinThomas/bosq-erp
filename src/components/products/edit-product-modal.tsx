@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { ImageCropper } from "@/components/ui/image-cropper"
 import RichTextEditor from "@/components/ui/rich-text-editor"
+import { normalizePricingTiers } from "@/lib/pricing-tiers"
+import { prepareImageForUpload } from "@/lib/image-upload"
 
 interface Product {
   id: string
@@ -84,7 +86,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
       .then(res => res.json())
       .then(data => {
         if (data && !data.error) {
-          setMargins(data)
+          setMargins(normalizePricingTiers(data))
         }
       })
       .catch(console.error)
@@ -171,7 +173,7 @@ export function EditProductModal({ product, isOpen, onClose, onSuccess, userRole
 
       const croppedFile = dataURLtoFile(croppedBase64, `product-cropped-${Date.now()}.png`)
       const formData = new FormData()
-      formData.append("file", croppedFile)
+      formData.append("file", await prepareImageForUpload(croppedFile))
 
       const uploadRes = await fetch("/api/upload?type=product", {
         method: "POST",

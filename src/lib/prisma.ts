@@ -2,14 +2,15 @@ import { PrismaClient } from "@prisma/client"
 import { PrismaPg } from "@prisma/adapter-pg"
 import pg from "pg"
 
-const PROD_DB_URL = "postgresql://neondb_owner:npg_kSwG9Ic8MNyx@ep-old-term-adz4r5o6-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
-
 const prismaClientSingleton = () => {
-  let rawUrl = process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL || PROD_DB_URL
+  // The connection string must come from the environment (Vercel project settings / .env.local).
+  // Never hard-code credentials here.
+  const rawUrl = process.env.DATABASE_URL || process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL
+  if (!rawUrl) {
+    throw new Error("DATABASE_URL is not set. Configure it in the environment (e.g. .env.local or Vercel project settings).")
+  }
 
-  // Guaranteed override: enforce active production database URL if environment variable is invalid or points to another host
-  let connectionString = rawUrl.includes("ep-old-term-adz4r5o6") ? rawUrl : PROD_DB_URL
-
+  let connectionString = rawUrl
   try {
     const parsedUrl = new URL(connectionString)
     parsedUrl.searchParams.delete("channel_binding")
@@ -20,7 +21,7 @@ const prismaClientSingleton = () => {
       .replace(/[?&]$/, '')
   }
 
-  const isDisableSsl = connectionString?.includes("sslmode=disable")
+  const isDisableSsl = connectionString.includes("sslmode=disable")
   const isServerless = process.env.VERCEL === "1" || process.env.NODE_ENV === "production"
 
   const pool = new pg.Pool({
@@ -28,7 +29,8 @@ const prismaClientSingleton = () => {
     max: isServerless ? 3 : 10,
     idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 5000,
-    ssl: isDisableSsl ? false : { rejectUnauthorized: false }
+    // Verify the server certificate (Neon uses publicly trusted certificates)
+    ssl: isDisableSsl ? false : { rejectUnauthorized: true }
   })
 
   pool.on("error", (err) => {
@@ -36,16 +38,32 @@ const prismaClientSingleton = () => {
   })
 
   const adapter = new PrismaPg(pool)
-  return new PrismaClient({ adapter })
+  return new PrismaClient({
+    adapter,
+    // Secrets are never returned unless a query explicitly asks for them (login / session checks)
+    omit: { user: { password: true, activeSessionToken: true } }
+  })
 }
 
+type PrismaClientWithOmit = ReturnType<typeof prismaClientSingleton>
+
 declare const globalThis: {
-  prismaGlobal2: ReturnType<typeof prismaClientSingleton>;
+  prismaGlobal2: PrismaClientWithOmit | undefined;
 } & typeof global;
 
-const prisma = globalThis.prismaGlobal2 ?? prismaClientSingleton()
+// Reuse the client and connection pool across warm serverless invocations.
+// Created on first use, so building without DATABASE_URL works (no queries run at build time).
+function getClient(): PrismaClientWithOmit {
+  if (!globalThis.prismaGlobal2) globalThis.prismaGlobal2 = prismaClientSingleton()
+  return globalThis.prismaGlobal2
+}
+
+const prisma = new Proxy({} as PrismaClientWithOmit, {
+  get(_target, prop) {
+    const client = getClient()
+    const value = Reflect.get(client, prop, client)
+    return typeof value === "function" ? value.bind(client) : value
+  },
+})
 
 export default prisma
-
-// Reuse Prisma client and connection pool across warm serverless lambda invocations
-globalThis.prismaGlobal2 = prisma

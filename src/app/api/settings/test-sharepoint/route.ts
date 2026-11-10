@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth/next"
+import { getSettings, SECRET_MASK } from "@/lib/settings"
 import { authOptions } from "@/lib/authOptions"
 import { NextResponse } from "next/server"
 import { Client } from "@microsoft/microsoft-graph-client"
@@ -22,7 +23,13 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { tenantId, clientId, clientSecret, siteId, driveId } = body
+    const { tenantId, clientId, siteId, driveId } = body
+    let { clientSecret } = body
+    // The settings page only has the masked value; test with the stored secret
+    if (clientSecret === SECRET_MASK) {
+      const stored = await getSettings(["sharepoint_client_secret"])
+      clientSecret = stored.sharepoint_client_secret
+    }
 
     if (!tenantId || !clientId || !clientSecret || !siteId) {
       return NextResponse.json({ 

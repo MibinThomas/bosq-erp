@@ -10,7 +10,8 @@ function hashPassword(password: string): string {
 }
 
 async function main() {
-  const newPassword = 'SuperAdmin@123';
+  const newPassword = process.env.NEW_PASSWORD || '';
+  if (newPassword.length < 12) throw new Error('Set NEW_PASSWORD (at least 12 characters) before running this script.');
   const newPasswordHash = hashPassword(newPassword);
   
   const updatedUser = await prisma.user.update({
